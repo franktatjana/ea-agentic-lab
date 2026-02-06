@@ -1,0 +1,1365 @@
+# ==============================================================================
+# SIGNAL CATALOG
+# ==============================================================================
+# Version: 1.0
+# Date: 2026-01-21
+# Status: Canonical Reference
+#
+# This is the machine-readable signal contract. Signals are IMMUTABLE events
+# that flow between agents. They represent facts about what happened, not
+# commands to do something.
+#
+# For human documentation, see: docs/architecture/signal-catalog.md
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# SCHEMA VERSION
+# ------------------------------------------------------------------------------
+schema_version: "1.0"
+last_updated: "2026-01-21"
+
+# ------------------------------------------------------------------------------
+# SIGNAL CATEGORIES
+# ------------------------------------------------------------------------------
+categories:
+  lifecycle:
+    description: "Node and engagement lifecycle events"
+    prefix: "SIG_LC"
+
+  artifact:
+    description: "Document and artifact events"
+    prefix: "SIG_ART"
+
+  stakeholder:
+    description: "People and relationship events"
+    prefix: "SIG_STK"
+
+  commercial:
+    description: "Deal and opportunity events"
+    prefix: "SIG_COM"
+
+  health:
+    description: "Health, risk, and status events"
+    prefix: "SIG_HLT"
+
+  governance:
+    description: "Decision and escalation events"
+    prefix: "SIG_GOV"
+
+  playbook:
+    description: "Playbook execution events"
+    prefix: "SIG_PB"
+
+  tech_signal_map:
+    description: "Tech Signal Map - decision-support artifact for technology intelligence from job posting analysis"
+    prefix: "SIG_TECH"
+
+  custom:
+    description: "User-defined signals (require orchestrator validation)"
+    prefix: "SIG_CUSTOM"
+
+# ------------------------------------------------------------------------------
+# SIGNAL DEFINITIONS
+# ------------------------------------------------------------------------------
+signals:
+
+  # ============================================================================
+  # LIFECYCLE SIGNALS
+  # ============================================================================
+
+  - signal_id: "SIG_LC_001"
+    name: "node_created"
+    category: "lifecycle"
+    version: 1
+    description: "A new Node has been created within a Realm"
+
+    producer: "Orchestration Agent"
+    consumers:
+      - agent: "All Agents"
+        action: "Initialize Node context"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+          description: "Parent Realm identifier"
+        - field: "node_id"
+          type: "string"
+          description: "New Node identifier"
+        - field: "node_name"
+          type: "string"
+          description: "Human-readable Node name"
+        - field: "created_by"
+          type: "string"
+          description: "Actor who created the Node"
+        - field: "created_at"
+          type: "datetime"
+          description: "ISO 8601 timestamp"
+      optional:
+        - field: "operating_mode"
+          type: "enum"
+          values: ["pre_sales", "implementation", "post_sales", "renewal"]
+          description: "Initial operating mode"
+        - field: "enabled_playbooks"
+          type: "array"
+          description: "List of playbook IDs enabled for this Node"
+
+    emitted_when: "User or system creates a new Node via API or UI"
+
+    idempotency: "node_id must be unique; duplicate signals ignored"
+
+    anti_patterns:
+      - "Do not emit for temporary or test Nodes"
+      - "Do not emit before Realm exists"
+      - "Never modify payload after emission"
+
+    example:
+      realm_id: "realm_bmw"
+      node_id: "node_bmw_security_consolidation"
+      node_name: "Security Platform Consolidation"
+      created_by: "human:sa_lead"
+      created_at: "2026-01-21T10:00:00Z"
+      operating_mode: "pre_sales"
+
+  - signal_id: "SIG_LC_002"
+    name: "node_status_changed"
+    category: "lifecycle"
+    version: 1
+    description: "Node status has transitioned to a new state"
+
+    producer: "Governance Agent"
+    consumers:
+      - agent: "Orchestration Agent"
+        action: "Update process triggers"
+      - agent: "Nudger Agent"
+        action: "Adjust nudge frequency"
+      - agent: "All Node Agents"
+        action: "Adjust behavior based on status"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "previous_status"
+          type: "enum"
+          values: ["planning", "active", "on_hold", "completed", "cancelled"]
+        - field: "new_status"
+          type: "enum"
+          values: ["planning", "active", "on_hold", "completed", "cancelled"]
+        - field: "changed_by"
+          type: "string"
+        - field: "changed_at"
+          type: "datetime"
+      optional:
+        - field: "reason"
+          type: "string"
+          description: "Explanation for status change"
+
+    emitted_when: "Node status field is updated"
+
+    idempotency: "Emit only on actual state change; same-state updates ignored"
+
+    anti_patterns:
+      - "Do not emit if status unchanged"
+      - "Do not emit for transient states"
+
+    valid_transitions:
+      - from: "planning"
+        to: ["active", "cancelled"]
+      - from: "active"
+        to: ["on_hold", "completed", "cancelled"]
+      - from: "on_hold"
+        to: ["active", "cancelled"]
+      - from: "completed"
+        to: []  # Terminal state
+      - from: "cancelled"
+        to: []  # Terminal state
+
+  - signal_id: "SIG_LC_003"
+    name: "operating_mode_changed"
+    category: "lifecycle"
+    version: 1
+    description: "Node operating mode has changed (e.g., pre_sales to implementation)"
+
+    producer: "Governance Agent"
+    consumers:
+      - agent: "Playbook Curator"
+        action: "Adjust enabled playbooks for new mode"
+      - agent: "All Node Agents"
+        action: "Shift operational focus"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "previous_mode"
+          type: "enum"
+          values: ["pre_sales", "implementation", "post_sales", "renewal"]
+        - field: "new_mode"
+          type: "enum"
+          values: ["pre_sales", "implementation", "post_sales", "renewal"]
+        - field: "changed_at"
+          type: "datetime"
+      optional:
+        - field: "trigger_event"
+          type: "string"
+          description: "What caused the mode change (e.g., deal_closed_won)"
+
+    emitted_when: "Operating mode is explicitly changed or auto-transitioned"
+
+  # ============================================================================
+  # ARTIFACT SIGNALS
+  # ============================================================================
+
+  - signal_id: "SIG_ART_001"
+    name: "artifact_created"
+    category: "artifact"
+    version: 1
+    description: "A new artifact has been created in the InfoHub"
+
+    producer: "Any Agent"
+    consumers:
+      - agent: "Knowledge Curator"
+        action: "Validate and index artifact"
+      - agent: "Dependent Agents"
+        action: "Process if subscribed to artifact type"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "artifact_id"
+          type: "string"
+          description: "Unique artifact identifier"
+        - field: "artifact_type"
+          type: "enum"
+          values: ["meeting_notes", "decision", "risk", "action", "framework_output",
+                   "architecture", "value_model", "stakeholder", "rfp", "proposal", "adr"]
+        - field: "artifact_path"
+          type: "string"
+          description: "InfoHub path to artifact"
+        - field: "created_by"
+          type: "string"
+        - field: "created_at"
+          type: "datetime"
+      optional:
+        - field: "source_signal"
+          type: "string"
+          description: "Signal that triggered this artifact creation"
+        - field: "playbook_id"
+          type: "string"
+          description: "Playbook that produced this artifact"
+        - field: "summary"
+          type: "string"
+          description: "Brief description of artifact content"
+
+    emitted_when: "Any agent writes a new file to InfoHub"
+
+    anti_patterns:
+      - "Do not emit for temporary or draft artifacts"
+      - "Do not emit for external files not in InfoHub"
+
+  - signal_id: "SIG_ART_002"
+    name: "artifact_updated"
+    category: "artifact"
+    version: 1
+    description: "An existing artifact has been modified"
+
+    producer: "Any Agent"
+    consumers:
+      - agent: "Knowledge Curator"
+        action: "Re-validate and update index"
+      - agent: "Dependent Agents"
+        action: "Re-process if dependent on this artifact"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "artifact_id"
+          type: "string"
+        - field: "artifact_path"
+          type: "string"
+        - field: "updated_by"
+          type: "string"
+        - field: "updated_at"
+          type: "datetime"
+        - field: "version"
+          type: "integer"
+          description: "New version number"
+      optional:
+        - field: "change_summary"
+          type: "string"
+        - field: "fields_changed"
+          type: "array"
+          description: "List of changed field paths"
+
+    emitted_when: "Any agent modifies an existing InfoHub artifact"
+
+  - signal_id: "SIG_ART_003"
+    name: "meeting_processed"
+    category: "artifact"
+    version: 1
+    description: "Meeting notes have been processed and artifacts extracted"
+
+    producer: "Meeting Notes Agent"
+    consumers:
+      - agent: "Action Tracker Agent"
+        action: "Register extracted actions"
+      - agent: "Risk Radar Agent"
+        action: "Assess extracted risks"
+      - agent: "Decision Registrar"
+        action: "Log extracted decisions"
+      - agent: "Stakeholder Agent"
+        action: "Update stakeholder interactions"
+      - agent: "VoC Agent"
+        action: "Capture voice of customer feedback"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "meeting_id"
+          type: "string"
+        - field: "meeting_type"
+          type: "enum"
+          values: ["external", "internal", "deal_review", "qbr", "kickoff", "checkpoint"]
+        - field: "meeting_date"
+          type: "date"
+        - field: "artifact_path"
+          type: "string"
+        - field: "processed_at"
+          type: "datetime"
+      optional:
+        - field: "attendees"
+          type: "array"
+          description: "List of attendee identifiers"
+        - field: "extracted_actions_count"
+          type: "integer"
+        - field: "extracted_risks_count"
+          type: "integer"
+        - field: "extracted_decisions_count"
+          type: "integer"
+        - field: "sentiment"
+          type: "enum"
+          values: ["positive", "neutral", "negative", "mixed"]
+        - field: "key_topics"
+          type: "array"
+
+    emitted_when: "Meeting Notes Agent completes processing of meeting notes"
+
+    anti_patterns:
+      - "Do not emit until all extractions complete"
+      - "Do not emit for incomplete or draft notes"
+
+  - signal_id: "SIG_ART_004"
+    name: "rfp_received"
+    category: "artifact"
+    version: 1
+    description: "A new RFP document has been uploaded and registered"
+
+    producer: "Document Ingestion"
+    consumers:
+      - agent: "SA Agent"
+        action: "Analyze technical requirements"
+      - agent: "AE Agent"
+        action: "Update opportunity tracking"
+      - agent: "Competitive Intelligence Agent"
+        action: "Scan for competitor mentions"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "rfp_id"
+          type: "string"
+        - field: "artifact_path"
+          type: "string"
+        - field: "received_at"
+          type: "datetime"
+      optional:
+        - field: "deadline"
+          type: "datetime"
+          description: "RFP response deadline"
+        - field: "has_security_section"
+          type: "boolean"
+        - field: "has_compliance_section"
+          type: "boolean"
+        - field: "estimated_value"
+          type: "number"
+        - field: "page_count"
+          type: "integer"
+
+    emitted_when: "RFP document is uploaded to InfoHub"
+
+  # ============================================================================
+  # STAKEHOLDER SIGNALS
+  # ============================================================================
+
+  - signal_id: "SIG_STK_001"
+    name: "stakeholder_added"
+    category: "stakeholder"
+    version: 1
+    description: "A new stakeholder has been identified and added to the Node"
+
+    producer: "Stakeholder Agent"
+    consumers:
+      - agent: "AE Agent"
+        action: "Update relationship strategy"
+      - agent: "Journey Agent"
+        action: "Initialize stakeholder journey"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "stakeholder_id"
+          type: "string"
+        - field: "name"
+          type: "string"
+        - field: "role"
+          type: "string"
+        - field: "added_at"
+          type: "datetime"
+      optional:
+        - field: "influence_level"
+          type: "enum"
+          values: ["champion", "influencer", "decision_maker", "blocker", "end_user"]
+        - field: "department"
+          type: "string"
+        - field: "contact_info"
+          type: "object"
+        - field: "discovered_via"
+          type: "string"
+          description: "How stakeholder was identified (meeting, referral, etc.)"
+
+    emitted_when: "New stakeholder is registered in stakeholder map"
+
+  - signal_id: "SIG_STK_002"
+    name: "stakeholder_role_changed"
+    category: "stakeholder"
+    version: 1
+    description: "A stakeholder's role or influence level has changed"
+
+    producer: "Stakeholder Agent"
+    consumers:
+      - agent: "AE Agent"
+        action: "Reassess engagement strategy"
+      - agent: "Risk Radar Agent"
+        action: "Evaluate if change introduces risk"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "stakeholder_id"
+          type: "string"
+        - field: "previous_role"
+          type: "string"
+        - field: "new_role"
+          type: "string"
+        - field: "changed_at"
+          type: "datetime"
+      optional:
+        - field: "previous_influence"
+          type: "string"
+        - field: "new_influence"
+          type: "string"
+        - field: "reason"
+          type: "string"
+
+    emitted_when: "Stakeholder profile is updated with role/influence change"
+
+  # ============================================================================
+  # COMMERCIAL SIGNALS
+  # ============================================================================
+
+  - signal_id: "SIG_COM_001"
+    name: "deal_stage_changed"
+    category: "commercial"
+    version: 1
+    description: "Opportunity has moved to a new sales stage"
+
+    producer: "AE Agent"
+    consumers:
+      - agent: "SA Agent"
+        action: "Adjust technical engagement level"
+      - agent: "Value Engineering Agent"
+        action: "Trigger value activities for stage"
+      - agent: "Governance Agent"
+        action: "Update governance requirements"
+      - agent: "POC Agent"
+        action: "Prepare if entering POC stage"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "opportunity_id"
+          type: "string"
+        - field: "previous_stage"
+          type: "string"
+        - field: "new_stage"
+          type: "string"
+        - field: "changed_at"
+          type: "datetime"
+      optional:
+        - field: "deal_value"
+          type: "number"
+        - field: "close_date"
+          type: "date"
+        - field: "probability"
+          type: "number"
+          description: "Win probability percentage"
+        - field: "stage_entry_criteria_met"
+          type: "boolean"
+
+    emitted_when: "Opportunity stage is updated in CRM or manually"
+
+    anti_patterns:
+      - "Do not emit for CRM sync artifacts"
+      - "Do not emit if stage unchanged after update"
+
+  - signal_id: "SIG_COM_002"
+    name: "deal_closed"
+    category: "commercial"
+    version: 1
+    description: "Deal has reached terminal state (won or lost)"
+
+    producer: "AE Agent"
+    consumers:
+      - agent: "Retrospective Agent"
+        action: "Trigger win/loss retrospective"
+      - agent: "Governance Agent"
+        action: "Transition Node operating mode"
+      - agent: "All Node Agents"
+        action: "Archive or transition activities"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "opportunity_id"
+          type: "string"
+        - field: "outcome"
+          type: "enum"
+          values: ["won", "lost"]
+        - field: "closed_at"
+          type: "datetime"
+      optional:
+        - field: "final_value"
+          type: "number"
+        - field: "loss_reason"
+          type: "string"
+          description: "Required if outcome=lost"
+        - field: "competitor_won"
+          type: "string"
+          description: "Competitor name if lost to competitor"
+        - field: "contract_term_months"
+          type: "integer"
+
+    emitted_when: "Deal is marked closed-won or closed-lost"
+
+  - signal_id: "SIG_COM_003"
+    name: "competitor_identified"
+    category: "commercial"
+    version: 1
+    description: "A competitor has been identified in the opportunity"
+
+    producer: "Competitive Intelligence Agent"
+    consumers:
+      - agent: "SA Agent"
+        action: "Prepare technical differentiation"
+      - agent: "AE Agent"
+        action: "Adjust sales strategy"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "competitor_name"
+          type: "string"
+        - field: "identified_at"
+          type: "datetime"
+      optional:
+        - field: "source"
+          type: "string"
+          description: "How competitor was identified"
+        - field: "threat_level"
+          type: "enum"
+          values: ["low", "medium", "high", "critical"]
+        - field: "incumbent"
+          type: "boolean"
+          description: "Is this the current vendor?"
+        - field: "products_competing"
+          type: "array"
+
+    emitted_when: "Competitor is added to competitive context"
+
+  # ============================================================================
+  # HEALTH SIGNALS
+  # ============================================================================
+
+  - signal_id: "SIG_HLT_001"
+    name: "risk_identified"
+    category: "health"
+    version: 1
+    description: "A new risk has been identified and logged"
+
+    producer: "Risk Radar Agent"
+    consumers:
+      - agent: "Governance Agent"
+        action: "Evaluate escalation need"
+      - agent: "Nudger Agent"
+        action: "Schedule risk review nudge"
+      - agent: "AE Agent"
+        action: "Factor into deal strategy"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "risk_id"
+          type: "string"
+        - field: "title"
+          type: "string"
+        - field: "category"
+          type: "enum"
+          values: ["technical", "commercial", "timeline", "resource", "stakeholder",
+                   "competitive", "delivery", "adoption"]
+        - field: "severity"
+          type: "enum"
+          values: ["low", "medium", "high", "critical"]
+        - field: "identified_at"
+          type: "datetime"
+        - field: "identified_by"
+          type: "string"
+      optional:
+        - field: "probability"
+          type: "enum"
+          values: ["unlikely", "possible", "likely", "certain"]
+        - field: "impact"
+          type: "string"
+        - field: "mitigation"
+          type: "string"
+        - field: "owner"
+          type: "string"
+        - field: "source_signal"
+          type: "string"
+          description: "Signal that led to risk identification"
+
+    emitted_when: "New risk is added to risk register"
+
+  - signal_id: "SIG_HLT_002"
+    name: "risk_status_changed"
+    category: "health"
+    version: 1
+    description: "Risk status or severity has changed"
+
+    producer: "Risk Radar Agent"
+    consumers:
+      - agent: "Governance Agent"
+        action: "Re-evaluate escalation"
+      - agent: "Health Score Agent"
+        action: "Recalculate Node health"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "risk_id"
+          type: "string"
+        - field: "change_type"
+          type: "enum"
+          values: ["severity_changed", "status_changed", "mitigated", "escalated", "closed"]
+        - field: "changed_at"
+          type: "datetime"
+      optional:
+        - field: "previous_severity"
+          type: "string"
+        - field: "new_severity"
+          type: "string"
+        - field: "previous_status"
+          type: "string"
+        - field: "new_status"
+          type: "string"
+        - field: "resolution"
+          type: "string"
+
+    emitted_when: "Risk register entry is updated"
+
+  - signal_id: "SIG_HLT_003"
+    name: "health_score_changed"
+    category: "health"
+    version: 1
+    description: "Node health score has crossed a threshold"
+
+    producer: "Health Score Agent"
+    consumers:
+      - agent: "Governance Agent"
+        action: "Trigger health-based governance"
+      - agent: "AE Agent"
+        action: "Adjust engagement intensity"
+      - agent: "Nudger Agent"
+        action: "Adjust nudge urgency"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "previous_score"
+          type: "integer"
+          description: "0-100 scale"
+        - field: "new_score"
+          type: "integer"
+        - field: "threshold_crossed"
+          type: "enum"
+          values: ["critical", "warning", "healthy", "none"]
+        - field: "calculated_at"
+          type: "datetime"
+      optional:
+        - field: "contributing_factors"
+          type: "array"
+          description: "Factors that caused the change"
+        - field: "trend"
+          type: "enum"
+          values: ["improving", "stable", "declining"]
+
+    emitted_when: "Health score crosses defined thresholds (e.g., 50, 70, 85)"
+
+    anti_patterns:
+      - "Do not emit for minor fluctuations within same band"
+      - "Emit only on threshold crossings, not every recalculation"
+
+  - signal_id: "SIG_HLT_004"
+    name: "action_overdue"
+    category: "health"
+    version: 1
+    description: "An action item has passed its due date"
+
+    producer: "Action Tracker Agent"
+    consumers:
+      - agent: "Nudger Agent"
+        action: "Send overdue reminder"
+      - agent: "Governance Agent"
+        action: "Evaluate escalation"
+      - agent: "Health Score Agent"
+        action: "Factor into health calculation"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "action_id"
+          type: "string"
+        - field: "title"
+          type: "string"
+        - field: "owner"
+          type: "string"
+        - field: "due_date"
+          type: "date"
+        - field: "days_overdue"
+          type: "integer"
+        - field: "detected_at"
+          type: "datetime"
+      optional:
+        - field: "priority"
+          type: "enum"
+          values: ["low", "medium", "high", "critical"]
+        - field: "escalation_count"
+          type: "integer"
+          description: "How many times this has been escalated"
+
+    emitted_when: "Daily scan detects action past due date"
+
+  # ============================================================================
+  # GOVERNANCE SIGNALS
+  # ============================================================================
+
+  - signal_id: "SIG_GOV_001"
+    name: "decision_logged"
+    category: "governance"
+    version: 1
+    description: "A decision has been recorded in the decision log"
+
+    producer: "Decision Registrar"
+    consumers:
+      - agent: "Knowledge Curator"
+        action: "Index decision for retrieval"
+      - agent: "Dependent Agents"
+        action: "Act on decision if relevant"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "decision_id"
+          type: "string"
+        - field: "title"
+          type: "string"
+        - field: "category"
+          type: "enum"
+          values: ["technical", "commercial", "process", "resource", "strategic"]
+        - field: "decided_by"
+          type: "string"
+        - field: "decided_at"
+          type: "datetime"
+      optional:
+        - field: "context"
+          type: "string"
+        - field: "alternatives_considered"
+          type: "array"
+        - field: "rationale"
+          type: "string"
+        - field: "impact"
+          type: "string"
+        - field: "reversible"
+          type: "boolean"
+        - field: "review_date"
+          type: "date"
+
+    emitted_when: "Decision is added to decision log"
+
+  - signal_id: "SIG_GOV_002"
+    name: "escalation_triggered"
+    category: "governance"
+    version: 1
+    description: "An issue has been escalated to higher authority"
+
+    producer: "Governance Agent"
+    consumers:
+      - agent: "Notification Service"
+        action: "Alert escalation target"
+      - agent: "Audit Logger"
+        action: "Record escalation event"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "escalation_id"
+          type: "string"
+        - field: "issue_type"
+          type: "enum"
+          values: ["risk", "blocker", "decision_needed", "resource", "timeline", "conflict"]
+        - field: "issue_id"
+          type: "string"
+          description: "ID of the escalated item"
+        - field: "escalated_to"
+          type: "string"
+        - field: "escalation_level"
+          type: "integer"
+          description: "1 = first level, 2 = second level, etc."
+        - field: "escalated_at"
+          type: "datetime"
+      optional:
+        - field: "escalated_by"
+          type: "string"
+        - field: "reason"
+          type: "string"
+        - field: "deadline"
+          type: "datetime"
+        - field: "previous_escalation_id"
+          type: "string"
+
+    emitted_when: "Escalation threshold is breached or manual escalation requested"
+
+  - signal_id: "SIG_GOV_003"
+    name: "escalation_resolved"
+    category: "governance"
+    version: 1
+    description: "An escalation has been addressed and closed"
+
+    producer: "Governance Agent"
+    consumers:
+      - agent: "Original Requester Agent"
+        action: "Process resolution"
+      - agent: "Audit Logger"
+        action: "Record resolution"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "escalation_id"
+          type: "string"
+        - field: "resolved_by"
+          type: "string"
+        - field: "resolved_at"
+          type: "datetime"
+        - field: "resolution"
+          type: "string"
+      optional:
+        - field: "decision_id"
+          type: "string"
+          description: "If resolution resulted in a logged decision"
+        - field: "time_to_resolve_hours"
+          type: "number"
+
+    emitted_when: "Escalation is marked resolved"
+
+  # ============================================================================
+  # PLAYBOOK SIGNALS
+  # ============================================================================
+
+  - signal_id: "SIG_PB_001"
+    name: "playbook_started"
+    category: "playbook"
+    version: 1
+    description: "A playbook execution has begun"
+
+    producer: "Playbook Engine"
+    consumers:
+      - agent: "Orchestration Agent"
+        action: "Track execution"
+      - agent: "Audit Logger"
+        action: "Log execution start"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "playbook_id"
+          type: "string"
+        - field: "execution_id"
+          type: "string"
+          description: "Unique ID for this execution instance"
+        - field: "playbook_type"
+          type: "enum"
+          values: ["strategic", "operational"]
+        - field: "triggered_by"
+          type: "string"
+          description: "Signal or actor that triggered execution"
+        - field: "started_at"
+          type: "datetime"
+      optional:
+        - field: "input_artifacts"
+          type: "array"
+        - field: "executing_agent"
+          type: "string"
+
+    emitted_when: "Playbook engine begins playbook execution"
+
+  - signal_id: "SIG_PB_002"
+    name: "playbook_completed"
+    category: "playbook"
+    version: 1
+    description: "A playbook execution has finished"
+
+    producer: "Playbook Engine"
+    consumers:
+      - agent: "Orchestration Agent"
+        action: "Update execution tracking"
+      - agent: "Dependent Processes"
+        action: "Trigger downstream processes"
+      - agent: "Audit Logger"
+        action: "Log execution completion"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "playbook_id"
+          type: "string"
+        - field: "execution_id"
+          type: "string"
+        - field: "status"
+          type: "enum"
+          values: ["success", "partial", "failed", "cancelled"]
+        - field: "completed_at"
+          type: "datetime"
+      optional:
+        - field: "output_artifacts"
+          type: "array"
+          description: "List of artifact paths produced"
+        - field: "duration_seconds"
+          type: "integer"
+        - field: "error_message"
+          type: "string"
+          description: "Required if status=failed"
+        - field: "steps_completed"
+          type: "integer"
+        - field: "steps_total"
+          type: "integer"
+
+    emitted_when: "Playbook engine completes playbook execution"
+
+  - signal_id: "SIG_PB_003"
+    name: "playbook_step_completed"
+    category: "playbook"
+    version: 1
+    description: "A single step within a playbook has completed"
+
+    producer: "Playbook Engine"
+    consumers:
+      - agent: "Orchestration Agent"
+        action: "Track step progress"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "playbook_id"
+          type: "string"
+        - field: "execution_id"
+          type: "string"
+        - field: "step_id"
+          type: "string"
+        - field: "step_name"
+          type: "string"
+        - field: "status"
+          type: "enum"
+          values: ["success", "skipped", "failed"]
+        - field: "completed_at"
+          type: "datetime"
+      optional:
+        - field: "output"
+          type: "object"
+        - field: "skipped_reason"
+          type: "string"
+
+    emitted_when: "Individual playbook step completes"
+
+  # ============================================================================
+  # TECH SIGNAL MAP SIGNALS
+  # ============================================================================
+
+  - signal_id: "SIG_TECH_001"
+    name: "tech_signal_map_updated"
+    category: "tech_signal_map"
+    version: 1
+    description: "Tech Signal Map has been recalculated with new data"
+
+    producer: "Tech Signal Analyzer Agent"
+    consumers:
+      - agent: "SA Agent"
+        action: "Review technology changes for customer alignment"
+      - agent: "Competitive Intelligence Agent"
+        action: "Update competitive positioning"
+      - agent: "AE Agent"
+        action: "Identify sales opportunities from tech trends"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+          description: "Realm identifier"
+        - field: "updated_at"
+          type: "datetime"
+          description: "When radar was recalculated"
+        - field: "technology_count"
+          type: "integer"
+          description: "Total technologies on radar"
+        - field: "jobs_analyzed"
+          type: "integer"
+          description: "Number of job postings analyzed"
+      optional:
+        - field: "new_technologies_count"
+          type: "integer"
+          description: "New technologies added this period"
+        - field: "ring_changes_count"
+          type: "integer"
+          description: "Technologies that changed rings"
+        - field: "competitor_mentions_count"
+          type: "integer"
+          description: "Competitor tool mentions detected"
+        - field: "radar_path"
+          type: "string"
+          description: "InfoHub path to radar file"
+
+    emitted_when: "Tech Signal Map is regenerated from new job posting data"
+
+    anti_patterns:
+      - "Do not emit if no changes from previous map"
+      - "Do not emit for partial or failed scans"
+
+    example:
+      realm_id: "ACME"
+      updated_at: "2026-01-21T14:30:00Z"
+      technology_count: 23
+      jobs_analyzed: 147
+      new_technologies_count: 3
+      ring_changes_count: 2
+      competitor_mentions_count: 8
+
+  - signal_id: "SIG_TECH_002"
+    name: "new_technology_detected"
+    category: "tech_signal_map"
+    version: 1
+    description: "A new technology has been detected in job postings for the first time"
+
+    producer: "Tech Signal Analyzer Agent"
+    consumers:
+      - agent: "SA Agent"
+        action: "Evaluate technology relevance to current engagements"
+      - agent: "Product Manager Agent"
+        action: "Assess integration or partnership opportunities"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "technology_name"
+          type: "string"
+          description: "Canonical technology name"
+        - field: "quadrant"
+          type: "enum"
+          values: ["Techniques", "Tools", "Platforms", "Languages & Frameworks"]
+        - field: "ring"
+          type: "enum"
+          values: ["Adopt", "Trial", "Assess", "Hold"]
+        - field: "first_seen_at"
+          type: "datetime"
+        - field: "initial_mention_count"
+          type: "integer"
+      optional:
+        - field: "is_competitor"
+          type: "boolean"
+          description: "Is this a competitor technology"
+        - field: "competitor_to"
+          type: "string"
+          description: "Which of our products it competes with"
+        - field: "our_offering_match"
+          type: "string"
+          description: "Our product that aligns with this technology"
+        - field: "avg_seniority_score"
+          type: "number"
+          description: "Average seniority of roles mentioning this tech"
+
+    emitted_when: "Technology appears in job postings for the first time"
+
+    example:
+      realm_id: "ACME"
+      technology_name: "Rust"
+      quadrant: "Languages & Frameworks"
+      ring: "Assess"
+      first_seen_at: "2026-01-05T00:00:00Z"
+      initial_mention_count: 5
+      avg_seniority_score: 4.8
+
+  - signal_id: "SIG_TECH_003"
+    name: "technology_trending"
+    category: "tech_signal_map"
+    version: 1
+    description: "A technology has changed rings or shows significant trend change"
+
+    producer: "Tech Signal Analyzer Agent"
+    consumers:
+      - agent: "SA Agent"
+        action: "Update technology recommendations"
+      - agent: "Competitive Intelligence Agent"
+        action: "Track competitive shifts (for competitor tech)"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "technology_name"
+          type: "string"
+        - field: "trend_direction"
+          type: "enum"
+          values: ["up", "down"]
+        - field: "trend_percentage"
+          type: "number"
+          description: "Percentage change (positive or negative)"
+        - field: "detected_at"
+          type: "datetime"
+      optional:
+        - field: "previous_ring"
+          type: "string"
+        - field: "new_ring"
+          type: "string"
+        - field: "current_mentions"
+          type: "integer"
+        - field: "previous_mentions"
+          type: "integer"
+        - field: "is_competitor"
+          type: "boolean"
+        - field: "insight"
+          type: "string"
+          description: "AI-generated insight about the trend"
+
+    emitted_when: "Technology shows >15% change or moves between rings"
+
+    anti_patterns:
+      - "Do not emit for minor fluctuations (<15%)"
+      - "Do not emit for technologies with very low mention counts (<3)"
+
+    example:
+      realm_id: "ACME"
+      technology_name: "LegacySIEM"
+      trend_direction: "down"
+      trend_percentage: -45.0
+      detected_at: "2026-01-21T14:30:00Z"
+      previous_ring: "Trial"
+      new_ring: "Hold"
+      is_competitor: true
+      insight: "LegacySIEM mentions declining 45% - prime displacement opportunity"
+
+  - signal_id: "SIG_TECH_004"
+    name: "job_scan_completed"
+    category: "tech_signal_map"
+    version: 1
+    description: "A job posting scan has completed for a realm"
+
+    producer: "Tech Signal Scanner Agent"
+    consumers:
+      - agent: "Tech Signal Analyzer Agent"
+        action: "Process scan results and update radar"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "scan_id"
+          type: "string"
+          description: "Unique scan identifier"
+        - field: "status"
+          type: "enum"
+          values: ["completed", "partial", "failed"]
+        - field: "completed_at"
+          type: "datetime"
+        - field: "jobs_found"
+          type: "integer"
+        - field: "jobs_processed"
+          type: "integer"
+      optional:
+        - field: "jobs_skipped"
+          type: "integer"
+          description: "Duplicates or excluded jobs"
+        - field: "technologies_extracted"
+          type: "integer"
+        - field: "new_technologies"
+          type: "integer"
+        - field: "sources_scanned"
+          type: "array"
+          description: "List of job sources scanned"
+        - field: "scan_duration_seconds"
+          type: "integer"
+        - field: "errors"
+          type: "array"
+          description: "Error messages if any"
+
+    emitted_when: "Job scan completes (success or failure)"
+
+    example:
+      realm_id: "ACME"
+      scan_id: "scan_20260121_143000"
+      status: "completed"
+      completed_at: "2026-01-21T14:35:00Z"
+      jobs_found: 150
+      jobs_processed: 147
+      jobs_skipped: 3
+      technologies_extracted: 23
+      new_technologies: 3
+      sources_scanned: ["linkedin", "indeed", "company_careers"]
+
+# ------------------------------------------------------------------------------
+# CUSTOM SIGNAL VALIDATION RULES
+# ------------------------------------------------------------------------------
+custom_signal_rules:
+  registration_required: true
+  validation_schema:
+    required_fields:
+      - "signal_id"      # Must start with SIG_CUSTOM_
+      - "name"           # Lowercase, underscores
+      - "producer"       # Must be valid agent
+      - "payload"        # Must define required fields
+      - "emitted_when"   # Human description
+
+    naming_rules:
+      signal_id: "^SIG_CUSTOM_[A-Z0-9]{3,}$"
+      name: "^[a-z][a-z0-9_]*$"
+
+    validation_process:
+      1: "Submit custom signal definition to Orchestration Agent"
+      2: "Orchestration Agent validates against schema"
+      3: "Orchestration Agent checks for conflicts with existing signals"
+      4: "If approved, signal is added to custom_signals section"
+      5: "Consumers can then subscribe to the new signal"
+
+    rejection_reasons:
+      - "Signal name conflicts with existing signal"
+      - "Payload schema invalid"
+      - "No valid consumers defined"
+      - "Duplicates functionality of existing signal"
+
+  # Registered custom signals go here
+  custom_signals: []
+
+# ------------------------------------------------------------------------------
+# SIGNAL FLOW METADATA
+# ------------------------------------------------------------------------------
+signal_flows:
+  meeting_to_actions:
+    description: "Flow from meeting processing to action items"
+    signals:
+      - "SIG_ART_003"  # meeting_processed
+      - "SIG_ART_001"  # artifact_created (action items)
+      - "SIG_HLT_004"  # action_overdue (if deadline passes)
+
+  deal_progression:
+    description: "Flow through deal lifecycle"
+    signals:
+      - "SIG_LC_001"   # node_created
+      - "SIG_COM_001"  # deal_stage_changed (multiple)
+      - "SIG_COM_002"  # deal_closed
+      - "SIG_LC_002"   # node_status_changed
+
+  risk_lifecycle:
+    description: "Flow of risk from identification to resolution"
+    signals:
+      - "SIG_HLT_001"  # risk_identified
+      - "SIG_HLT_002"  # risk_status_changed
+      - "SIG_GOV_002"  # escalation_triggered (if severe)
+      - "SIG_GOV_003"  # escalation_resolved
+
+  tech_signal_map_update:
+    description: "Flow from job scan to signal map update and insights"
+    signals:
+      - "SIG_TECH_004"  # job_scan_completed
+      - "SIG_TECH_001"  # tech_signal_map_updated
+      - "SIG_TECH_002"  # new_technology_detected (for each new tech)
+      - "SIG_TECH_003"  # technology_trending (for significant changes)

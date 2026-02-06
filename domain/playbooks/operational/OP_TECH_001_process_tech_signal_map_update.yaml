@@ -1,0 +1,153 @@
+# OPERATIONAL PLAYBOOK: Process Tech Signal Map Update
+# Triggered when tech radar is updated (SIG_TECH_001)
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+playbook_id: "OP_TECH_001"
+playbook_name: "Process Tech Signal Map Update"
+playbook_mode: "OPERATIONAL"
+category: "tech_intelligence"
+
+purpose: "Process tech radar updates, identify actionable insights, and route to appropriate agents"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger:
+  signal: "SIG_TECH_001"
+  signal_name: "tech_signal_map_updated"
+  description: "Tech Signal Map has been recalculated with new job posting data"
+
+# ==============================================================================
+# PROCESSING STEPS
+# ==============================================================================
+processing_steps:
+  - step: 1
+    name: "Extract Highlights"
+    action: "Parse SIG_TECH_001 payload for key changes"
+    inputs:
+      - "realm_id"
+      - "technology_count"
+      - "new_technologies_count"
+      - "ring_changes_count"
+      - "competitor_mentions_count"
+    outputs:
+      - "highlight_summary"
+
+  - step: 2
+    name: "Identify Competitor Signals"
+    action: "Check for competitor technology trends"
+    condition: "competitor_mentions_count > 0"
+    sub_steps:
+      - "Query /tech-radar/competitive endpoint"
+      - "Identify declining competitors (displacement opportunities)"
+      - "Identify growing competitors (threats)"
+    outputs:
+      - "competitor_insights"
+
+  - step: 3
+    name: "Identify Skills Gap Opportunities"
+    action: "Check for alignment with our offerings"
+    sub_steps:
+      - "Query /tech-radar/skills-gap endpoint"
+      - "Extract opportunities with strong alignment"
+      - "Map to affected nodes in realm"
+    outputs:
+      - "skills_gap_opportunities"
+
+  - step: 4
+    name: "Route to Consumers"
+    action: "Distribute insights to subscribed agents"
+    routing:
+      - agent: "SA Agent"
+        condition: "always"
+        data: ["highlight_summary", "skills_gap_opportunities"]
+
+      - agent: "CI Agent"
+        condition: "competitor_mentions_count > 0"
+        data: ["competitor_insights"]
+
+      - agent: "AE Agent"
+        condition: "skills_gap_opportunities.count > 0"
+        data: ["skills_gap_opportunities"]
+
+      - agent: "PM Agent"
+        condition: "new_technologies_count > 2"
+        data: ["new_technologies"]
+
+  - step: 5
+    name: "Trigger Follow-up Playbooks"
+    action: "Invoke dependent playbooks based on findings"
+    triggers:
+      - playbook: "PB_902_tech_trend_response"
+        condition: "competitor_declining OR competitor_growing"
+        for_each: "affected competitor technology"
+
+      - playbook: "PB_201_swot_analysis"
+        condition: "ring_changes_count >= 3"
+        description: "Significant tech landscape shift warrants SWOT refresh"
+
+  - step: 6
+    name: "Generate Summary Report"
+    action: "Create tech radar update summary"
+    output:
+      path: "infohub/{realm}/tech_signal_map/reports/update_{YYYY-MM-DD}.md"
+      format: "markdown"
+      sections:
+        - "Executive Summary"
+        - "Key Highlights"
+        - "Competitor Analysis"
+        - "Skills Gap Opportunities"
+        - "Recommended Actions"
+
+# ==============================================================================
+# SIGNAL EMISSION
+# ==============================================================================
+signals_emitted:
+  # Already received SIG_TECH_001, may also process child signals
+  - signal: "SIG_TECH_002"
+    condition: "new_technologies detected"
+    emit_for_each: "new technology"
+
+  - signal: "SIG_TECH_003"
+    condition: "significant trend change (>15%)"
+    emit_for_each: "trending technology"
+
+# ==============================================================================
+# NOTIFICATIONS
+# ==============================================================================
+notifications:
+  - recipient: "SA Team"
+    condition: "always"
+    channel: "slack"
+    message: "Tech Signal Map updated for {realm}: {technology_count} technologies, {new_technologies_count} new"
+
+  - recipient: "Account Executives"
+    condition: "skills_gap_opportunities.count > 0"
+    channel: "email"
+    subject: "Tech Signal Map: {skills_gap_opportunities.count} opportunities identified for {realm}"
+
+  - recipient: "CI Team"
+    condition: "competitor_mentions_count > 0"
+    channel: "slack"
+    message: "Competitor tech update for {realm}: {competitor_summary}"
+
+# ==============================================================================
+# QUALITY GATES
+# ==============================================================================
+quality_gates:
+  - "All highlights extracted"
+  - "Competitor analysis complete if competitors present"
+  - "Routing completed to all subscribed agents"
+  - "Summary report generated"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "1-2 minutes"
+frequency: "On each SIG_TECH_001"
+human_review_required: false
+
+last_updated: "2026-01-21"
+version: "1.0"

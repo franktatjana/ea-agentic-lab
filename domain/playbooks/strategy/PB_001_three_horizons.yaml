@@ -1,0 +1,366 @@
+# PLAYBOOK: McKinsey Three Horizons of Growth
+# Framework operationalization for AI agents
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+framework_name: "Three Horizons of Growth"
+framework_source: "McKinsey & Company"
+intended_agent_role: "AE Agent"
+secondary_agents: ["SA Agent", "PM Agent"]
+
+primary_objective: "Categorize revenue and opportunities across defensive (H1), growth (H2), and transformational (H3) time horizons to balance portfolio risk and prioritize resource allocation"
+
+when_not_to_use:
+  - "Account < $500K ARR (insufficient complexity)"
+  - "First 90 days of customer relationship (insufficient data)"
+  - "No documented customer strategic initiatives (missing H2/H3 inputs)"
+  - "Account in churn/litigation (resolve crisis first)"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - "Quarterly account planning cycle initiated"
+    - "Executive sponsor assignment to account"
+    - "Annual strategy review scheduled"
+    - "ARR growth rate < 10% YoY for 2+ quarters"
+    - "Account plan last updated > 180 days ago"
+
+  manual:
+    - "AE requests growth strategy analysis"
+    - "Sales leadership requests pipeline review"
+    - "Customer requests multi-year roadmap discussion"
+
+  conditional:
+    - "IF total_pipeline_value / current_arr < 0.3 THEN trigger (insufficient growth)"
+    - "IF opportunities_in_horizon_2 == 0 THEN trigger (expansion gap)"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "infohub/{realm}/{node}/overview.md"
+      fields:
+        - current_arr
+        - contract_renewal_date
+        - installed_products
+
+    - artifact: "infohub/{realm}/{node}/installed_base.md"
+      fields:
+        - product_usage_by_solution
+        - deployment_model
+        - data_volume_metrics
+
+    - artifact: "Account Plan"
+      sections:
+        - customer_strategic_initiatives
+        - it_strategy
+        - competitive_landscape
+
+  optional:
+    - artifact: "infohub/{realm}/{node}/meetings/*_exec_sponsor.md"
+      use: "Extract customer vision and priorities"
+
+    - artifact: "infohub/{realm}/{node}/risks/*.md"
+      use: "Identify threats to current revenue"
+
+    - artifact: "CI Agent competitive reports"
+      use: "Assess displacement risks"
+
+  minimum_data_threshold:
+    - "At least 6 months of customer engagement history"
+    - "Current ARR value confirmed within 30 days"
+    - "At least 1 documented customer initiative or IT project"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  horizon_1_defend_extend:
+    - "What products/solutions generate revenue today with confirmed ARR values?"
+    - "What are documented renewal risks (support issues, budget cuts, competitor mentions)?"
+    - "What upsell opportunities exist within current deployment (tier upgrades, additional seats, data growth)?"
+    - "What optimization opportunities exist (cost reduction, performance improvement, feature adoption)?"
+    - "What is health status of each revenue stream (usage trends, support case severity, stakeholder sentiment)?"
+
+  horizon_2_growth:
+    - "What customer IT initiatives align with {vendor} capabilities not currently deployed?"
+    - "What adjacent use cases exist (customer has Search, could add Observability)?"
+    - "What new business units, regions, or teams could adopt existing solutions?"
+    - "What platform consolidation opportunities exist (replace competitors, vendor rationalization)?"
+    - "What technology shifts create opportunities (cloud migration, Kubernetes adoption, GenAI projects)?"
+
+  horizon_3_transformation:
+    - "What industry trends or disruptions affect customer's business model?"
+    - "What emerging technologies could make {vendor} strategically critical (AI/ML, Edge, IoT)?"
+    - "What would position {vendor} as irreplaceable infrastructure vs. replaceable tool?"
+    - "What disruptive scenarios require strategic positioning today (M&A, regulatory change, market shift)?"
+
+  portfolio_balance:
+    - "What percentage of total account value (ARR + pipeline) is in each horizon?"
+    - "Are there concentration risks (>80% in H1, <10% in H2)?"
+    - "Do H2 opportunities logically extend H1 capabilities?"
+    - "Does H3 vision align with {vendor} product roadmap?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    # Concentration risk detection
+    - condition: "horizon_1_arr / total_account_value > 0.80"
+      severity: "MEDIUM"
+      output_type: "Risk"
+      decision: |
+        CREATE Risk:
+          title: "Revenue concentration in Horizon 1"
+          description: "80%+ of account value is current business, limited growth pipeline"
+          category: "strategic"
+          severity: "MEDIUM"
+          mitigation: "Prioritize H2 expansion initiatives, engage specialists for discovery"
+          owner: "Account Executive"
+
+    # Renewal risk escalation
+    - condition: "horizon_1_risks[severity=HIGH].count > 0"
+      severity: "HIGH"
+      output_type: "Decision + Risk"
+      decision: |
+        CREATE Decision:
+          title: "Prioritize H1 risk mitigation over growth activities"
+          context: "High-severity renewal risks threaten current revenue base"
+          decision: "Allocate resources to resolve {risk_titles} before pursuing H2 opportunities"
+          stakeholders: ["AE", "SA", "Executive Sponsor"]
+          reversibility: "easy"
+
+        CREATE Risk:
+          severity: "HIGH"
+          escalate_to: "Sales Leadership"
+
+    # Growth pipeline gap
+    - condition: "horizon_2_pipeline_value < 500000"
+      severity: "MEDIUM"
+      output_type: "Initiative"
+      decision: |
+        CREATE Initiative:
+          title: "Expansion discovery for {node}"
+          description: "H2 pipeline below threshold, initiate opportunity identification"
+          actions:
+            - "Review customer IT strategy documentation"
+            - "Engage specialists (Security/Observability/Search) for discovery"
+            - "Schedule account planning workshop with customer"
+          owner: "Account Executive"
+          timeline: "Next 60 days"
+
+    # Strategic alignment gap
+    - condition: "horizon_3_vision == empty OR horizon_3_vision == speculative_only"
+      severity: "LOW"
+      output_type: "Initiative"
+      decision: |
+        CREATE Initiative:
+          title: "Roadmap alignment discussion for {node}"
+          description: "No long-term strategic vision, risk of transactional relationship"
+          actions:
+            - "Engage PM for product roadmap discussion"
+            - "Schedule exec sponsor meeting on 3-5 year vision"
+          owner: "Account Executive"
+          timeline: "Next quarter"
+
+    # Competitive displacement risk
+    - condition: "competitor_mentioned_in_horizon_1 OR competitor_mentioned_in_horizon_2"
+      severity: "HIGH"
+      output_type: "Risk + Initiative"
+      decision: |
+        CREATE Risk:
+          title: "Competitive threat in {affected_horizon}"
+          description: "Competitor {competitor_name} mentioned for {use_case}"
+          category: "competitive"
+          severity: "HIGH"
+          mitigation: "Engage CI Agent for battlecard, differentiation strategy"
+
+        CREATE Initiative:
+          title: "Competitive response for {node}"
+          actions:
+            - "CI Agent: Generate positioning map and battlecard"
+            - "Engage specialist for technical differentiation"
+            - "Schedule customer meeting to address competitive concerns"
+
+    # Specialist engagement requirement
+    - condition: "horizon_2_opportunity[estimated_arr] > 300000 AND specialist_type != null"
+      output_type: "Initiative"
+      decision: |
+        CREATE Initiative:
+          title: "Specialist engagement: {specialist_type} for {opportunity_name}"
+          description: "H2 opportunity requires domain expertise to qualify"
+          actions:
+            - "Request {specialist_type} specialist via TMR process"
+            - "Prepare discovery brief with customer context"
+            - "Schedule technical deep-dive with customer"
+          owner: "Solution Architect"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "infohub/{realm}/{node}/frameworks_three_horizons_{YYYY-MM-DD}.md"
+    format: "markdown"
+    sections:
+      - executive_summary
+      - horizon_1_analysis
+      - horizon_2_analysis
+      - horizon_3_analysis
+      - portfolio_balance_assessment
+      - recommended_actions
+
+    schema:
+      horizon_1_items:
+        - use_case: "string"
+          products: "array"
+          arr: "number"
+          health_status: "enum[healthy|at_risk|critical]"
+          upsell_potential_arr: "number"
+          risks: "array[risk_id]"
+
+      horizon_2_items:
+        - opportunity_name: "string"
+          customer_initiative: "string"
+          platform_capability: "string"
+          estimated_arr_range: "string (e.g., '$500K-$800K')"
+          confidence: "enum[high|medium|low]"
+          timeline: "string (e.g., 'Q3 2026')"
+          dependencies: "array"
+          specialist_required: "string|null"
+
+      horizon_3_items:
+        - trend_or_scenario: "string"
+          customer_impact: "string"
+          platform_opportunity: "string"
+          arr_magnitude: "enum[<$1M|$1M-$5M|$5M-$10M|>$10M]"
+          probability: "enum[high|medium|low|speculative]"
+
+  decision_objects:
+    path: "infohub/{realm}/{node}/decisions/"
+    create_if:
+      - "High-severity H1 risk requires resource reallocation"
+      - "Strategic pivot recommended (e.g., focus H2 over H1)"
+    template: "ADR format with context, decision, consequences"
+
+  risk_objects:
+    path: "infohub/{realm}/{node}/risks/"
+    create_if:
+      - "Concentration risk detected (H1 > 80%)"
+      - "Competitive threat identified"
+      - "Renewal risk in H1"
+      - "H2 pipeline below threshold"
+    template: "Risk with severity, mitigation, owner"
+
+  initiative_objects:
+    path: "infohub/{realm}/{node}/initiatives/"
+    create_if:
+      - "Specialist engagement required"
+      - "Expansion workshop needed"
+      - "Roadmap alignment discussion required"
+    template: "Initiative with actions, owner, timeline"
+
+  stakeholder_updates:
+    path: "infohub/{realm}/{node}/stakeholders/engagement_log.md"
+    append:
+      - "Recommended exec sponsor topics (H3 vision)"
+      - "Customer stakeholders to engage for H2 opportunities"
+
+  notifications:
+    - recipient: "Account Executive"
+      condition: "always"
+      message: "Three Horizons analysis complete, review required"
+
+    - recipient: "Sales Leadership"
+      condition: "horizon_2_pipeline < 500000 OR horizon_1_risks[HIGH].count > 0"
+      message: "Account {node} requires attention: {reason}"
+
+    - recipient: "Specialist Teams"
+      condition: "specialist_engagement_required == true"
+      message: "TMR request for {specialist_type}: {opportunity_name}"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "current_arr value not found OR last_updated > 90 days"
+      reason: "Cannot analyze horizons without accurate current revenue baseline"
+      action: "Request AE to confirm current ARR and renewal date"
+
+    - condition: "no_customer_initiatives_documented"
+      reason: "Cannot identify H2 opportunities without customer context"
+      action: "Request AE to document customer IT strategy or initiatives"
+
+    - condition: "multiple_high_severity_h1_risks AND horizon_2_pipeline > 1M"
+      reason: "Conflicting priorities: defend revenue vs. pursue growth"
+      action: "Escalate to Sales Leadership for strategic guidance"
+
+    - condition: "competitor_displacing_vendor_in_h1"
+      reason: "Existential threat requires executive intervention"
+      action: "Escalate to Executive Sponsor and CI team immediately"
+
+    - condition: "customer_in_active_litigation OR customer_non_payment"
+      reason: "Legal/financial issues supersede growth planning"
+      action: "Do not run playbook, escalate to legal/finance"
+
+  insufficient_data:
+    - "Less than 3 data points for any horizon"
+    - "All H2 opportunities marked 'low confidence'"
+    - "No sources cited for H3 scenarios"
+    - "ARR breakdown by product not available"
+
+  ambiguity_signals:
+    - "Contradictory signals: high renewal risk but expansion discussions ongoing"
+    - "Unclear product ownership: multiple teams claim same ARR"
+    - "Conflicting timelines: customer says Q2, CRM shows Q4"
+
+  human_judgment_required:
+    - "Portfolio rebalancing decision (e.g., pause H2 to defend H1)"
+    - "Budget allocation across horizons"
+    - "Executive sponsor escalation decision"
+    - "Competitive response strategy selection"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "client_id exists in InfoHub"
+    - "current_arr is numeric and > 0"
+    - "At least 1 artifact in required_inputs exists"
+
+  post_execution:
+    - "All H1 items have ARR values"
+    - "All risks have severity levels"
+    - "All opportunities have confidence ratings"
+    - "All sources are cited (note date, artifact path)"
+    - "Total of all H1 ARR == current_arr (within 10% tolerance)"
+
+  output_quality:
+    - "No hallucinated client names, products, or initiatives"
+    - "No invented ARR values (all sourced or marked 'TBD')"
+    - "No unsourced competitive mentions"
+    - "All recommendations have clear owners and timelines"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "4-6 minutes (agent) + 10-15 minutes (human review)"
+frequency: "Quarterly or on-demand"
+human_review_required: true
+approval_workflow:
+  - reviewer: "Account Executive"
+    approval_gate: "Validate ARR accuracy, opportunity realism"
+  - reviewer: "Sales Leadership"
+    condition: "account_arr > 1000000"
+    approval_gate: "Endorse strategy, resource allocation"
+
+last_updated: "2026-01-11"
+version: "1.0"
+status: "production_ready"

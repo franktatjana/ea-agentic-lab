@@ -1,0 +1,831 @@
+# Governance Team Task Prompts
+# Purpose: Task-specific prompts using CAF framework (Context, Action, Format)
+# Reference: Agent configs in agents/ directory
+# Agents: risk_radar, meeting_notes, decision_registrar, task_shepherd, nudger, reporter, playbook_curator
+
+# ============================================================================
+# RISK RADAR AGENT PROMPTS
+# ============================================================================
+risk_radar:
+
+  scan_for_risks:
+    name: "Risk Signal Scan"
+    description: "Scan sources for risk signals and update risk register"
+    prompt: |
+      Context: Daily risk scan for {account_name}/{node_name}.
+      Sources to scan:
+      - Meeting notes from last {days} days
+      - Action tracker for blocked items
+      - Decision log for pending decisions
+      - Health score trends
+
+      Action: Detect risk signals:
+      - Explicit risks (mentioned directly)
+      - Implicit risks (patterns suggesting risk)
+      - Derived risks (inferred from data)
+
+      Look for patterns:
+      - "might not make", "running behind", "waiting on"
+      - "no response from", "competitor mentioned", "budget concern"
+      - Overdue actions (>5 days), pending decisions (>10 days)
+      - No champion contact (>14 days), health score <70
+
+      Format:
+      - New risks identified (ID, title, severity, category, owner)
+      - Updated risks (what changed)
+      - Risk signals requiring verification
+      - Recommended mitigations
+      - Critical alerts (if any)
+
+  classify_risk:
+    name: "Risk Classification"
+    description: "Classify and enrich newly detected risk"
+    prompt: |
+      Context: New risk signal detected.
+      Signal: {risk_signal}
+      Source: {source}
+      Account: {account_name}
+
+      Action: Classify this risk:
+      - Severity: critical/high/medium/low
+      - Category: technical/commercial/relationship/competitive/timeline/resource/compliance
+      - Probability: high/medium/low
+      - Impact: high/medium/low
+      - Owner assignment
+
+      Format:
+      - Risk ID: RISK-{YYYY}-{###}
+      - Title: {concise title}
+      - Severity: {level} with justification
+      - Category: {category}
+      - Probability: {level}
+      - Impact: {level}
+      - Exposure: {probability x impact}
+      - Owner: {assigned_owner}
+      - Review date: {based_on_severity}
+      - Suggested mitigation
+
+  weekly_risk_review:
+    name: "Weekly Risk Review"
+    description: "Prepare weekly risk review summary"
+    prompt: |
+      Context: Weekly risk review for {account_name}/{node_name}.
+      Current risk register: {risk_count} active risks
+      Period: {week_start} to {week_end}
+
+      Action: Prepare risk review:
+      - New risks this week
+      - Escalated risks (severity increased)
+      - Mitigated risks (closed or reduced)
+      - Top 5 active risks by exposure
+      - Stale risks (no update >14 days)
+
+      Format:
+      - Executive summary (2-3 sentences)
+      - New risks table (ID | Title | Severity | Owner)
+      - Top 5 risks with status
+      - Mitigated/closed risks this week
+      - Stale risks requiring attention
+      - Recommended actions for next week
+
+  risk_escalation:
+    name: "Risk Escalation Alert"
+    description: "Generate escalation alert for critical risk"
+    prompt: |
+      Context: Critical risk requires escalation.
+      Risk ID: {risk_id}
+      Title: {risk_title}
+      Severity: {severity}
+      Exposure: {exposure}
+
+      Action: Prepare escalation:
+      - What is the specific threat?
+      - What is the potential impact?
+      - What mitigation options exist?
+      - What decision is needed?
+
+      Format:
+      - ALERT: Critical Risk - {risk_title}
+      - Impact: {what could happen}
+      - Timeline: {when it could materialize}
+      - Options: {2-3 mitigation paths}
+      - Recommendation: {suggested action}
+      - Decision needed by: {date}
+      - Escalation target: {who needs to decide}
+
+# ============================================================================
+# MEETING NOTES AGENT PROMPTS
+# ============================================================================
+meeting_notes:
+
+  process_meeting:
+    name: "Process Meeting Notes"
+    description: "Extract decisions, actions, risks from meeting"
+    prompt: |
+      Context: Meeting completed for {account_name}.
+      Meeting: {meeting_title}
+      Date: {meeting_date}
+      Attendees: {attendees}
+      Raw input: {raw_notes_or_transcript}
+
+      Action: Extract key information:
+      - Decisions made (what was agreed)
+      - Actions assigned (who does what by when)
+      - Risks identified (what could go wrong)
+      - Open questions (with owner to resolve)
+
+      Format: Ultra-lean (max 12 lines)
+      Title: {meeting_title} | {date}
+      Attendees: {names or "see invite"}
+
+      Decisions:
+      - D1: {decision} (Owner: {name}, Status: Proposed/Confirmed)
+
+      Actions:
+      - A1: {owner} will {action} by {date}
+
+      Risks/Blocks:
+      - R1: {risk description}
+
+      Open questions:
+      - Q1: {question} (Owner: {name})
+
+  generate_slack_digest:
+    name: "Generate Slack Digest"
+    description: "Create micro-summary for Slack"
+    prompt: |
+      Context: Meeting just completed, need Slack digest.
+      Meeting: {meeting_title}
+      Full notes: {meeting_notes}
+
+      Action: Condense to 5-line Slack message.
+      Prioritize: Decisions > Actions > Risks
+
+      Format: (exactly 5 lines max)
+      Decision: {key decision or "none"}
+      Next: {owner}, {date} - {action}
+      Next: {owner}, {date} - {action}
+      Risk: {key risk or "none identified"}
+      Confirm/correct by: {time}
+
+  extract_actions:
+    name: "Extract Action Items"
+    description: "Extract validated action items from notes"
+    prompt: |
+      Context: Meeting notes need action extraction.
+      Meeting: {meeting_title}
+      Notes: {meeting_notes}
+
+      Action: Extract action items ensuring:
+      - Single owner (not team or TBD)
+      - Specific due date (not "soon" or "ASAP")
+      - Clear completion criteria
+
+      Format:
+      For each action:
+      - Action: {what needs to be done}
+      - Owner: {single person name}
+      - Due date: {specific date or TBD with reason}
+      - Done means: {completion criteria}
+      - Source: {meeting reference}
+      - Priority: {P0/P1/P2 with reasoning}
+
+  pre_meeting_prep:
+    name: "Pre-Meeting Preparation"
+    description: "Prepare meeting structure before meeting"
+    prompt: |
+      Context: Meeting scheduled for {meeting_title}.
+      Date: {meeting_date}
+      Attendees: {attendees}
+      Agenda (if provided): {agenda}
+
+      Action: Prepare meeting structure:
+      - Clarify objectives
+      - Identify decisions needed
+      - List expected outcomes
+
+      Format:
+      Meeting: {title}
+      Objective: {what we need to accomplish}
+      Decisions needed:
+      - D1: {decision to make}
+      Expected outcomes:
+      - {outcome 1}
+      Questions to resolve:
+      - {question}
+
+      Prompt for attendees:
+      "Add any topic + one desired outcome. For decisions, state: DECISION NEEDED: ..."
+
+# ============================================================================
+# DECISION REGISTRAR AGENT PROMPTS
+# ============================================================================
+decision_registrar:
+
+  register_decision:
+    name: "Register New Decision"
+    description: "Add decision to decision log"
+    prompt: |
+      Context: Decision detected from {source}.
+      Account: {account_name}
+      Raw text: {decision_text}
+
+      Action: Validate and register decision:
+      - Extract decision statement
+      - Identify decision maker
+      - Capture rationale
+      - Determine affected scope
+
+      Format:
+      Decision ID: D-{YYYY}-{###}
+      Title: {concise title}
+      Description: We decided to {decision} because {rationale}
+      Decision maker: {name}
+      Date: {date}
+      Status: Proposed/Confirmed
+      Context: {why this decision was needed}
+      Affected scope: {areas impacted}
+      Alternatives considered: {if known}
+      Source: {meeting/email/etc}
+
+  decision_status_update:
+    name: "Update Decision Status"
+    description: "Update status of existing decision"
+    prompt: |
+      Context: Decision status change for {decision_id}.
+      Current status: {current_status}
+      Requested change: {new_status}
+      Reason: {reason_for_change}
+
+      Action: Validate transition and update:
+      - Verify transition is valid
+      - Capture reason for change
+      - Update audit trail
+
+      Format:
+      Decision: {decision_id}
+      Previous status: {old_status}
+      New status: {new_status}
+      Changed by: {who}
+      Reason: {why}
+      Effective date: {when}
+      Audit note: {any additional context}
+
+  weekly_decision_digest:
+    name: "Weekly Decision Digest"
+    description: "Summarize decisions from past week"
+    prompt: |
+      Context: Weekly decision digest for {account_name}.
+      Period: {week_start} to {week_end}
+      Decision log: {decision_log}
+
+      Action: Summarize decision activity:
+      - New decisions made
+      - Status changes
+      - Pending approvals
+      - Decisions requiring attention
+
+      Format:
+      Week ending: {date}
+
+      New decisions:
+      - {D-ID}: {title} ({status})
+
+      Status changes:
+      - {D-ID}: {old} → {new}
+
+      Pending approvals:
+      - {D-ID}: {title} - awaiting {who}
+
+      Attention needed:
+      - {any decisions stalled or unclear}
+
+  find_related_decisions:
+    name: "Find Related Decisions"
+    description: "Find decisions related to a topic"
+    prompt: |
+      Context: Looking for decisions related to {topic}.
+      Account: {account_name}
+      Decision log: {decision_log}
+
+      Action: Find related decisions:
+      - Search by keyword
+      - Search by affected scope
+      - Search by stakeholder
+      - Identify patterns or conflicts
+
+      Format:
+      Query: {topic}
+      Related decisions:
+      - {D-ID}: {title} | {date} | {status}
+        Relevance: {why it's related}
+
+      Decision patterns:
+      - {any patterns observed}
+
+      Potential conflicts:
+      - {any conflicting decisions}
+
+# ============================================================================
+# TASK SHEPHERD AGENT PROMPTS
+# ============================================================================
+task_shepherd:
+
+  validate_action:
+    name: "Validate Action Item"
+    description: "Ensure action meets quality standards"
+    prompt: |
+      Context: New action item submitted.
+      Action: {action_text}
+      Source: {source}
+
+      Action: Validate action quality:
+      - Single owner (not team/TBD)?
+      - Specific due date (not "soon")?
+      - Clear completion criteria?
+      - Linked to source?
+      - No duplicates?
+
+      Format:
+      Action: {action_text}
+      Validation results:
+      - [ ] Single owner: {name or FAIL}
+      - [ ] Due date: {date or FAIL}
+      - [ ] Done means: {criteria or MISSING}
+      - [ ] Source link: {reference or MISSING}
+      - [ ] Duplicate check: {PASS or duplicate_of}
+
+      Status: VALID / NEEDS ATTENTION
+      Issues to resolve: {list if any}
+      Suggested priority: {P0/P1/P2 with logic}
+
+  weekly_action_audit:
+    name: "Weekly Action Audit"
+    description: "Audit all actions for hygiene"
+    prompt: |
+      Context: Weekly action audit for {account_name}.
+      Action tracker: {action_tracker}
+      Date: {audit_date}
+
+      Action: Audit all open actions:
+      - Identify invalid actions (no owner, no date)
+      - Find blocked actions
+      - Find overdue actions
+      - Find stale actions (no update >7 days)
+
+      Format:
+      Action Health Report
+      Total open actions: {count}
+      Valid actions: {count}
+
+      Actions needing attention:
+      - Missing owner: {list}
+      - Missing due date: {list}
+      - Overdue: {list with days overdue}
+      - Blocked: {list with blocker}
+      - Stale: {list with days since update}
+
+      Recommended actions:
+      - {specific recommendations}
+
+  merge_duplicate_actions:
+    name: "Merge Duplicate Actions"
+    description: "Identify and merge duplicate actions"
+    prompt: |
+      Context: Checking for duplicate actions.
+      New action: {new_action}
+      Existing actions: {action_list}
+
+      Action: Check for duplicates:
+      - Same or similar task
+      - Same owner
+      - Overlapping scope
+
+      Format:
+      New action: {new_action}
+      Potential duplicates:
+      - {existing_action_id}: {similarity reason}
+
+      Recommendation:
+      - KEEP BOTH (different scope)
+      - MERGE INTO {id} (reason)
+      - SUPERSEDES {id} (reason)
+
+  priority_inference:
+    name: "Infer Action Priority"
+    description: "Infer priority from context"
+    prompt: |
+      Context: Action needs priority assignment.
+      Action: {action_text}
+      Source context: {source_context}
+
+      Action: Infer priority using rules:
+      - P0: Blocker mentioned, executive ask
+      - P1: Risk mitigation, time-sensitive
+      - P2: Standard (default)
+      - P3: Nice-to-have, low impact
+
+      Format:
+      Action: {action_text}
+      Inferred priority: {P0/P1/P2/P3}
+      Reasoning:
+      - {evidence from context}
+      Confidence: {high/medium/low}
+
+# ============================================================================
+# NUDGER AGENT PROMPTS
+# ============================================================================
+nudger:
+
+  generate_reminder:
+    name: "Generate Reminder"
+    description: "Create reminder for upcoming due date"
+    prompt: |
+      Context: Action approaching due date.
+      Action: {action_text}
+      Owner: {owner_name}
+      Due date: {due_date}
+      Days until due: {days}
+
+      Action: Generate appropriate reminder.
+      Tone: Friendly but clear.
+
+      Format:
+      Subject: Reminder: {action_title}
+
+      Hi {owner_name},
+
+      Quick reminder that this is due in {days} days:
+
+      Action: {action_text}
+      Due: {due_date}
+
+      Let me know if there are any blockers.
+
+      [Link to action tracker]
+
+  generate_overdue_notice:
+    name: "Generate Overdue Notice"
+    description: "Create notice for overdue action"
+    prompt: |
+      Context: Action is overdue.
+      Action: {action_text}
+      Owner: {owner_name}
+      Due date: {due_date}
+      Days overdue: {days}
+
+      Action: Generate overdue notice.
+      Tone: Direct but professional.
+
+      Format:
+      Subject: OVERDUE: {action_title} ({days} days)
+
+      Hi {owner_name},
+
+      This action is now {days} days overdue:
+
+      Action: {action_text}
+      Original due: {due_date}
+
+      Please update status:
+      - Complete and mark done
+      - Update with new due date
+      - Flag as blocked (with blocker)
+
+      If no update by {escalation_date}, this will escalate to {manager}.
+
+  status_check:
+    name: "Status Check"
+    description: "Check in on stalled action"
+    prompt: |
+      Context: Action status unchanged for >7 days.
+      Action: {action_text}
+      Owner: {owner_name}
+      Last update: {last_update_date}
+      Status: {current_status}
+
+      Action: Generate status check message.
+      Tone: Curious, not accusatory.
+
+      Format:
+      Subject: Status check: {action_title}
+
+      Hi {owner_name},
+
+      Checking in on this action - no update in {days} days:
+
+      Action: {action_text}
+      Last status: {current_status}
+
+      Quick update? Is it:
+      - In progress (ETA?)
+      - Blocked (by what?)
+      - Complete (can we close it?)
+      - No longer needed (can we remove it?)
+
+  daily_nudge_summary:
+    name: "Daily Nudge Summary"
+    description: "Generate daily summary of nudges sent"
+    prompt: |
+      Context: End of day nudge summary.
+      Date: {date}
+      Nudges sent: {nudge_list}
+
+      Action: Summarize nudge activity for governance lead.
+
+      Format:
+      Daily Nudge Summary - {date}
+
+      Reminders sent: {count}
+      - {list of actions reminded}
+
+      Overdue notices: {count}
+      - {list with days overdue}
+
+      Escalations triggered: {count}
+      - {list with reason}
+
+      Missing owners flagged: {count}
+
+      Attention needed:
+      - {any patterns or concerns}
+
+# ============================================================================
+# REPORTER AGENT PROMPTS
+# ============================================================================
+reporter:
+
+  weekly_digest:
+    name: "Weekly Digest"
+    description: "Generate weekly summary for account team"
+    prompt: |
+      Context: Weekly digest for {account_name}/{node_name}.
+      Period: {week_start} to {week_end}
+      Sources: actions, decisions, risks, meetings, health score
+
+      Action: Generate 10-line weekly summary.
+      Structure:
+      - TL;DR (1-2 sentences)
+      - What changed (3 bullets)
+      - Key decisions (2-3 bullets)
+      - Top risks (2-3 bullets)
+      - Blockers (if any)
+      - Next week priorities (3 bullets)
+
+      Format: (max 10 lines)
+      TL;DR: {1-2 sentence summary}
+
+      What changed:
+      - {change 1}
+      - {change 2}
+
+      Key decisions:
+      - {decision 1}
+
+      Top risks:
+      - {risk 1}
+
+      Next week:
+      - {priority 1}
+      - {priority 2}
+
+  executive_summary:
+    name: "Executive Summary"
+    description: "Generate executive-level summary"
+    prompt: |
+      Context: Executive summary for {account_name}.
+      Audience: Leadership/exec sponsor
+      Period: {period}
+
+      Action: Generate executive-friendly summary.
+      Focus on: Strategic progress, key decisions, material risks.
+      Avoid: Operational details, jargon.
+
+      Format:
+      {Account Name} - Executive Summary
+      Period: {dates}
+
+      Status: {GREEN/YELLOW/RED}
+
+      Key progress:
+      - {strategic accomplishment}
+
+      Decisions made:
+      - {impactful decision}
+
+      Risks to monitor:
+      - {material risk}
+
+      Ask/support needed:
+      - {if any}
+
+  health_trend_report:
+    name: "Health Trend Report"
+    description: "Report on health score trends"
+    prompt: |
+      Context: Health trend analysis for {account_name}.
+      Current score: {current_score}
+      Previous scores: {score_history}
+      Components: {component_breakdown}
+
+      Action: Analyze health trends and explain changes.
+
+      Format:
+      Health Score Trend Report
+
+      Current: {score} ({direction} from {previous})
+
+      Trend: {improving/stable/declining}
+
+      Component analysis:
+      - {component}: {score} ({change})
+
+      Key drivers:
+      - {what's helping}
+      - {what's hurting}
+
+      Recommendations:
+      - {actions to improve}
+
+  month_end_report:
+    name: "Month-End Report"
+    description: "Generate comprehensive month-end report"
+    prompt: |
+      Context: Month-end report for {account_name}.
+      Month: {month}
+      Audience: Leadership + exec sponsor
+
+      Action: Generate 1-page monthly summary.
+      Include: Progress, decisions, risks, value delivered, outlook.
+
+      Format:
+      {Account Name} - {Month} Report
+
+      Executive Summary
+      {2-3 sentence overview}
+
+      Progress Highlights
+      - {accomplishment 1}
+      - {accomplishment 2}
+
+      Key Decisions
+      - {decision with impact}
+
+      Risk Status
+      - Open: {count} | Mitigated: {count}
+      - Top risk: {description}
+
+      Value Delivered
+      - {quantified value if available}
+
+      Outlook
+      - {next month priorities}
+
+      Support Needed
+      - {asks, if any}
+
+# ============================================================================
+# PLAYBOOK CURATOR AGENT PROMPTS
+# ============================================================================
+playbook_curator:
+
+  validate_playbook:
+    name: "Validate Playbook"
+    description: "Validate new or modified playbook"
+    prompt: |
+      Context: Playbook submitted for validation.
+      Playbook ID: {playbook_id}
+      Category: {category}
+      Content: {playbook_content}
+
+      Action: Validate against governance rules:
+      - Schema validation (required fields)
+      - Category compliance (CAT rules)
+      - Structure rules (STR rules)
+      - Quality rules (QUA rules)
+
+      Format:
+      Validation Report: {playbook_id}
+
+      Schema validation:
+      - [ ] Required fields present
+      - [ ] Version specified
+      - [ ] Owner agent defined
+
+      Category compliance:
+      - [ ] CAT-001: No micro-decomposition
+      - [ ] CAT-002: No governance-tactical mixing
+      - [ ] CAT-003: Valid output destinations
+      - [ ] CAT-004: No duplicate authority
+
+      Structure compliance:
+      - [ ] STR-001: Required metadata
+      - [ ] STR-002: Trigger defined (if operational)
+      - [ ] STR-003: Framework reference (if strategic)
+
+      Quality compliance:
+      - [ ] QUA-001: Reachable via trigger
+      - [ ] QUA-002: Escalation path defined
+      - [ ] QUA-003: Success criteria defined
+
+      Result: APPROVED / BLOCKED / NEEDS REVISION
+      Issues: {list if any}
+
+  playbook_usage_report:
+    name: "Playbook Usage Report"
+    description: "Generate weekly playbook usage report"
+    prompt: |
+      Context: Weekly playbook usage analysis.
+      Period: {week_start} to {week_end}
+      Execution logs: {execution_data}
+
+      Action: Analyze playbook usage patterns.
+
+      Format:
+      Playbook Usage Report - Week of {date}
+
+      Execution summary:
+      - Total executions: {count}
+      - Unique playbooks: {count}
+
+      Most used:
+      - {playbook_id}: {count} executions
+
+      Success rates:
+      - {playbook_id}: {rate}%
+
+      Concerning patterns:
+      - High escalation: {list if any}
+      - Low success rate: {list if any}
+      - Stale (unused >90 days): {list}
+
+      Recommendations:
+      - {specific recommendations}
+
+  detect_violations:
+    name: "Detect Playbook Violations"
+    description: "Scan for playbook governance violations"
+    prompt: |
+      Context: Scanning playbooks for violations.
+      Playbook inventory: {playbook_list}
+
+      Action: Check for governance violations:
+      - VIO-001: Category boundary violation
+      - VIO-002: Missing required fields
+      - VIO-003: Duplicate decision authority
+      - VIO-004: Circular trigger dependency
+      - VIO-005: Unreachable playbook
+
+      Format:
+      Violation Scan Report
+
+      Critical violations:
+      - {playbook_id}: {VIO-ID} - {description}
+
+      High severity:
+      - {playbook_id}: {VIO-ID} - {description}
+
+      Medium severity:
+      - {playbook_id}: {VIO-ID} - {description}
+
+      Summary:
+      - Critical: {count} (blocking)
+      - High: {count}
+      - Medium: {count}
+
+      Required actions:
+      - {remediation steps}
+
+  recommend_retirement:
+    name: "Recommend Playbook Retirement"
+    description: "Identify playbooks for retirement"
+    prompt: |
+      Context: Analyzing playbooks for retirement recommendation.
+      Usage metrics: {usage_data}
+      Age data: {age_data}
+
+      Action: Identify retirement candidates based on:
+      - No executions in 180 days
+      - Success rate <50% over 30 days
+      - Superseded by newer playbook
+      - Owner agent deprecated
+
+      Format:
+      Retirement Recommendation Report
+
+      Candidates for retirement:
+
+      {playbook_id}:
+      - Reason: {why retire}
+      - Last execution: {date}
+      - Success rate: {rate}
+      - Recommendation: RETIRE / DEPRECATE / REVIEW
+
+      Process:
+      1. Notify owner agent
+      2. Grace period: 30 days
+      3. Archive execution
+
+      Impact assessment:
+      - Affected triggers: {list}
+      - Dependent playbooks: {list}

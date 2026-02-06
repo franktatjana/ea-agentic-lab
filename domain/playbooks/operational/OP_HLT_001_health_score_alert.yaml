@@ -1,0 +1,165 @@
+# Operational Playbook: Health Score Alert
+# Triggered when account health score drops below threshold
+# FIXED: Removed governance analysis steps, only tactical notification
+
+playbook_id: "OP_HLT_001"
+version: "1.1"
+category: "operational"
+
+metadata:
+  name: "Health Score Alert"
+  description: "Detects health score degradation and triggers notification"
+  owner_agent: "reporter_agent"
+  participating_agents:
+    - "nudger_agent"
+
+# Trigger Definition
+trigger:
+  type: "threshold"
+  source: "PB_401_health_score_calculation"  # Strategic playbook provides score
+  condition: |
+    ($.governance.health_score.overall < 60) OR
+    ($.governance.health_score.delta < -10) OR
+    ($.governance.health_score.any_dimension < 50)
+
+# Preconditions
+preconditions:
+  - condition: "EXISTS $.governance.health_score"
+    error_message: "Health score must be calculated by PB_401"
+  - condition: "EXISTS $.governance.health_score.dimensions"
+    error_message: "Health score dimensions required"
+
+# Steps - TACTICAL ONLY (no analysis/judgment)
+steps:
+  - step_id: "read_degradation"
+    name: "Read pre-calculated degradation data"
+    agent: "reporter_agent"
+    action: "read"
+    inputs:
+      - name: "health_data"
+        source: "$.governance.health_score"
+      - name: "thresholds"
+        source: "$.config.health_thresholds"
+    outputs:
+      - name: "alert_data"
+        type: "artifact"
+        destination: "$.alert.data"
+    on_failure: "stop"
+
+  - step_id: "determine_severity"
+    name: "Determine alert severity from thresholds"
+    agent: "reporter_agent"
+    action: "compute"  # Deterministic, not judgment
+    inputs:
+      - name: "score"
+        source: "$.governance.health_score.overall"
+      - name: "thresholds"
+        source: "$.config.health_thresholds"
+    outputs:
+      - name: "severity"
+        type: "artifact"  # Not "decision" - computed from thresholds
+        destination: "$.alert.severity"
+    severity_rules:  # Deterministic mapping
+      critical: "score < 40"
+      high: "score < 50"
+      medium: "score < 60"
+    on_failure: "stop"
+
+  - step_id: "compose_alert"
+    name: "Compose alert from template"
+    agent: "reporter_agent"
+    action: "compute"
+    inputs:
+      - name: "alert_data"
+        source: "$.alert.data"
+      - name: "severity"
+        source: "$.alert.severity"
+      - name: "template"
+        source: "$.templates.health_alert"
+    outputs:
+      - name: "alert_message"
+        type: "artifact"
+        format: "markdown"
+        destination: "$.alert.message"
+    on_failure: "stop"
+
+  - step_id: "send_notification"
+    name: "Send alert notification"
+    agent: "nudger_agent"
+    action: "notify"
+    inputs:
+      - name: "message"
+        source: "$.alert.message"
+      - name: "severity"
+        source: "$.alert.severity"
+      - name: "recipients"
+        source: "$.config.health_alert_recipients"
+    outputs:
+      - name: "notification"
+        type: "notification"
+        format: "markdown"
+        destination: "notification_queue"
+    on_failure: "escalate"
+
+  - step_id: "log_alert"
+    name: "Log alert to alerts folder"
+    agent: "reporter_agent"
+    action: "write"
+    inputs:
+      - name: "alert"
+        source: "$.alert"
+    outputs:
+      - name: "alert_record"
+        type: "artifact"
+        format: "markdown"
+        destination: "infohub/{realm}/{node}/governance/alerts/{date}_health_alert.md"
+    on_failure: "skip"
+
+# Outputs - NO strategic artifact updates
+outputs:
+  - output_id: "alert_notification"
+    type: "notification"
+    format: "markdown"
+    destination: "notification_queue"
+  - output_id: "alert_log"
+    type: "artifact"
+    format: "markdown"
+    destination: "infohub/{realm}/{node}/governance/alerts/"
+    # NOTE: Alerts folder is operational, not health_score.yaml (strategic)
+
+# Escalation
+escalation:
+  condition: "$.alert.severity == 'critical'"
+  target: "senior_manager_agent"
+  message_template: |
+    CRITICAL: Account Health Alert
+
+    Account: {$.account.name}
+    Health Score: {$.governance.health_score.overall}/100
+
+    Immediate attention required.
+
+    Note: Run PB_401 for full analysis and recommendations.
+
+# Completion
+completion:
+  success_criteria: "$.steps.send_notification.status == 'success'"
+  artifacts_required: []
+  notification: "reporter_agent"
+
+# Templates
+templates:
+  health_alert: |
+    # Health Score Alert
+
+    **Account:** {$.account.name}
+    **Score:** {$.governance.health_score.overall}/100
+    **Severity:** {$.alert.severity}
+    **Triggered:** {$.timestamp}
+
+    ## Dimensions Below Threshold
+
+    {$.governance.health_score.degraded_dimensions}
+
+    ---
+    **Action:** Review account and run PB_401 (Customer Health Score) for full analysis.

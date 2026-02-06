@@ -1,0 +1,418 @@
+# Core Entities
+
+**Version:** 1.0
+**Date:** 2026-01-14
+**Status:** Canonical Reference
+
+---
+
+## Entity Hierarchy
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                           BLUEPRINT                                  │
+│                    (Governance Model)                                │
+│         How governance works across all Realms and Nodes            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │                         REALM                                │    │
+│  │                      (Company)                               │    │
+│  │                                                              │    │
+│  │   ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │    │
+│  │   │    NODE     │  │    NODE     │  │    NODE     │         │    │
+│  │   │ (Initiative)│  │ (Initiative)│  │ (Initiative)│         │    │
+│  │   │             │  │             │  │             │         │    │
+│  │   │ • Playbooks │  │ • Playbooks │  │ • Playbooks │         │    │
+│  │   │ • InfoHub   │  │ • InfoHub   │  │ • InfoHub   │         │    │
+│  │   │ • Agents    │  │ • Agents    │  │ • Agents    │         │    │
+│  │   └─────────────┘  └─────────────┘  └─────────────┘         │    │
+│  │                                                              │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Entity Definitions
+
+### Blueprint
+
+**Definition:** The governance model that defines HOW governance works.
+
+**Scope:** Global - applies across all Realms and Nodes.
+
+**Contains:**
+- Agent architecture (strategic + governance agents)
+- Playbook categories and governance rules
+- Escalation hierarchies
+- Decision authority matrices
+- Operating cadence standards
+
+**Example:** The EA Agentic Lab governance model itself is a Blueprint.
+
+**NOT a Blueprint:**
+- Individual playbooks (those are part of the Blueprint)
+- Customer-specific configurations (those are Realm/Node settings)
+
+---
+
+### Realm
+
+**Definition:** A company or organization that contains multiple autonomous Nodes.
+
+**Scope:** Organization-level container.
+
+**Contains:**
+- Multiple Nodes (initiatives, projects, programs)
+- Realm-level configuration (defaults, policies)
+- Cross-Node governance (shared stakeholders, dependencies)
+
+**Examples:**
+
+| Realm | Description |
+|-------|-------------|
+| ACME | Manufacturing conglomerate customer |
+| GlobalTech | Energy sector customer |
+| FinCorp | Financial services customer |
+| Internal Platform | Internal company initiatives |
+
+**Properties:**
+```yaml
+realm:
+  id: "realm_bmw"
+  name: "ACME"
+  type: "customer"  # customer | partner | internal
+  industry: "manufacturing"
+  region: "EMEA"
+  tier: "strategic"  # strategic | enterprise | commercial
+  nodes: []  # List of Node IDs
+  realm_config:
+    default_thresholds: {}
+    shared_stakeholders: []
+    governance_overrides: {}
+```
+
+---
+
+### Node
+
+**Definition:** An autonomous unit of work within a Realm. Previously called "account".
+
+**Scope:** Initiative, project, or program level.
+
+**Contains:**
+- InfoHub (all artifacts for this Node)
+- Enabled playbooks (subset of Blueprint playbooks)
+- Active agents (configured for this Node)
+- Node-specific thresholds and rules
+
+**Examples:**
+
+| Realm | Node | Description |
+|-------|------|-------------|
+| ACME | Security Platform Consolidation | Replace 12 security tools with unified platform |
+| ACME | Observability Rollout BU-X | Deploy observability to Business Unit X |
+| ACME | Cloud Migration Initiative | Migrate on-prem workloads to cloud |
+| GlobalTech | SIEM Modernization | Replace legacy SIEM with modern solution |
+| Internal Platform | Developer Portal | Internal developer experience platform |
+
+**Properties:**
+```yaml
+node:
+  id: "node_bmw_security_consolidation"
+  realm_id: "realm_bmw"
+  name: "Security Platform Consolidation"
+  purpose: "Replace 12 security tools with unified platform"
+  status: "active"  # planning | active | on_hold | completed | cancelled
+
+  # Lifecycle
+  created: "2026-01-01"
+  target_completion: "2026-12-31"
+
+  # Operating mode
+  operating_mode: "pre_sales"  # pre_sales | implementation | post_sales | renewal
+
+  # Enabled playbooks (from Blueprint)
+  enabled_playbooks:
+    strategic:
+      - "PB_001"  # Three Horizons
+      - "PB_201"  # SWOT
+      - "PB_301"  # Value Engineering
+    operational:
+      - "OP_RSK_001"
+      - "OP_ACT_001"
+      - "OP_MTG_001"
+
+  # Node-specific configuration
+  node_config:
+    thresholds:
+      minimum_arr: 500000
+      health_score_warning: 60
+    stakeholders: []
+    agents_enabled: []
+
+  # Relationships
+  relationships:
+    depends_on: []  # Other Node IDs
+    related_to: []  # Other Node IDs
+    parent_node: null  # For sub-initiatives
+```
+
+---
+
+### Playbook
+
+**Definition:** Executable instructions that operationalize a framework or respond to events.
+
+**Scope:** Node-level execution.
+
+**Categories:**
+
+| Category | Purpose | Example |
+|----------|---------|---------|
+| **Strategic** | Framework operationalization, holistic synthesis | PB_201 SWOT Analysis |
+| **Operational** | Event-driven tactical procedures | OP_RSK_001 Register Risk |
+
+**Relationship to Blueprint:**
+- Playbooks are DEFINED in the Blueprint
+- Playbooks are ENABLED per Node
+- Not all playbooks are active for every Node
+
+---
+
+## Entity Relationships
+
+```mermaid
+erDiagram
+    BLUEPRINT ||--o{ PLAYBOOK : defines
+    BLUEPRINT ||--o{ AGENT : defines
+    BLUEPRINT ||--o{ REALM : governs
+
+    REALM ||--o{ NODE : contains
+    REALM {
+        string id
+        string name
+        string type
+        string industry
+    }
+
+    NODE ||--o{ INFOHUB : has
+    NODE }o--o{ PLAYBOOK : enables
+    NODE }o--o{ AGENT : activates
+    NODE {
+        string id
+        string realm_id
+        string name
+        string status
+        string operating_mode
+    }
+
+    PLAYBOOK {
+        string id
+        string category
+        string version
+    }
+
+    AGENT {
+        string id
+        string team
+        string category
+    }
+
+    INFOHUB ||--o{ MEETING : contains
+    INFOHUB ||--o{ ACTION : contains
+    INFOHUB ||--o{ RISK : contains
+    INFOHUB ||--o{ DECISION : contains
+```
+
+---
+
+## InfoHub Structure (Per Node)
+
+```
+infohub/{realm}/{node}/
+├── node_profile.yaml           # Node configuration and status
+├── meetings/
+│   ├── external/               # Customer meetings
+│   └── internal/               # Deal reviews, syncs
+├── frameworks/                 # Strategic playbook outputs
+├── risks/risk_register.yaml
+├── decisions/decision_log.yaml
+├── actions/action_tracker.yaml
+├── stakeholders/               # Key contact profiles
+├── architecture/               # ADRs (TOGAF format)
+├── value/value_tracker.yaml
+└── governance/
+    ├── operating_cadence.yaml
+    ├── health_score.yaml
+    └── alerts/                 # Operational alerts
+```
+
+---
+
+## Terminology Migration
+
+### Before → After
+
+| Old Term | New Term | Context |
+|----------|----------|---------|
+| account | node | Unit of work, initiative |
+| client_id | node_id | Identifier |
+| account_profile | node_profile | Configuration file |
+| infohub/{account}/ | infohub/{realm}/{node}/ | File path |
+
+### Code Impact
+
+Files requiring update:
+- `config/playbook_thresholds.yaml` - threshold references
+- `core/playbook_engine/*.py` - variable names
+- `playbooks/operational/*.yaml` - path references
+- `examples/infohub/` - folder structure
+- `tests/*.py` - test fixtures
+
+---
+
+## Examples
+
+### Example 1: ACME Security Initiative
+
+```yaml
+realm:
+  id: "realm_bmw"
+  name: "ACME"
+  type: "customer"
+  industry: "manufacturing"
+  tier: "strategic"
+
+node:
+  id: "node_bmw_security_consolidation"
+  realm_id: "realm_bmw"
+  name: "Security Platform Consolidation"
+  purpose: "Replace 12 security tools with unified platform"
+  status: "active"
+  operating_mode: "pre_sales"
+  enabled_playbooks:
+    strategic: ["PB_001", "PB_201", "PB_301", "PB_401", "PB_701"]
+    operational: ["OP_RSK_001", "OP_ACT_001", "OP_ESC_001", "OP_MTG_001"]
+```
+
+### Example 2: Internal Platform Initiative
+
+```yaml
+realm:
+  id: "realm_internal"
+  name: "Internal Platform"
+  type: "internal"
+  industry: "technology"
+  tier: "internal"
+
+node:
+  id: "node_internal_devportal"
+  realm_id: "realm_internal"
+  name: "Developer Portal"
+  purpose: "Unified developer experience platform"
+  status: "active"
+  operating_mode: "implementation"
+  enabled_playbooks:
+    strategic: ["PB_101", "PB_201"]  # TOGAF + SWOT only
+    operational: ["OP_ACT_001", "OP_MTG_001"]
+```
+
+---
+
+## Validation Rules
+
+### Realm Validation
+
+- Realm ID must be unique
+- Realm must have at least one Node
+- Realm type must be: customer | partner | internal
+
+### Node Validation
+
+- Node ID must be unique within Realm
+- Node must reference valid Realm
+- Enabled playbooks must exist in Blueprint
+- Operating mode must be valid
+
+### Playbook-Node Relationship
+
+- Strategic playbooks require full Node context
+- Operational playbooks require Node + trigger event
+- Node can disable playbooks but not modify them
+
+---
+
+## Execution Scoping Rules
+
+### Critical: Node-Level Execution
+
+**All playbooks (strategic and operational) execute at Node level:**
+
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│                           EXECUTION SCOPE                            │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  Playbook Execution:                                                 │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │                    ALWAYS at NODE level                      │    │
+│  │                                                              │    │
+│  │  • Reads artifacts from: infohub/{realm}/{node}/*           │    │
+│  │  • Writes artifacts to:  infohub/{realm}/{node}/*           │    │
+│  │  • Context scope:        Single Node only                    │    │
+│  │  • Never reasons at:     Realm level or Account level       │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+│  Realm Level (Aggregation Only):                                    │
+│  ┌─────────────────────────────────────────────────────────────┐    │
+│  │  • Roll-up views across Nodes                               │    │
+│  │  • Governance dashboards                                     │    │
+│  │  • Cross-Node dependencies                                   │    │
+│  │  • NOT for playbook execution                               │    │
+│  └─────────────────────────────────────────────────────────────┘    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Node-Centric Operations
+
+| Operation | Scope | Example |
+|-----------|-------|---------|
+| Run PB_201 SWOT | Node | SWOT for "Security Consolidation" node |
+| Register Risk | Node | Risk in ACME/SECURITY_CONSOLIDATION/risks/ |
+| Process Meeting | Node | Meeting notes for specific initiative |
+| Health Score | Node | Health of single node, not realm |
+| Action Tracking | Node | Actions within single initiative |
+
+### Realm-Level Views (Read-Only Aggregation)
+
+| View | Purpose | NOT Used For |
+|------|---------|--------------|
+| Realm Dashboard | Roll-up across all nodes | Playbook execution |
+| Cross-Node Risks | Identify patterns | Writing artifacts |
+| Governance Summary | Leadership reporting | Agent reasoning |
+
+### Why Node-Level Matters
+
+1. **Isolation:** Each Node has independent governance lifecycle
+2. **Clarity:** No ambiguity about which initiative owns an artifact
+3. **Scalability:** Nodes can be added/removed without affecting others
+4. **Accountability:** Single owner per Node, clear responsibility
+
+---
+
+## Migration Checklist
+
+- [x] Update `examples/infohub/` to `examples/infohub/{realm}/{node}/`
+- [x] Update playbook path references from `{account}` to `{realm}/{node}`
+- [x] Update config files with new terminology
+- [x] Update test fixtures
+- [x] Update agent configurations
+- [x] Update documentation
+
+---
+
+**This document is the canonical reference for core entity definitions.**

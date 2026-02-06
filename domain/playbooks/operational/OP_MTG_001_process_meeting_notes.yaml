@@ -1,0 +1,234 @@
+# Operational Playbook: Process Meeting Notes
+# Triggered when new meeting notes or transcript is available
+
+playbook_id: "OP_MTG_001"
+version: "1.0"
+category: "operational"
+
+metadata:
+  name: "Process Meeting Notes"
+  description: "Extracts decisions, actions, risks, and key information from meeting notes"
+  owner_agent: "meeting_notes_agent"
+  participating_agents:
+    - "task_shepherd_agent"
+    - "decision_registrar_agent"
+    - "risk_radar_agent"
+
+# Trigger Definition
+trigger:
+  type: "event"
+  source: "user_upload|calendar_integration|transcript_service"
+  condition: "EVENT_TYPE == 'meeting_notes_available'"
+
+# Preconditions
+preconditions:
+  - condition: "EXISTS $.meeting.raw_notes OR EXISTS $.meeting.transcript"
+    error_message: "Meeting must have notes or transcript"
+  - condition: "EXISTS $.meeting.date"
+    error_message: "Meeting must have a date"
+  - condition: "EXISTS $.meeting.attendees"
+    error_message: "Meeting must have attendees list"
+
+# Steps
+steps:
+  - step_id: "classify_meeting"
+    name: "Classify meeting type"
+    agent: "meeting_notes_agent"
+    action: "analyze"
+    inputs:
+      - name: "meeting_title"
+        source: "$.meeting.title"
+      - name: "attendees"
+        source: "$.meeting.attendees"
+      - name: "content_preview"
+        source: "$.meeting.raw_notes[0:500]"
+    outputs:
+      - name: "meeting_type"
+        type: "decision"
+        destination: "$.meeting.type"
+    meeting_types:
+      - "external_customer"
+      - "internal_deal_review"
+      - "internal_planning"
+      - "steering_committee"
+      - "qbr"
+      - "technical_deep_dive"
+    on_failure: "skip"
+
+  - step_id: "extract_decisions"
+    name: "Extract decisions from meeting"
+    agent: "meeting_notes_agent"
+    action: "analyze"
+    inputs:
+      - name: "content"
+        source: "$.meeting.raw_notes"
+      - name: "decision_patterns"
+        source: "$.config.decision_extraction_patterns"
+    outputs:
+      - name: "decisions"
+        type: "artifact"
+        destination: "$.extracted.decisions"
+    extraction_signals:
+      - "decided to"
+      - "agreed that"
+      - "will proceed with"
+      - "approved"
+      - "rejected"
+      - "chose"
+    on_failure: "skip"
+
+  - step_id: "extract_actions"
+    name: "Extract action items from meeting"
+    agent: "meeting_notes_agent"
+    action: "analyze"
+    inputs:
+      - name: "content"
+        source: "$.meeting.raw_notes"
+      - name: "action_patterns"
+        source: "$.config.action_extraction_patterns"
+    outputs:
+      - name: "actions"
+        type: "artifact"
+        destination: "$.extracted.actions"
+    extraction_signals:
+      - "will do"
+      - "action:"
+      - "TODO"
+      - "needs to"
+      - "should follow up"
+      - "by [date]"
+    on_failure: "skip"
+
+  - step_id: "extract_risks"
+    name: "Extract risk SIGNALS from meeting (not severity)"
+    agent: "meeting_notes_agent"
+    action: "analyze"
+    inputs:
+      - name: "content"
+        source: "$.meeting.raw_notes"
+      - name: "risk_patterns"
+        source: "$.config.risk_extraction_patterns"
+    outputs:
+      - name: "risk_signals"
+        type: "artifact"
+        destination: "$.extracted.risk_signals"
+        # NOTE: These are raw signals, NOT classified risks
+        # Severity is decided by OP_RSK_001 (single authority)
+    extraction_signals:
+      - "concern"
+      - "risk"
+      - "worried about"
+      - "might not"
+      - "blocker"
+      - "competitor"
+      - "budget cut"
+    on_failure: "skip"
+
+  - step_id: "extract_stakeholder_updates"
+    name: "Extract stakeholder information updates"
+    agent: "meeting_notes_agent"
+    action: "analyze"
+    inputs:
+      - name: "content"
+        source: "$.meeting.raw_notes"
+      - name: "known_stakeholders"
+        source: "$.infohub.stakeholders"
+    outputs:
+      - name: "stakeholder_updates"
+        type: "artifact"
+        destination: "$.extracted.stakeholder_updates"
+    on_failure: "skip"
+
+  - step_id: "generate_summary"
+    name: "Generate meeting summary"
+    agent: "meeting_notes_agent"
+    action: "analyze"
+    inputs:
+      - name: "content"
+        source: "$.meeting.raw_notes"
+      - name: "extracted"
+        source: "$.extracted"
+    outputs:
+      - name: "summary"
+        type: "artifact"
+        destination: "$.meeting.summary"
+    on_failure: "skip"
+
+  - step_id: "write_meeting_note"
+    name: "Write structured meeting note"
+    agent: "meeting_notes_agent"
+    action: "write"
+    inputs:
+      - name: "meeting"
+        source: "$.meeting"
+      - name: "extracted"
+        source: "$.extracted"
+    outputs:
+      - name: "meeting_note"
+        type: "artifact"
+        format: "markdown"
+        destination: "infohub/{realm}/{node}/meetings/{type}/{date}_{title}.md"
+    on_failure: "stop"
+
+  - step_id: "trigger_downstream"
+    name: "Trigger downstream playbooks with raw signals"
+    agent: "meeting_notes_agent"
+    action: "notify"
+    inputs:
+      - name: "decisions"
+        source: "$.extracted.decisions"
+      - name: "actions"
+        source: "$.extracted.actions"
+      - name: "risk_signals"
+        source: "$.extracted.risk_signals"
+        # NOTE: Raw signals passed to OP_RSK_001 for classification
+    outputs:
+      - name: "triggered_playbooks"
+        type: "notification"
+        destination: "playbook_queue"
+    triggers:
+      - condition: "$.extracted.decisions.length > 0"
+        playbook: "OP_DEC_001_register_decision"
+      - condition: "$.extracted.actions.length > 0"
+        playbook: "OP_ACT_001_create_action_item"
+      - condition: "$.extracted.risk_signals.length > 0"
+        playbook: "OP_RSK_001_register_new_risk"
+        # OP_RSK_001 is the SINGLE AUTHORITY for risk classification
+    on_failure: "skip"
+
+# Outputs
+outputs:
+  - output_id: "meeting_note"
+    type: "artifact"
+    format: "markdown"
+    destination: "infohub/{realm}/{node}/meetings/{type}/"
+  - output_id: "extracted_items"
+    type: "artifact"
+    format: "yaml"
+    destination: "temporary"
+
+# Escalation
+escalation:
+  condition: |
+    $.meeting.type == 'steering_committee' OR
+    $.extracted.risks.length > 3 OR
+    ANY($.extracted.risks, severity == 'critical')
+  target: "senior_manager_agent"
+  message_template: |
+    MEETING PROCESSED: {$.meeting.title}
+    Type: {$.meeting.type}
+    Date: {$.meeting.date}
+
+    Extracted:
+    - Decisions: {$.extracted.decisions.length}
+    - Actions: {$.extracted.actions.length}
+    - Risks: {$.extracted.risks.length}
+
+    Review recommended due to: {$.escalation.reason}
+
+# Completion
+completion:
+  success_criteria: "EXISTS $.outputs.meeting_note"
+  artifacts_required:
+    - "infohub/{realm}/{node}/meetings/"
+  notification: "meeting_notes_agent"

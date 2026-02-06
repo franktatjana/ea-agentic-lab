@@ -1,0 +1,446 @@
+# PLAYBOOK: SWOT Analysis (Golden Reference Implementation)
+# Framework operationalization for AI agents
+# Refactored to PLAYBOOK_EXECUTION_SPECIFICATION v1.0 standard
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+framework_name: "SWOT Analysis"
+framework_source: "Albert Humphrey (Stanford Research Institute)"
+playbook_mode: "GENERATIVE"  # Generates SWOT analysis artifacts
+intended_agent_role: "SA Agent (coordinates cross-functional inputs)"
+secondary_agents: ["AE Agent", "CI Agent", "PM Agent", "CA Agent", "Delivery Agent"]
+
+primary_objective: "Classify strategic position into Strengths, Weaknesses, Opportunities, Threats to inform risk mitigation and opportunity prioritization"
+
+when_not_to_use:
+  - "No baseline account context exists (run account overview first)"
+  - "Analysis requested for competitor (use competitive framework instead)"
+  - "Immediate tactical decision needed (SWOT is strategic, not tactical)"
+  - "Less than ${thresholds.early_stage_days} days of engagement history"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - event: "high_severity_risk_detected"
+      description: "High-severity risk detected, contextualize with SWOT"
+
+    - event: "medium_risk_threshold_exceeded"
+      description: "Client has 3+ medium risks within 30 days"
+      condition: "$.risks[?(@.severity=='MEDIUM' || @.severity=='HIGH')].length >= ${thresholds.medium_risk_count_threshold}"
+
+    - event: "quarterly_business_review"
+      description: "Quarterly business review scheduled"
+
+    - event: "executive_sponsor_request"
+      description: "Executive sponsor requests strategic assessment"
+
+    - event: "competitive_evaluation_phase"
+      description: "Stage 2-3 in sales process"
+
+    # Tech Signal Map triggered events
+    - event: "SIG_TECH_003"
+      signal_filter: "is_competitor == true AND trend_direction == 'down'"
+      description: "Competitor technology declining - reassess SWOT for displacement opportunity"
+
+    - event: "SIG_TECH_001"
+      signal_filter: "ring_changes_count > 3"
+      description: "Significant tech signal map changes - refresh strategic assessment"
+
+  manual:
+    - "AE requests strategic context for account planning"
+    - "Governance team requests risk landscape review"
+    - "Post-mortem after deal win/loss"
+
+  conditional:
+    - condition: "$.risks[?(@.severity=='MEDIUM' || @.severity=='HIGH')].length >= ${thresholds.medium_risk_count_threshold}"
+      description: "3+ medium/high risks trigger SWOT"
+
+    - condition: "$.events[?(@.type=='executive_sponsor_assigned')].length > 0"
+      description: "New executive sponsor assigned, baseline assessment needed"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+validation_inputs:
+  mandatory:
+    - artifact: "infohub/{realm}/{node}/overview.md"
+      description: "Account overview with basic context"
+    - artifact: "infohub/{realm}/{node}/installed_base.md"
+      description: "Current ARR and products deployed"
+    - artifact: "infohub/{realm}/{node}/risks/*.md"
+      description: "Risk register"
+    - artifact: "Account Plan"
+      description: "Strategic account plan"
+
+  optional:
+    - artifact: "infohub/{realm}/{node}/stakeholders/relationship_map.md"
+      use: "Identify champion strength"
+    - artifact: "infohub/{realm}/{node}/competitive/*.md"
+      use: "Assess competitive threats"
+    - artifact: "Support case history"
+      use: "Identify technical weaknesses"
+    - artifact: "Win notes or deal history"
+      use: "Understand historical strengths"
+    - artifact: "infohub/{realm}/tech_signal_map/current_radar.yaml"
+      use: "Technology trends for opportunities/threats analysis"
+    - artifact: "/api/v1/realms/{realm}/tech-radar/skills-gap"
+      use: "Skills gap opportunities aligned with our offerings"
+    - artifact: "/api/v1/realms/{realm}/tech-radar/competitive"
+      use: "Competitor technology adoption trends"
+
+  minimum_data_threshold:
+    - "At least 1 documented strength (customer relationship, technical fit, revenue)"
+    - "At least 1 documented weakness or risk"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  strengths_internal_positive:
+    - "What competitive advantages exist in this account (relationship depth, technical fit, revenue scale)?"
+    - "What successful implementations or use cases demonstrate value?"
+    - "What executive sponsorship or champion relationships are active?"
+    - "What {vendor} capabilities uniquely solve customer problems vs. alternatives?"
+    - "What renewal history or expansion track record exists?"
+
+  weaknesses_internal_negative:
+    - "What technical gaps exist (performance issues, missing features, integration challenges)?"
+    - "What relationship vulnerabilities exist (weak champion, no exec sponsor, limited touchpoints)?"
+    - "What support or delivery issues have created friction?"
+    - "What competitive presence threatens displacement (products, relationships)?"
+    - "What budget or procurement barriers exist?"
+
+  opportunities_external_positive:
+    - "What customer IT initiatives align with {vendor} capabilities not yet deployed?"
+    - "What market trends favor {vendor} (cloud migration, GenAI, security, observability)?"
+    - "What organizational changes create expansion potential (M&A, new business units, regions)?"
+    - "What competitor weaknesses can {vendor} exploit?"
+    - "What partnership or ecosystem opportunities exist?"
+    # Tech Signal Map driven opportunities
+    - "What technologies in 'Adopt' ring align with our offerings (check tech signal map skills gap)?"
+    - "Are competitor tools (LegacySIEM, ObservabilityVendorA) declining in job postings (displacement opportunity)?"
+    - "What new technologies in 'Assess' ring indicate early-stage initiatives we can influence?"
+    - "What hiring velocity signals increased investment in areas we serve (SRE, DevSecOps)?"
+
+  threats_external_negative:
+    - "What external factors could harm the relationship (budget cuts, regulatory changes, market shifts)?"
+    - "What competitive moves threaten account (new entrants, price pressure, feature parity)?"
+    - "What customer organizational risks exist (champion departure, reorg, technology mandate change)?"
+    - "What technology shifts could marginalize {vendor} (new paradigms, open source alternatives)?"
+    # Tech Signal Map driven threats
+    - "Are competitor tools (LegacySIEM, ObservabilityVendorA, Prometheus) growing in job postings?"
+    - "Are technologies we rely on moving to 'Hold' ring (declining adoption)?"
+    - "What new technologies in 'Assess' ring could compete with our offerings?"
+    - "Is hiring velocity declining overall (reduced IT investment threat)?"
+
+# ==============================================================================
+# DECISION LOGIC (DLL Syntax)
+# ==============================================================================
+decision_logic:
+  rules:
+    # High threat + low strength = defensive posture
+    - id: "defensive_posture_required"
+      condition: "$.swot.threats.items[?(@.impact=='high')].length >= ${thresholds.high_threat_count} AND $.swot.strengths.count <= ${thresholds.low_strength_count}"
+      jsonpath_left: "$.swot.threats.items[?(@.impact=='high')].length"
+      operator: ">="
+      threshold_ref: "PB_201_swot.high_threat_count"
+      severity: "HIGH"
+      output_type: "Decision + Risk"
+      decision:
+        title: "Adopt defensive strategy for {node}"
+        context: "Multiple high threats with limited strengths, account at risk"
+        recommendation: "Prioritize threat mitigation and strength building over opportunity pursuit"
+        actions:
+          - "Activate executive sponsor immediately"
+          - "Engage specialists to address technical weaknesses"
+          - "Defer new opportunity pursuit until threats mitigated"
+        stakeholders: ["AE", "SA", "Executive Sponsor", "Sales Leadership"]
+      creates:
+        - object_type: "Decision"
+          severity: "HIGH"
+        - object_type: "Risk"
+          category: "strategic"
+
+    # High opportunity + high strength = growth posture
+    - id: "growth_posture_enabled"
+      condition: "$.swot.opportunities.items[?(@.type=='expansion')].length >= ${thresholds.min_opportunities} AND $.swot.strengths.items[?(@.category=='relationship' || @.category=='technical')].length >= ${thresholds.min_strengths}"
+      severity: "MEDIUM"
+      output_type: "Initiative"
+      decision:
+        title: "Accelerated expansion for {node}"
+        context: "Strong position with multiple opportunities, pursue aggressive growth"
+        recommendation: "Prioritize H2 opportunities from Three Horizons analysis"
+        actions:
+          - "Engage specialists for discovery on top 2-3 opportunities"
+          - "Request budget approval for account investment (POC resources)"
+        owner: "Account Executive"
+      creates:
+        - object_type: "Initiative"
+          priority: "HIGH"
+
+    # Competitive threat + technical weakness = critical combination
+    - id: "competitive_technical_risk"
+      condition: "$.swot.threats.items[?(@.category=='competitive')].length > 0 AND $.swot.weaknesses.items[?(@.category=='technical')].length > 0"
+      severity: "HIGH"
+      output_type: "Risk + Initiative"
+      decision:
+        title: "Competitive displacement risk amplified by technical gaps"
+        context: "External competitive threat combined with internal technical weakness"
+        recommendation: "Immediate competitive response and technical remediation"
+        actions:
+          - "CI Agent: Generate battlecard and positioning"
+          - "SA Agent: Prioritize technical gap resolution"
+          - "Engage specialist if needed"
+          - "Schedule customer meeting to address concerns"
+        escalate_to: "Sales Leadership + Product Team"
+      creates:
+        - object_type: "Risk"
+          category: "competitive"
+        - object_type: "Initiative"
+          urgency: "IMMEDIATE"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+validation_outputs:
+  primary_artifact:
+    path: "infohub/{realm}/{node}/frameworks_swot_{YYYY-MM-DD}.md"
+    format: "markdown"
+    sections:
+      - executive_summary
+      - strengths_analysis
+      - weaknesses_analysis
+      - opportunities_analysis
+      - threats_analysis
+      - strategic_recommendations
+
+    schema:
+      strengths:
+        type: "array"
+        items:
+          category:
+            type: "string"
+            enum: ["relationship", "technical", "financial", "competitive"]
+          description:
+            type: "string"
+            required: true
+          evidence:
+            type: "array"
+            required: true
+            items:
+              source_artifact:
+                type: "string"
+                required: true
+                description: "InfoHub path or external reference"
+              date:
+                type: "string"
+                required: true
+                format: "YYYY-MM-DD"
+              excerpt:
+                type: "string"
+                required: true
+                description: "Verbatim quote or data point"
+              confidence:
+                type: "string"
+                enum: ["HIGH", "MEDIUM", "LOW"]
+          impact:
+            type: "string"
+            enum: ["high", "medium", "low"]
+
+      weaknesses:
+        type: "array"
+        items:
+          category:
+            type: "string"
+            enum: ["relationship", "technical", "financial", "competitive"]
+          description:
+            type: "string"
+            required: true
+          evidence:
+            type: "array"
+            required: true
+            items:
+              source_artifact: {type: "string", required: true}
+              date: {type: "string", required: true}
+              excerpt: {type: "string", required: true}
+              confidence: {type: "string", enum: ["HIGH", "MEDIUM", "LOW"]}
+          severity:
+            type: "string"
+            enum: ["high", "medium", "low"]
+          mitigation_plan:
+            type: "string"
+            nullable: true
+
+      opportunities:
+        type: "array"
+        items:
+          type:
+            type: "string"
+            enum: ["expansion", "consolidation", "strategic", "partnership"]
+          description:
+            type: "string"
+            required: true
+          evidence:
+            type: "array"
+            required: true
+            items:
+              source_artifact: {type: "string", required: true}
+              date: {type: "string", required: true}
+              excerpt: {type: "string", required: true}
+              confidence: {type: "string", enum: ["HIGH", "MEDIUM", "LOW"]}
+          estimated_value:
+            type: "number"
+            nullable: true
+          prerequisite:
+            type: "string"
+            nullable: true
+            description: "Which strength enables this"
+          blocker:
+            type: "string"
+            nullable: true
+            description: "Which weakness prevents this"
+
+      threats:
+        type: "array"
+        items:
+          category:
+            type: "string"
+            enum: ["competitive", "market", "organizational", "technology"]
+          description:
+            type: "string"
+            required: true
+          evidence:
+            type: "array"
+            required: true
+            items:
+              source_artifact: {type: "string", required: true}
+              date: {type: "string", required: true}
+              excerpt: {type: "string", required: true}
+              confidence: {type: "string", enum: ["HIGH", "MEDIUM", "LOW"]}
+          probability:
+            type: "string"
+            enum: ["high", "medium", "low"]
+          impact:
+            type: "string"
+            enum: ["high", "medium", "low"]
+          mitigation:
+            type: "string"
+            required: true
+
+  decision_objects:
+    path: "infohub/{realm}/{node}/decisions/"
+    create_if:
+      - "Strategic posture shift recommended (defensive vs. growth)"
+      - "Resource allocation decision (address weakness vs. pursue opportunity)"
+    schema:
+      title: {type: "string", required: true}
+      context: {type: "string", required: true}
+      recommendation: {type: "string", required: true}
+      evidence: {type: "array", required: true}
+
+  risk_objects:
+    path: "infohub/{realm}/{node}/risks/"
+    create_if:
+      - "Critical threat identified (high probability + high impact)"
+      - "Weakness + threat combination creates compound risk"
+    schema:
+      title: {type: "string", required: true}
+      severity: {type: "string", enum: ["HIGH", "MEDIUM", "LOW"]}
+      category: {type: "string"}
+      evidence: {type: "array", required: true}
+
+  initiative_objects:
+    path: "infohub/{realm}/{node}/initiatives/"
+    create_if:
+      - "Weakness remediation required"
+      - "Opportunity pursuit enabled by strengths"
+    schema:
+      title: {type: "string", required: true}
+      actions: {type: "array", required: true}
+      owner: {type: "string"}
+      evidence: {type: "array", required: true}
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "$.swot.strengths.count == 0 OR ($.swot.strengths.count == 0 AND $.swot.weaknesses.count == 0 AND $.swot.opportunities.count == 0 AND $.swot.threats.count == 0)"
+      reason: "Insufficient data to perform meaningful analysis"
+      action: "Request AE to provide account context before running SWOT"
+
+    - condition: "contradictory_signals_detected"
+      reason: "Conflicting information requires human judgment"
+      action: "Flag ambiguity, request clarification from AE"
+      note: "Same factor appears as both strength and weakness, or conflicting evidence"
+
+    - condition: "$.swot.threats.items[?(@.impact=='high' && @.probability=='high')].length > 0"
+      reason: "Critical threat requires immediate executive decision"
+      action: "Escalate to Sales Leadership immediately, do not wait for playbook completion"
+
+  insufficient_data_signals:
+    - "No relationship data (no stakeholder map, no meeting notes)"
+    - "No technical context (no architecture docs, no usage data)"
+    - "No competitive intelligence (cannot assess threats accurately)"
+
+  ambiguity_signals:
+    - "Same factor appears in multiple quadrants"
+    - "Unclear whether factor is internal (strength/weakness) or external (opportunity/threat)"
+    - "Conflicting evidence (strong relationship mentioned but also churn risk)"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - check: "$.client_id EXISTS"
+      description: "Client ID must exist in InfoHub"
+    - check: "$.inputs.mandatory.count >= 2"
+      description: "At least 2 required inputs available"
+
+  post_execution:
+    - check: "$.swot.strengths.count >= ${thresholds.min_strengths} OR $.swot.weaknesses.count >= 1 OR $.swot.opportunities.count >= 1 OR $.swot.threats.count >= 1"
+      description: "At least one quadrant populated"
+    - check: "evidence_validation_passed"
+      description: "All entries have evidence citations (enforced by EvidenceValidator)"
+    - check: "$.swot.opportunities[*].prerequisite EXISTS OR $.swot.opportunities[*].blocker EXISTS"
+      description: "All opportunities linked to enabling strength or blocking weakness"
+    - check: "$.swot.threats[*].probability EXISTS AND $.swot.threats[*].impact EXISTS"
+      description: "All threats have probability and impact ratings"
+
+  output_quality:
+    - "No vague statements (enforced by prompt: 'Monthly CTO meetings' not 'good relationship')"
+    - "No unsourced claims (enforced by evidence validator)"
+    - "Internal vs. external factors correctly categorized (S/W internal, O/T external)"
+
+# ==============================================================================
+# FRAMEWORK REFERENCE
+# ==============================================================================
+framework_reference:
+  swot_quadrants:
+    strengths:
+      definition: "Internal positive factors (capabilities, resources, relationships)"
+      examples: ["Strong technical relationship with CTO", "Successful implementation", "High ARR stability"]
+
+    weaknesses:
+      definition: "Internal negative factors (gaps, vulnerabilities, constraints)"
+      examples: ["Performance issues", "Weak champion relationship", "Competitive presence"]
+
+    opportunities:
+      definition: "External positive factors (market trends, initiatives, partnerships)"
+      examples: ["GenAI adoption", "New business unit expansion", "Competitor weakness"]
+
+    threats:
+      definition: "External negative factors (competition, market shifts, organizational changes)"
+      examples: ["Budget freeze", "Competitive displacement", "Champion departure"]
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+last_updated: "2026-01-12"
+version: "2.0"
+status: "production_ready"
+notes: "Refactored to PLAYBOOK_EXECUTION_SPECIFICATION v1.0 standard with DLL syntax, standardized evidence schema, and threshold references"

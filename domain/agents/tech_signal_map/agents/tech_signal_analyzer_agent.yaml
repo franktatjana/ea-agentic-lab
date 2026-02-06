@@ -1,0 +1,222 @@
+# Tech Signal Map Analyzer Agent
+# Purpose: Analyze job scan data, generate tech signal map, and emit intelligence signals
+#
+# The Tech Signal Map is a decision-support artifact embedded into playbooks,
+# governance, and agent workflows. Inspired by multiple industry models including
+# technology radars, but adapted for decision governance and agent-based operations.
+
+agent_id: "tech_signal_analyzer_agent"
+team: "tech_signal_map"
+category: "intelligence_analysis"
+purpose: "Analyze job posting data to generate and update technology signal maps for realms"
+
+trigger:
+  events:
+    - signal_id: "SIG_TECH_004"  # job_scan_completed
+      filter: "status in ['completed', 'partial']"
+    - "manual_map_refresh"
+  schedule:
+    - cron: "0 6 * * 1"        # Weekly analysis on Mondays at 6 AM
+  api:
+    endpoint: "/api/v1/realms/{realm_id}/tech-signal-map/refresh"
+    method: "POST"
+
+inputs:
+  sources:
+    - "infohub/{realm}/tech_signal_map/scans/*.yaml"       # Scan results
+    - "infohub/{realm}/tech_signal_map/current_map.yaml"   # Previous map
+    - "infohub/{realm}/tech_signal_map/map_history/"       # Historical data
+  config:
+    - "config/tech_signal_map_config.yaml"  # Ring rules, patterns
+  context:
+    - "infohub/{realm}/realm_profile.yaml"  # Realm metadata
+
+processing:
+  aggregation:
+    - id: "aggregate_mentions"
+      description: "Roll up technology mentions across all scanned jobs"
+      operations:
+        - group_by: "canonical_name"
+        - count: "total_mentions"
+        - count_where: "requirement_level == 'required'"
+        - count_where: "requirement_level == 'nice_to_have'"
+        - average: "seniority_score"
+        - first: "first_seen"
+        - last: "last_seen"
+
+  ring_assignment:
+    - id: "apply_ring_rules"
+      description: "Assign technologies to rings based on rules"
+      rules_from: "config/tech_signal_map_config.yaml#ring_rules"
+      algorithm: |
+        IF total_mentions >= 20 AND required_ratio >= 0.7 THEN ring = "Adopt"
+        ELSE IF total_mentions >= 10 AND required_ratio >= 0.5 THEN ring = "Trial"
+        ELSE IF total_mentions >= 3 OR is_new THEN ring = "Assess"
+        IF trend_30d < -20% THEN ring = "Hold"
+
+  trend_analysis:
+    - id: "calculate_trends"
+      description: "Calculate 30-day and 90-day trends"
+      comparison_periods:
+        - "30_days"
+        - "90_days"
+      metrics:
+        - "mention_count_change"
+        - "required_ratio_change"
+        - "seniority_score_change"
+
+  new_technology_detection:
+    - id: "detect_new"
+      description: "Identify technologies appearing for first time"
+      criteria:
+        - "first_seen within scan period"
+        - "not in previous map"
+
+  competitor_analysis:
+    - id: "analyze_competitors"
+      description: "Track competitor tool mentions"
+      flag_technologies_from: "config/tech_signal_map_config.yaml#competitors"
+      analyze:
+        - "mention_trend"
+        - "displacement_opportunity"  # Declining competitor = opportunity
+
+  skills_gap_analysis:
+    - id: "match_offerings"
+      description: "Map technologies to our product offerings"
+      offerings_from: "config/tech_signal_map_config.yaml#platform_offerings"
+      generate:
+        - "opportunities"   # Strong alignment
+        - "gaps"           # No alignment (partner opportunity)
+
+  hiring_velocity:
+    - id: "calculate_velocity"
+      description: "Measure hiring activity trends"
+      metrics:
+        - "total_jobs_by_period"
+        - "jobs_by_quadrant"
+        - "seniority_distribution"
+        - "top_growing_technologies"
+        - "top_declining_technologies"
+
+outputs:
+  artifacts:
+    - type: "current_map"
+      path: "infohub/{realm}/tech_signal_map/current_map.yaml"
+      format: "yaml"
+      content:
+        - metadata
+        - technologies (with stats)
+        - quadrant_summary
+        - ring_summary
+        - highlights
+        - skills_gap
+        - change_log
+    - type: "map_snapshot"
+      path: "infohub/{realm}/tech_signal_map/map_history/{date}_map.yaml"
+      description: "Archived snapshot for historical comparison"
+    - type: "standard_export"
+      path: "infohub/{realm}/tech_signal_map/exports/signal_map.csv"
+      format: "csv"
+      description: "Standard export for visualization tools"
+
+  signals:
+    - signal_id: "SIG_TECH_001"
+      name: "tech_signal_map_updated"
+      emitted_when: "Signal map is regenerated with changes"
+      payload:
+        - realm_id
+        - updated_at
+        - technology_count
+        - jobs_analyzed
+        - new_technologies_count
+        - ring_changes_count
+
+    - signal_id: "SIG_TECH_002"
+      name: "new_technology_detected"
+      emitted_when: "New technology appears for first time"
+      emit_per: "each new technology"
+      payload:
+        - realm_id
+        - technology_name
+        - quadrant
+        - ring
+        - first_seen_at
+        - initial_mention_count
+
+    - signal_id: "SIG_TECH_003"
+      name: "technology_trending"
+      emitted_when: "Technology shows >15% change or ring movement"
+      emit_per: "each trending technology"
+      payload:
+        - realm_id
+        - technology_name
+        - trend_direction
+        - trend_percentage
+        - previous_ring
+        - new_ring
+
+  reports:
+    - type: "weekly_tech_digest"
+      content:
+        - new_technologies
+        - trending_up (top 5)
+        - trending_down (top 5)
+        - competitive_insights
+        - hiring_velocity_summary
+      recipients: ["sa_team", "ci_team", "ae_team"]
+
+    - type: "skills_gap_report"
+      content:
+        - opportunities_by_offering
+        - gaps_for_partnerships
+        - recommended_actions
+      recipients: ["product_team", "partnership_team"]
+
+quality_gates:
+  - "All technologies have canonical name"
+  - "All technologies have quadrant assignment"
+  - "All technologies have ring assignment"
+  - "Competitor technologies flagged correctly"
+  - "No duplicate technologies on map"
+  - "Skills gap analysis complete"
+
+integrations:
+  reads_from:
+    - "scan_results"
+    - "previous_map"
+    - "map_history"
+    - "tech_signal_map_config"
+  writes_to:
+    - "current_map"
+    - "map_history"
+    - "standard_exports"
+  notifies:
+    - "sa_agent"       # Via SIG_TECH_001, SIG_TECH_002
+    - "ci_agent"       # Via SIG_TECH_001, SIG_TECH_003
+    - "ae_agent"       # Via SIG_TECH_001
+    - "pm_agent"       # Via SIG_TECH_002
+
+metrics:
+  - "technologies_on_map"
+  - "new_technologies_detected"
+  - "ring_changes"
+  - "competitor_technologies_tracked"
+  - "analysis_duration_seconds"
+  - "skills_gap_opportunities_found"
+
+export_format:
+  description: "Standard format for visualization tools"
+  fields:
+    - name: "name"
+      source: "technology.name"
+    - name: "ring"
+      source: "technology.ring"
+      values: ["Adopt", "Trial", "Assess", "Hold"]
+    - name: "quadrant"
+      source: "technology.quadrant"
+      values: ["Techniques", "Tools", "Platforms", "Languages & Frameworks"]
+    - name: "isNew"
+      source: "technology.is_new"
+    - name: "description"
+      source: "technology.description"
+      fallback: "Mentioned in {total_mentions} job postings"

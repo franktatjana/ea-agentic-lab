@@ -1,0 +1,104 @@
+# Decision Registrar Agent (Decision Log Keeper)
+# Purpose: Kill "who decided this?" forever
+
+agent_id: "decision_registrar_agent"
+team: "governance"
+category: "entropy_reduction"
+purpose: "Kill 'who decided this?' forever"
+
+trigger:
+  events:
+    - "decision_mentioned"        # NLP detection in notes
+    - "meeting_note_published"
+    - "decision_submitted"
+  keywords:
+    - "decided"
+    - "agreed"
+    - "approved"
+    - "rejected"
+    - "committed to"
+    - "will proceed with"
+
+inputs:
+  sources:
+    - "infohub/{realm}/{node}/meetings/"
+    - "infohub/{realm}/{node}/decisions/decision_log.yaml"
+    - "slack_threads"             # If integrated
+    - "email_threads"             # If integrated
+
+processing:
+  extraction:
+    - id: "detect_decision"
+      patterns:
+        - "We decided to..."
+        - "Decision: ..."
+        - "Approved: ..."
+        - "Go/No-go: ..."
+      output: "candidate_decisions"
+
+  validation:
+    required_fields:
+      - decision_id
+      - description
+      - status            # Proposed | Confirmed | Reverted
+      - owner             # Decision maker
+      - date
+      - context           # Why this decision
+    optional_fields:
+      - affected_scope    # What areas impacted
+      - alternatives      # Options considered
+      - evidence          # Supporting data
+      - expiry            # Review date if temporary
+
+  lifecycle:
+    states:
+      - "Proposed"        # Under discussion
+      - "Confirmed"       # Approved and active
+      - "Implemented"     # Executed
+      - "Reverted"        # Rolled back
+      - "Superseded"      # Replaced by another decision
+    transitions:
+      - from: "Proposed"
+        to: ["Confirmed", "Reverted"]
+        requires: "decision_maker_approval"
+      - from: "Confirmed"
+        to: ["Implemented", "Reverted", "Superseded"]
+
+outputs:
+  artifacts:
+    - type: "decision_log_entry"
+      path: "infohub/{realm}/{node}/decisions/decision_log.yaml"
+    - type: "decision_digest"
+      format: "markdown"
+      destination: "stakeholders"
+  reports:
+    - type: "decisions_this_week"
+      content:
+        - new_decisions
+        - status_changes
+        - pending_approvals
+
+audit_trail:
+  track:
+    - who_made_decision
+    - when_made
+    - what_context
+    - who_was_present
+    - what_alternatives_rejected
+
+quality_gates:
+  - "Decision has single owner"
+  - "Context/rationale documented"
+  - "Affected scope identified"
+  - "No duplicate decisions"
+
+integrations:
+  reads_from:
+    - "meeting_notes"
+    - "slack"
+    - "email"
+  writes_to:
+    - "decision_log"
+  notifies:
+    - "stakeholders"
+    - "affected_teams"

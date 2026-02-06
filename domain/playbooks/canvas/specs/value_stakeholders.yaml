@@ -1,0 +1,194 @@
+# Canvas Spec: Value & Stakeholders Canvas
+# One page: Who gets what value, and who really decides
+
+canvas_id: value_stakeholders
+version: "1.0"
+name: "Value & Stakeholders Canvas"
+description: "One-page view of stakeholder landscape and value propositions - who decides, who benefits, why now"
+
+# ==============================================================================
+# DESIGN RULE: One canvas = one page = one result
+# Output: Value narrative + target KPIs
+# ==============================================================================
+
+# ==============================================================================
+# CANVAS SECTIONS
+# ==============================================================================
+sections:
+  stakeholder_map:
+    label: "Stakeholder Map"
+    prompt: "Map the key players by their role in the decision"
+    required: true
+    max_items: null  # structured by role
+    format: "role_based"
+    subsections:
+      economic_buyer:
+        label: "Economic Buyer"
+        prompt: "Who controls the budget? Who signs?"
+        max_items: 2
+      champion:
+        label: "Champion"
+        prompt: "Who advocates internally for us?"
+        max_items: 2
+      users:
+        label: "Users"
+        prompt: "Who will use the solution daily?"
+        max_items: 4
+      blockers:
+        label: "Blockers"
+        prompt: "Who could derail or delay the deal?"
+        max_items: 3
+    source:
+      type: "infohub"
+      path: "context/stakeholder_map.yaml"
+      transform: "group_by_role"
+
+  value_hypotheses:
+    label: "Value Hypotheses"
+    prompt: "What specific value will we deliver? (3 max - focus!)"
+    required: true
+    max_items: 3  # Hard limit - forces prioritization
+    format: "hypothesis"
+    fields_per_item:
+      - hypothesis: "If we [action], then [outcome]"
+      - for_whom: "Stakeholder who benefits"
+      - evidence: "What supports this?"
+    source:
+      type: "infohub"
+      path: "value/value_hypothesis.yaml"
+      field: "hypotheses"
+      limit: 3
+
+  success_metrics:
+    label: "Success Metrics"
+    prompt: "How will we measure success? (3 metrics max)"
+    required: true
+    max_items: 3  # Hard limit
+    format: "metric"
+    fields_per_item:
+      - metric: "What we measure"
+      - baseline: "Current state"
+      - target: "Success target"
+      - owner: "Who tracks this"
+    source:
+      type: "infohub"
+      path: "value/value_hypothesis.yaml"
+      field: "success_metrics"
+      fallback: "poc/success_criteria.yaml"
+
+  why_now:
+    label: "Why Now?"
+    prompt: "What triggers make this urgent? Why can't they wait?"
+    required: true
+    max_items: 4
+    source:
+      type: "derived"
+      from: ["discovery/pain_points.yaml", "meeting_notes/"]
+      extract: "urgency_triggers"
+      examples:
+        - "Contract renewal in 90 days"
+        - "Compliance deadline approaching"
+        - "Competitor threat"
+        - "Budget cycle timing"
+        - "Executive mandate"
+        - "Incident that exposed gap"
+
+# ==============================================================================
+# OUTPUT ARTIFACTS
+# ==============================================================================
+output_artifacts:
+  value_narrative:
+    description: "Synthesized value story for this opportunity"
+    generated_from: ["value_hypotheses", "why_now", "stakeholder_map"]
+    format: |
+      For [economic_buyer], who needs [primary_value],
+      our solution provides [key_capability].
+      Unlike [current_state/competitor],
+      we deliver [differentiator].
+      This matters now because [why_now].
+
+  target_kpis:
+    description: "Measurable targets extracted from success_metrics"
+    generated_from: ["success_metrics"]
+    format: "table"
+
+# ==============================================================================
+# METADATA
+# ==============================================================================
+metadata:
+  opportunity:
+    source: "context/overview.yaml → opportunity_id"
+  stage:
+    source: "context/overview.yaml → stage"
+  last_updated:
+    source: "render_timestamp"
+  version:
+    source: "render_version"
+
+# ==============================================================================
+# RENDER TRIGGERS
+# ==============================================================================
+triggers:
+  on_create:
+    - "Stakeholder map created"
+    - "Value hypothesis documented"
+  on_update:
+    - "New stakeholder identified"
+    - "Value hypothesis refined"
+    - "Success metrics defined"
+    - "Meeting notes with stakeholder/value discussion"
+  scheduled:
+    - frequency: "weekly"
+      condition: "opportunity.stage IN ['Stage 2', 'Stage 3', 'Stage 4']"
+
+# ==============================================================================
+# VALIDATION RULES
+# ==============================================================================
+validation:
+  completeness:
+    minimum_sections:
+      - "stakeholder_map"
+      - "value_hypotheses"
+    warning_if_missing:
+      - "success_metrics"
+      - "why_now"
+
+  hard_limits:
+    - rule: "value_hypotheses.count <= 3"
+      severity: "error"
+      message: "Focus! Maximum 3 value hypotheses. Prioritize."
+    - rule: "success_metrics.count <= 3"
+      severity: "error"
+      message: "Focus! Maximum 3 success metrics."
+
+  consistency:
+    - rule: "economic_buyer must be identified"
+      severity: "error"
+    - rule: "at least one champion must exist"
+      severity: "warning"
+    - rule: "each value_hypothesis should map to a stakeholder"
+      severity: "warning"
+    - rule: "success_metrics should link to value_hypotheses"
+      severity: "info"
+
+# ==============================================================================
+# OUTPUT PATHS
+# ==============================================================================
+output:
+  markdown:
+    path: "infohub/{realm}/{node}/canvas/value_stakeholders_{opportunity_id}.md"
+  html:
+    path: "infohub/{realm}/{node}/canvas/value_stakeholders_{opportunity_id}.html"
+    template: "playbooks/canvas/templates/value_stakeholders.html"
+
+# ==============================================================================
+# LAYOUT
+# ==============================================================================
+layout:
+  grid: "2x2"
+  sections:
+    top_left: "stakeholder_map"
+    top_right: "value_hypotheses"
+    bottom_left: "why_now"
+    bottom_right: "success_metrics"
+  footer: "value_narrative"

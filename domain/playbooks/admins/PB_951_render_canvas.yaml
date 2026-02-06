@@ -1,0 +1,237 @@
+# PLAYBOOK: Canvas Rendering
+# Renders visual canvas assets from InfoHub data
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+framework_name: "Canvas Rendering"
+playbook_id: "PB_951"
+intended_agent_role: "Any agent with canvas rendering task"
+secondary_agents: []
+
+primary_objective: "Render visual canvas artifacts (MD + HTML) from InfoHub data for human consumption"
+
+when_not_to_use:
+  - "Canvas spec does not exist in registry"
+  - "Required source data not available"
+  - "Canvas type not active in registry"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - "Source data created (e.g., new decision record)"
+    - "Source data updated (e.g., decision status change)"
+    - "Meeting notes extracted with canvas-relevant content"
+    - "Scheduled refresh (per canvas spec cadence)"
+
+  manual:
+    - "Agent requests canvas render for specific node"
+    - "Human requests canvas refresh"
+
+  conditional:
+    - "IF decision.created THEN render architecture_decision canvas"
+    - "IF discovery.complete THEN render problem_solution_fit canvas"
+    - "IF canvas.last_updated > cadence_threshold THEN flag_stale"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "playbooks/canvas/registry.yaml"
+      description: "Canvas registry with active canvas types"
+    - artifact: "playbooks/canvas/specs/{canvas_type}.yaml"
+      description: "Canvas specification with sections and mappings"
+    - artifact: "infohub/{realm}/{node}/"
+      description: "Source data location"
+
+  optional:
+    - artifact: "playbooks/canvas/templates/{canvas_type}.html"
+      description: "HTML template for visual rendering"
+
+# ==============================================================================
+# EXECUTION STEPS
+# ==============================================================================
+execution_steps:
+  step_1_validate:
+    name: "Validate Canvas Request"
+    actions:
+      - "Load canvas spec from registry"
+      - "Verify canvas_type is active"
+      - "Verify required source paths exist"
+    outputs:
+      - "Canvas spec loaded"
+      - "Source paths validated"
+    on_failure: "STOP - canvas type not found or inactive"
+
+  step_2_gather_data:
+    name: "Gather Source Data"
+    actions:
+      - "FOR each section in spec.sections:"
+      - "  Resolve source path with realm/node context"
+      - "  Load data from infohub"
+      - "  Apply any filters specified"
+      - "  Validate against max_items"
+    outputs:
+      - "Section data collected"
+      - "Missing required sections flagged"
+
+  step_3_validate_content:
+    name: "Validate Content"
+    actions:
+      - "Check completeness rules"
+      - "Check consistency rules"
+      - "Generate validation report"
+    outputs:
+      - "Validation status (pass/warn/fail)"
+      - "Validation issues list"
+
+  step_4_render_markdown:
+    name: "Render Markdown"
+    actions:
+      - "Generate markdown canvas from section data"
+      - "Include metadata header"
+      - "Include validation warnings if any"
+    outputs:
+      - "Canvas markdown file"
+    output_path: "infohub/{realm}/{node}/canvas/{canvas_type}_{context_id}.md"
+
+  step_5_render_html:
+    name: "Render HTML"
+    actions:
+      - "Load HTML template"
+      - "Substitute placeholders with section data"
+      - "Apply status-based styling"
+    outputs:
+      - "Canvas HTML file"
+    output_path: "infohub/{realm}/{node}/canvas/{canvas_type}_{context_id}.html"
+    conditional: "IF template exists"
+
+  step_6_update_registry:
+    name: "Update Canvas Asset Registry"
+    actions:
+      - "Record canvas asset in node's canvas index"
+      - "Update last_rendered timestamp"
+      - "Link to source records"
+    outputs:
+      - "Canvas index updated"
+
+# ==============================================================================
+# MARKDOWN OUTPUT FORMAT
+# ==============================================================================
+markdown_template: |
+  # {{canvas_name}}
+
+  | Field | Value |
+  |-------|-------|
+  | **Realm/Node** | {{realm}} / {{node}} |
+  | **Created** | {{date}} |
+  | **Status** | {{status}} |
+  | **Version** | {{version}} |
+
+  ---
+
+  ## {{section_1_label}}
+  {{section_1_content}}
+
+  ## {{section_2_label}}
+  {{section_2_content}}
+
+  <!-- Repeat for all sections -->
+
+  ---
+
+  **Validation:** {{validation_status}}
+  {{validation_warnings}}
+
+  ---
+  *Rendered by {{agent_id}} on {{render_timestamp}}*
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    - condition: "required_section_missing"
+      severity: "HIGH"
+      output_type: "Risk"
+      decision: |
+        CREATE Risk:
+          title: "Canvas incomplete - missing required section"
+          description: "{{canvas_type}} canvas missing: {{missing_sections}}"
+          action: "Gather missing data before re-rendering"
+
+    - condition: "consistency_check_failed"
+      severity: "MEDIUM"
+      output_type: "Warning"
+      decision: |
+        ADD Warning to canvas:
+          message: "Consistency issue: {{consistency_error}}"
+          action: "Review and correct source data"
+
+    - condition: "canvas_stale"
+      severity: "LOW"
+      output_type: "Initiative"
+      decision: |
+        CREATE Initiative:
+          title: "Refresh stale canvas"
+          description: "{{canvas_type}} not updated in {{days}} days"
+          action: "Re-render or mark as archived"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifacts:
+    - path: "infohub/{realm}/{node}/canvas/{canvas_type}_{context_id}.md"
+      format: "markdown"
+      description: "Version-controllable canvas for agents/git"
+
+    - path: "infohub/{realm}/{node}/canvas/{canvas_type}_{context_id}.html"
+      format: "html"
+      description: "Visual canvas for human consumption"
+
+  secondary_artifacts:
+    - path: "infohub/{realm}/{node}/canvas/index.yaml"
+      format: "yaml"
+      description: "Index of all canvases for this node"
+      schema:
+        canvases:
+          - canvas_type: "string"
+            context_id: "string"
+            last_rendered: "datetime"
+            status: "enum[draft|review|published|stale]"
+            validation: "enum[pass|warn|fail]"
+            source_refs: "array[string]"
+
+  notifications:
+    - recipient: "Canvas owner (per spec)"
+      condition: "validation == fail"
+      message: "Canvas {{canvas_type}} failed validation: {{errors}}"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "Canvas type exists in registry"
+    - "Canvas spec file exists"
+    - "Realm/node path exists in infohub"
+
+  post_execution:
+    - "Markdown file created"
+    - "HTML file created (if template exists)"
+    - "Canvas index updated"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "30 seconds - 2 minutes"
+frequency: "On trigger (data change, scheduled, manual)"
+human_review_required: false
+
+last_updated: "2026-01-22"
+version: "1.0"
+status: "production_ready"

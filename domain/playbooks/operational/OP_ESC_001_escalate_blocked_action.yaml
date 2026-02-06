@@ -1,0 +1,207 @@
+# Operational Playbook: Escalate Blocked Action
+# Triggered when an action is overdue or blocked
+
+playbook_id: "OP_ESC_001"
+version: "1.0"
+category: "operational"
+
+metadata:
+  name: "Escalate Blocked Action"
+  description: "Escalates actions that are overdue, blocked, or at risk of missing deadlines"
+  owner_agent: "nudger_agent"
+  participating_agents:
+    - "task_shepherd_agent"
+    - "senior_manager_agent"
+
+# Trigger Definition
+trigger:
+  type: "threshold"
+  source: "scheduled_check|action_update"
+  condition: |
+    ($.action.status == 'blocked') OR
+    ($.action.days_overdue > 3) OR
+    ($.action.days_until_due <= 1 AND $.action.status == 'not_started')
+
+# Preconditions
+preconditions:
+  - condition: "EXISTS $.action.id"
+    error_message: "Action must have an ID"
+  - condition: "EXISTS $.action.owner"
+    error_message: "Action must have an owner"
+
+# Steps
+steps:
+  - step_id: "assess_situation"
+    name: "Assess escalation severity"
+    agent: "nudger_agent"
+    action: "analyze"
+    inputs:
+      - name: "action"
+        source: "$.action"
+      - name: "escalation_history"
+        source: "$.action.escalation_history"
+      - name: "linked_risks"
+        source: "$.infohub.risks.risk_register.risks[?(@.linked_actions contains $.action.id)]"
+    outputs:
+      - name: "severity"
+        type: "decision"
+        destination: "$.escalation.severity"
+      - name: "impact_assessment"
+        type: "artifact"
+        destination: "$.escalation.impact"
+    severity_rules:
+      critical: "linked to critical risk OR overdue > 7 days"
+      high: "overdue > 3 days OR blocked with no workaround"
+      medium: "at risk of missing deadline"
+    on_failure: "stop"
+
+  - step_id: "determine_escalation_target"
+    name: "Determine who to escalate to"
+    agent: "nudger_agent"
+    action: "compute"
+    inputs:
+      - name: "action_owner"
+        source: "$.action.owner"
+      - name: "severity"
+        source: "$.escalation.severity"
+      - name: "escalation_matrix"
+        source: "$.config.escalation_matrix"
+    outputs:
+      - name: "target"
+        type: "decision"
+        destination: "$.escalation.target"
+    escalation_matrix:
+      critical: "senior_manager_agent"
+      high: "owner_manager"
+      medium: "action_owner"
+    on_failure: "escalate"
+
+  - step_id: "gather_context"
+    name: "Gather context for escalation"
+    agent: "task_shepherd_agent"
+    action: "read"
+    inputs:
+      - name: "action"
+        source: "$.action"
+      - name: "related_meetings"
+        source: "$.infohub.meetings"
+      - name: "related_decisions"
+        source: "$.infohub.decisions"
+    outputs:
+      - name: "context_summary"
+        type: "artifact"
+        destination: "$.escalation.context"
+    on_failure: "skip"
+
+  - step_id: "compose_escalation"
+    name: "Compose escalation message"
+    agent: "nudger_agent"
+    action: "analyze"
+    inputs:
+      - name: "action"
+        source: "$.action"
+      - name: "severity"
+        source: "$.escalation.severity"
+      - name: "context"
+        source: "$.escalation.context"
+      - name: "template"
+        source: "$.templates.escalation_message"
+    outputs:
+      - name: "message"
+        type: "artifact"
+        destination: "$.escalation.message"
+    on_failure: "stop"
+
+  - step_id: "send_escalation"
+    name: "Send escalation notification"
+    agent: "nudger_agent"
+    action: "notify"
+    inputs:
+      - name: "recipient"
+        source: "$.escalation.target"
+      - name: "message"
+        source: "$.escalation.message"
+      - name: "priority"
+        source: "$.escalation.severity"
+    outputs:
+      - name: "notification"
+        type: "notification"
+        format: "markdown"
+        destination: "notification_queue"
+    on_failure: "stop"
+
+  - step_id: "update_action_status"
+    name: "Update action with escalation record"
+    agent: "task_shepherd_agent"
+    action: "write"
+    inputs:
+      - name: "action_id"
+        source: "$.action.id"
+      - name: "escalation_record"
+        source: |
+          {
+            "date": "{{now}}",
+            "target": "{{$.escalation.target}}",
+            "severity": "{{$.escalation.severity}}",
+            "reason": "{{$.escalation.reason}}"
+          }
+    outputs:
+      - name: "updated_action"
+        type: "artifact"
+        format: "yaml"
+        destination: "infohub/{realm}/{node}/actions/action_tracker.yaml"
+    on_failure: "skip"
+
+# Outputs
+outputs:
+  - output_id: "escalation_notification"
+    type: "notification"
+    format: "markdown"
+    destination: "notification_queue"
+  - output_id: "action_update"
+    type: "artifact"
+    format: "yaml"
+    destination: "infohub/{realm}/{node}/actions/action_tracker.yaml"
+
+# Escalation (meta-escalation if this playbook fails)
+escalation:
+  condition: "$.steps.send_escalation.failed"
+  target: "senior_manager_agent"
+  message_template: |
+    ESCALATION FAILED: Unable to escalate action {$.action.id}
+    Original issue: {$.escalation.reason}
+    Failure reason: {$.steps.send_escalation.error}
+    Manual intervention required.
+
+# Completion
+completion:
+  success_criteria: "$.steps.send_escalation.status == 'success'"
+  artifacts_required: []
+  notification: "nudger_agent"
+
+# Escalation Message Template
+templates:
+  escalation_message: |
+    ## Action Escalation: {severity}
+
+    **Action:** {$.action.description}
+    **ID:** {$.action.id}
+    **Owner:** {$.action.owner}
+    **Due Date:** {$.action.due_date}
+    **Status:** {$.action.status}
+
+    ### Issue
+    {$.escalation.reason}
+
+    ### Impact
+    {$.escalation.impact}
+
+    ### Context
+    {$.escalation.context}
+
+    ### Requested Action
+    Please review and take one of the following actions:
+    1. Reassign to different owner
+    2. Extend due date with justification
+    3. Mark as blocked with blocker details
+    4. Escalate further

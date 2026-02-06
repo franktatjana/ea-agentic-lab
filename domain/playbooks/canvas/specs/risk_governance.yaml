@@ -1,0 +1,186 @@
+# Canvas Spec: Risk & Governance Canvas
+# One page: Risk Register + RACI + Cadence
+# Output: Risk Register + Governance Cadence
+
+canvas_id: risk_governance
+version: "1.0"
+name: "Risk & Governance Canvas"
+description: "Ensure project stability and executive alignment - risks, decision rights, and communication rhythm"
+
+# ==============================================================================
+# CANVAS SECTIONS
+# ==============================================================================
+sections:
+  risk_register:
+    label: "Risks"
+    prompt: "Detailed register of project risks with assessment and mitigation"
+    required: true
+    max_items: 8
+    format: "table"
+    columns:
+      - risk: "Risk description"
+      - severity: "HIGH | MEDIUM | LOW"
+      - likelihood: "HIGH | MEDIUM | LOW"
+      - impact: "Impact if realized"
+      - mitigation: "Action plan to minimize"
+      - owner: "Person accountable"
+      - status: "Open | Mitigating | Closed"
+    source:
+      type: "infohub"
+      path: "risks/"
+      filter: "status != 'closed'"
+      sort: "severity DESC, likelihood DESC"
+
+  raci_matrix:
+    label: "RACI for Key Decisions"
+    prompt: "Who is Responsible, Accountable, Consulted, Informed for critical milestones"
+    required: true
+    max_items: 6
+    format: "raci"
+    columns:
+      - decision: "Key decision or milestone"
+      - responsible: "Does the work"
+      - accountable: "Final authority"
+      - consulted: "Provides input"
+      - informed: "Kept in loop"
+    examples:
+      - "Technical architecture approval"
+      - "Budget sign-off"
+      - "Go-live decision"
+      - "Scope changes"
+    source:
+      type: "infohub"
+      path: "context/stakeholder_map.yaml"
+      transform: "derive_raci_from_stakeholders"
+
+  cadence:
+    label: "Cadence"
+    prompt: "Communication rhythm and meeting structure"
+    required: true
+    format: "structured"
+    subsections:
+      weekly:
+        label: "Weekly: Technical Sync"
+        prompt: "Task tracking and technical issues"
+        fields:
+          - frequency: "Weekly"
+          - attendees: "Technical team"
+          - focus: "Task progress, blockers, technical decisions"
+          - owner: "SA / Technical Lead"
+
+      exec_sync:
+        label: "Exec Sync: Bi-weekly/Monthly"
+        prompt: "Stakeholder alignment"
+        fields:
+          - frequency: "Bi-weekly or Monthly"
+          - attendees: "Executive sponsors, champions"
+          - focus: "Progress, risks, decisions needed"
+          - owner: "AE / Account Lead"
+
+      steering:
+        label: "Steering: As Needed"
+        prompt: "Strategic adjustments and escalations"
+        fields:
+          - frequency: "Monthly or as needed"
+          - attendees: "Steering committee, executives"
+          - focus: "Strategic blockers, scope changes, escalations"
+          - owner: "Executive Sponsor"
+    source:
+      type: "infohub"
+      path: "csp/csp.yaml"
+      field: "governance.cadence"
+      fallback: "default_cadence_template"
+
+# ==============================================================================
+# OUTPUT ARTIFACTS
+# ==============================================================================
+output_artifacts:
+  risk_register:
+    description: "Active risks with mitigation status"
+    generated_from: ["risk_register"]
+
+  governance_cadence:
+    description: "Meeting schedule and ownership"
+    generated_from: ["cadence", "raci_matrix"]
+
+# ==============================================================================
+# METADATA
+# ==============================================================================
+metadata:
+  opportunity:
+    source: "context/overview.yaml → opportunity_id"
+  risk_count:
+    calculated: "count(risk_register)"
+  high_risks:
+    calculated: "count(risk_register WHERE severity=HIGH)"
+  last_updated:
+    source: "render_timestamp"
+
+# ==============================================================================
+# RENDER TRIGGERS
+# ==============================================================================
+triggers:
+  on_create:
+    - "CSP created"
+    - "POC Success Plan created"
+  on_update:
+    - "New risk identified"
+    - "Risk status changes"
+    - "Stakeholder changes affecting RACI"
+  scheduled:
+    - frequency: "weekly"
+      condition: "opportunity.stage >= 'Stage 3' OR account.status == 'implementation'"
+
+# ==============================================================================
+# VALIDATION RULES
+# ==============================================================================
+validation:
+  completeness:
+    minimum_sections:
+      - "risk_register"
+      - "cadence"
+    warning_if_missing:
+      - "raci_matrix"
+
+  risk_rules:
+    - rule: "all HIGH severity risks must have mitigation"
+      severity: "error"
+    - rule: "all risks must have owner"
+      severity: "error"
+    - rule: "open risks > 30 days should be reviewed"
+      severity: "warning"
+
+  raci_rules:
+    - rule: "each decision must have exactly one Accountable"
+      severity: "error"
+    - rule: "each decision should have at least one Responsible"
+      severity: "warning"
+
+  alerts:
+    - condition: "high_risks > 3"
+      message: "Multiple high-severity risks require attention"
+      severity: "warning"
+
+# ==============================================================================
+# OUTPUT PATHS
+# ==============================================================================
+output:
+  markdown:
+    path: "infohub/{realm}/{node}/canvas/risk_governance_{opportunity_id}.md"
+  html:
+    path: "infohub/{realm}/{node}/canvas/risk_governance_{opportunity_id}.html"
+    template: "playbooks/canvas/templates/risk_governance.html"
+
+# ==============================================================================
+# LAYOUT
+# ==============================================================================
+layout:
+  grid: "header + 2 columns"
+  sections:
+    top: "risk_register"  # full width, main focus
+    bottom_left: "raci_matrix"
+    bottom_right: "cadence"
+  color_coding:
+    high_risk: "#FFCDD2"  # red background
+    medium_risk: "#FFF9C4"  # yellow background
+    low_risk: "#C8E6C9"  # green background

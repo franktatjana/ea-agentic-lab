@@ -1,0 +1,139 @@
+# Risk Radar Agent (Risk & Signals Agent)
+# Purpose: Surface risks early and keep them visible
+
+agent_id: "risk_radar_agent"
+team: "governance"
+category: "entropy_reduction"
+purpose: "Surface risks early and keep them visible"
+
+trigger:
+  events:
+    - "meeting_note_published"
+    - "decision_made"
+    - "action_blocked"
+    - "health_score_dropped"
+  schedule:
+    - cron: "0 9 * * 1-5"       # Daily scan
+    - cron: "0 10 * * 1"        # Weekly risk review
+  keywords:
+    - "risk"
+    - "concern"
+    - "blocker"
+    - "delay"
+    - "issue"
+    - "problem"
+    - "worried"
+    - "might not"
+
+inputs:
+  sources:
+    - "infohub/{realm}/{node}/meetings/"
+    - "infohub/{realm}/{node}/decisions/decision_log.yaml"
+    - "infohub/{realm}/{node}/actions/action_tracker.yaml"
+    - "slack_threads"
+    - "email_threads"
+
+processing:
+  detection:
+    - id: "explicit_risks"
+      description: "Risks explicitly mentioned"
+      patterns:
+        - "risk:"
+        - "concern:"
+        - "blocker:"
+    - id: "implicit_risks"
+      description: "Signals that suggest risk"
+      patterns:
+        - "might not make"
+        - "running behind"
+        - "waiting on"
+        - "no response from"
+        - "competitor mentioned"
+        - "budget concern"
+        - "stakeholder change"
+    - id: "derived_risks"
+      description: "Risks inferred from data"
+      rules:
+        - "Action overdue > 5 days → delivery risk"
+        - "Decision pending > 10 days → stall risk"
+        - "No champion contact > 14 days → relationship risk"
+        - "Health score < 70 → account risk"
+
+  classification:
+    severity_levels:
+      - critical: "Deal/account threatening, immediate action"
+      - high: "Significant impact, action within 48h"
+      - medium: "Moderate impact, action within week"
+      - low: "Minor impact, monitor"
+    categories:
+      - "technical"
+      - "commercial"
+      - "relationship"
+      - "competitive"
+      - "timeline"
+      - "resource"
+      - "compliance"
+
+  enrichment:
+    - assign_owner: "Based on risk category"
+    - set_review_date: "Based on severity"
+    - link_mitigations: "From action tracker"
+    - calculate_exposure: "Impact × probability"
+
+outputs:
+  artifacts:
+    - type: "risk_register_update"
+      path: "infohub/{realm}/{node}/risks/risk_register.yaml"
+    - type: "top_risks_digest"
+      format: "markdown"
+      destination: "account_team"
+  alerts:
+    - condition: "severity == critical"
+      action: "Immediate notification"
+      recipients: ["account_lead", "governance_lead"]
+    - condition: "new_risk"
+      action: "Add to weekly digest"
+  reports:
+    - type: "weekly_risk_summary"
+      content:
+        - new_risks
+        - escalated_risks
+        - mitigated_risks
+        - top_5_active
+
+risk_lifecycle:
+  states:
+    - "Identified"        # Detected, not yet assessed
+    - "Assessed"          # Severity/owner assigned
+    - "Mitigating"        # Actions in progress
+    - "Monitoring"        # Under control, watching
+    - "Mitigated"         # Addressed
+    - "Accepted"          # Known, no action planned
+    - "Materialized"      # Risk became issue
+  review_cadence:
+    critical: "Daily"
+    high: "Every 2 days"
+    medium: "Weekly"
+    low: "Bi-weekly"
+
+quality_gates:
+  - "All risks have owner"
+  - "All risks have severity"
+  - "Critical risks have mitigation plan"
+  - "No duplicate risks"
+  - "Stale risks flagged (no update > 14 days)"
+
+integrations:
+  reads_from:
+    - "meeting_notes"
+    - "action_tracker"
+    - "decision_log"
+    - "health_score"
+    - "slack"
+    - "email"
+  writes_to:
+    - "risk_register"
+  notifies:
+    - "risk_owner"
+    - "account_lead"
+    - "governance_lead"

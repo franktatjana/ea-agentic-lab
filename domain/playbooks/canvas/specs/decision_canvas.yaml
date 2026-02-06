@@ -1,0 +1,182 @@
+# Canvas Spec: Decision Canvas
+# Visual artifact for tracking 5 key decisions + open questions
+# Broader than Architecture Decision Canvas - covers all decision types
+
+canvas_id: decision_canvas
+version: "1.0"
+name: "Decision Canvas"
+description: "One-page view of 5 key decisions across all categories plus open questions requiring resolution"
+
+# ==============================================================================
+# CANVAS SECTIONS
+# ==============================================================================
+sections:
+  key_decisions:
+    label: "5 Key Decisions"
+    prompt: "The most important decisions made or needed for this engagement - across all categories."
+    required: true
+    max_items: 5  # Hard limit - forces prioritization
+    format: "decision_cards"
+    fields_per_item:
+      - decision: "What was decided or needs deciding"
+      - category: "Type of decision"
+      - status: "Decided / Pending / Blocked"
+      - date: "When decided or target date"
+      - owner: "Who owns this decision"
+      - rationale: "Why this decision (brief)"
+    source:
+      type: "infohub"
+      path: "decisions/"
+      filter: "priority == 'high' OR impact >= 'significant'"
+      sort: "priority DESC, date DESC"
+      limit: 5
+    categories:
+      - "strategic"      # Business direction, go/no-go
+      - "commercial"     # Pricing, licensing, terms
+      - "technical"      # Architecture, technology choices
+      - "organizational" # Team structure, responsibilities
+      - "timeline"       # Schedule, phasing decisions
+
+  open_questions:
+    label: "Open Questions"
+    prompt: "Questions that need answers before decisions can be made."
+    required: true
+    max_items: 5
+    format: "question_list"
+    fields_per_item:
+      - question: "The question"
+      - category: "Related decision category"
+      - owner: "Who needs to answer"
+      - due_date: "When answer needed"
+      - blockers: "What this blocks"
+    source:
+      type: "infohub"
+      path: "decisions/open_questions.yaml"
+      filter: "status == 'open'"
+      sort: "due_date ASC"
+
+  decision_history:
+    label: "Recent Decision History"
+    prompt: "Timeline of recent decisions for context."
+    required: false
+    max_items: 8
+    format: "timeline"
+    source:
+      type: "infohub"
+      path: "decisions/"
+      filter: "status == 'decided'"
+      sort: "date DESC"
+      fields: ["title", "date", "category"]
+
+  pending_approvals:
+    label: "Pending Approvals"
+    prompt: "Decisions awaiting sign-off from stakeholders."
+    required: false
+    max_items: 4
+    format: "approval_list"
+    fields_per_item:
+      - decision: "What needs approval"
+      - approver: "Who needs to approve"
+      - deadline: "By when"
+      - status: "Submitted / In Review / Escalated"
+    source:
+      type: "infohub"
+      path: "decisions/"
+      filter: "status == 'pending_approval'"
+
+  decision_dependencies:
+    label: "Decision Dependencies"
+    prompt: "How decisions relate to each other - what blocks what."
+    required: false
+    format: "dependency_map"
+    source:
+      type: "derived"
+      from: ["decisions/"]
+      aggregate: "dependency_graph"
+      filter: "has_dependencies == true"
+
+# ==============================================================================
+# METADATA FIELDS
+# ==============================================================================
+metadata:
+  node_name:
+    label: "Engagement"
+    source: "node_profile.yaml → name"
+    position: "header"
+  total_decisions:
+    label: "Total Decisions"
+    source: "computed"
+    formula: "COUNT(decisions/*)"
+  pending_count:
+    label: "Pending"
+    source: "computed"
+    formula: "COUNT(decisions/* WHERE status != 'decided')"
+  last_decision_date:
+    label: "Last Decision"
+    source: "computed"
+    formula: "MAX(decisions/*.date)"
+
+# ==============================================================================
+# RENDER TRIGGERS
+# ==============================================================================
+triggers:
+  on_create:
+    - "First decision recorded"
+  on_update:
+    - "Decision status changed"
+    - "New decision added"
+    - "Open question answered"
+    - "Approval status changed"
+  scheduled:
+    - frequency: "daily"
+      condition: "COUNT(decisions/* WHERE status == 'pending') > 0"
+
+# ==============================================================================
+# VALIDATION RULES
+# ==============================================================================
+validation:
+  completeness:
+    minimum_sections:
+      - "key_decisions"
+      - "open_questions"
+    warning_if_missing:
+      - "pending_approvals"
+
+  consistency:
+    - rule: "decision owners should exist in stakeholder_map"
+      severity: "warning"
+    - rule: "open_question owners should exist in stakeholder_map"
+      severity: "warning"
+    - rule: "due_dates should not be in the past for open items"
+      severity: "error"
+
+  business_rules:
+    - rule: "At least 1 decision must have status 'decided' after Stage 2"
+      severity: "warning"
+    - rule: "No more than 3 decisions should be 'blocked' simultaneously"
+      severity: "warning"
+
+# ==============================================================================
+# OUTPUT PATHS
+# ==============================================================================
+output:
+  markdown:
+    path: "infohub/{realm}/{node}/canvas/decision_canvas.md"
+  html:
+    path: "infohub/{realm}/{node}/canvas/decision_canvas.html"
+    template: "playbooks/canvas/templates/decision_canvas.html"
+
+# ==============================================================================
+# LAYOUT HINTS
+# ==============================================================================
+layout:
+  grid: "main + sidebar"
+  main:
+    sections: ["key_decisions"]
+    width: "60%"
+  sidebar:
+    sections: ["open_questions", "pending_approvals"]
+    width: "40%"
+  footer:
+    sections: ["decision_history"]
+    style: "timeline"

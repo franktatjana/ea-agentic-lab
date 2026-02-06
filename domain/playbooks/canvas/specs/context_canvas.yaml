@@ -1,0 +1,196 @@
+# Canvas Spec: Context Canvas
+# Visual artifact for establishing engagement boundaries and background
+# First canvas generated when selecting a Realm/Node
+
+canvas_id: context_canvas
+version: "1.0"
+name: "Context Canvas"
+description: "One-page view of engagement boundaries, background, and scope definition - the foundation for all other canvases"
+
+# ==============================================================================
+# CANVAS SECTIONS
+# ==============================================================================
+sections:
+  engagement_overview:
+    label: "Engagement Overview"
+    prompt: "What is this engagement about? High-level summary of the opportunity or project."
+    required: true
+    max_items: null
+    format: "narrative"
+    source:
+      type: "infohub"
+      path: "context/overview.yaml"
+      fields: ["summary", "objective", "scope_statement"]
+
+  customer_context:
+    label: "Customer Context"
+    prompt: "Who is the customer? Industry, size, current state."
+    required: true
+    format: "structured"
+    subsections:
+      company:
+        label: "Company"
+        source: "realm_profile.yaml → company"
+      industry:
+        label: "Industry"
+        source: "realm_profile.yaml → industry"
+      size:
+        label: "Size/Scale"
+        source: "realm_profile.yaml → company_size"
+      current_state:
+        label: "Current State"
+        source: "architecture/current_state.yaml → summary"
+
+  boundaries:
+    label: "Boundaries & Scope"
+    prompt: "What is in scope and out of scope for this engagement?"
+    required: true
+    format: "two_column"
+    subsections:
+      in_scope:
+        label: "In Scope"
+        max_items: 6
+        source:
+          type: "infohub"
+          path: "context/scope.yaml"
+          field: "in_scope"
+      out_of_scope:
+        label: "Out of Scope"
+        max_items: 4
+        source:
+          type: "infohub"
+          path: "context/scope.yaml"
+          field: "out_of_scope"
+
+  key_dates:
+    label: "Key Dates & Milestones"
+    prompt: "Critical timeline markers for this engagement."
+    required: true
+    max_items: 6
+    format: "timeline"
+    source:
+      type: "infohub"
+      path: "context/timeline.yaml"
+      filter: "type IN ['milestone', 'deadline', 'gate']"
+      sort: "date ASC"
+
+  constraints:
+    label: "Constraints & Dependencies"
+    prompt: "What limitations or dependencies affect this engagement?"
+    required: false
+    format: "categorized"
+    subsections:
+      technical:
+        label: "Technical Constraints"
+        max_items: 3
+      organizational:
+        label: "Organizational Constraints"
+        max_items: 3
+      dependencies:
+        label: "External Dependencies"
+        max_items: 3
+    source:
+      type: "infohub"
+      path: "context/constraints.yaml"
+
+  assumptions:
+    label: "Key Assumptions"
+    prompt: "What assumptions are we making? What needs to be validated?"
+    required: true
+    max_items: 5
+    format: "list_with_status"
+    source:
+      type: "infohub"
+      path: "context/assumptions.yaml"
+      fields: ["assumption", "status", "validation_approach"]
+
+  success_definition:
+    label: "Definition of Success"
+    prompt: "How will we know this engagement is successful?"
+    required: true
+    max_items: 3
+    format: "outcome_based"
+    source:
+      type: "derived"
+      from: ["poc/success_criteria.yaml", "value/value_hypothesis.yaml"]
+      aggregate: "primary_outcomes"
+
+# ==============================================================================
+# METADATA FIELDS
+# ==============================================================================
+metadata:
+  node_name:
+    label: "Engagement"
+    source: "node_profile.yaml → name"
+    position: "header"
+  realm_name:
+    label: "Account"
+    source: "realm_profile.yaml → name"
+    position: "header"
+  stage:
+    label: "Stage"
+    source: "node_profile.yaml → stage"
+    position: "header"
+  last_updated:
+    source: "render_timestamp"
+
+# ==============================================================================
+# RENDER TRIGGERS
+# ==============================================================================
+triggers:
+  on_create:
+    - "New node created"
+    - "Engagement initiated"
+  on_update:
+    - "Scope changed"
+    - "Timeline updated"
+    - "Constraints identified"
+  scheduled:
+    - frequency: "weekly"
+      condition: "node.status == 'active'"
+
+# ==============================================================================
+# VALIDATION RULES
+# ==============================================================================
+validation:
+  completeness:
+    minimum_sections:
+      - "engagement_overview"
+      - "customer_context"
+      - "boundaries"
+      - "success_definition"
+    warning_if_missing:
+      - "key_dates"
+      - "assumptions"
+
+  consistency:
+    - rule: "success_definition should align with value_hypothesis outcomes"
+      severity: "warning"
+    - rule: "key_dates should not conflict with constraints"
+      severity: "info"
+
+# ==============================================================================
+# OUTPUT PATHS
+# ==============================================================================
+output:
+  markdown:
+    path: "infohub/{realm}/{node}/canvas/context_canvas.md"
+  html:
+    path: "infohub/{realm}/{node}/canvas/context_canvas.html"
+    template: "playbooks/canvas/templates/context_canvas.html"
+
+# ==============================================================================
+# LAYOUT HINTS
+# ==============================================================================
+layout:
+  grid: "2x3 + header"
+  rows:
+    - sections: ["engagement_overview", "customer_context"]
+      height: "medium"
+    - sections: ["boundaries"]
+      height: "large"
+    - sections: ["key_dates", "constraints"]
+      height: "medium"
+  footer:
+    sections: ["assumptions", "success_definition"]
+    style: "highlighted"

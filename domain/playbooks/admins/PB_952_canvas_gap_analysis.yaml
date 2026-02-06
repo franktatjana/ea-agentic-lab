@@ -1,0 +1,204 @@
+# PLAYBOOK: Canvas Gap Analysis
+# Analyzes canvas coverage, completeness, and freshness across nodes
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+framework_name: "Canvas Gap Analysis"
+playbook_id: "PB_952"
+intended_agent_role: "Curator Agent / Reporter Agent"
+secondary_agents: []
+
+primary_objective: "Identify missing, incomplete, and stale canvases to ensure visual artifacts meet governance requirements"
+
+when_not_to_use:
+  - "Node has no canvas requirements (early stage)"
+  - "Canvas framework not yet adopted for realm"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - "Weekly governance scan"
+    - "Node stage transition (triggers new canvas requirements)"
+    - "QBR preparation"
+
+  manual:
+    - "Leadership requests canvas health report"
+    - "Pre-customer meeting canvas review"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "playbooks/canvas/registry.yaml"
+    - artifact: "infohub/{realm}/{node}/canvas/index.yaml"
+      fallback: "Create empty index"
+    - artifact: "infohub/{realm}/{node}/context/"
+      description: "Node context to determine required canvases"
+
+# ==============================================================================
+# GAP CATEGORIES
+# ==============================================================================
+gap_categories:
+  missing_canvas:
+    description: "Required canvas does not exist"
+    severity: "high"
+    detection: |
+      FOR each canvas in registry WHERE required_by matches node.context:
+        IF canvas not in node.canvas_index:
+          REPORT missing
+
+  incomplete_canvas:
+    description: "Canvas exists but fails validation"
+    severity: "medium"
+    detection: |
+      FOR each canvas in node.canvas_index:
+        Load canvas spec
+        Run validation.completeness rules
+        Run validation.consistency rules
+        IF any fail: REPORT incomplete
+
+  stale_canvas:
+    description: "Canvas not updated within cadence"
+    severity: "medium"
+    detection: |
+      FOR each canvas in node.canvas_index:
+        Load canvas spec
+        IF canvas.last_rendered > spec.cadence:
+          REPORT stale
+
+  orphan_canvas:
+    description: "Canvas source data no longer exists"
+    severity: "low"
+    detection: |
+      FOR each canvas in node.canvas_index:
+        Load canvas spec
+        FOR each section.source:
+          IF source path does not resolve:
+            REPORT orphan
+
+# ==============================================================================
+# EXECUTION STEPS
+# ==============================================================================
+execution_steps:
+  step_1_load_context:
+    name: "Load Node Context"
+    actions:
+      - "Load registry.yaml"
+      - "Load node canvas index (or create empty)"
+      - "Determine node context (stage, type, requirements)"
+
+  step_2_determine_requirements:
+    name: "Determine Required Canvases"
+    actions:
+      - "FOR each canvas in registry:"
+      - "  Check if required_by matches node context"
+      - "  Build list of required canvases"
+
+  step_3_check_missing:
+    name: "Check Missing Canvases"
+    actions:
+      - "Compare required vs existing"
+      - "Report any gaps"
+
+  step_4_check_incomplete:
+    name: "Check Incomplete Canvases"
+    actions:
+      - "FOR each existing canvas:"
+      - "  Load and run validation rules"
+      - "  Report any failures"
+
+  step_5_check_stale:
+    name: "Check Stale Canvases"
+    actions:
+      - "FOR each existing canvas:"
+      - "  Compare last_rendered to cadence"
+      - "  Report any stale"
+
+  step_6_generate_report:
+    name: "Generate Gap Report"
+    actions:
+      - "Compile all gaps by category"
+      - "Calculate overall canvas health score"
+      - "Generate recommended actions"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "infohub/{realm}/{node}/canvas/gap_report_{date}.yaml"
+    format: "yaml"
+    schema:
+      summary:
+        total_required: "number"
+        total_existing: "number"
+        missing_count: "number"
+        incomplete_count: "number"
+        stale_count: "number"
+        health_score: "number (0-100)"
+
+      gaps:
+        missing:
+          - canvas_type: "string"
+            required_by: "string"
+            priority: "enum[high|medium|low]"
+            action: "Create canvas using PB_901"
+
+        incomplete:
+          - canvas_type: "string"
+            context_id: "string"
+            issues: "array[string]"
+            action: "Complete missing sections"
+
+        stale:
+          - canvas_type: "string"
+            context_id: "string"
+            last_rendered: "datetime"
+            cadence: "string"
+            days_overdue: "number"
+            action: "Re-render or archive"
+
+      recommendations:
+        - priority: "enum[HIGH|MEDIUM|LOW]"
+          action: "string"
+          canvas_type: "string"
+
+  notifications:
+    - recipient: "Node owner / AE"
+      condition: "health_score < 70"
+      message: "Canvas health score {score}% for {node} - review required"
+
+    - recipient: "Canvas owner"
+      condition: "missing_count > 0"
+      message: "{count} required canvases missing for {node}"
+
+# ==============================================================================
+# HEALTH SCORE CALCULATION
+# ==============================================================================
+health_score_calculation:
+  formula: |
+    base_score = 100
+    FOR each missing canvas: -20 (if high priority) or -10 (medium/low)
+    FOR each incomplete canvas: -10
+    FOR each stale canvas: -5
+    health_score = max(0, base_score - deductions)
+
+  thresholds:
+    green: ">= 80"
+    yellow: "50-79"
+    red: "< 50"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "1-2 minutes per node"
+frequency: "Weekly (scheduled) + on-demand"
+human_review_required: false
+
+last_updated: "2026-01-22"
+version: "1.0"
+status: "production_ready"

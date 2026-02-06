@@ -1,0 +1,159 @@
+# Tech Signal Map Scanner Agent
+# Purpose: Scan job postings from realm-associated companies to extract technology data
+#
+# The Tech Signal Map is a decision-support artifact embedded into playbooks,
+# governance, and agent workflows. Inspired by multiple industry models including
+# technology radars, but adapted for decision governance and agent-based operations.
+
+agent_id: "tech_signal_scanner_agent"
+team: "tech_signal_map"
+category: "intelligence_gathering"
+purpose: "Scan job postings to gather technology intelligence for realm companies"
+
+trigger:
+  events:
+    - "manual_scan_requested"
+    - "realm_company_updated"
+  schedule:
+    - cron: "0 2 * * 0"        # Weekly scan on Sundays at 2 AM
+    - cron: "0 2 1,15 * *"     # Bi-monthly full scan on 1st and 15th
+  api:
+    endpoint: "/api/v1/realms/{realm_id}/tech-signal-map/scan"
+    method: "POST"
+
+inputs:
+  sources:
+    - type: "linkedin_jobs"
+      description: "LinkedIn Jobs API"
+      requires_auth: true
+      rate_limit: 100  # requests per hour
+    - type: "indeed_jobs"
+      description: "Indeed Job Search API"
+      requires_auth: true
+      rate_limit: 50
+    - type: "company_careers"
+      description: "Direct company career page scraping"
+      requires_auth: false
+      rate_limit: 1000
+  config:
+    - "config/tech_signal_map_config.yaml"
+    - "config/job_sources.yaml"
+  realm_data:
+    - "infohub/{realm}/realm_profile.yaml"  # Company name, domain for filtering
+
+parameters:
+  days_back:
+    default: 30
+    min: 7
+    max: 90
+    description: "Number of days of job postings to scan"
+  max_jobs_per_source:
+    default: 500
+    description: "Maximum jobs to fetch per source"
+  min_description_length:
+    default: 100
+    description: "Skip jobs with descriptions shorter than this"
+  deduplication:
+    enabled: true
+    method: "content_hash"  # Hash of normalized description
+
+processing:
+  job_fetching:
+    - id: "fetch_linkedin"
+      source: "linkedin_jobs"
+      query_template: "company:{company_name} OR domain:{company_domain}"
+      filters:
+        - posted_within_days: "{days_back}"
+        - exclude_staffing_agencies: true
+    - id: "fetch_indeed"
+      source: "indeed_jobs"
+      query_template: "company:{company_name}"
+      filters:
+        - posted_within_days: "{days_back}"
+    - id: "fetch_careers"
+      source: "company_careers"
+      pages:
+        - "{company_careers_url}/jobs"
+        - "{company_careers_url}/careers"
+
+  preprocessing:
+    - id: "normalize_description"
+      steps:
+        - "Remove HTML tags"
+        - "Normalize whitespace"
+        - "Extract requirements section"
+    - id: "detect_seniority"
+      method: "pattern_matching"
+      patterns_from: "config/tech_signal_map_config.yaml#seniority_scoring"
+    - id: "deduplication"
+      method: "content_hash"
+      window: "30_days"
+
+  extraction:
+    - id: "extract_technologies"
+      method: "regex_patterns"
+      patterns_from: "config/tech_signal_map_config.yaml#technology_patterns"
+    - id: "classify_requirement_level"
+      method: "context_analysis"
+      patterns_from: "config/tech_signal_map_config.yaml#requirement_patterns"
+    - id: "detect_competitors"
+      method: "keyword_matching"
+      keywords_from: "config/tech_signal_map_config.yaml#competitors"
+
+outputs:
+  artifacts:
+    - type: "scan_results"
+      path: "infohub/{realm}/tech_signal_map/scans/{scan_id}.yaml"
+      format: "yaml"
+      content:
+        - scan_metadata
+        - jobs_processed
+        - technologies_extracted
+    - type: "job_cache"
+      path: "infohub/{realm}/tech_signal_map/job_cache/"
+      retention_days: 90
+  signals:
+    - signal_id: "SIG_TECH_004"
+      name: "job_scan_completed"
+      emitted_when: "Scan finishes (success or failure)"
+      payload:
+        - realm_id
+        - scan_id
+        - status
+        - jobs_found
+        - jobs_processed
+        - technologies_extracted
+
+error_handling:
+  rate_limit_exceeded:
+    action: "backoff_and_retry"
+    max_retries: 3
+    backoff_minutes: [5, 15, 60]
+  api_error:
+    action: "log_and_continue"
+    fallback: "skip_source"
+  partial_failure:
+    action: "emit_partial_signal"
+    status: "partial"
+
+quality_gates:
+  - "min_jobs_scanned: 10"
+  - "min_technologies_extracted: 5"
+  - "avg_technologies_per_job: 2.0"
+
+integrations:
+  reads_from:
+    - "realm_profile"  # Company info
+    - "tech_signal_map_config"  # Patterns and rules
+  writes_to:
+    - "scan_results"
+    - "job_cache"
+  notifies:
+    - "tech_signal_analyzer_agent"  # Via SIG_TECH_004
+
+metrics:
+  - "jobs_scanned_total"
+  - "technologies_extracted_total"
+  - "scan_duration_seconds"
+  - "api_errors_by_source"
+  - "deduplication_rate"

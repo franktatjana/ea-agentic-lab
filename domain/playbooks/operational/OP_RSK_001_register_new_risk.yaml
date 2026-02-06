@@ -1,0 +1,156 @@
+# Operational Playbook: Register New Risk
+# Triggered when a risk is identified in meetings, analysis, or monitoring
+
+playbook_id: "OP_RSK_001"
+version: "1.0"
+category: "operational"
+
+metadata:
+  name: "Register New Risk"
+  description: "Captures newly identified risks and adds them to the risk register with proper classification"
+  owner_agent: "risk_radar_agent"
+  participating_agents:
+    - "meeting_notes_agent"
+    - "decision_registrar_agent"
+
+# Trigger Definition
+trigger:
+  type: "event"
+  source: "meeting_notes_agent|risk_radar_agent|strategic_playbook"
+  condition: "EVENT_TYPE == 'risk_identified' AND $.risk.status == 'new'"
+
+# Preconditions
+preconditions:
+  - condition: "EXISTS $.risk.title"
+    error_message: "Risk must have a title"
+  - condition: "EXISTS $.risk.source"
+    error_message: "Risk must have an identified source"
+
+# Steps
+steps:
+  - step_id: "classify_risk"
+    name: "Classify risk severity and category"
+    agent: "risk_radar_agent"
+    action: "analyze"
+    inputs:
+      - name: "risk_description"
+        source: "$.risk.description"
+      - name: "risk_context"
+        source: "$.risk.source_context"
+    outputs:
+      - name: "severity"
+        type: "decision"
+        destination: "$.risk.severity"
+      - name: "category"
+        type: "decision"
+        destination: "$.risk.category"
+      - name: "probability"
+        type: "decision"
+        destination: "$.risk.probability"
+    on_failure: "escalate"
+
+  - step_id: "identify_owner"
+    name: "Identify risk owner"
+    agent: "risk_radar_agent"
+    action: "analyze"
+    inputs:
+      - name: "risk_category"
+        source: "$.steps.classify_risk.category"
+      - name: "stakeholders"
+        source: "$.infohub.stakeholders"
+      - name: "agent_mapping"
+        source: "$.config.agent_role_mapping"
+    outputs:
+      - name: "owner"
+        type: "decision"
+        destination: "$.risk.owner"
+    on_failure: "escalate"
+
+  - step_id: "generate_risk_id"
+    name: "Generate unique risk ID"
+    agent: "risk_radar_agent"
+    action: "compute"
+    inputs:
+      - name: "existing_risks"
+        source: "$.infohub.risks.risk_register.risks"
+    outputs:
+      - name: "risk_id"
+        type: "artifact"
+        destination: "$.risk.id"
+    on_failure: "stop"
+
+  - step_id: "define_mitigation"
+    name: "Draft initial mitigation strategy"
+    agent: "risk_radar_agent"
+    action: "analyze"
+    inputs:
+      - name: "risk"
+        source: "$.risk"
+      - name: "similar_risks"
+        source: "$.infohub.risks.risk_register.risks[?(@.category == $.risk.category)]"
+    outputs:
+      - name: "mitigation"
+        type: "artifact"
+        destination: "$.risk.mitigation"
+    on_failure: "skip"
+
+  - step_id: "write_to_register"
+    name: "Add risk to risk register"
+    agent: "risk_radar_agent"
+    action: "write"
+    inputs:
+      - name: "risk_entry"
+        source: "$.risk"
+      - name: "register_path"
+        source: "$.infohub.risks.risk_register"
+    outputs:
+      - name: "risk_record"
+        type: "artifact"
+        format: "yaml"
+        destination: "infohub/{realm}/{node}/risks/risk_register.yaml"
+    on_failure: "stop"
+
+  - step_id: "notify_owner"
+    name: "Notify risk owner"
+    agent: "nudger_agent"
+    action: "notify"
+    inputs:
+      - name: "recipient"
+        source: "$.risk.owner"
+      - name: "risk_summary"
+        source: "$.risk"
+    outputs:
+      - name: "notification"
+        type: "notification"
+        format: "markdown"
+        destination: "notification_queue"
+    on_failure: "skip"
+
+# Outputs
+outputs:
+  - output_id: "risk_entry"
+    type: "artifact"
+    format: "yaml"
+    destination: "infohub/{realm}/{node}/risks/risk_register.yaml"
+  - output_id: "owner_notification"
+    type: "notification"
+    format: "markdown"
+    destination: "notification_queue"
+
+# Escalation
+escalation:
+  condition: "$.risk.severity == 'critical' OR $.steps.classify_risk.failed"
+  target: "senior_manager_agent"
+  message_template: |
+    RISK ESCALATION: {$.risk.title}
+    Severity: {$.risk.severity}
+    Category: {$.risk.category}
+    Source: {$.risk.source}
+    Action Required: Review and confirm classification
+
+# Completion
+completion:
+  success_criteria: "EXISTS $.outputs.risk_entry AND $.risk.id != null"
+  artifacts_required:
+    - "infohub/{realm}/{node}/risks/risk_register.yaml"
+  notification: "risk_radar_agent"

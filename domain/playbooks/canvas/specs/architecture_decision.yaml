@@ -1,0 +1,156 @@
+# Canvas Spec: Architecture Decision Canvas
+# Visual artifact for documenting key technical decisions
+
+canvas_id: architecture_decision
+version: "1.0"
+name: "Architecture Decision Canvas"
+description: "Visual one-pager for key architectural decisions with context, options, and consequences"
+
+# ==============================================================================
+# CANVAS SECTIONS
+# ==============================================================================
+sections:
+  problem_context:
+    label: "Problem & Context"
+    prompt: "Describe the context and the specific architectural problem"
+    required: true
+    max_items: null  # free text
+    source:
+      type: "infohub"
+      path: "decisions/{decision_id}.yaml"
+      field: "context"
+
+  risks_if_not_decided:
+    label: "Risks, if not decided"
+    prompt: "Emphasise what could go wrong if a decision is not made or is postponed"
+    required: true
+    max_items: 5
+    source:
+      type: "derived"
+      from: ["risks/", "decisions/{decision_id}.yaml"]
+      filter: "related_to_decision"
+
+  deciders:
+    label: "Deciders"
+    prompt: "Name the persons or roles responsible for the final decision"
+    required: true
+    max_items: 3
+    source:
+      type: "infohub"
+      path: "stakeholders/relationship_map.yaml"
+      filter: "role == 'decision_maker'"
+
+  consulted:
+    label: "Consulted"
+    prompt: "Specify the interest groups or experts whose input should be used"
+    required: false
+    max_items: 5
+    source:
+      type: "infohub"
+      path: "stakeholders/relationship_map.yaml"
+      filter: "role == 'technical' OR role == 'advisor'"
+
+  affected:
+    label: "Affected"
+    prompt: "Determine the people or teams affected by the potential decision outcome"
+    required: false
+    max_items: 5
+    source:
+      type: "derived"
+      from: "stakeholders/relationship_map.yaml"
+      filter: "impacted_by_decision"
+
+  considered_options:
+    label: "Considered Options"
+    prompt: "Describe the different options that have been proposed. Don't forget the why."
+    required: true
+    max_items: 4
+    source:
+      type: "infohub"
+      path: "decisions/{decision_id}.yaml"
+      field: "options_considered"
+
+  quality_goals:
+    label: "Quality Goals & Other Decision Drivers"
+    prompt: "Name and describe the quality goals and other factors that influence the decision"
+    required: true
+    max_items: 5
+    source:
+      type: "infohub"
+      path: "decisions/{decision_id}.yaml"
+      field: "decision_drivers"
+
+  decision_outcome:
+    label: "Decision Outcome"
+    prompt: "Name the option you have chosen and explain why"
+    required: false  # may be pending
+    max_items: null
+    source:
+      type: "infohub"
+      path: "decisions/{decision_id}.yaml"
+      field: "decision"
+
+  consequences:
+    label: "Consequences"
+    prompt: "Summarize the good and bad consequences of the decision outcome"
+    required: false
+    max_items: null
+    source:
+      type: "infohub"
+      path: "decisions/{decision_id}.yaml"
+      field: "consequences"
+
+# ==============================================================================
+# METADATA FIELDS
+# ==============================================================================
+metadata:
+  created_by:
+    source: "agent_id"
+  date:
+    source: "render_timestamp"
+  status:
+    source: "decisions/{decision_id}.yaml → status"
+    values: ["Draft", "Proposed", "Accepted", "Superseded"]
+  version:
+    source: "decisions/{decision_id}.yaml → version"
+
+# ==============================================================================
+# RENDER TRIGGERS
+# ==============================================================================
+triggers:
+  on_create:
+    - "New decision record created in decisions/"
+  on_update:
+    - "Decision status changes"
+    - "New option added"
+    - "Stakeholder map updated with decision-related roles"
+  scheduled:
+    - frequency: "weekly"
+      condition: "decision.status == 'Proposed' AND age > 7 days"
+      action: "flag_stale"
+
+# ==============================================================================
+# VALIDATION RULES
+# ==============================================================================
+validation:
+  completeness:
+    minimum_sections: ["problem_context", "considered_options", "deciders"]
+    warning_if_missing: ["quality_goals", "risks_if_not_decided"]
+
+  consistency:
+    - rule: "deciders must exist in stakeholder_map"
+      severity: "error"
+    - rule: "if status == 'Accepted' then decision_outcome required"
+      severity: "error"
+    - rule: "consequences should reference quality_goals"
+      severity: "warning"
+
+# ==============================================================================
+# OUTPUT PATHS
+# ==============================================================================
+output:
+  markdown:
+    path: "infohub/{realm}/{node}/canvas/architecture_decision_{decision_id}.md"
+  html:
+    path: "infohub/{realm}/{node}/canvas/architecture_decision_{decision_id}.html"
+    template: "playbooks/canvas/templates/architecture_decision.html"

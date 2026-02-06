@@ -1,0 +1,179 @@
+# Operational Playbook: Create Action Item
+# Triggered when an action is identified in meetings or decisions
+
+playbook_id: "OP_ACT_001"
+version: "1.0"
+category: "operational"
+
+metadata:
+  name: "Create Action Item"
+  description: "Creates validated action items with proper ownership, due dates, and linkage"
+  owner_agent: "task_shepherd_agent"
+  participating_agents:
+    - "meeting_notes_agent"
+    - "nudger_agent"
+
+# Trigger Definition
+trigger:
+  type: "event"
+  source: "meeting_notes_agent|decision_registrar_agent"
+  condition: "EVENT_TYPE == 'action_identified'"
+
+# Preconditions
+preconditions:
+  - condition: "EXISTS $.action.description"
+    error_message: "Action must have a description"
+  - condition: "EXISTS $.action.source_meeting OR EXISTS $.action.source_decision"
+    error_message: "Action must be linked to a meeting or decision"
+
+# Steps
+steps:
+  - step_id: "validate_action"
+    name: "Validate action is actionable"
+    agent: "task_shepherd_agent"
+    action: "analyze"
+    inputs:
+      - name: "action_description"
+        source: "$.action.description"
+    outputs:
+      - name: "is_actionable"
+        type: "decision"
+        destination: "$.validation.is_actionable"
+      - name: "refined_description"
+        type: "artifact"
+        destination: "$.action.description"
+    validation_rules:
+      - "Action must be specific (not vague)"
+      - "Action must have clear completion criteria"
+      - "Action must be achievable by one owner"
+    on_failure: "escalate"
+
+  - step_id: "identify_owner"
+    name: "Identify action owner"
+    agent: "task_shepherd_agent"
+    action: "analyze"
+    inputs:
+      - name: "action"
+        source: "$.action"
+      - name: "meeting_attendees"
+        source: "$.context.meeting.attendees"
+      - name: "agent_mapping"
+        source: "$.config.agent_role_mapping"
+    outputs:
+      - name: "owner"
+        type: "decision"
+        destination: "$.action.owner"
+    on_failure: "escalate"
+
+  - step_id: "set_due_date"
+    name: "Set appropriate due date"
+    agent: "task_shepherd_agent"
+    action: "compute"
+    inputs:
+      - name: "action_type"
+        source: "$.action.type"
+      - name: "urgency_indicators"
+        source: "$.action.urgency"
+      - name: "default_slas"
+        source: "$.config.action_slas"
+    outputs:
+      - name: "due_date"
+        type: "decision"
+        destination: "$.action.due_date"
+    default_slas:
+      urgent: "3_days"
+      standard: "7_days"
+      follow_up: "14_days"
+    on_failure: "skip"
+
+  - step_id: "generate_action_id"
+    name: "Generate unique action ID"
+    agent: "task_shepherd_agent"
+    action: "compute"
+    inputs:
+      - name: "existing_actions"
+        source: "$.infohub.actions.action_tracker.actions"
+    outputs:
+      - name: "action_id"
+        type: "artifact"
+        destination: "$.action.id"
+    on_failure: "stop"
+
+  - step_id: "link_to_source"
+    name: "Link action to source artifact"
+    agent: "task_shepherd_agent"
+    action: "write"
+    inputs:
+      - name: "action"
+        source: "$.action"
+      - name: "source_type"
+        source: "$.action.source_type"
+      - name: "source_id"
+        source: "$.action.source_id"
+    outputs:
+      - name: "linked_action"
+        type: "artifact"
+        destination: "$.action"
+    on_failure: "skip"
+
+  - step_id: "write_to_tracker"
+    name: "Add action to action tracker"
+    agent: "task_shepherd_agent"
+    action: "write"
+    inputs:
+      - name: "action_entry"
+        source: "$.action"
+      - name: "tracker_path"
+        source: "$.infohub.actions.action_tracker"
+    outputs:
+      - name: "action_record"
+        type: "artifact"
+        format: "yaml"
+        destination: "infohub/{realm}/{node}/actions/action_tracker.yaml"
+    on_failure: "stop"
+
+  - step_id: "notify_owner"
+    name: "Notify action owner"
+    agent: "nudger_agent"
+    action: "notify"
+    inputs:
+      - name: "recipient"
+        source: "$.action.owner"
+      - name: "action_summary"
+        source: "$.action"
+      - name: "due_date"
+        source: "$.action.due_date"
+    outputs:
+      - name: "notification"
+        type: "notification"
+        format: "markdown"
+        destination: "notification_queue"
+    on_failure: "skip"
+
+# Outputs
+outputs:
+  - output_id: "action_entry"
+    type: "artifact"
+    format: "yaml"
+    destination: "infohub/{realm}/{node}/actions/action_tracker.yaml"
+  - output_id: "owner_notification"
+    type: "notification"
+    format: "markdown"
+    destination: "notification_queue"
+
+# Escalation
+escalation:
+  condition: "$.validation.is_actionable == false OR $.action.owner == null"
+  target: "senior_manager_agent"
+  message_template: |
+    ACTION NEEDS REVIEW: {$.action.description}
+    Issue: {$.escalation.reason}
+    Source: {$.action.source_meeting}
+    Action Required: Assign owner or clarify action
+
+# Completion
+completion:
+  success_criteria: "EXISTS $.outputs.action_entry AND $.action.id != null AND $.action.owner != null"
+  artifacts_required:
+    - "infohub/{realm}/{node}/actions/action_tracker.yaml"
+  notification: "task_shepherd_agent"

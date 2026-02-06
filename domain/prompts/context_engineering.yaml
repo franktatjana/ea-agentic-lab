@@ -1,0 +1,548 @@
+# Context Engineering Configuration
+#
+# Core principles:
+# 1. Context is a precious, finite resource
+# 2. Every token depletes capacity for long-range reasoning
+# 3. Use minimal viable tokens - smallest set of high-signal tokens
+# 4. Progressive disclosure - load lightweight IDs, fetch details on demand
+
+version: "1.1"
+last_updated: "2026-01-22"
+
+# ==============================================================================
+# CONTEXT BUDGETS
+# ==============================================================================
+# Maximum context tokens per agent role
+# Enforces "minimal viable tokens" principle
+
+context_budgets:
+  # Strategic agents - need broader context
+  ae_agent:
+    max_tokens: 12000
+    priority_allocation:
+      account_overview: 1500
+      active_opportunities: 2000
+      stakeholder_summary: 1500
+      commercial_context: 2000
+      risks_summary: 1000
+      recent_decisions: 1500
+      actions_pending: 1000
+      reserved_for_tools: 1500
+
+  sa_agent:
+    max_tokens: 15000
+    priority_allocation:
+      technical_architecture: 3000
+      current_deployment: 2000
+      integration_points: 2000
+      technical_risks: 1500
+      active_poc: 2000
+      recent_decisions: 1500
+      tech_signal_map: 1500
+      reserved_for_tools: 1500
+
+  ca_agent:
+    max_tokens: 12000
+    priority_allocation:
+      adoption_journey: 2000
+      health_indicators: 1500
+      success_plan: 2000
+      engagement_history: 1500
+      value_tracking: 1500
+      risks_summary: 1000
+      actions_pending: 1000
+      reserved_for_tools: 1500
+
+  ve_agent:
+    max_tokens: 10000
+    priority_allocation:
+      value_hypothesis: 2000
+      roi_calculations: 2000
+      business_outcomes: 2000
+      competitive_context: 1500
+      stakeholder_priorities: 1500
+      reserved_for_tools: 1000
+
+  ci_agent:
+    max_tokens: 8000
+    priority_allocation:
+      competitive_landscape: 2500
+      tech_signal_map: 1500
+      win_loss_patterns: 1500
+      battlecards: 1500
+      reserved_for_tools: 1000
+
+  # Governance agents - focused context
+  governance_agent:
+    max_tokens: 8000
+    priority_allocation:
+      health_scores: 1500
+      active_risks: 2000
+      escalations: 1500
+      pending_decisions: 1500
+      reserved_for_tools: 1500
+
+  risk_radar_agent:
+    max_tokens: 6000
+    priority_allocation:
+      risk_register: 2000
+      health_indicators: 1500
+      recent_signals: 1500
+      reserved_for_tools: 1000
+
+  meeting_notes_agent:
+    max_tokens: 8000
+    priority_allocation:
+      meeting_content: 4000  # The actual meeting transcript
+      recent_decisions: 1000
+      open_actions: 1000
+      active_risks: 1000
+      reserved_for_tools: 1000
+
+# ==============================================================================
+# CONTEXT PRIORITY RULES
+# ==============================================================================
+# When context exceeds budget, apply these rules
+
+truncation_rules:
+  # What to keep (highest priority first)
+  always_keep:
+    - "active_critical_risks"      # Never drop critical risks
+    - "pending_p0_actions"         # Never drop P0 actions
+    - "current_session_context"    # Keep current conversation
+    - "active_escalations"         # Keep open escalations
+
+  # Priority order for remaining context
+  priority_order:
+    - priority: 1
+      category: "active_risks"
+      keep_count: 10
+      keep_criteria: "severity IN ['critical', 'high']"
+
+    - priority: 2
+      category: "pending_actions"
+      keep_count: 15
+      keep_criteria: "priority IN ['P0', 'P1'] OR overdue == true"
+
+    - priority: 3
+      category: "recent_decisions"
+      keep_count: 10
+      keep_criteria: "age_days <= 30"
+
+    - priority: 4
+      category: "stakeholders"
+      keep_count: 10
+      keep_criteria: "influence IN ['high', 'critical'] OR role == 'champion'"
+
+    - priority: 5
+      category: "meeting_notes"
+      keep_count: 5
+      keep_criteria: "age_days <= 14"
+
+    - priority: 6
+      category: "opportunities"
+      keep_count: 5
+      keep_criteria: "status == 'active'"
+
+  # What to summarize rather than drop
+  summarize_before_drop:
+    - category: "meeting_notes"
+      threshold_count: 5
+      summarize_to: "3-line digest per meeting"
+
+    - category: "decisions"
+      threshold_count: 10
+      summarize_to: "decision_id, title, date, status only"
+
+    - category: "risks"
+      threshold_count: 10
+      summarize_to: "risk_id, title, severity, status only"
+
+# ==============================================================================
+# DATA FRESHNESS TRACKING
+# ==============================================================================
+# Every artifact should track freshness metadata
+
+freshness_thresholds:
+  # Days until data is considered stale
+  categories:
+    meeting_notes:
+      current: 7        # < 7 days = current
+      verify: 30        # 7-30 days = verify before using
+      stale: 90         # > 90 days = stale, archive candidate
+
+    decisions:
+      current: 30
+      verify: 90
+      stale: 365
+
+    risks:
+      current: 7
+      verify: 14
+      stale: 30
+
+    actions:
+      current: 3
+      verify: 7
+      stale: 14
+
+    stakeholders:
+      current: 30
+      verify: 90
+      stale: 180
+
+    health_scores:
+      current: 1        # Must be daily
+      verify: 3
+      stale: 7
+
+    tech_signal_map:
+      current: 30
+      verify: 60
+      stale: 90
+
+    competitive_intel:
+      current: 14
+      verify: 30
+      stale: 60
+
+    value_tracking:
+      current: 30
+      verify: 60
+      stale: 90
+
+  # Freshness metadata schema
+  metadata_schema:
+    created_at: "ISO 8601 timestamp"
+    last_updated: "ISO 8601 timestamp"
+    last_verified: "ISO 8601 timestamp"
+    data_age_days: "calculated field"
+    freshness_status: "enum: current | verify | stale | archived"
+    next_refresh_due: "ISO 8601 date"
+    refresh_frequency: "enum: daily | weekly | monthly | quarterly"
+    verified_by: "agent_id or user_id"
+
+# ==============================================================================
+# AGENT SCRATCHPADS
+# ==============================================================================
+# Working memory for intermediate reasoning during tasks
+
+scratchpad_config:
+  storage_path: "infohub/{realm}/{node}/agent_work/"
+
+  retention:
+    active_session: "indefinite"    # Keep while task in progress
+    completed_task: "24 hours"      # Keep 24h after task completes
+    archived: "7 days"              # Then archive for 7 days
+    deleted: "after archive"        # Then delete
+
+  schema:
+    session_metadata:
+      - session_id: "uuid"
+      - agent_id: "string"
+      - task_type: "string"         # playbook_execution | analysis | meeting_prep
+      - started_at: "timestamp"
+      - status: "enum: active | paused | completed | abandoned"
+
+    working_notes:
+      - timestamp: "ISO 8601"
+      - note_type: "enum: observation | hypothesis | question | conclusion | evidence"
+      - content: "string"
+      - confidence: "float 0.0-1.0"
+      - evidence_refs: "array of artifact paths"
+      - resolved: "boolean"
+      - resolution: "string (if resolved)"
+
+    open_questions:
+      - question_id: "uuid"
+      - question: "string"
+      - priority: "enum: critical | high | medium | low"
+      - blocking: "boolean"
+      - asked_at: "timestamp"
+      - answered_at: "timestamp (if answered)"
+      - answer: "string"
+
+    interim_conclusions:
+      - conclusion_id: "uuid"
+      - conclusion: "string"
+      - confidence: "float 0.0-1.0"
+      - supporting_evidence: "array"
+      - contradicting_evidence: "array"
+      - status: "enum: tentative | confirmed | revised | rejected"
+
+    context_loaded:
+      - artifact_path: "string"
+      - loaded_at: "timestamp"
+      - token_count: "integer"
+      - freshness_at_load: "enum: current | verify | stale"
+
+  # Auto-cleanup rules
+  cleanup_triggers:
+    - trigger: "task_completed"
+      action: "archive scratchpad"
+      delay: "24 hours"
+
+    - trigger: "session_abandoned"
+      condition: "no activity for 4 hours"
+      action: "mark abandoned, archive"
+
+    - trigger: "scratchpad_archived"
+      condition: "age > 7 days"
+      action: "delete"
+
+# ==============================================================================
+# HIERARCHICAL SUMMARIZATION
+# ==============================================================================
+# Multiple compression levels for different contexts
+
+summarization_levels:
+  level_1_full:
+    name: "Full Detail"
+    description: "Complete artifact with all fields"
+    use_when: "Deep analysis, playbook execution"
+    token_budget: "unlimited"
+
+  level_2_standard:
+    name: "Standard Summary"
+    description: "Key fields, recent history, active items"
+    use_when: "Regular agent context"
+    token_budget: "~500 per artifact"
+    includes:
+      - "id, title, status"
+      - "key_details (truncated to 200 chars)"
+      - "last_5_updates"
+      - "active_related_items"
+
+  level_3_digest:
+    name: "Digest"
+    description: "Title and status only"
+    use_when: "Context overflow, listing"
+    token_budget: "~50 per artifact"
+    includes:
+      - "id, title, status, severity (if applicable)"
+      - "last_updated date"
+
+  level_4_count:
+    name: "Count Only"
+    description: "Just counts and aggregates"
+    use_when: "Dashboard, high-level overview"
+    token_budget: "~10 per category"
+    includes:
+      - "category: count"
+      - "by_status: {status: count}"
+      - "critical_items: count"
+
+# Automatic level selection based on context budget
+auto_level_selection:
+  rules:
+    - condition: "remaining_budget > 80%"
+      default_level: "level_2_standard"
+
+    - condition: "remaining_budget > 50%"
+      default_level: "level_2_standard"
+      downgrade_old_to: "level_3_digest"
+      old_threshold_days: 14
+
+    - condition: "remaining_budget > 20%"
+      default_level: "level_3_digest"
+      critical_items_level: "level_2_standard"
+
+    - condition: "remaining_budget <= 20%"
+      default_level: "level_4_count"
+      critical_items_level: "level_3_digest"
+
+# ==============================================================================
+# TOOL RESULT HANDLING
+# ==============================================================================
+# How to manage tool outputs in context
+
+tool_results:
+  # Compression after tool execution
+  compression_rules:
+    - tool_type: "search"
+      keep_in_context: "top 5 results with snippets"
+      full_results: "available via reference"
+
+    - tool_type: "file_read"
+      keep_in_context: "relevant sections only"
+      full_content: "reference to file path"
+
+    - tool_type: "playbook_execution"
+      keep_in_context: "summary + key outputs"
+      full_trace: "reference to execution log"
+
+    - tool_type: "api_call"
+      keep_in_context: "parsed response summary"
+      raw_response: "reference to response cache"
+
+  # Result caching
+  caching:
+    enabled: true
+    cache_duration: "1 hour"
+    cache_key: "tool_type + inputs_hash"
+    invalidation:
+      - "explicit invalidation request"
+      - "source data changed"
+      - "cache_duration exceeded"
+
+  # Deduplication
+  deduplication:
+    enabled: true
+    strategy: "content_hash"
+    action: "reference previous result"
+
+# ==============================================================================
+# COMPACTION STRATEGIES
+# ==============================================================================
+# Strategies for managing context when approaching limits
+
+compaction:
+  # Trigger thresholds
+  triggers:
+    tool_result_clearing:
+      threshold: 0.80  # 80% context usage
+      description: "Remove verbose tool outputs, keep summaries"
+    conversation_compaction:
+      threshold: 0.90  # 90% context usage
+      description: "Summarize conversation, reinitiate with compressed context"
+    archive_to_scratchpad:
+      trigger: "task_completed"
+      description: "Archive working memory to persistent scratchpad"
+
+  # Tool Result Clearing - lightweight compaction
+  tool_result_clearing:
+    enabled: true
+    recent_messages_keep_full: 10  # Keep full results for last N messages
+    older_messages: "summary_only"
+
+    # Per-tool result handling
+    result_handling:
+      file_reads:
+        keep: "path + relevant_excerpt"
+        max_excerpt_chars: 500
+        clear: "full_file_contents"
+      search_results:
+        keep: "top_3_with_snippets"
+        clear: "full_result_list"
+      api_responses:
+        keep: "parsed_key_values"
+        clear: "raw_json_response"
+      playbook_outputs:
+        keep: "summary + final_artifacts"
+        clear: "intermediate_step_outputs"
+
+  # Conversation Compaction - full summarization
+  conversation_compaction:
+    # What to preserve (high priority first)
+    preserve:
+      high_priority:
+        - "architectural_decisions_made"
+        - "unresolved_issues_blockers"
+        - "current_task_state"
+        - "key_evidence_cited"
+      medium_priority:
+        - "analysis_summary"
+        - "confidence_levels"
+        - "open_questions"
+      low_priority:
+        - "exploration_paths_tried"
+        - "intermediate_reasoning"
+
+    # What to discard
+    discard:
+      - "redundant_tool_outputs"
+      - "failed_exploration_queries"
+      - "verbose_raw_data"
+      - "repeated_context"
+
+    # Quality targets
+    quality:
+      recall_target: 0.95   # Capture 95% of relevant info
+      precision_target: 0.80  # Allow 20% compression
+
+# ==============================================================================
+# SUB-AGENT ARCHITECTURES
+# ==============================================================================
+# Specialized sub-agents with clean context windows
+
+sub_agents:
+  enabled: true
+
+  # When to delegate to sub-agent
+  delegation_criteria:
+    - "Deep exploration of narrow topic"
+    - "Main context window constrained"
+    - "Multiple parallel investigations"
+    - "Clear separation of concerns"
+
+  # Sub-agent contract
+  contract:
+    max_input_tokens: 2000   # Context passed to sub-agent
+    max_output_tokens: 2000  # Summary returned
+    sub_agent_budget: 8000   # Sub-agent's own working budget
+
+    required_output:
+      - "answer_to_question"
+      - "confidence_level"
+      - "key_evidence_refs"
+
+  # Sub-agent mappings for EA Agentic Lab
+  mappings:
+    sa_agent:
+      sub_agent: "technical_deep_dive"
+      use_case: "Deep technical analysis of specific component"
+      returns: "Architecture summary + risks"
+
+    ae_agent:
+      sub_agent: "stakeholder_researcher"
+      use_case: "Research on specific stakeholder"
+      returns: "Profile + engagement recommendation"
+
+    ve_agent:
+      sub_agent: "benchmark_researcher"
+      use_case: "Industry benchmark research"
+      returns: "Benchmark data + comparison"
+
+    ci_agent:
+      sub_agent: "competitor_analyzer"
+      use_case: "Competitor deep-dive"
+      returns: "Competitive position summary"
+
+# ==============================================================================
+# CROSS-NODE LEARNING
+# ==============================================================================
+# Patterns learned from one node that apply to others
+
+pattern_sharing:
+  storage_path: "infohub/patterns/"
+
+  pattern_types:
+    - type: "deployment_pattern"
+      example: "20+ site deployments need 6-month timeline"
+      applies_to: "similar node profiles"
+
+    - type: "risk_pattern"
+      example: "Champion departure + budget freeze = high churn risk"
+      applies_to: "risk assessment"
+
+    - type: "success_pattern"
+      example: "Executive sponsorship + dedicated admin = faster adoption"
+      applies_to: "success planning"
+
+  pattern_schema:
+    pattern_id: "uuid"
+    pattern_type: "string"
+    description: "string"
+    conditions: "array of conditions"
+    recommendation: "string"
+    confidence: "float 0.0-1.0"
+    evidence_count: "integer"
+    source_nodes: "array of node_ids (anonymized)"
+    created_at: "timestamp"
+    last_validated: "timestamp"
+
+  # Pattern application
+  application:
+    auto_suggest: true
+    confidence_threshold: 0.7
+    min_evidence_count: 3

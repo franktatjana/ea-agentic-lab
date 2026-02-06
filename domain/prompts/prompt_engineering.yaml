@@ -1,0 +1,628 @@
+# Prompt Engineering Configuration
+#
+# This configuration defines prompting techniques and patterns
+# for the 24-agent governance system.
+
+version: "1.1"
+last_updated: "2026-01-22"
+
+# ==============================================================================
+# GLOBAL SETTINGS
+# ==============================================================================
+
+global:
+  # Chain-of-Thought trigger phrase
+  cot_trigger: "Let's think through this step by step."
+
+  # Zero-shot CoT alternative triggers
+  cot_alternatives:
+    - "Think through this carefully before answering."
+    - "Break this down into steps."
+    - "Reason through each component."
+
+  # Evidence requirements
+  evidence:
+    required: true
+    min_citations: 1
+    confidence_required: true
+    confidence_scale: "0-100%"
+
+  # Output consistency
+  output:
+    format_validation: true
+    schema_enforcement: true
+    human_readable_labels: true
+
+# ==============================================================================
+# MODEL PARAMETERS
+# ==============================================================================
+# Configure temperature, top-P, and top-K based on task type.
+
+model_parameters:
+  # Conservative/Deterministic - for classification, risk assessment
+  # Use when consistency and reproducibility matter most
+  conservative:
+    temperature: 0.2
+    top_p: 0.95
+    top_k: 30
+    use_for:
+      - "Risk classification"
+      - "Health score calculation"
+      - "Decision logging"
+      - "Compliance checks"
+      - "Few-shot classification tasks"
+
+  # Balanced - default for most analytical tasks
+  # Good tradeoff between accuracy and handling ambiguity
+  balanced:
+    temperature: 0.5
+    top_p: 0.95
+    top_k: 40
+    use_for:
+      - "Analysis and recommendations"
+      - "Meeting notes extraction"
+      - "Action item generation"
+      - "Technical assessments"
+      - "Value calculations"
+
+  # Creative - for brainstorming and strategy
+  # Higher diversity for exploring alternatives
+  creative:
+    temperature: 0.8
+    top_p: 0.99
+    top_k: 50
+    use_for:
+      - "Strategy brainstorming"
+      - "Alternative exploration (ToT)"
+      - "Competitive positioning ideas"
+      - "Innovation workshops"
+
+  # Agent-specific parameter mapping
+  agent_presets:
+    risk_radar_agent: "conservative"
+    health_score_agent: "conservative"
+    decision_registrar_agent: "conservative"
+    meeting_notes_agent: "balanced"
+    sa_agent: "balanced"
+    ve_agent: "balanced"
+    ca_agent: "balanced"
+    ae_agent: "balanced"  # Can switch to creative for strategy
+    ci_agent: "balanced"
+    retrospective_agent: "balanced"
+    nudger_agent: "conservative"
+
+# ==============================================================================
+# STEP-BACK PROMPTING
+# ==============================================================================
+# Ask broad background questions first, then feed answers into main task.
+# Produces more robust outputs for complex analysis.
+
+step_back_prompting:
+  enabled: true
+  description: "Establish context before diving into specific analysis"
+
+  # When to use step-back
+  use_cases:
+    - "Strategic account reviews"
+    - "Complex risk assessment"
+    - "Value engineering calculations"
+    - "Architecture reviews"
+    - "Competitive analysis"
+
+  # Background questions by domain
+  background_templates:
+    account_context: |
+      Before analyzing the specific topic, establish context:
+      1. What is the overall health of this account?
+      2. What are the key stakeholder concerns?
+      3. What historical patterns exist?
+      4. What is the current engagement stage?
+
+    technical_context: |
+      Before the technical analysis, understand the landscape:
+      1. What is the current architecture?
+      2. What technologies are in use?
+      3. What technical risks are known?
+      4. What are the integration points?
+
+    value_context: |
+      Before calculating value, understand the business:
+      1. What are the customer's business drivers?
+      2. What pain points are they trying to solve?
+      3. What metrics matter to them?
+      4. What is their budget/timeline context?
+
+# ==============================================================================
+# POSITIVE INSTRUCTIONS PRINCIPLE
+# ==============================================================================
+# Frame guidance as "what to do" rather than lengthy "don'ts".
+# Use negatives sparingly for essential guardrails only.
+
+positive_instructions:
+  principle: "Tell the model what TO DO, not just what NOT to do"
+
+  # Good patterns - positive framing
+  positive_examples:
+    - "Extract only facts present in source material"
+    - "Quote directly when citing evidence"
+    - "Mark uncertain items with [NEEDS VERIFICATION]"
+    - "Omit information rather than guess"
+    - "Use the exact format shown in examples"
+
+  # Essential negatives - use sparingly
+  essential_guardrails:
+    - "NEVER invent entities not present in source"
+    - "NEVER fabricate evidence or citations"
+
+  # Avoid these patterns
+  anti_patterns:
+    - "Don't make assumptions"  # Better: "Use only stated facts"
+    - "Avoid guessing"          # Better: "Mark uncertain items"
+    - "Never be verbose"        # Better: "Keep responses concise"
+
+# ==============================================================================
+# PROMPTING TECHNIQUES
+# ==============================================================================
+
+techniques:
+  # Chain-of-Thought
+  chain_of_thought:
+    description: "Step-by-step reasoning before conclusions"
+    trigger_phrases:
+      - "Let's think step by step"
+      - "Let me work through this"
+      - "Breaking this down"
+    required_elements:
+      - step_identification
+      - intermediate_reasoning
+      - conclusion_with_confidence
+      - evidence_citation
+
+  # ReAct (Reasoning + Acting)
+  react:
+    description: "Interleaved reasoning and tool use"
+    format:
+      thought: "Reasoning about current state"
+      action: "Tool call with parameters"
+      observation: "Tool result (provided by system)"
+    loop_until: "sufficient_information OR max_iterations"
+    max_iterations: 10
+    final_answer_required: true
+
+  # Few-Shot
+  few_shot:
+    description: "Learning from in-context examples"
+    guidelines:
+      min_examples: 2
+      max_examples: 5
+      example_selection: "diverse_coverage"
+      format_consistency: "strict"
+    example_structure:
+      - input_description
+      - expected_output
+      - key_features_to_match
+
+  # Self-Consistency
+  self_consistency:
+    description: "Multiple reasoning paths with majority voting"
+    default_paths: 3
+    max_paths: 5
+    aggregation_methods:
+      - majority_vote
+      - weighted_average
+      - conservative (worst case)
+      - optimistic (best case)
+    confidence_boost: 0.1  # Add 10% if all paths agree
+
+  # Prompt Chaining
+  prompt_chaining:
+    description: "Sequential subtasks with output passing"
+    stage_requirements:
+      - clear_input_spec
+      - clear_output_spec
+      - validation_criteria
+    error_handling:
+      retry_count: 2
+      fallback_enabled: true
+      partial_completion: true
+
+  # Tree of Thoughts
+  tree_of_thoughts:
+    description: "Branching exploration of alternatives"
+    default_branching_factor: 3
+    default_depth: 3
+    evaluation_categories:
+      - sure: ">80% confidence"
+      - maybe: "40-80% confidence"
+      - unlikely: "<40% confidence"
+    pruning_threshold: "unlikely"
+
+  # Reflexion
+  reflexion:
+    description: "Self-improvement through reflection"
+    components:
+      actor: "Generates actions using CoT/ReAct"
+      evaluator: "Scores outcomes"
+      memory: "Stores reflections"
+    triggers:
+      - outcome_known
+      - error_occurred
+      - periodic_review
+    storage_path: "infohub/{realm}/agent_work/reflections/"
+
+# ==============================================================================
+# AGENT TECHNIQUE MAPPING
+# ==============================================================================
+
+agent_techniques:
+  # Strategic Agents
+  ae_agent:
+    primary: react
+    secondary: [cot, tot]
+    few_shot_examples: 3
+    self_consistency:
+      enabled: false
+    use_cases:
+      - account_strategy: [cot, tot]
+      - stakeholder_analysis: [react]
+      - opportunity_qualification: [cot, self_consistency]
+
+  sa_agent:
+    primary: react
+    secondary: [cot, tot]
+    few_shot_examples: 3
+    self_consistency:
+      enabled: false
+    use_cases:
+      - technical_analysis: [cot]
+      - architecture_review: [cot, tot]
+      - risk_assessment: [cot, self_consistency]
+      - poc_support: [react]
+
+  ca_agent:
+    primary: cot
+    secondary: [react, few_shot]
+    few_shot_examples: 3
+    self_consistency:
+      enabled: true
+      paths: 3
+    use_cases:
+      - adoption_assessment: [cot]
+      - health_evaluation: [cot, self_consistency]
+      - success_planning: [cot, prompt_chaining]
+
+  ve_agent:
+    primary: cot
+    secondary: [react]
+    few_shot_examples: 2
+    self_consistency:
+      enabled: true
+      paths: 3
+    use_cases:
+      - roi_calculation: [cot, self_consistency]
+      - value_hypothesis: [cot]
+      - tco_analysis: [cot, react]
+
+  ci_agent:
+    primary: react
+    secondary: [cot]
+    few_shot_examples: 3
+    self_consistency:
+      enabled: false
+    use_cases:
+      - competitive_analysis: [cot]
+      - market_research: [react]
+      - battlecard_generation: [cot, few_shot]
+
+  # Governance Agents
+  risk_radar_agent:
+    primary: few_shot
+    secondary: [cot]
+    few_shot_examples: 5
+    self_consistency:
+      enabled: true
+      paths: 3
+    use_cases:
+      - risk_classification: [few_shot, self_consistency]
+      - severity_assessment: [cot, self_consistency]
+      - signal_detection: [cot]
+
+  health_score_agent:
+    primary: cot
+    secondary: [self_consistency]
+    few_shot_examples: 2
+    self_consistency:
+      enabled: true
+      paths: 3
+    use_cases:
+      - score_calculation: [cot, self_consistency]
+      - trend_analysis: [cot]
+      - threshold_evaluation: [cot]
+
+  action_tracker_agent:
+    primary: few_shot
+    secondary: [cot]
+    few_shot_examples: 3
+    self_consistency:
+      enabled: false
+    use_cases:
+      - action_creation: [few_shot]
+      - priority_assignment: [cot]
+      - status_tracking: [few_shot]
+
+  decision_registrar_agent:
+    primary: few_shot
+    secondary: [cot]
+    few_shot_examples: 3
+    self_consistency:
+      enabled: false
+    use_cases:
+      - decision_logging: [few_shot]
+      - adr_creation: [few_shot, cot]
+      - impact_assessment: [cot]
+
+  meeting_notes_agent:
+    primary: few_shot
+    secondary: [cot]
+    few_shot_examples: 4
+    self_consistency:
+      enabled: false
+    use_cases:
+      - note_extraction: [few_shot]
+      - action_identification: [cot]
+      - risk_signal_detection: [cot]
+
+  nudger_agent:
+    primary: few_shot
+    secondary: [cot]
+    few_shot_examples: 3
+    self_consistency:
+      enabled: false
+    use_cases:
+      - reminder_generation: [few_shot]
+      - escalation_detection: [cot]
+      - priority_assessment: [cot]
+
+  governance_agent:
+    primary: cot
+    secondary: [prompt_chaining]
+    few_shot_examples: 2
+    self_consistency:
+      enabled: true
+      paths: 3
+    use_cases:
+      - compliance_check: [cot]
+      - process_validation: [cot, prompt_chaining]
+      - escalation_decision: [cot, self_consistency]
+
+  retrospective_agent:
+    primary: reflexion
+    secondary: [cot]
+    few_shot_examples: 3
+    self_consistency:
+      enabled: false
+    memory_enabled: true
+    use_cases:
+      - win_loss_analysis: [reflexion, cot]
+      - pattern_extraction: [cot]
+      - lesson_generation: [reflexion]
+
+  orchestration_agent:
+    primary: cot
+    secondary: [tot]
+    few_shot_examples: 2
+    self_consistency:
+      enabled: false
+    use_cases:
+      - signal_routing: [cot]
+      - process_coordination: [cot, tot]
+      - conflict_resolution: [cot, tot]
+
+# ==============================================================================
+# PROMPT TEMPLATES
+# ==============================================================================
+
+prompt_templates:
+  # System prompt structure
+  system_prompt:
+    structure: |
+      You are the {agent_role} for {realm}/{node}.
+
+      ## Your Responsibilities
+      {responsibilities}
+
+      ## Available Tools
+      {tool_descriptions}
+
+      ## Output Requirements
+      {output_requirements}
+
+      ## Guidelines
+      - Always cite evidence for conclusions
+      - State confidence levels explicitly
+      - Use structured formats consistently
+
+  # Chain-of-Thought template
+  cot_template:
+    structure: |
+      {task_description}
+
+      Think through this step by step:
+
+      Step 1: {first_step_description}
+      Step 2: {second_step_description}
+      ...
+
+      Then provide your conclusion with:
+      - Summary
+      - Confidence level (0-100%)
+      - Key evidence
+
+  # ReAct template
+  react_template:
+    structure: |
+      {task_description}
+
+      Use the available tools to gather information, then provide your analysis.
+
+      Format your response as:
+
+      Thought: [Your reasoning about what to do next]
+      Action: [tool_name](param1="value1", param2="value2")
+      Observation: [Result will be provided]
+
+      ... repeat as needed ...
+
+      Final Answer:
+      - Conclusion: [Your conclusion]
+      - Confidence: [0-100%]
+      - Evidence: [List of sources used]
+
+  # Self-Consistency template
+  self_consistency_template:
+    structure: |
+      {task_description}
+
+      Generate {num_paths} independent analyses, each taking a different approach.
+
+      Path {n}:
+      - Approach: [Describe your approach]
+      - Analysis: [Your reasoning]
+      - Conclusion: [Your answer]
+      - Confidence: [0-100%]
+
+      After all paths, select the most supported conclusion.
+
+  # Tree of Thoughts template
+  tot_template:
+    structure: |
+      {problem_description}
+
+      Explore {branching_factor} different approaches:
+
+      Branch 1: {approach_1}
+      - Pros: [List advantages]
+      - Cons: [List disadvantages]
+      - Evaluation: [sure/maybe/unlikely]
+
+      Branch 2: {approach_2}
+      ...
+
+      Selected Path: [Most promising branch]
+      Rationale: [Why this path is best]
+      Next Steps: [How to proceed]
+
+  # Reflexion template
+  reflexion_template:
+    structure: |
+      ## Reflection on {task_type}
+
+      ### Original Assessment
+      - Prediction: {original_prediction}
+      - Confidence: {original_confidence}
+      - Evidence used: {original_evidence}
+
+      ### Actual Outcome
+      - Result: {actual_outcome}
+      - Accuracy: {was_correct}
+
+      ### Lessons Learned
+      - What worked: {successful_patterns}
+      - What to improve: {areas_for_improvement}
+
+      ### Future Guidance
+      - Pattern to remember: {pattern}
+      - Confidence adjustment: {adjustment}
+
+# ==============================================================================
+# FEW-SHOT EXAMPLE GUIDELINES
+# ==============================================================================
+
+few_shot_guidelines:
+  selection_criteria:
+    - diversity: "Cover different scenarios"
+    - quality: "Use gold-standard examples only"
+    - relevance: "Match task type closely"
+    - format: "Maintain consistent structure"
+
+  example_count:
+    simple_tasks: 2
+    standard_tasks: 3
+    complex_tasks: 5
+
+  example_structure:
+    - input: "Clear task description or input data"
+    - reasoning: "Step-by-step thought process (if applicable)"
+    - output: "Expected output format"
+    - notes: "Key features to match (optional)"
+
+  storage_path: "config/few_shot_examples/{agent_id}/"
+
+# ==============================================================================
+# QUALITY METRICS
+# ==============================================================================
+
+quality_metrics:
+  confidence_calibration:
+    description: "Does stated confidence match actual accuracy?"
+    target: "> 0.8 correlation"
+    measurement: "Compare confidence to outcome over time"
+
+  evidence_quality:
+    description: "Are citations accurate and relevant?"
+    checks:
+      - source_exists
+      - excerpt_matches_source
+      - relevance_to_conclusion
+
+  format_consistency:
+    description: "Do outputs match expected schema?"
+    validation: "JSON Schema / YAML Schema"
+    strictness: "error_on_deviation"
+
+  reasoning_clarity:
+    description: "Is the thought process traceable?"
+    indicators:
+      - step_by_step_present
+      - intermediate_conclusions
+      - evidence_links
+
+# ==============================================================================
+# ERROR HANDLING
+# ==============================================================================
+
+error_handling:
+  insufficient_evidence:
+    action: request_more_context
+    prompt_addition: |
+      I don't have enough evidence to answer with confidence.
+      Please provide additional context about: {missing_areas}
+
+  conflicting_evidence:
+    action: acknowledge_and_explain
+    prompt_addition: |
+      I found conflicting evidence:
+      - Source A says: {evidence_a}
+      - Source B says: {evidence_b}
+
+      My assessment weighs {selected_source} more heavily because: {reason}
+      Confidence reduced to: {adjusted_confidence}
+
+  low_confidence:
+    threshold: 50
+    action: flag_for_review
+    prompt_addition: |
+      ⚠️ Low Confidence Assessment
+
+      My confidence is only {confidence}% because: {reasons}
+
+      Recommend human review before acting on this assessment.
+
+  tool_failure:
+    action: retry_then_fallback
+    prompt_addition: |
+      Tool {tool_name} failed. Attempting alternative approach.
+
+      If I cannot gather required information, I will:
+      1. Proceed with available data (with noted limitations)
+      2. Flag specific gaps for manual follow-up

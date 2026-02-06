@@ -1,0 +1,185 @@
+# Canvas Spec: Execution Canvas
+# One page: Mutual Action Plan + Success Criteria
+# Output: Project Work Plan + Success Matrix + Status Tracking
+
+canvas_id: execution_map
+version: "1.0"
+name: "Execution Canvas"
+description: "Transform strategy into clear path toward Closing, POC, or Rollout - timeline, workstreams, and success criteria"
+
+# ==============================================================================
+# CANVAS SECTIONS
+# ==============================================================================
+sections:
+  timeline_milestones:
+    label: "Timeline / Milestones (MAP)"
+    prompt: "Chronological roadmap of critical steps to reach the goal"
+    required: true
+    max_items: 8
+    format: "timeline"
+    fields_per_item:
+      - milestone: "What"
+      - date: "When"
+      - owner: "Who"
+      - status: "Status"
+    examples:
+      - "Technical validation complete"
+      - "Security review approved"
+      - "Procurement process initiated"
+      - "Contract signed"
+      - "Go-live"
+    source:
+      type: "infohub"
+      path: "csp/csp.yaml"
+      field: "adoption_journey.phases"
+      fallback: "opportunities/{opp}/poc_success_plan.yaml → milestones"
+
+  workstreams:
+    label: "Workstreams"
+    prompt: "Responsibilities and parallel tracks for each party"
+    required: true
+    format: "party_based"
+    subsections:
+      customer:
+        label: "Customer"
+        prompt: "Customer responsibilities and tasks"
+        max_items: 5
+      vendor:
+        label: "{vendor}"
+        prompt: "Our responsibilities and tasks"
+        max_items: 5
+      partner:
+        label: "Partner"
+        prompt: "Partner responsibilities (if applicable)"
+        max_items: 3
+    source:
+      type: "derived"
+      from: ["csp/csp.yaml", "opportunities/{opp}/poc_success_plan.yaml"]
+      transform: "group_by_owner_party"
+
+  success_criteria:
+    label: "Success Criteria"
+    prompt: "Tracking table for validation tasks"
+    required: true
+    max_items: 10
+    format: "table"
+    columns:
+      - task: "Specific feature or use case to validate"
+      - category: "Performance | Functional | Security | Integration"
+      - owner: "Person responsible for sign-off"
+      - status: "Pending | In Progress | Verified | Blocked"
+    source:
+      type: "infohub"
+      path: "opportunities/{opp}/poc_success_plan.yaml"
+      field: "success_criteria"
+      fallback: "csp/csp.yaml → success_criteria"
+
+  enablement_handover:
+    label: "Enablement & Handover"
+    prompt: "Assets customer must possess for long-term success"
+    required: true
+    max_items: 8
+    format: "checklist"
+    examples:
+      - "Architecture diagrams"
+      - "Runbooks / operational guides"
+      - "Training certifications"
+      - "Support access configured"
+      - "Monitoring dashboards"
+      - "Escalation contacts"
+    source:
+      type: "infohub"
+      path: "csp/csp.yaml"
+      field: "handoff_items"
+
+# ==============================================================================
+# OUTPUT ARTIFACTS
+# ==============================================================================
+output_artifacts:
+  project_work_plan:
+    description: "Extracted timeline with owners and dependencies"
+    generated_from: ["timeline_milestones", "workstreams"]
+
+  success_matrix:
+    description: "Criteria tracking table"
+    generated_from: ["success_criteria"]
+
+  status_tracking:
+    description: "Overall execution status"
+    calculated:
+      milestones_complete: "count(status=complete) / total"
+      criteria_verified: "count(status=verified) / total"
+      overall_health: "GREEN | YELLOW | RED"
+
+# ==============================================================================
+# METADATA
+# ==============================================================================
+metadata:
+  opportunity:
+    source: "context/overview.yaml → opportunity_id"
+  target_date:
+    source: "derived from last milestone"
+  last_updated:
+    source: "render_timestamp"
+
+# ==============================================================================
+# RENDER TRIGGERS
+# ==============================================================================
+triggers:
+  on_create:
+    - "POC Success Plan created"
+    - "CSP finalized"
+  on_update:
+    - "Milestone status changes"
+    - "Success criteria updated"
+    - "Meeting notes with MAP discussion"
+  scheduled:
+    - frequency: "daily"
+      condition: "active_poc OR active_implementation"
+
+# ==============================================================================
+# VALIDATION RULES
+# ==============================================================================
+validation:
+  completeness:
+    minimum_sections:
+      - "timeline_milestones"
+      - "success_criteria"
+    warning_if_missing:
+      - "workstreams"
+      - "enablement_handover"
+
+  consistency:
+    - rule: "all success_criteria must have owner"
+      severity: "error"
+    - rule: "timeline dates must be sequential"
+      severity: "warning"
+    - rule: "each workstream should have at least one task"
+      severity: "warning"
+
+  status_rules:
+    - rule: "blocked items must have blocker reason"
+      severity: "warning"
+    - rule: "overdue milestones flagged"
+      severity: "error"
+
+# ==============================================================================
+# OUTPUT PATHS
+# ==============================================================================
+output:
+  markdown:
+    path: "infohub/{realm}/{node}/canvas/execution_map_{opportunity_id}.md"
+  html:
+    path: "infohub/{realm}/{node}/canvas/execution_map_{opportunity_id}.html"
+    template: "playbooks/canvas/templates/execution_map.html"
+
+# ==============================================================================
+# LAYOUT
+# ==============================================================================
+layout:
+  grid: "2x2"
+  sections:
+    top: "timeline_milestones"  # full width
+    middle_left: "workstreams"
+    middle_right: "success_criteria"
+    bottom: "enablement_handover"  # full width

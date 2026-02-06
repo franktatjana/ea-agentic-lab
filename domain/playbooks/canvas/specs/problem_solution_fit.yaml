@@ -1,0 +1,221 @@
+# Canvas Spec: Problem-Solution Fit Canvas
+# Visual artifact for validating customer problem and proposed solution alignment
+
+canvas_id: problem_solution_fit
+version: "1.0"
+name: "Problem-Solution Fit Canvas"
+description: "Visual one-pager for validating that the proposed solution addresses real customer problems"
+
+# ==============================================================================
+# CANVAS SECTIONS (matching visual layout)
+# ==============================================================================
+sections:
+  # Column 1: Define Customer
+  customer_segments:
+    label: "Customer Segment(s)"
+    code: "CS"
+    prompt: "Who are we solving this for? Define the target personas and their characteristics."
+    required: true
+    max_items: 3
+    source:
+      type: "infohub"
+      path: "context/stakeholder_map.yaml"
+      field: "personas"
+      fallback: "discovery/customer_segments.yaml"
+
+  problems_pains:
+    label: "Problems / Pains"
+    subtext: "+ its frequency"
+    code: "PR"
+    prompt: "What deep problems and pains does this segment face? How often do they occur?"
+    required: true
+    max_items: 5
+    source:
+      type: "infohub"
+      path: "discovery/pain_points.yaml"
+      filter: "severity >= medium"
+
+  triggers_to_act:
+    label: "Triggers to Act"
+    code: "TR"
+    prompt: "What events or situations trigger the customer to seek a solution now?"
+    required: true
+    max_items: 4
+    source:
+      type: "derived"
+      from: ["discovery/pain_points.yaml", "meeting_notes/"]
+      extract: "buying_triggers"
+
+  emotions:
+    label: "Emotions"
+    subtext: "before / after"
+    code: "EM"
+    prompt: "What emotions does the customer feel before solving the problem? After?"
+    required: false
+    max_items: null
+    format: "before_after"
+    source:
+      type: "derived"
+      from: "discovery/"
+      extract: "emotional_drivers"
+
+  # Column 2: Understand Context
+  customer_limitations:
+    label: "Customer Limitations"
+    subtext: "e.g., budget, devices"
+    code: "CL"
+    prompt: "What constraints limit the customer's ability to solve this problem?"
+    required: true
+    max_items: 5
+    source:
+      type: "infohub"
+      path: "context/constraints.yaml"
+      merge: "discovery/blockers.yaml"
+
+  problem_root_cause:
+    label: "Problem Root / Cause"
+    code: "RC"
+    prompt: "Why does this problem exist? What is the underlying root cause?"
+    required: true
+    max_items: 3
+    source:
+      type: "derived"
+      from: "discovery/pain_points.yaml"
+      extract: "root_causes"
+
+  your_solution:
+    label: "Your Solution"
+    code: "SL"
+    prompt: "How does our solution address the root cause and solve the problems?"
+    required: true
+    max_items: null
+    source:
+      type: "infohub"
+      path: "value/value_hypothesis.yaml"
+      field: "proposed_solution"
+
+  # Column 3: Explore Alternatives
+  available_solutions:
+    label: "Available Solutions"
+    subtext: "pros & cons"
+    code: "AS"
+    prompt: "What other solutions exist? What are their strengths and weaknesses?"
+    required: true
+    max_items: 4
+    format: "pros_cons"
+    source:
+      type: "infohub"
+      path: "competitive/"
+      aggregate: "alternatives_summary"
+
+  behavior:
+    label: "Behavior"
+    subtext: "+ its intensity"
+    code: "BE"
+    prompt: "How does the customer currently behave to cope with the problem?"
+    required: false
+    max_items: 4
+    source:
+      type: "derived"
+      from: ["discovery/", "meeting_notes/"]
+      extract: "current_workarounds"
+
+  channels_of_behavior:
+    label: "Channels of Behavior"
+    code: "CH"
+    prompt: "Where does this behavior happen? (online vs offline, which tools/systems)"
+    required: false
+    max_items: null
+    format: "online_offline"
+    source:
+      type: "derived"
+      from: "architecture/current_state.yaml"
+      extract: "touchpoints"
+
+# ==============================================================================
+# METADATA FIELDS
+# ==============================================================================
+metadata:
+  purpose_vision:
+    label: "Purpose / Vision"
+    source: "value/value_hypothesis.yaml → vision"
+    position: "header"
+  version:
+    source: "render_version"
+  date:
+    source: "render_timestamp"
+  opportunity:
+    source: "context/overview.yaml → opportunity_id"
+
+# ==============================================================================
+# RENDER TRIGGERS
+# ==============================================================================
+triggers:
+  on_create:
+    - "Discovery findings documented"
+    - "Value hypothesis created"
+  on_update:
+    - "New pain points discovered"
+    - "Competitive analysis updated"
+    - "Meeting notes with problem/solution discussion"
+  scheduled:
+    - frequency: "bi-weekly"
+      condition: "opportunity.stage IN ['Stage 2', 'Stage 3']"
+
+# ==============================================================================
+# VALIDATION RULES
+# ==============================================================================
+validation:
+  completeness:
+    minimum_sections:
+      - "customer_segments"
+      - "problems_pains"
+      - "your_solution"
+    warning_if_missing:
+      - "available_solutions"
+      - "customer_limitations"
+      - "problem_root_cause"
+
+  consistency:
+    - rule: "your_solution must address at least one problem_pain"
+      severity: "error"
+    - rule: "triggers_to_act should relate to problems_pains"
+      severity: "warning"
+    - rule: "customer_limitations should not block your_solution"
+      severity: "warning"
+
+  fit_score:
+    description: "Calculate problem-solution fit confidence"
+    formula: |
+      problems_addressed = count(problems_pains where addressed_by_solution)
+      fit_score = (problems_addressed / total_problems) * 100
+    thresholds:
+      strong_fit: ">= 80%"
+      moderate_fit: "50-79%"
+      weak_fit: "< 50%"
+
+# ==============================================================================
+# OUTPUT PATHS
+# ==============================================================================
+output:
+  markdown:
+    path: "infohub/{realm}/{node}/canvas/problem_solution_fit_{opportunity_id}.md"
+  html:
+    path: "infohub/{realm}/{node}/canvas/problem_solution_fit_{opportunity_id}.html"
+    template: "playbooks/canvas/templates/problem_solution_fit.html"
+
+# ==============================================================================
+# LAYOUT HINTS (for template rendering)
+# ==============================================================================
+layout:
+  grid: "3x4"
+  columns:
+    - name: "Define Customer"
+      color: "#E91E63"  # Pink
+      sections: ["customer_segments", "problems_pains", "triggers_to_act", "emotions"]
+    - name: "Understand Context"
+      color: "#FF9800"  # Orange
+      sections: ["customer_limitations", "problem_root_cause", "your_solution"]
+    - name: "Explore Alternatives"
+      color: "#4CAF50"  # Green
+      sections: ["available_solutions", "behavior", "channels_of_behavior"]

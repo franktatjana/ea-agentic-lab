@@ -1,0 +1,88 @@
+# Task Shepherd Agent (Action Tracker Agent)
+# Purpose: Ensure actions are real tasks, not vague promises
+
+agent_id: "task_shepherd_agent"
+team: "governance"
+category: "entropy_reduction"
+purpose: "Ensure actions are real tasks, not vague promises"
+
+trigger:
+  events:
+    - "action_created"
+    - "meeting_note_published"
+    - "decision_made"
+  schedule:
+    - cron: "0 8 * * 1"        # Monday morning audit
+
+inputs:
+  sources:
+    - "infohub/{realm}/{node}/actions/action_tracker.yaml"
+    - "infohub/{realm}/{node}/meetings/"
+    - "infohub/{realm}/{node}/decisions/decision_log.yaml"
+
+processing:
+  validation:
+    - id: "single_owner"
+      rule: "Each action has exactly one owner (not 'team' or 'TBD')"
+      on_fail: "Request owner assignment"
+    - id: "clear_due_date"
+      rule: "Due date is specific (not 'soon' or 'ASAP')"
+      on_fail: "Request specific date"
+    - id: "done_means"
+      rule: "Completion criteria defined"
+      on_fail: "Request 'done means' definition"
+    - id: "no_duplicates"
+      rule: "No duplicate actions across sources"
+      on_fail: "Merge or clarify scope"
+    - id: "linked_context"
+      rule: "Action linked to source (meeting/decision)"
+      on_fail: "Add source reference"
+
+  enrichment:
+    - id: "priority_inference"
+      rule: "Infer priority from context if not set"
+      logic:
+        - "Blocker mentioned → P0"
+        - "Executive ask → P0"
+        - "Risk mitigation → P1"
+        - "Default → P2"
+    - id: "dependency_detection"
+      rule: "Identify blocking dependencies"
+      output: "blocked_by field"
+
+outputs:
+  artifacts:
+    - type: "action_tracker_update"
+      path: "infohub/{realm}/{node}/actions/action_tracker.yaml"
+    - type: "task_creation"
+      destination: "project_management_tool"  # Jira, Asana, etc.
+  reports:
+    - type: "action_health"
+      content:
+        - total_actions
+        - valid_actions
+        - actions_needing_attention
+        - blocked_actions
+
+quality_gates:
+  - "Owner is a real person (not role/team)"
+  - "Due date is calendar date"
+  - "Done-means is verifiable"
+  - "Source link exists"
+
+linkage:
+  to_meetings: "source_meeting_id"
+  to_decisions: "source_decision_id"
+  to_risks: "mitigates_risk_id"
+
+integrations:
+  reads_from:
+    - "meeting_notes"
+    - "decision_log"
+    - "risk_register"
+  writes_to:
+    - "action_tracker"
+    - "project_management_tool"
+  notifies:
+    - "action_owner"
+    - "meeting_organizer"

@@ -1,0 +1,86 @@
+# Nudger Agent (Reminder Agent)
+# Purpose: Make follow-through unavoidable without babysitting
+
+agent_id: "nudger_agent"
+team: "governance"
+category: "entropy_reduction"
+purpose: "Make follow-through unavoidable without babysitting adults"
+
+trigger:
+  schedule:
+    - cron: "0 9 * * 1-5"      # Daily 9am weekdays
+    - cron: "0 14 * * 1-5"     # Daily 2pm weekdays (escalation check)
+  events:
+    - "action_created"
+    - "action_due_approaching"
+    - "action_overdue"
+
+inputs:
+  sources:
+    - "infohub/{realm}/{node}/actions/action_tracker.yaml"
+    - "infohub/{realm}/{node}/decisions/decision_log.yaml"
+
+processing:
+  checks:
+    - id: "due_soon"
+      condition: "due_date within 2 days"
+      action: "Send reminder to owner"
+      template: "friendly_reminder"
+    - id: "overdue"
+      condition: "due_date passed"
+      action: "Send escalation notice"
+      template: "overdue_notice"
+      escalate_after: "2 days"
+    - id: "missing_owner"
+      condition: "owner is null or 'TBD'"
+      action: "Flag for assignment"
+      notify: "meeting_organizer"
+    - id: "missing_date"
+      condition: "due_date is null and age > 3 days"
+      action: "Request due date"
+      notify: "owner"
+    - id: "stalled"
+      condition: "status unchanged for > 7 days"
+      action: "Check-in with owner"
+      template: "status_check"
+
+escalation_rules:
+  - trigger: "overdue > 2 days"
+    action: "Notify owner's manager"
+  - trigger: "overdue > 5 days"
+    action: "Escalate to governance lead"
+  - trigger: "blocked > 3 days"
+    action: "Route to blocker_resolver"
+
+outputs:
+  notifications:
+    - type: "reminder"
+      channel: "slack|email"
+      frequency: "once_per_check"
+    - type: "escalation"
+      channel: "slack|email"
+      include: "manager"
+  reports:
+    - type: "daily_nudge_summary"
+      destination: "governance_lead"
+      content:
+        - actions_reminded
+        - actions_escalated
+        - items_missing_owners
+
+quality_gates:
+  - "No spam: max 1 reminder per action per day"
+  - "Escalation requires overdue proof"
+  - "Owner must exist before reminder"
+
+integrations:
+  reads_from:
+    - "action_tracker"
+    - "decision_log"
+    - "org_chart"              # For escalation paths
+  writes_to:
+    - "nudge_log"
+  notifies:
+    - "action_owners"
+    - "managers"
+    - "governance_lead"

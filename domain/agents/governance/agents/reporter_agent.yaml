@@ -1,0 +1,105 @@
+# Reporter Agent (Weekly Digest Agent)
+# Purpose: Convert chaos into a 10-line weekly summary leadership can consume
+
+agent_id: "reporter_agent"
+team: "governance"
+category: "entropy_reduction"
+purpose: "Convert chaos into a 10-line weekly summary leadership can consume"
+
+trigger:
+  schedule:
+    - cron: "0 17 * * 5"        # Friday 5pm weekly digest
+    - cron: "0 8 * * 1"         # Monday 8am week-ahead preview
+  manual: true                   # On-demand reports
+
+inputs:
+  sources:
+    - "infohub/{realm}/{node}/actions/action_tracker.yaml"
+    - "infohub/{realm}/{node}/decisions/decision_log.yaml"
+    - "infohub/{realm}/{node}/risks/risk_register.yaml"
+    - "infohub/{realm}/{node}/meetings/"
+    - "infohub/{realm}/{node}/governance/health_score.yaml"
+    - "infohub/{realm}/{node}/value/value_tracker.yaml"
+
+processing:
+  aggregation:
+    - id: "whats_changed"
+      description: "Delta from last report"
+      includes:
+        - new_decisions
+        - completed_actions
+        - new_risks
+        - closed_risks
+        - health_score_change
+    - id: "key_decisions"
+      description: "Top 3 decisions this period"
+      sort_by: "impact"
+    - id: "top_risks"
+      description: "Top 3 active risks"
+      sort_by: "severity"
+    - id: "blockers"
+      description: "Items blocking progress"
+      filter: "status == 'blocked'"
+    - id: "next_week"
+      description: "Priorities for next period"
+      sources:
+        - "due_actions"
+        - "scheduled_meetings"
+        - "pending_decisions"
+
+  formatting:
+    max_length: "10 lines for summary"
+    structure:
+      - "TL;DR (1-2 sentences)"
+      - "What changed (3 bullets)"
+      - "Key decisions (2-3 bullets)"
+      - "Top risks (2-3 bullets)"
+      - "Blockers (if any)"
+      - "Next week priorities (3 bullets)"
+
+outputs:
+  artifacts:
+    - type: "weekly_digest"
+      format: "markdown"
+      path: "infohub/{realm}/{node}/reports/weekly_{date}.md"
+    - type: "executive_summary"
+      format: "slack_message"
+      destination: "leadership_channel"
+  distribution:
+    - channel: "email"
+      recipients: "account_team"
+    - channel: "slack"
+      recipients: "account_channel"
+
+report_types:
+  weekly_digest:
+    schedule: "Friday 5pm"
+    audience: "Account team + leadership"
+    length: "10 lines max"
+  month_end:
+    schedule: "Last Friday of month"
+    audience: "Leadership + exec sponsor"
+    length: "1 page max"
+  on_demand:
+    trigger: "manual"
+    audience: "requestor"
+    length: "configurable"
+
+quality_gates:
+  - "Summary fits in 10 lines"
+  - "All claims linked to source"
+  - "No stale data (< 24 hours old)"
+  - "Critical risks always surfaced"
+
+integrations:
+  reads_from:
+    - "action_tracker"
+    - "decision_log"
+    - "risk_register"
+    - "health_score"
+    - "meetings"
+  writes_to:
+    - "infohub/reports/"
+  notifies:
+    - "account_team"
+    - "leadership"

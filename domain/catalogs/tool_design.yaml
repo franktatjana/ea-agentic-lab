@@ -1,0 +1,496 @@
+# Tool Design Configuration
+#
+# Core principle: Tools should be thoughtful, high-impact affordances
+# designed from the agent's perspective, not the system's.
+
+version: "1.0"
+last_updated: "2026-01-22"
+
+# ==============================================================================
+# NAMING CONVENTIONS
+# ==============================================================================
+# Standard parameter names to avoid ambiguity
+
+naming_conventions:
+  # Always use these explicit names instead of ambiguous alternatives
+  required_mappings:
+    # Identity fields
+    - ambiguous: ["user", "account", "client"]
+      preferred: "realm_id"
+      context: "When referring to the account/realm"
+
+    - ambiguous: ["node", "project", "opportunity"]
+      preferred: "node_id"
+      context: "When referring to the node within a realm"
+
+    - ambiguous: ["person", "contact", "user"]
+      preferred: "stakeholder_id"
+      context: "When referring to a person at the customer"
+
+    - ambiguous: ["agent", "owner"]
+      preferred: "agent_id"
+      context: "When referring to an agent in the system"
+
+    # Date fields
+    - ambiguous: ["date", "time"]
+      preferred: "created_at"
+      context: "When referring to creation timestamp"
+
+    - ambiguous: ["date", "deadline"]
+      preferred: "due_date"
+      context: "When referring to when something is due"
+
+    - ambiguous: ["date", "modified"]
+      preferred: "last_updated"
+      context: "When referring to last modification"
+
+    - ambiguous: ["date", "start"]
+      preferred: "start_date"
+      context: "When referring to a period start"
+
+    # Status fields
+    - ambiguous: ["status", "state"]
+      preferred: "risk_status"
+      context: "When referring to risk status"
+
+    - ambiguous: ["status", "state"]
+      preferred: "action_status"
+      context: "When referring to action status"
+
+    - ambiguous: ["status", "state"]
+      preferred: "health_status"
+      context: "When referring to health status"
+
+    # Priority fields
+    - ambiguous: ["priority", "importance", "urgency"]
+      preferred: "action_priority"
+      context: "When referring to action priority"
+
+    - ambiguous: ["priority", "severity", "level"]
+      preferred: "risk_severity"
+      context: "When referring to risk severity"
+
+  # Naming patterns
+  patterns:
+    identifiers: "{entity}_id"        # stakeholder_id, risk_id
+    names: "{entity}_name"            # stakeholder_name, realm_name
+    statuses: "{entity}_status"       # risk_status, action_status
+    timestamps: "{event}_at"          # created_at, resolved_at
+    counts: "{entity}_count"          # risk_count, action_count
+    flags: "is_{condition}"           # is_overdue, is_critical
+
+# ==============================================================================
+# DETAIL LEVELS
+# ==============================================================================
+# Standard response verbosity levels
+
+detail_levels:
+  summary:
+    description: "Minimal response - IDs, names, status only"
+    token_budget: "~50 per item"
+    use_when:
+      - "Listing many items"
+      - "Checking existence"
+      - "Context is tight"
+    includes:
+      - id
+      - name_or_title
+      - status
+      - severity (if applicable)
+      - last_updated (date only)
+
+  standard:
+    description: "Balanced response - key fields, truncated descriptions"
+    token_budget: "~200 per item"
+    use_when:
+      - "Working on a task"
+      - "Need context but not full detail"
+      - "Default for most operations"
+    includes:
+      - all_summary_fields
+      - description (truncated to 200 chars)
+      - owner
+      - due_date (if applicable)
+      - key_metadata
+      - evidence_count (not full evidence)
+
+  full:
+    description: "Complete response - all fields, full content"
+    token_budget: "~1000 per item"
+    use_when:
+      - "Deep analysis required"
+      - "Creating or updating artifacts"
+      - "Generating reports"
+    includes:
+      - all_fields
+      - full_description
+      - complete_evidence
+      - full_history
+      - related_items
+
+  # Default selection rules
+  auto_selection:
+    rules:
+      - condition: "item_count > 20"
+        level: "summary"
+        reason: "Many items - use summary to stay within context budget"
+
+      - condition: "item_count > 5 AND item_count <= 20"
+        level: "standard"
+        reason: "Moderate count - standard detail is appropriate"
+
+      - condition: "item_count <= 5"
+        level: "standard"
+        reason: "Few items - can afford standard detail"
+
+      - condition: "explicit_deep_dive == true"
+        level: "full"
+        reason: "Agent requested deep analysis"
+
+# ==============================================================================
+# ERROR TEMPLATES
+# ==============================================================================
+# Actionable error message templates
+
+error_templates:
+  # Validation errors
+  missing_required_parameter:
+    code: "PARAM_MISSING"
+    template: |
+      Missing required parameter: '{parameter_name}'
+
+      This parameter is required because: {reason}
+
+      Suggestions:
+      1. Check if you have the {parameter_name} available in your context
+      2. Use 'get_node_context' to retrieve current node information
+      3. If this is a new operation, you may need to create the {entity} first
+
+  invalid_parameter_value:
+    code: "PARAM_INVALID"
+    template: |
+      Invalid value for parameter '{parameter_name}': '{provided_value}'
+
+      Expected: {expected_format}
+      Example: {example_value}
+
+      Suggestions:
+      1. Check the parameter type - should be {expected_type}
+      2. Valid options are: {valid_options}
+      3. {additional_guidance}
+
+  # Data errors
+  artifact_not_found:
+    code: "NOT_FOUND"
+    template: |
+      Artifact not found: {artifact_path}
+
+      The {artifact_type} '{artifact_id}' does not exist in InfoHub.
+
+      Suggestions:
+      1. Verify the {artifact_type}_id is correct
+      2. Use 'get_node_context' to see available {artifact_type}s
+      3. If this is expected to exist, it may not have been created yet
+      4. Check if you're looking in the correct realm/node
+
+      Current context:
+      - Realm: {realm_id}
+      - Node: {node_id}
+      - Available {artifact_type}s: {available_count}
+
+  empty_result:
+    code: "EMPTY_RESULT"
+    template: |
+      No {entity_type}s found matching your criteria.
+
+      Filters applied:
+      {applied_filters}
+
+      Suggestions:
+      1. Broaden your search criteria
+      2. Remove or relax filters: {suggested_removals}
+      3. Check if {entity_type}s exist for this node
+      4. For new nodes, this may be expected - consider creating the first {entity_type}
+
+  # Condition errors
+  condition_evaluation_failed:
+    code: "COND_EVAL_FAIL"
+    template: |
+      Cannot evaluate condition: '{condition}'
+
+      Reason: {failure_reason}
+
+      Context:
+      - JSONPath: {jsonpath}
+      - Data available: {data_summary}
+      - Missing fields: {missing_fields}
+
+      Suggestions:
+      1. {suggestion_1}
+      2. {suggestion_2}
+      3. If this condition requires data that doesn't exist yet, consider creating it first
+
+  # Permission errors
+  forbidden_destination:
+    code: "FORBIDDEN_DEST"
+    template: |
+      Cannot write to destination: {destination_path}
+
+      Reason: {restriction_reason}
+
+      This destination is restricted because:
+      - {restriction_explanation}
+
+      Allowed destinations for {playbook_type} playbooks:
+      {allowed_destinations}
+
+      Suggestions:
+      1. Use an allowed destination from the list above
+      2. If you need to update a strategic artifact, use the appropriate PB_xxx playbook
+      3. Contact a governance agent if you believe this restriction is incorrect
+
+  # Timeout/resource errors
+  operation_timeout:
+    code: "TIMEOUT"
+    template: |
+      Operation timed out after {timeout_seconds} seconds.
+
+      Operation: {operation_name}
+      Started: {start_time}
+
+      This may happen when:
+      - Processing large amounts of data
+      - External dependencies are slow
+      - Network issues
+
+      Suggestions:
+      1. Retry with narrower filters to reduce data volume
+      2. Use 'detail_level: summary' to reduce response size
+      3. Break the operation into smaller chunks
+      4. If this persists, escalate to system administrator
+
+# ==============================================================================
+# OUTPUT FORMATTING
+# ==============================================================================
+# Human-readable output requirements
+
+output_formatting:
+  # Identifier formatting
+  identifiers:
+    rule: "Always include human-readable name/title alongside ID"
+    format:
+      id_field: "{entity}_id"
+      name_field: "{entity}_name"
+    examples:
+      - bad: { "risk_id": "RSK_2026_01_001" }
+        good: { "risk_id": "RSK_2026_01_001", "risk_title": "Competitive displacement by LegacySIEM" }
+      - bad: { "stakeholder_id": "stk_001" }
+        good: { "stakeholder_id": "stk_001", "stakeholder_name": "Sarah Chen (CTO)" }
+
+  # Enum formatting
+  enums:
+    rule: "Include both value and human-readable label"
+    format:
+      value_field: "{field}"
+      label_field: "{field}_label"
+    mappings:
+      severity:
+        critical: "Critical - Immediate action required"
+        high: "High - Requires attention this week"
+        medium: "Medium - Should be addressed this quarter"
+        low: "Low - Monitor only"
+      risk_status:
+        open: "Open - Active risk requiring mitigation"
+        mitigating: "Mitigating - Actions in progress"
+        monitoring: "Monitoring - Under observation"
+        resolved: "Resolved - No longer a risk"
+        accepted: "Accepted - Risk acknowledged and accepted"
+      action_priority:
+        P0: "P0 - Blocking, must resolve immediately"
+        P1: "P1 - Urgent, resolve within 48 hours"
+        P2: "P2 - Important, resolve this week"
+        P3: "P3 - Normal, resolve this month"
+      health_status:
+        green: "Green - Healthy, on track"
+        yellow: "Yellow - At risk, needs attention"
+        orange: "Orange - Elevated risk, action required"
+        red: "Red - Critical, immediate intervention needed"
+
+  # Timestamp formatting
+  timestamps:
+    rule: "Include both absolute and relative time"
+    format:
+      absolute_field: "{field}"           # 2026-01-29
+      relative_field: "{field}_relative"  # in 7 days
+    relative_thresholds:
+      - max_hours: 24
+        format: "in {hours} hours" | "{hours} hours ago"
+      - max_days: 7
+        format: "in {days} days" | "{days} days ago"
+      - max_days: 30
+        format: "in {weeks} weeks" | "{weeks} weeks ago"
+      - default:
+        format: "on {date}"
+
+  # Score formatting
+  scores:
+    rule: "Include interpretation alongside numeric score"
+    format:
+      score_field: "{metric}_score"
+      status_field: "{metric}_status"
+      interpretation_field: "{metric}_interpretation"
+    thresholds:
+      health_score:
+        - range: [0, 50]
+          status: "red"
+          interpretation: "Critical - immediate intervention needed"
+        - range: [50, 60]
+          status: "orange"
+          interpretation: "Elevated risk - action required"
+        - range: [60, 70]
+          status: "yellow"
+          interpretation: "At risk - needs attention"
+        - range: [70, 100]
+          status: "green"
+          interpretation: "Healthy - maintain current engagement"
+
+  # Truncation formatting
+  truncation:
+    rule: "When truncating, include reference to full content"
+    format:
+      truncated_field: "{field}_truncated"
+      full_ref_field: "{field}_full_ref"
+      hint_field: "{field}_hint"
+    max_lengths:
+      description: 200
+      evidence_excerpt: 150
+      note_content: 300
+    hint_template: "Use 'read_artifact' tool with path '{path}' to get full content"
+
+# ==============================================================================
+# VALIDATION RULES
+# ==============================================================================
+# Automated validation for tool/playbook design
+
+validation_rules:
+  # Parameter naming validation
+  parameter_naming:
+    - rule: "no_ambiguous_names"
+      pattern: "^(user|account|date|status|priority|state|node|client)$"
+      severity: "warning"
+      message: "Consider more explicit parameter name"
+      suggestion: "See naming_conventions for preferred alternatives"
+
+    - rule: "follow_naming_pattern"
+      patterns:
+        - match: "_id$"
+          requires: "corresponding _name or _title field in output"
+        - match: "_at$"
+          type: "timestamp"
+        - match: "_count$"
+          type: "integer"
+        - match: "^is_"
+          type: "boolean"
+      severity: "error"
+
+  # Output formatting validation
+  output_formatting:
+    - rule: "ids_have_labels"
+      check: "All *_id output fields have corresponding *_name or *_title"
+      severity: "error"
+      message: "Output ID without human-readable label"
+
+    - rule: "enums_have_labels"
+      check: "All enum output fields have corresponding *_label"
+      severity: "warning"
+      message: "Output enum without human-readable label"
+
+    - rule: "timestamps_have_relative"
+      check: "All timestamp fields have corresponding *_relative"
+      severity: "warning"
+      message: "Output timestamp without relative time"
+
+    - rule: "scores_have_interpretation"
+      check: "All *_score fields have corresponding *_interpretation"
+      severity: "warning"
+      message: "Output score without interpretation"
+
+  # Error handling validation
+  error_handling:
+    - rule: "actionable_errors"
+      check: "All error responses include 'suggestions' array with at least 2 items"
+      severity: "warning"
+      message: "Error message should include actionable suggestions"
+
+    - rule: "context_in_errors"
+      check: "All error responses include 'context' object"
+      severity: "warning"
+      message: "Error message should include relevant context"
+
+  # Documentation validation
+  documentation:
+    - rule: "steering_description"
+      min_length: 100
+      must_include:
+        - "Use this tool when"
+        - "Returns"
+      severity: "warning"
+      message: "Tool description should steer agent behavior"
+
+    - rule: "parameter_descriptions"
+      check: "All parameters have non-empty description"
+      severity: "error"
+      message: "Parameter missing description"
+
+  # Context efficiency validation
+  context_efficiency:
+    - rule: "supports_detail_levels"
+      check: "Data-returning tools support detail_level parameter"
+      severity: "warning"
+      message: "Consider adding detail_level parameter for context efficiency"
+
+    - rule: "has_pagination"
+      check: "List-returning tools support limit/offset parameters"
+      severity: "warning"
+      message: "Consider adding pagination for large result sets"
+
+    - rule: "truncation_warnings"
+      check: "Truncated responses include guidance for narrowing query"
+      severity: "warning"
+      message: "Truncated response should guide agent to narrow search"
+
+# ==============================================================================
+# TOOL CONSOLIDATION GUIDANCE
+# ==============================================================================
+# When to consolidate vs. separate tools
+
+tool_consolidation:
+  # Consolidate when:
+  consolidate_when:
+    - "Operations share the same entity type"
+    - "Operations are commonly used together"
+    - "Separate tools would require multiple round-trips"
+
+  # Keep separate when:
+  separate_when:
+    - "Operations have very different purposes"
+    - "Operations have different permission requirements"
+    - "Consolidation would make the tool confusing"
+
+  # Recommended consolidated tools
+  recommended_tools:
+    - name: "get_node_context"
+      consolidates: ["get_health_score", "get_risks", "get_actions", "get_decisions"]
+      rationale: "Single call for comprehensive node context"
+
+    - name: "get_stakeholder_context"
+      consolidates: ["read_stakeholders", "get_champion", "find_blocker"]
+      rationale: "Returns all relationship info at once"
+
+    - name: "manage_risk"
+      consolidates: ["create_risk", "update_risk", "resolve_risk"]
+      rationale: "CRUD operations on same entity"
+
+    - name: "manage_action"
+      consolidates: ["create_action", "update_action", "complete_action"]
+      rationale: "CRUD operations on same entity"

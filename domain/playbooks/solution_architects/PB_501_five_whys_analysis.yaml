@@ -1,0 +1,409 @@
+# PLAYBOOK: Five Whys Root Cause Analysis
+# Framework operationalization for AI agents
+# Based on Toyota Production System methodology
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+framework_name: "Five Whys Analysis"
+framework_source: "Sakichi Toyoda (Toyota Production System)"
+playbook_mode: "ANALYTICAL"  # Deep-dive analysis to find root causes
+intended_agent_role: "SA Agent (facilitates analysis) or Retrospective Agent"
+secondary_agents: ["AE Agent", "Delivery Agent", "CA Agent", "Governance Agent"]
+
+primary_objective: "Identify root causes of problems by iteratively asking 'Why?' to move beyond symptoms to underlying causes, enabling effective corrective action"
+
+when_not_to_use:
+  - "Problem is trivial and cause is obvious"
+  - "Multiple independent causes (use fishbone/Ishikawa instead)"
+  - "Insufficient information about the problem"
+  - "Problem requires statistical analysis (use 6 Sigma tools instead)"
+  - "Time-critical situation requiring immediate action without analysis"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - event: "SIG_HLT_001"
+      signal_filter: "severity == 'HIGH' OR severity == 'CRITICAL'"
+      description: "High-severity risk identified - root cause analysis recommended"
+
+    - event: "SIG_COM_002"
+      signal_filter: "outcome == 'lost'"
+      description: "Deal lost - trigger root cause analysis"
+
+    - event: "recurring_issue_detected"
+      description: "Same issue occurring 3+ times indicates need for root cause analysis"
+      condition: "$.issues[?(@.category=='{issue_category}')].length >= 3"
+
+    - event: "health_score_declining"
+      description: "Health score dropped 15+ points - analyze root causes"
+      condition: "$.health_score.change_30d <= -15"
+
+    - event: "escalation_pattern"
+      description: "Multiple escalations on same topic"
+
+  manual:
+    - "Team requests root cause analysis for specific issue"
+    - "Post-mortem meeting initiated"
+    - "Retrospective identifies issue needing deeper analysis"
+    - "AE/SA identifies recurring pattern"
+
+  conditional:
+    - condition: "$.actions[?(@.status=='overdue')].length >= 3"
+      description: "Multiple overdue actions may indicate systemic issue"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+validation_inputs:
+  mandatory:
+    - artifact: "problem_statement"
+      description: "Clear, specific description of the problem or symptom"
+    - artifact: "context"
+      description: "Background information about when/where problem occurs"
+
+  optional:
+    - artifact: "infohub/{realm}/{node}/risks/*.md"
+      use: "Related risks that may connect to root cause"
+    - artifact: "infohub/{realm}/{node}/actions/action_tracker.yaml"
+      use: "Historical actions that may have addressed symptoms"
+    - artifact: "infohub/{realm}/{node}/decisions/*.md"
+      use: "Past decisions that may have contributed"
+    - artifact: "Meeting notes"
+      use: "Context from discussions about the issue"
+    - artifact: "Support case history"
+      use: "Technical issues that may relate"
+
+  minimum_data_threshold:
+    - "Clear problem statement"
+    - "At least some context about problem occurrence"
+
+# ==============================================================================
+# KEY QUESTIONS - THE FIVE WHYS PROGRESSION
+# ==============================================================================
+key_questions:
+  problem_definition:
+    - "What is the specific problem or symptom we are analyzing?"
+    - "When did this problem first occur?"
+    - "How frequently does this problem occur?"
+    - "Who is affected by this problem?"
+    - "What is the impact of this problem (quantified if possible)?"
+
+  why_1_surface_cause:
+    - "Why did this problem occur? (first-level cause)"
+    - "What evidence supports this cause?"
+    - "Is this a sufficient explanation or a symptom of something deeper?"
+
+  why_2_contributing_factors:
+    - "Why did the first-level cause occur?"
+    - "What conditions enabled this cause to exist?"
+    - "Are there process gaps that contributed?"
+
+  why_3_process_breakdown:
+    - "Why did these conditions exist?"
+    - "What process or system allowed this to happen?"
+    - "Were there controls that failed or were missing?"
+
+  why_4_systemic_issues:
+    - "Why did the process or controls fail?"
+    - "Is there a organizational or cultural factor?"
+    - "What incentives or constraints contributed?"
+
+  why_5_root_cause:
+    - "Why does this systemic issue exist?"
+    - "What is the fundamental reason this happens?"
+    - "Have we reached a cause we can actually address?"
+
+  validation:
+    - "If we fix this root cause, will the problem be prevented?"
+    - "Is this root cause actionable?"
+    - "Are there multiple root causes (branch analysis needed)?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    # Root cause is process-related
+    - id: "process_root_cause"
+      condition: "root_cause.category == 'process'"
+      severity: "MEDIUM"
+      output_type: "Initiative + Action Items"
+      decision:
+        title: "Process improvement needed: {root_cause_summary}"
+        context: "Five Whys analysis identified process gap as root cause"
+        recommendation: "Implement process changes to prevent recurrence"
+        actions:
+          - "Document process gap in knowledge base"
+          - "Design improved process or control"
+          - "Implement change with pilot if appropriate"
+          - "Monitor for recurrence"
+        stakeholders: ["Process Owner", "SA Agent", "Governance Agent"]
+
+    # Root cause is communication-related
+    - id: "communication_root_cause"
+      condition: "root_cause.category == 'communication'"
+      severity: "MEDIUM"
+      output_type: "Initiative + Action Items"
+      decision:
+        title: "Communication improvement needed: {root_cause_summary}"
+        context: "Root cause traces to communication breakdown"
+        recommendation: "Establish or improve communication mechanisms"
+        actions:
+          - "Identify communication gaps"
+          - "Establish regular touchpoints or channels"
+          - "Create escalation paths"
+          - "Monitor improvement"
+
+    # Root cause is resource/skill-related
+    - id: "resource_root_cause"
+      condition: "root_cause.category == 'resource' OR root_cause.category == 'skill'"
+      severity: "HIGH"
+      output_type: "Risk + Initiative"
+      decision:
+        title: "Resource/skill gap identified: {root_cause_summary}"
+        context: "Root cause is lack of resources or skills"
+        recommendation: "Address through training, hiring, or resource allocation"
+        actions:
+          - "Assess current resource/skill gap"
+          - "Develop remediation plan"
+          - "Request additional resources if needed"
+          - "Implement training or knowledge transfer"
+        escalate_to: "Management for resource decisions"
+
+    # Root cause is technical
+    - id: "technical_root_cause"
+      condition: "root_cause.category == 'technical'"
+      severity: "MEDIUM"
+      output_type: "Initiative + Action Items"
+      decision:
+        title: "Technical issue identified: {root_cause_summary}"
+        context: "Root cause is technical limitation or defect"
+        recommendation: "Implement technical fix or workaround"
+        actions:
+          - "Document technical issue"
+          - "Assess fix options"
+          - "Implement and test fix"
+          - "Update documentation"
+
+    # Root cause is external/uncontrollable
+    - id: "external_root_cause"
+      condition: "root_cause.controllable == false"
+      severity: "LOW"
+      output_type: "Risk + Decision"
+      decision:
+        title: "External factor identified: {root_cause_summary}"
+        context: "Root cause is outside our control"
+        recommendation: "Implement mitigation strategies and monitoring"
+        actions:
+          - "Document external dependency"
+          - "Create mitigation plan"
+          - "Establish early warning indicators"
+          - "Accept residual risk with documentation"
+
+# ==============================================================================
+# FIVE WHYS METHODOLOGY
+# ==============================================================================
+methodology:
+  principles:
+    - "Focus on facts, not opinions or blame"
+    - "Ask 'Why?' until you reach a cause you can address"
+    - "Five is a guideline, not a rule - stop when you reach actionable root cause"
+    - "One problem may have multiple root causes (branch when needed)"
+    - "Validate by asking: 'If we fix this, does the problem go away?'"
+
+  branching_guidance:
+    description: "When to branch the analysis"
+    branch_when:
+      - "Answer to 'Why?' has multiple independent causes"
+      - "Different stakeholders give different answers"
+      - "Problem has technical AND process components"
+    branch_handling:
+      - "Create separate analysis chain for each branch"
+      - "Identify which branches lead to actionable root causes"
+      - "Prioritize branches by impact and controllability"
+
+  depth_indicators:
+    too_shallow:
+      - "Cause is still a symptom"
+      - "Fixing this wouldn't prevent recurrence"
+      - "Answer is vague (e.g., 'human error', 'miscommunication')"
+    appropriate_depth:
+      - "Cause is specific and actionable"
+      - "Fixing this would prevent or significantly reduce recurrence"
+      - "Further 'why' leads to philosophical or unchangeable factors"
+    too_deep:
+      - "Cause is beyond organizational control"
+      - "Cause is fundamental human nature"
+      - "Fixing requires changes outside scope/authority"
+
+  common_pitfalls:
+    - pitfall: "Stopping at symptoms"
+      remedy: "Ask 'Is this a cause or a symptom?' at each level"
+    - pitfall: "Assigning blame to people"
+      remedy: "Focus on process and systems, not individuals"
+    - pitfall: "Accepting vague answers"
+      remedy: "Push for specific, evidenced causes"
+    - pitfall: "Linear thinking when branching needed"
+      remedy: "Look for multiple contributing factors"
+    - pitfall: "Analysis paralysis - going too deep"
+      remedy: "Stop when you reach actionable cause"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "infohub/{realm}/{node}/analysis/five_whys_{issue_id}_{YYYY-MM-DD}.md"
+    format: "markdown"
+    sections:
+      - problem_statement
+      - analysis_chain
+      - root_cause_identification
+      - corrective_actions
+      - prevention_measures
+      - monitoring_plan
+
+    schema:
+      problem_statement:
+        - problem: "string"
+        - impact: "string"
+        - frequency: "string"
+        - affected_parties: "array[string]"
+        - first_occurrence: "date"
+
+      analysis_chain:
+        - level: "integer (1-5+)"
+        - why_question: "string"
+        - answer: "string"
+        - evidence: "array[string]"
+        - is_root_cause: "boolean"
+        - branches: "array[analysis_chain] (optional)"
+
+      root_cause_identification:
+        - root_cause: "string"
+        - category: "enum[process|communication|resource|skill|technical|external]"
+        - controllable: "boolean"
+        - confidence: "enum[HIGH|MEDIUM|LOW]"
+        - validation: "string (explanation of why this is root cause)"
+
+      corrective_actions:
+        - action: "string"
+        - type: "enum[immediate|short_term|long_term]"
+        - owner: "string"
+        - due_date: "date"
+        - priority: "enum[P0|P1|P2|P3]"
+
+      prevention_measures:
+        - measure: "string"
+        - description: "string"
+        - implementation_effort: "enum[LOW|MEDIUM|HIGH]"
+
+  action_items:
+    path: "infohub/{realm}/{node}/actions/"
+    create_for_each: "corrective_action"
+    schema:
+      title: "string"
+      description: "string"
+      owner: "string"
+      due_date: "date"
+      priority: "enum[P0|P1|P2|P3]"
+      source: "five_whys_analysis"
+      source_artifact: "string (path to analysis)"
+
+  notifications:
+    - recipient: "Issue Owner"
+      condition: "always"
+      message: "Five Whys analysis complete: {root_cause_summary}"
+
+    - recipient: "Governance Agent"
+      condition: "root_cause.category == 'process'"
+      message: "Process improvement opportunity identified: {root_cause_summary}"
+
+    - recipient: "Management"
+      condition: "root_cause.category == 'resource' OR severity == 'HIGH'"
+      message: "Resource/high-severity root cause identified: {root_cause_summary}"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "analysis_requires_sensitive_information"
+      reason: "Root cause may involve personnel or confidential matters"
+      action: "Human facilitator needed for sensitive analysis"
+
+    - condition: "multiple_conflicting_root_causes"
+      reason: "Analysis has branches with contradictory conclusions"
+      action: "Escalate for human judgment on prioritization"
+
+    - condition: "root_cause_is_strategic_decision"
+      reason: "Root cause traces to strategic choice made by leadership"
+      action: "Escalate to leadership for strategic review"
+
+  insufficient_data:
+    - "No evidence available to validate why answers"
+    - "Key stakeholders unavailable for input"
+    - "Problem description too vague to analyze"
+
+  ambiguity_signals:
+    - "Different stakeholders provide conflicting why answers"
+    - "Evidence supports multiple contradictory root causes"
+    - "Historical data inconsistent"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "problem_statement is specific and clear"
+    - "context information available"
+    - "at least one stakeholder input available"
+
+  post_execution:
+    - "analysis reaches actionable root cause (not just symptom)"
+    - "root cause is specific (not generic like 'human error')"
+    - "at least one corrective action defined"
+    - "validation statement explains why this is root cause"
+    - "all evidence cited for why answers"
+
+  output_quality:
+    - "Each why level has evidence, not just opinion"
+    - "Root cause is controllable (or explicitly marked as external)"
+    - "Corrective actions directly address root cause"
+    - "Prevention measures would stop recurrence"
+
+# ==============================================================================
+# INTEGRATION WITH OTHER PLAYBOOKS
+# ==============================================================================
+integrates_with:
+  - playbook: "PB_601_retrospective"
+    integration: "Five Whys used for loss analysis root cause"
+    provides: "Root cause analysis for retrospective findings"
+
+  - playbook: "PB_602_account_planning"
+    integration: "Five Whys used to analyze recurring blockers"
+    provides: "Root cause for strategic planning decisions"
+
+  - playbook: "PB_201_swot_analysis"
+    integration: "Five Whys deepens understanding of weaknesses"
+    provides: "Root cause context for identified weaknesses"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "15-30 minutes (agent) + stakeholder input time"
+frequency: "On demand when root cause analysis needed"
+human_review_required: true
+approval_workflow:
+  - reviewer: "Issue Owner"
+    approval_gate: "Validate root cause identification and corrective actions"
+  - reviewer: "SA Agent or Retrospective Agent"
+    approval_gate: "Review analysis quality and completeness"
+
+last_updated: "2026-01-21"
+version: "1.0"
+status: "production_ready"
+notes: "Based on Toyota Production System Five Whys methodology"

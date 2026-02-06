@@ -1,0 +1,173 @@
+# PLAYBOOK: Validate Playbook Execution
+# Executes checklist validation before and after playbook runs
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+playbook_id: "PB_970"
+version: "1.0"
+name: "Validate Playbook Execution"
+description: "Execute machine-readable checklists to validate playbook inputs, outputs, and quality"
+
+intended_agent_role: "Playbook Curator Agent"
+secondary_agents: []
+
+primary_objective: "Ensure playbook executions meet quality standards and governance requirements"
+
+when_not_to_use:
+  - "Playbook explicitly marked skip_validation: true"
+  - "Emergency override by Senior Manager"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+triggers:
+  automatic:
+    - event: "playbook_execution_started"
+      phase: "pre_execution"
+    - event: "playbook_execution_completed"
+      phase: "post_execution"
+  manual:
+    - "Validate specific playbook run"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - name: "playbook_spec"
+      description: "The playbook being validated"
+      path: "playbooks/executable/${playbook_id}.yaml"
+
+    - name: "checklist_config"
+      description: "Playbook checklists"
+      path: "config/checklists/playbook_checklists.yaml"
+
+  optional:
+    - name: "run_context"
+      description: "Current run context (for post-execution)"
+      path: "runs/${run_id}/"
+
+# ==============================================================================
+# EXECUTION STEPS
+# ==============================================================================
+steps:
+  - id: "load_checklists"
+    action: "Load playbook checklists from config"
+    inputs:
+      - checklist_config
+    outputs:
+      - pre_execution_checks
+      - post_execution_checks
+      - quality_checks
+
+  - id: "determine_phase"
+    action: "Determine validation phase (pre or post)"
+    condition: "trigger.phase"
+    outputs:
+      - active_checks
+
+  - id: "execute_pre_checks"
+    action: "Run pre-execution validations"
+    condition: "phase == 'pre_execution'"
+    checks:
+      - CHK_PRE_001  # Required inputs available
+      - CHK_PRE_002  # Node profile exists
+      - CHK_PRE_003  # Operating mode allows playbook
+      - CHK_PRE_004  # Evidence requirements met
+    outputs:
+      - pre_validation_result
+
+  - id: "execute_post_checks"
+    action: "Run post-execution validations"
+    condition: "phase == 'post_execution'"
+    checks:
+      - CHK_POST_001  # Outputs schema valid
+      - CHK_POST_002  # Outputs have provenance
+      - CHK_POST_003  # No contradictions
+      - CHK_POST_004  # Version incremented
+    outputs:
+      - post_validation_result
+
+  - id: "execute_quality_checks"
+    action: "Run quality validations"
+    condition: "phase == 'post_execution'"
+    checks:
+      - CHK_QUAL_001  # Minimum content threshold
+      - CHK_QUAL_002  # Required sections present
+      - CHK_QUAL_003  # No placeholder text
+    outputs:
+      - quality_validation_result
+
+  - id: "aggregate_results"
+    action: "Combine all validation results"
+    outputs:
+      - validation_report
+
+  - id: "determine_outcome"
+    action: "Determine pass/warn/fail status"
+    logic:
+      - condition: "ANY(results.severity == 'error' AND results.status == 'fail')"
+        outcome: "fail"
+      - condition: "ANY(results.severity == 'warning' AND results.status == 'fail')"
+        outcome: "warn"
+      - condition: "ALL(results.status == 'pass')"
+        outcome: "pass"
+
+  - id: "emit_signal"
+    action: "Emit validation result signal"
+    signal: "SIG_PB_VALIDATION"
+    payload:
+      run_id: "${run_id}"
+      playbook_id: "${playbook_id}"
+      phase: "${phase}"
+      outcome: "${outcome}"
+      failures: "${failures}"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+outputs:
+  validation_report:
+    path: "runs/${run_id}/validation_report.yaml"
+    schema:
+      run_id: string
+      playbook_id: string
+      phase: string
+      timestamp: datetime
+      outcome: enum[pass, warn, fail]
+      checks:
+        - rule_id: string
+          name: string
+          status: enum[pass, fail, skip]
+          severity: enum[error, warning, info]
+          message: string
+          evidence_path: string
+      summary:
+        total: integer
+        passed: integer
+        failed: integer
+        skipped: integer
+      recommended_fixes:
+        - playbook_id: string
+          reason: string
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  - condition: "pre_execution fails with error severity"
+    action: "Block playbook execution"
+    escalate_to: null
+
+  - condition: "post_execution fails with error severity"
+    action: "Mark run as failed, flag for review"
+    escalate_to: "Playbook Curator Agent"
+
+# ==============================================================================
+# PROVENANCE
+# ==============================================================================
+provenance:
+  created_by: "system"
+  created_at: "2026-01-23"
+  source: "alignment_check_fix"

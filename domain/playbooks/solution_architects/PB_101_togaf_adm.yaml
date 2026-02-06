@@ -1,0 +1,388 @@
+# PLAYBOOK: Architecture Decision Records (TOGAF ADM)
+# Framework operationalization for AI agents
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+framework_name: "Architecture Decision Records (ADR) / TOGAF ADM"
+framework_source: "The Open Group Architecture Framework (TOGAF)"
+intended_agent_role: "SA Agent (Solution Architect)"
+secondary_agents: ["Specialist provides domain-specific technical guidance"]
+
+primary_objective: "Document significant technical decisions with context, alternatives, and consequences to maintain architecture integrity and knowledge continuity"
+
+when_not_to_use:
+  - "Trivial implementation choices (logging library, variable naming)"
+  - "Customer-led decisions where SA has no influence"
+  - "Non-architectural topics (commercial terms, project timeline)"
+  - "Decisions already documented in customer's ADR system"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - "Architectural decision mentioned in meeting notes or daily operations"
+    - "Technical design discussion with keywords: 'architecture', 'decided to', 'chose X over Y', 'technical decision'"
+    - "Integration pattern selected (API, messaging, batch, streaming)"
+    - "Deployment model chosen (cloud, on-prem, hybrid)"
+    - "Data model or schema design finalized"
+    - "Security or compliance requirement driving technical choice"
+
+  manual:
+    - "SA explicitly documents decision: '/adr create {topic}'"
+    - "Customer requests architecture rationale documentation"
+    - "Post-implementation review requires decision capture"
+
+  conditional:
+    - "IF technical_decision_keywords[meeting_notes] THEN trigger"
+    - "IF major_technical_risk_detected AND mitigation_approach_chosen THEN trigger"
+    - "IF customer_asked_why_X_not_Y THEN trigger (capture competitive technical positioning)"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "Decision context (what problem is being solved)"
+    - artifact: "Decision made (what was chosen)"
+    - artifact: "Source (meeting notes, email, Slack thread where decision discussed)"
+
+  optional:
+    - artifact: "Alternatives considered"
+      use: "Document options evaluated and why rejected"
+    - artifact: "Technical constraints"
+      use: "Factors limiting choices (budget, timeline, existing systems)"
+    - artifact: "Stakeholders involved"
+      use: "Who participated in decision"
+    - artifact: "Related decisions or risks"
+      use: "Cross-reference to other ADRs or risk notes"
+
+  minimum_data_threshold:
+    - "Clear statement of decision made"
+    - "Technical context (architecture layer: data, integration, deployment, security)"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  decision_context:
+    - "What technical problem or requirement triggered this decision?"
+    - "What business objective or use case does this support?"
+    - "What constraints exist (performance, security, compliance, budget)?"
+    - "What is the scope of impact (single use case vs. platform-wide)?"
+
+  decision_made:
+    - "What specific technical choice was made (technology, pattern, approach)?"
+    - "What {vendor} capabilities are involved (products, features, configurations)?"
+    - "What is the deployment model (cloud, on-prem, hybrid, managed)?"
+    - "What is the integration approach (API, agent-based, streaming, batch)?"
+    - "What is the data architecture (indexing strategy, retention, sharding)?"
+
+  alternatives_considered:
+    - "What other options were evaluated?"
+    - "Why were alternatives rejected (technical limitations, cost, complexity, risk)?"
+    - "Were competitor solutions considered (if yes, why was {vendor} chosen)?"
+
+  consequences:
+    - "What are positive outcomes of this decision (performance, scalability, simplicity)?"
+    - "What are trade-offs or limitations (cost, complexity, vendor lock-in)?"
+    - "What future decisions does this enable or constrain?"
+    - "What risks are introduced or mitigated?"
+
+  implementation_implications:
+    - "What technical work is required to implement?"
+    - "What expertise or resources are needed (specialist, training, proof-of-concept)?"
+    - "What is implementation timeline estimate?"
+    - "What dependencies exist (other decisions, customer infrastructure, product roadmap)?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    # High-impact architectural decision
+    - condition: "impact_scope == PLATFORM_WIDE OR STRATEGIC"
+      output_type: "Decision + Notification"
+      decision: |
+        CREATE Decision:
+          title: "{decision_summary}"
+          context: "Platform-wide architectural decision with long-term implications"
+          decision: "{decision_made}"
+          status: "ACCEPTED"
+          stakeholders: ["SA", "Customer Architect", "Engineering Lead"]
+          alternatives_considered: [list]
+          consequences: [list]
+
+        NOTIFY:
+          - Sales Leadership (if commercial impact)
+          - Delivery team (if implementation required)
+          - Specialist (if domain expertise needed)
+
+    # Decision introduces technical risk
+    - condition: "technical_risk_identified == true"
+      severity: "MEDIUM"
+      output_type: "Decision + Risk"
+      decision: |
+        CREATE Decision:
+          title: "{decision_summary}"
+          decision: "{decision_made}"
+          status: "ACCEPTED"
+
+        CREATE Risk:
+          title: "Technical risk from {decision_summary}"
+          severity: "MEDIUM"
+          category: "technical"
+          description: "{risk_description}"
+          mitigation: [actions to reduce risk]
+          linked_decision: "{decision_id}"
+
+    # Decision requires specialist validation
+    - condition: "specialist_expertise_required == true OR uncertainty_level == HIGH"
+      output_type: "Decision + Initiative"
+      decision: |
+        CREATE Decision:
+          title: "{decision_summary}"
+          decision: "{decision_made}"
+          status: "PROPOSED" # Not yet ACCEPTED
+          validation_required: "Specialist review"
+
+        CREATE Initiative:
+          title: "Validate {decision_summary} with specialist"
+          owner: "SA Agent"
+          actions:
+            - "Engage {specialist_domain} specialist for technical review"
+            - "Conduct proof-of-concept if architectural assumptions unvalidated"
+            - "Update decision status to ACCEPTED after validation"
+
+    # Decision supersedes previous decision
+    - condition: "supersedes_previous_decision == true"
+      output_type: "Decision (update previous ADR)"
+      decision: |
+        UPDATE Decision {previous_decision_id}:
+          status: "SUPERSEDED"
+          superseded_by: "{new_decision_id}"
+          superseded_date: "{date}"
+
+        CREATE Decision:
+          title: "{decision_summary}"
+          decision: "{decision_made}"
+          status: "ACCEPTED"
+          supersedes: "{previous_decision_id}"
+          reason_for_change: "{why previous decision no longer valid}"
+
+    # Competitive technical positioning (why {vendor} not competitor)
+    - condition: "competitive_alternative_discussed == true"
+      output_type: "Decision + Competitive Note"
+      decision: |
+        CREATE Decision:
+          title: "{decision_summary}"
+          decision: "Chose {vendor} {capability} over {competitor} {product}"
+          competitive_context: true
+
+        CREATE Competitive Note:
+          path: "infohub/{realm}/{node}/competitive/technical_win_{competitor}.md"
+          content: |
+            Technical decision favored {vendor} over {competitor}:
+            - Reason: {why {vendor} chosen}
+            - Competitor gap: {what competitor lacked}
+            - {vendor} advantage: {key differentiator}
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "infohub/{realm}/{node}/architecture_ADR_{sequence_number}_{slug}.md"
+    format: "markdown (ADR format)"
+    sections:
+      - title
+      - status
+      - context
+      - decision
+      - alternatives_considered
+      - consequences
+      - implementation
+      - metadata
+
+    schema:
+      title: "string (concise decision summary)"
+      status: "enum[PROPOSED|ACCEPTED|SUPERSEDED|DEPRECATED]"
+      date: "YYYY-MM-DD"
+      decision_makers: "array[string] (SA, Customer Architect, Engineering Lead)"
+
+      context:
+        problem_statement: "string (what needs to be decided)"
+        business_objective: "string (why this matters)"
+        technical_constraints: "array[string]"
+        scope: "enum[USE_CASE|PRODUCT|PLATFORM|STRATEGIC]"
+
+      decision:
+        chosen_approach: "string (what was decided)"
+        platform_capabilities: "array[string] (products, features involved)"
+        architecture_layer: "enum[DATA|INTEGRATION|DEPLOYMENT|SECURITY|OBSERVABILITY]"
+        deployment_model: "enum[CLOUD|ON_PREM|HYBRID|MANAGED_SERVICE]"
+
+      alternatives_considered:
+        - alternative: "string"
+          pros: "array[string]"
+          cons: "array[string]"
+          reason_rejected: "string"
+
+      consequences:
+        positive: "array[string] (benefits, capabilities enabled)"
+        negative: "array[string] (costs, limitations, tech debt)"
+        risks_introduced: "array[string]"
+        risks_mitigated: "array[string]"
+
+      implementation:
+        required_work: "array[string]"
+        resources_needed: "array[string] (specialist, training, POC)"
+        timeline_estimate: "string"
+        dependencies: "array[string]"
+
+      metadata:
+        source: "string (meeting notes, email, Slack reference)"
+        related_decisions: "array[ADR IDs]"
+        related_risks: "array[Risk IDs]"
+        supersedes: "ADR ID|null"
+        superseded_by: "ADR ID|null"
+
+  decision_objects:
+    path: "infohub/{realm}/{node}/decisions/"
+    create_if: "always (every ADR is a decision object)"
+    template: "ADR format"
+
+  risk_objects:
+    path: "infohub/{realm}/{node}/risks/"
+    create_if:
+      - "Decision introduces technical risk"
+      - "Decision has negative consequences requiring mitigation"
+    template: "Risk with mitigation plan"
+
+  initiative_objects:
+    path: "infohub/{realm}/{node}/initiatives/"
+    create_if:
+      - "Specialist validation required"
+      - "Proof-of-concept needed to validate decision"
+      - "Implementation work required"
+    template: "Initiative with actions, owner, timeline"
+
+  competitive_artifacts:
+    path: "infohub/{realm}/{node}/competitive/"
+    create_if: "competitive_alternative_discussed == true"
+    file: "technical_win_{competitor}.md"
+
+  architecture_diagrams:
+    path: "infohub/{realm}/{node}/architecture/"
+    create_if: "decision impacts architecture diagram"
+    action: "Flag for manual diagram update (C4 model, data flow)"
+
+  notifications:
+    - recipient: "SA Agent"
+      condition: "always"
+      message: "ADR documented: {decision_title}"
+
+    - recipient: "Specialist"
+      condition: "specialist_validation_required == true"
+      message: "ADR requires {specialist_domain} specialist review: {decision_title}"
+
+    - recipient: "Delivery Team"
+      condition: "implementation_required == true"
+      message: "ADR {decision_id} requires implementation work: {required_work}"
+
+    - recipient: "Sales Leadership"
+      condition: "competitive_win == true"
+      message: "Technical win over {competitor} documented: {decision_title}"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "decision_context_unclear"
+      reason: "Cannot determine what problem decision solves"
+      action: "SA must clarify decision context before documenting ADR"
+
+    - condition: "decision_not_finalized (still discussing options)"
+      reason: "Premature to document as ACCEPTED decision"
+      action: "Create draft ADR with status=PROPOSED, finalize after decision made"
+
+    - condition: "high_uncertainty_or_disagreement"
+      reason: "Stakeholders not aligned on decision, or technical assumptions unvalidated"
+      action: "Mark status=PROPOSED, trigger specialist validation or POC"
+
+    - condition: "decision_outside_vendor_scope (e.g., customer's CI/CD pipeline choice)"
+      reason: "Not an {vendor}-related architectural decision"
+      action: "Do not create ADR, document in customer notes if relevant context"
+
+  insufficient_data:
+    - "Decision statement too vague ('we discussed architecture')"
+    - "No technical details (no products, patterns, or technologies mentioned)"
+    - "No source reference (cannot trace where decision was discussed)"
+
+  ambiguity_signals:
+    - "Multiple conflicting statements about decision (notes say X, email says Y)"
+    - "Unclear whether decision is PROPOSED vs. ACCEPTED"
+    - "Alternatives mentioned but not clear which was chosen"
+
+  human_judgment_required:
+    - "Assessing impact scope (use case vs. platform-wide)"
+    - "Determining if specialist validation needed"
+    - "Evaluating risk severity of consequences"
+    - "Deciding whether to supersede previous ADR"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "client_id exists in InfoHub"
+    - "Decision statement is clear and specific"
+    - "Source reference provided (meeting notes, email, Slack)"
+
+  post_execution:
+    - "ADR follows standard format (all sections present)"
+    - "Decision title is concise and descriptive"
+    - "Status is explicitly set (PROPOSED|ACCEPTED|SUPERSEDED)"
+    - "At least 1 consequence documented (positive or negative)"
+    - "All {vendor} products/features mentioned are valid"
+
+  output_quality:
+    - "No vague decisions ('improve architecture' → specify what changed)"
+    - "No unsourced claims (all decisions cite meeting notes or discussions)"
+    - "Alternatives section not empty (at least 'no other options considered' if true)"
+    - "Consequences are specific (not generic 'better performance')"
+    - "Implementation section realistic (not 'quick and easy' without details)"
+
+# ==============================================================================
+# ADR NUMBERING AND NAMING
+# ==============================================================================
+adr_conventions:
+  numbering: "Sequential per client (ADR_001, ADR_002, etc.)"
+  naming_pattern: "{node}_ADR_{number}_{slug}.md"
+  slug_format: "kebab-case summary (e.g., 'cloud-deployment-model')"
+  examples:
+    - "c1_ADR_001_cloud-deployment-model.md"
+    - "c4_ADR_003_kafka-integration-pattern.md"
+    - "c2_ADR_005_security-authentication-saml.md"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "3-5 minutes (agent) + 10-15 minutes (human review and refinement)"
+frequency: "Per significant architectural decision (typically 2-5 per account engagement)"
+human_review_required: true
+approval_workflow:
+  - reviewer: "SA Agent"
+    approval_gate: "Validate technical accuracy, completeness, consequences"
+  - reviewer: "Specialist"
+    condition: "specialist_validation_required == true"
+    approval_gate: "Technical review of decision and alternatives"
+  - reviewer: "Customer Architect (if available)"
+    condition: "impact_scope == PLATFORM_WIDE OR STRATEGIC"
+    approval_gate: "Align with customer's architecture standards and long-term roadmap"
+
+last_updated: "2026-01-11"
+version: "1.0"
+status: "production_ready"

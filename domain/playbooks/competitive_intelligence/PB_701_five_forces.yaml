@@ -1,0 +1,413 @@
+# PLAYBOOK: Porter's Five Forces Analysis
+# Framework operationalization for AI agents
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+framework_name: "Porter's Five Forces"
+framework_source: "Michael Porter (Harvard Business School)"
+intended_agent_role: "CI Agent (Competitive Intelligence)"
+secondary_agents: ["AE Agent provides customer context", "SA Agent provides technical competitive dynamics"]
+
+primary_objective: "Assess competitive intensity and market attractiveness to inform positioning strategy, pricing power, and competitive response tactics"
+
+when_not_to_use:
+  - "Early exploration phase (insufficient competitive intelligence)"
+  - "Non-competitive situation (sole-source procurement, no alternatives evaluated)"
+  - "Tactical product question (use battlecard instead)"
+  - "Post-sale account (use account-level competitive monitoring instead)"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - "Competitive evaluation stage entered (RFP, POC with multiple vendors)"
+    - "Competitor mentioned 3+ times in recent notes or meetings"
+    - "Deal stage = Stage 2-3 (evaluation, technical validation)"
+    - "RFP response initiated"
+    - "Competitive displacement opportunity identified"
+    # Tech Signal Map signal triggers
+    - event: "SIG_TECH_003"
+      signal_filter: "is_competitor == true"
+      description: "Competitor technology trending (up or down) - refresh competitive analysis"
+    - event: "SIG_TECH_002"
+      signal_filter: "is_competitor == true"
+      description: "New competitor technology detected - assess new entrant threat"
+
+  manual:
+    - "AE requests competitive assessment"
+    - "SA needs positioning guidance for customer technical discussions"
+    - "Sales leadership requests market dynamics analysis"
+    - "New competitor enters account"
+
+  conditional:
+    - "IF competitor_mentions[last_30_days] >= 3 THEN trigger"
+    - "IF deal_type == RFP OR POC THEN trigger"
+    - "IF competitive_loss_in_account_history THEN trigger (win-back scenario)"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "infohub/{realm}/{node}/overview.md"
+    - artifact: "Opportunity details (use case, budget, evaluation criteria)"
+    - artifact: "Known competitors in this deal"
+    - artifact: "Customer's stated requirements and priorities"
+
+  optional:
+    - artifact: "infohub/{realm}/{node}/competitive/general/*.md"
+      use: "Competitor capabilities, pricing, positioning"
+    - artifact: "infohub/{realm}/{node}/competitive/*.md"
+      use: "Account-specific competitive history"
+    - artifact: "Win/loss analysis from similar deals"
+      use: "Historical competitive patterns"
+    - artifact: "Customer's incumbent vendors"
+      use: "Switching cost assessment"
+    - artifact: "Market research reports"
+      use: "Industry trends, new entrants"
+    # Tech Signal Map inputs for competitive intelligence
+    - artifact: "infohub/{realm}/tech_signal_map/current_radar.yaml"
+      use: "Technology adoption trends and competitor tool mentions"
+    - artifact: "/api/v1/realms/{realm}/tech-radar/competitive"
+      use: "Competitor tool adoption trends (LegacySIEM, ObservabilityVendorA, etc.)"
+    - artifact: "/api/v1/realms/{realm}/tech-radar/highlights"
+      use: "New technologies and trending tools (new entrants, substitutes)"
+    - artifact: "/api/v1/realms/{realm}/tech-radar/hiring-velocity"
+      use: "Hiring trends indicating IT investment levels (buyer power indicator)"
+
+  minimum_data_threshold:
+    - "At least 1 identified competitor"
+    - "Customer's evaluation criteria or priorities documented"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  force_1_competitive_rivalry:
+    - "Who are direct competitors in this opportunity (named vendors, products)?"
+    - "What is each competitor's positioning message and differentiators?"
+    - "What are competitor strengths documented in customer evaluations or conversations?"
+    - "What are competitor weaknesses or gaps identified?"
+    - "What is intensity of competition (2-way vs. 4-way competitive, pricing pressure)?"
+    - "What is customer's perception of each vendor (preferred, acceptable, risky)?"
+
+  force_2_threat_of_new_entrants:
+    - "Are there emerging vendors entering this space (startups, adjacent players pivoting)?"
+    - "What barriers to entry exist (technical complexity, integration cost, ecosystem lock-in)?"
+    - "What new technologies could disrupt current competitive landscape (GenAI, open source, cloud-native)?"
+    - "Are there large tech companies (AWS, Google, Microsoft) expanding into this domain?"
+    # Tech Signal Map driven new entrant analysis
+    - "What technologies in 'Assess' ring indicate emerging tools customer is evaluating?"
+    - "Are new competitors appearing in job postings (first-time mentions in tech signal map)?"
+    - "What adjacent technologies are trending up that could expand into our space?"
+
+  force_3_bargaining_power_of_buyers:
+    - "What is customer's size and negotiating leverage (enterprise vs. mid-market)?"
+    - "Does customer have in-house alternatives (build vs. buy optionality)?"
+    - "What is price sensitivity (budget-constrained vs. value-focused)?"
+    - "Does customer have procurement policies favoring incumbents or requiring multi-vendor?"
+    - "What is switching cost if customer chooses different vendor?"
+
+  force_4_bargaining_power_of_suppliers:
+    - "What is {vendor}'s dependency on customer (strategic logo, revenue significance)?"
+    - "What is customer's dependency on {vendor} (existing deployment, integrations, expertise)?"
+    - "What are switching costs for customer to move from {vendor} to competitor?"
+    - "What is {vendor}'s pricing power in this deal (can command premium or must discount)?"
+
+  force_5_threat_of_substitutes:
+    - "What alternative approaches exist outside direct competitors (DIY, open-source, adjacent products)?"
+    - "Could customer solve problem differently (manual process, existing tools, delayed initiative)?"
+    - "What are non-consumption scenarios (customer decides not to buy anything)?"
+    - "Are there disruptive substitutes (e.g., GenAI making search obsolete, cloud-native replacing on-prem)?"
+    # Tech Signal Map driven substitute analysis
+    - "What technologies in different quadrants could serve similar purpose (substitute patterns)?"
+    - "Are open-source alternatives (Prometheus, Grafana) trending up as substitutes?"
+    - "Is hiring velocity declining (indicating reduced IT investment, higher non-consumption risk)?"
+    - "What techniques (DevSecOps, SRE) are trending that change how customers solve problems?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    # High competitive intensity + low barriers = aggressive response
+    - condition: "competitive_rivalry == HIGH AND barriers_to_entry == LOW"
+      severity: "HIGH"
+      output_type: "Decision + Initiative"
+      decision: |
+        CREATE Decision:
+          title: "Highly competitive market for {node}"
+          context: "Multiple strong competitors, low barriers to new entrants, intense pricing pressure"
+          decision: "Adopt aggressive competitive response strategy"
+          actions:
+            - "Engage specialist for differentiated technical proof point"
+            - "Prepare detailed battlecard for AE/SA with head-to-head positioning"
+            - "Request pricing flexibility from leadership if customer is price-sensitive"
+            - "Focus on switching cost and lock-in advantages if displacing incumbent"
+          stakeholders: ["AE", "SA", "CI Agent", "Sales Leadership"]
+
+        CREATE Initiative:
+          title: "Competitive response for {node}"
+          owner: "CI Agent"
+          actions:
+            - "Generate battlecard for each identified competitor"
+            - "Conduct win/loss analysis review for similar competitive scenarios"
+            - "Provide talking points for customer meeting"
+
+    # High buyer power + high threat of substitutes = risk of no-decision
+    - condition: "buyer_power == HIGH AND threat_of_substitutes == HIGH"
+      severity: "MEDIUM"
+      output_type: "Risk + Decision"
+      decision: |
+        CREATE Risk:
+          title: "No-decision risk for {node}"
+          severity: "MEDIUM"
+          category: "commercial"
+          description: "Customer has strong alternatives (DIY, defer, substitute), may not purchase anything"
+
+        CREATE Decision:
+          title: "De-risk no-decision scenario"
+          decision: "Shift from feature comparison to business value and urgency"
+          actions:
+            - "AE to focus on cost of inaction (what happens if customer doesn't solve problem)"
+            - "Build value engineering business case to justify investment"
+            - "Create pilot or phased approach to reduce customer risk"
+
+    # {vendor} has high supplier power (low switching cost for {vendor}, high for customer)
+    - condition: "vendor_dependency_on_customer == LOW AND customer_dependency_on_vendor == HIGH"
+      output_type: "Decision"
+      decision: |
+        CREATE Decision:
+          title: "Strong negotiating position for {node}"
+          context: "Customer has high switching costs, {vendor} has pricing power"
+          decision: "Maintain pricing discipline, focus on value over discounting"
+          actions:
+            - "AE to emphasize total cost of ownership (not just subscription price)"
+            - "Highlight switching costs and risks of competitive alternatives"
+            - "Position {vendor} as premium solution with proven value"
+
+    # New entrant threat (emerging competitor or disruptive technology)
+    - condition: "new_entrant_identified == true OR disruptive_substitute_exists == true"
+      severity: "MEDIUM"
+      output_type: "Risk + Initiative"
+      decision: |
+        CREATE Risk:
+          title: "Emerging competitive threat: {new_entrant_name}"
+          severity: "MEDIUM"
+          category: "competitive"
+          description: "New entrant or disruptive substitute identified, may affect long-term positioning"
+
+        CREATE Initiative:
+          title: "Monitor emerging competitive threat"
+          actions:
+            - "CI Agent to create competitor profile for {new_entrant_name}"
+            - "Product team to assess feature/capability gaps"
+            - "AE to position {vendor} advantages (ecosystem, maturity, support)"
+
+    # Low competitive intensity + high barriers = strong position
+    - condition: "competitive_rivalry == LOW AND barriers_to_entry == HIGH"
+      output_type: "Decision"
+      decision: |
+        CREATE Decision:
+          title: "Favorable competitive environment for {node}"
+          context: "Low competitive pressure, high barriers protect market position"
+          decision: "Focus on value and strategic partnership over competitive comparison"
+          actions:
+            - "AE to emphasize {vendor} ecosystem, roadmap, strategic vision"
+            - "Minimize competitive FUD (fear, uncertainty, doubt) - focus on positive differentiation"
+            - "Propose multi-year strategic engagement"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "infohub/{realm}/{node}/frameworks/five_forces_{YYYY-MM-DD}.md"
+    format: "markdown"
+    sections:
+      - executive_summary
+      - force_1_competitive_rivalry
+      - force_2_threat_of_new_entrants
+      - force_3_buyer_power
+      - force_4_supplier_power
+      - force_5_threat_of_substitutes
+      - overall_market_attractiveness
+      - strategic_recommendations
+
+    schema:
+      executive_summary:
+        - overall_competitive_intensity: "enum[HIGH|MEDIUM|LOW]"
+        - market_attractiveness: "enum[ATTRACTIVE|NEUTRAL|UNATTRACTIVE]"
+        - primary_competitive_threat: "string (competitor name or substitute)"
+        - recommended_strategy: "enum[AGGRESSIVE|DEFENSIVE|VALUE-FOCUSED|STRATEGIC]"
+
+      force_1_competitive_rivalry:
+        - intensity: "enum[HIGH|MEDIUM|LOW]"
+        - identified_competitors:
+            - competitor_name: "string"
+              strength: "enum[STRONG|MODERATE|WEAK]"
+              key_differentiators: "array[string]"
+              vulnerabilities: "array[string]"
+              customer_perception: "string"
+        - pricing_pressure: "enum[HIGH|MEDIUM|LOW]"
+        - differentiation_opportunity: "string"
+
+      force_2_new_entrants:
+        - threat_level: "enum[HIGH|MEDIUM|LOW]"
+        - barriers_to_entry:
+            - technical_complexity: "enum[HIGH|MEDIUM|LOW]"
+            - integration_cost: "enum[HIGH|MEDIUM|LOW]"
+            - ecosystem_lock_in: "enum[HIGH|MEDIUM|LOW]"
+        - emerging_competitors: "array[string]"
+        - disruptive_technologies: "array[string]"
+
+      force_3_buyer_power:
+        - power_level: "enum[HIGH|MEDIUM|LOW]"
+        - customer_size: "enum[ENTERPRISE|MID-MARKET|SMB]"
+        - price_sensitivity: "enum[HIGH|MEDIUM|LOW]"
+        - alternatives_available: "boolean"
+        - switching_cost_for_customer: "enum[HIGH|MEDIUM|LOW]"
+
+      force_4_supplier_power:
+        - vendor_power_level: "enum[HIGH|MEDIUM|LOW]"
+        - customer_dependency_on_vendor: "enum[HIGH|MEDIUM|LOW]"
+        - vendor_dependency_on_customer: "enum[HIGH|MEDIUM|LOW]"
+        - switching_cost_from_vendor: "enum[HIGH|MEDIUM|LOW]"
+        - pricing_flexibility: "enum[HIGH|MEDIUM|LOW]"
+
+      force_5_substitutes:
+        - threat_level: "enum[HIGH|MEDIUM|LOW]"
+        - substitute_types:
+            - type: "enum[DIY|OPEN_SOURCE|ADJACENT_PRODUCT|MANUAL_PROCESS|NON_CONSUMPTION]"
+              description: "string"
+              viability: "enum[HIGH|MEDIUM|LOW]"
+        - no_decision_risk: "enum[HIGH|MEDIUM|LOW]"
+
+      strategic_recommendations:
+        - primary_strategy: "string"
+        - positioning_emphasis: "array[string]"
+        - competitive_tactics: "array[string]"
+        - risks_to_mitigate: "array[string]"
+
+  decision_objects:
+    path: "infohub/{realm}/{node}/decisions/"
+    create_if:
+      - "Competitive strategy choice (aggressive, defensive, value-focused)"
+      - "Pricing strategy (premium, competitive, discount)"
+      - "Resource allocation (engage specialist, prepare battlecard)"
+    template: "ADR format"
+
+  risk_objects:
+    path: "infohub/{realm}/{node}/risks/"
+    create_if:
+      - "High competitive intensity threatens deal win"
+      - "No-decision risk due to buyer power and substitutes"
+      - "Emerging competitor or disruptive substitute identified"
+    template: "Risk with mitigation plan"
+
+  initiative_objects:
+    path: "infohub/{realm}/{node}/initiatives/"
+    create_if:
+      - "Competitive response required (battlecard, specialist engagement)"
+      - "Monitor emerging competitive threat"
+      - "Value engineering to de-risk no-decision"
+    template: "Initiative with actions, owner, timeline"
+
+  competitive_artifacts:
+    path: "infohub/{realm}/{node}/competitive/"
+    files:
+      - "battlecard_{competitor_name}.md"  # Generated for each major competitor
+      - "positioning_guide_{node}.md"  # Talking points for AE/SA
+
+  notifications:
+    - recipient: "Account Executive"
+      condition: "always"
+      message: "Five Forces analysis complete for {node}: Competitive intensity = {intensity}, Strategy = {strategy}"
+
+    - recipient: "CI Agent"
+      condition: "competitive_intensity == HIGH"
+      message: "High competitive intensity for {node} - battlecard generation recommended"
+
+    - recipient: "Sales Leadership"
+      condition: "no_decision_risk == HIGH"
+      message: "No-decision risk identified for {node} - value engineering recommended"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "no_competitors_identified AND no_substitutes_identified"
+      reason: "Insufficient competitive intelligence to perform analysis"
+      action: "AE must conduct discovery to understand customer's alternatives and evaluation criteria"
+
+    - condition: "contradictory_signals (e.g., customer says low price sensitivity but demanding 50% discount)"
+      reason: "Conflicting information about buyer power or competitive dynamics"
+      action: "AE to clarify customer's true priorities and constraints"
+
+    - condition: "disruptive_substitute_threatens_market (e.g., GenAI eliminates need for search)"
+      reason: "Fundamental market shift requires strategic product decision"
+      action: "Escalate to Product and Sales Leadership - may require product strategy pivot"
+
+    - condition: "all_forces_high (perfect storm: high rivalry, high buyer power, high substitutes, low barriers)"
+      reason: "Market may be structurally unattractive"
+      action: "Sales Leadership to assess whether to pursue deal or reallocate resources"
+
+  insufficient_data:
+    - "No competitors identified (customer not evaluating alternatives)"
+    - "No customer evaluation criteria documented"
+    - "No competitive intelligence available (cannot assess competitor strengths/weaknesses)"
+
+  ambiguity_signals:
+    - "Customer claims 'no other vendors considered' but mentions competitor features"
+    - "Unclear whether customer has budget (affects buyer power assessment)"
+    - "Unknown incumbent vendor or current solution"
+
+  human_judgment_required:
+    - "Weighting forces (which force is most critical in this deal)"
+    - "Strategic posture (aggressive competitive vs. value-focused vs. partnership)"
+    - "Pricing strategy (defend pricing vs. match competitor discount)"
+    - "Resource investment (engage specialist for competitive proof point or not)"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "client_id exists in InfoHub"
+    - "At least 1 competitor identified OR substitute scenario documented"
+    - "Customer evaluation criteria or priorities known"
+
+  post_execution:
+    - "All five forces assessed (not just competitive rivalry)"
+    - "Each force has intensity rating (HIGH/MEDIUM/LOW)"
+    - "Strategic recommendations map to force analysis (not generic advice)"
+    - "All competitor mentions cite sources (meeting notes, customer statements, RFP)"
+
+  output_quality:
+    - "No vague statements ('tough competition' → specify competitors and their strengths)"
+    - "No unsourced competitive claims (all competitor capabilities cited)"
+    - "Force ratings justified with evidence (not subjective opinions)"
+    - "Strategic recommendations are actionable (not 'be more competitive')"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "5-8 minutes (agent) + 15-20 minutes (human review)"
+frequency: "Per competitive opportunity (Stage 2-3 evaluation)"
+human_review_required: true
+approval_workflow:
+  - reviewer: "Account Executive"
+    approval_gate: "Validate competitive intelligence, customer priorities, buyer power assessment"
+  - reviewer: "CI Agent"
+    condition: "battlecard_required == true"
+    approval_gate: "Generate competitor battlecards and positioning guide"
+  - reviewer: "Sales Leadership"
+    condition: "competitive_intensity == HIGH OR market_attractiveness == UNATTRACTIVE"
+    approval_gate: "Approve resource allocation and strategic response"
+
+last_updated: "2026-01-11"
+version: "1.0"
+status: "production_ready"

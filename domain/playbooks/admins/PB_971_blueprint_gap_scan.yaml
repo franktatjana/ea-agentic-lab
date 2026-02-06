@@ -1,0 +1,244 @@
+# PLAYBOOK: Blueprint Gap Scan
+# Cross-cutting governance validation at blueprint, realm, and node levels
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+playbook_id: "PB_971"
+version: "1.0"
+name: "Blueprint Gap Scan"
+description: "Scan for governance gaps across blueprint, realm, and node levels using machine-readable checklists"
+
+intended_agent_role: "Playbook Curator Agent"
+secondary_agents:
+  - "Knowledge Curator Agent"
+  - "Reporter Agent"
+
+primary_objective: "Detect missing artifacts, stale data, and governance violations across the system"
+
+when_not_to_use:
+  - "System is in maintenance mode"
+  - "Realm explicitly excluded from scanning"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+triggers:
+  scheduled:
+    - frequency: "daily"
+      time: "06:00 UTC"
+  automatic:
+    - event: "realm_created"
+    - event: "node_created"
+    - event: "major_artifact_change"
+  manual:
+    - "On-demand gap scan request"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - name: "blueprint_checklist"
+      description: "Blueprint-level validation rules"
+      path: "config/checklists/blueprint_checklists.yaml"
+
+    - name: "canvas_checklist"
+      description: "Canvas validation rules"
+      path: "config/checklists/canvas_checklists.yaml"
+
+  optional:
+    - name: "realm_filter"
+      description: "Limit scan to specific realm"
+      type: "string"
+
+    - name: "node_filter"
+      description: "Limit scan to specific node"
+      type: "string"
+
+# ==============================================================================
+# EXECUTION STEPS
+# ==============================================================================
+steps:
+  - id: "load_checklists"
+    action: "Load all checklist configurations"
+    outputs:
+      - blueprint_checks
+      - realm_checks
+      - node_checks
+      - staleness_checks
+
+  - id: "discover_realms"
+    action: "List all realms in InfoHub"
+    path: "${paths.infohub_root}/*/"
+    filter: "realm_filter OR ALL"
+    outputs:
+      - realm_list
+
+  - id: "scan_blueprint_level"
+    action: "Run blueprint-level checks"
+    checks:
+      - CHK_BP_001  # All agents registered
+      - CHK_BP_002  # Signal catalog complete
+      - CHK_BP_003  # All playbooks have owner
+      - CHK_BP_004  # Canvas specs have templates
+      - CHK_BP_005  # Thresholds defined
+    outputs:
+      - blueprint_results
+
+  - id: "scan_each_realm"
+    action: "For each realm, run realm-level checks"
+    loop: "realm_list"
+    checks:
+      - CHK_REALM_001  # Realm profile complete
+      - CHK_REALM_002  # At least one active node
+      - CHK_REALM_003  # No orphan nodes
+    outputs:
+      - realm_results
+
+  - id: "discover_nodes"
+    action: "For each realm, list nodes"
+    loop: "realm_list"
+    path: "${realm}/*/"
+    filter: "node_filter OR ALL"
+    outputs:
+      - node_list
+
+  - id: "scan_each_node"
+    action: "For each node, run node-level checks"
+    loop: "node_list"
+    checks:
+      - CHK_NODE_001  # Node profile complete
+      - CHK_NODE_002  # Stakeholder map exists
+      - CHK_NODE_003  # Economic buyer identified
+      - CHK_NODE_004  # Risk register exists
+      - CHK_NODE_005  # Core canvases rendered
+      - CHK_NODE_006  # Health score current
+    outputs:
+      - node_results
+
+  - id: "scan_staleness"
+    action: "Check for stale artifacts across all nodes"
+    checks:
+      - CHK_STALE_001  # Meeting notes processed
+      - CHK_STALE_002  # Decisions reviewed
+      - CHK_STALE_003  # Risks assessed
+      - CHK_STALE_004  # Actions not overdue
+    outputs:
+      - staleness_results
+
+  - id: "run_canvas_gap_analysis"
+    action: "Invoke PB_952 for each node"
+    playbook: "PB_952"
+    loop: "node_list"
+    outputs:
+      - canvas_gap_results
+
+  - id: "aggregate_results"
+    action: "Combine all scan results"
+    outputs:
+      - consolidated_report
+
+  - id: "calculate_health_scores"
+    action: "Calculate gap-based health scores"
+    formula: "(passed_checks / total_checks) * 100"
+    levels:
+      - blueprint_health
+      - realm_health
+      - node_health
+
+  - id: "generate_recommendations"
+    action: "Recommend playbooks to fix gaps"
+    logic: "For each failed check with auto_fix_playbook, add to recommendations"
+    outputs:
+      - recommended_playbooks
+
+  - id: "emit_signal"
+    action: "Emit gap scan completed signal"
+    signal: "SIG_GOV_GAP_SCAN"
+    payload:
+      scan_id: "${scan_id}"
+      timestamp: "${timestamp}"
+      blueprint_health: "${blueprint_health}"
+      realms_scanned: "${realm_count}"
+      nodes_scanned: "${node_count}"
+      total_gaps: "${gap_count}"
+      critical_gaps: "${critical_count}"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+outputs:
+  gap_report:
+    path: "reports/gap_scan_${date}.yaml"
+    schema:
+      scan_id: string
+      timestamp: datetime
+      version: "1.0"
+      provenance:
+        created_by: "PB_971"
+        source_run: "${run_id}"
+
+      summary:
+        blueprint_health: integer  # 0-100
+        realms_scanned: integer
+        nodes_scanned: integer
+        total_checks: integer
+        passed: integer
+        failed: integer
+        warnings: integer
+
+      blueprint_gaps:
+        - rule_id: string
+          name: string
+          severity: string
+          message: string
+          auto_fix: string
+
+      realm_gaps:
+        - realm: string
+          gaps:
+            - rule_id: string
+              severity: string
+              message: string
+
+      node_gaps:
+        - realm: string
+          node: string
+          gaps:
+            - rule_id: string
+              severity: string
+              message: string
+              staleness_days: integer
+
+      staleness_report:
+        stale_artifacts: integer
+        oldest_artifact:
+          path: string
+          days_stale: integer
+
+      recommendations:
+        - playbook_id: string
+          target: string  # realm/node path
+          reason: string
+          priority: string
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  - condition: "blueprint_health < 50"
+    action: "Alert platform admin"
+    escalate_to: "Platform Admin"
+
+  - condition: "critical_gaps > 10"
+    action: "Send urgent notification"
+    escalate_to: "Senior Manager Agent"
+
+# ==============================================================================
+# PROVENANCE
+# ==============================================================================
+provenance:
+  created_by: "system"
+  created_at: "2026-01-23"
+  source: "alignment_check_fix"
