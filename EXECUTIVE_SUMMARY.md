@@ -1,5 +1,7 @@
 # EA Agentic Lab: Executive Summary
 
+*All examples, companies, scenarios, and data in this project are hypothetical. Names, characters, and organizations are fictional. Any resemblance to actual persons, companies, or events is purely coincidental.*
+
 Enterprise pre-sales and post-sales engagements fail not because teams lack talent, but because they lack structure. Discovery calls miss critical questions. POC results live in someone's head. Competitive positioning changes between deals with no institutional memory. When an SA leaves, their account knowledge leaves with them.
 
 EA Agentic Lab solves this by combining pattern recognition for engagement types, reusable blueprints that encode best practices, and AI agents that enforce discipline without slowing teams down.
