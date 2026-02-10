@@ -1,5 +1,7 @@
 # EA Agentic Lab: User Handbook
 
+*All examples, companies, scenarios, and data in this project are hypothetical. Names, characters, and organizations are fictional. Any resemblance to actual persons, companies, or events is purely coincidental.*
+
 This handbook is for the people who use the system daily: Account Executives, Solutions Architects, Domain Specialists, Customer Success Managers, and Sales Leadership. It explains how to work with the platform, what agents do for you, and where to find what you need. If you haven't read the [Executive Summary](../EXECUTIVE_SUMMARY.md), start there for the big picture.
 
 ---

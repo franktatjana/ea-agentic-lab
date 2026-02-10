@@ -1,5 +1,7 @@
 # Product Requirements Document (PRD)
 
+*All examples, companies, scenarios, and data in this project are hypothetical. Names, characters, and organizations are fictional. Any resemblance to actual persons, companies, or events is purely coincidental.*
+
 **Product:** EA Agentic Lab
 **Version:** 1.2
 **Date:** 2026-01-23

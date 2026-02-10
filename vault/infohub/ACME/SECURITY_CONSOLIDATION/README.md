@@ -1,5 +1,7 @@
 # ACME Corporation InfoHub
 
+*All examples, companies, scenarios, and data in this project are hypothetical. Names, characters, and organizations are fictional. Any resemblance to actual persons, companies, or events is purely coincidental.*
+
 ## CRITICAL STATUS UPDATE
 
 | Field | Change |

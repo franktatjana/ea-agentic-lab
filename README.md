@@ -1,5 +1,7 @@
 # EA Agentic Lab
 
+*All examples, companies, scenarios, and data in this project are hypothetical. Names, characters, and organizations are fictional. Any resemblance to actual persons, companies, or events is purely coincidental.*
+
 EA Agentic Lab is an **AI-assisted governance platform** for managing complex enterprise accounts. It combines multi-agent orchestration with structured playbook execution to enforce governance discipline without replacing human judgment.
 
 **Core Philosophy:** *Humans decide. The system enforces discipline.*
