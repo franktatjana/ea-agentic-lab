@@ -4,6 +4,14 @@ Enterprise pre-sales and post-sales engagements fail not because teams lack tale
 
 EA Agentic Lab solves this by combining pattern recognition for engagement types, reusable blueprints that encode best practices, and AI agents that enforce discipline without slowing teams down.
 
+**Three conceptual pillars:**
+
+1. People (Specialists, AEs, SAs, CAs) paired with AI agents, each with role-specific, customizable playbooks and checklists. 
+
+2. Customers are classified into archetypes: each gets a blueprint, which is filled in with corresponding specialized strategic and operational playbooks. 
+
+3. Knowledge captured automatically in two places: internal vault (anonymized best practices + digitized tribal knowledge) and customer InfoHub (shareable solution know-how). 
+
 ## Who This Is For
 
 - **Account Executives** get deal governance, stakeholder tracking, competitive intelligence, and executive-ready canvases so they can focus on relationships and strategy
