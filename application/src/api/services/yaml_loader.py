@@ -23,6 +23,7 @@ from ..models.schemas import (
     HealthScore,
     HealthScoreData,
     HealthThresholds,
+    BlueprintClassification,
     Node,
     NodeSummary,
     Realm,
@@ -40,8 +41,26 @@ class YAMLLoader:
 
     def __init__(self):
         self.settings = get_settings()
-        self.infohub_path = self.settings.infohub_path
+        self.vault_path = self.settings.vault_path
         self.user_profiles_path = self.settings.user_profiles_path
+        self._realm_id_to_dir: dict[str, str] = {}
+        self._build_realm_id_map()
+
+    def _build_realm_id_map(self) -> None:
+        """Build mapping from realm_id (YAML) to directory name on disk."""
+        if not self.vault_path.exists():
+            return
+        for realm_dir in self.vault_path.iterdir():
+            if realm_dir.is_dir() and not realm_dir.name.startswith(".") and realm_dir.name != "knowledge":
+                profile = self._load_yaml(realm_dir / "realm_profile.yaml")
+                yaml_id = profile.get("realm_id", realm_dir.name) if profile else realm_dir.name
+                self._realm_id_to_dir[yaml_id] = realm_dir.name
+                self._realm_id_to_dir[realm_dir.name] = realm_dir.name
+
+    def _resolve_realm_dir(self, realm_id: str) -> Path:
+        """Resolve a realm_id to its actual vault directory path."""
+        dir_name = self._realm_id_to_dir.get(realm_id, realm_id)
+        return self.vault_path / dir_name
 
     def _load_yaml(self, path: Path) -> Optional[dict[str, Any]]:
         """Load a YAML file and return its contents"""
@@ -72,14 +91,15 @@ class YAMLLoader:
     def list_realms(self) -> list[Realm]:
         """List all realms in the InfoHub"""
         realms = []
-        if not self.infohub_path.exists():
+        if not self.vault_path.exists():
             return realms
 
-        for realm_dir in self.infohub_path.iterdir():
-            if realm_dir.is_dir() and not realm_dir.name.startswith("."):
+        for realm_dir in sorted(self.vault_path.iterdir()):
+            if realm_dir.is_dir() and not realm_dir.name.startswith(".") and realm_dir.name != "knowledge":
                 realm_profile = self._load_yaml(realm_dir / "realm_profile.yaml")
                 if realm_profile:
-                    # Find all nodes in this realm
+                    classification = realm_profile.get("classification", {})
+                    company = realm_profile.get("company_profile", realm_profile.get("company_info", {}))
                     nodes = [
                         d.name
                         for d in realm_dir.iterdir()
@@ -89,12 +109,12 @@ class YAMLLoader:
                     ]
                     realms.append(
                         Realm(
-                            realm_id=realm_profile.get("realm_id", realm_dir.name),
-                            name=realm_profile.get("name", realm_dir.name),
+                            realm_id=realm_dir.name,
+                            name=realm_profile.get("realm_name", realm_profile.get("name", realm_dir.name)),
                             type=realm_profile.get("type"),
-                            industry=realm_profile.get("industry"),
-                            region=realm_profile.get("region"),
-                            tier=realm_profile.get("tier"),
+                            industry=classification.get("industry", company.get("industry")),
+                            region=classification.get("region", realm_profile.get("region")),
+                            tier=classification.get("tier", realm_profile.get("tier")),
                             nodes=nodes,
                         )
                     )
@@ -119,7 +139,7 @@ class YAMLLoader:
 
     def get_realm(self, realm_id: str) -> Optional[Realm]:
         """Get a specific realm"""
-        realm_dir = self.infohub_path / realm_id
+        realm_dir = self._resolve_realm_dir(realm_id)
         if not realm_dir.exists():
             return None
 
@@ -133,13 +153,15 @@ class YAMLLoader:
         ]
 
         if realm_profile:
+            classification = realm_profile.get("classification", {})
+            company = realm_profile.get("company_profile", realm_profile.get("company_info", {}))
             return Realm(
-                realm_id=realm_profile.get("realm_id", realm_id),
-                name=realm_profile.get("name", realm_id),
+                realm_id=realm_id,
+                name=realm_profile.get("realm_name", realm_profile.get("name", realm_id)),
                 type=realm_profile.get("type"),
-                industry=realm_profile.get("industry"),
-                region=realm_profile.get("region"),
-                tier=realm_profile.get("tier"),
+                industry=classification.get("industry", company.get("industry")),
+                region=classification.get("region", realm_profile.get("region")),
+                tier=classification.get("tier", realm_profile.get("tier")),
                 nodes=nodes,
             )
         return Realm(realm_id=realm_id, name=realm_id, nodes=nodes)
@@ -151,7 +173,7 @@ class YAMLLoader:
     def list_nodes(self, realm_id: str) -> list[NodeSummary]:
         """List all nodes in a realm with summary data"""
         nodes = []
-        realm_dir = self.infohub_path / realm_id
+        realm_dir = self._resolve_realm_dir(realm_id)
 
         if not realm_dir.exists():
             return nodes
@@ -189,11 +211,21 @@ class YAMLLoader:
 
     def get_node(self, realm_id: str, node_id: str) -> Optional[Node]:
         """Get a specific node profile"""
-        node_path = self.infohub_path / realm_id / node_id / "node_profile.yaml"
+        node_path = self._resolve_realm_dir(realm_id) / node_id / "node_profile.yaml"
         data = self._load_yaml(node_path)
 
         if not data:
             return None
+
+        bp = data.get("blueprint")
+        blueprint_cls = None
+        if bp and isinstance(bp, dict):
+            blueprint_cls = BlueprintClassification(
+                archetype=bp.get("archetype"),
+                domain=bp.get("domain"),
+                track=bp.get("track"),
+                reference_blueprint=bp.get("reference_blueprint"),
+            )
 
         return Node(
             node_id=data.get("node_id", node_id),
@@ -204,6 +236,7 @@ class YAMLLoader:
             operating_mode=data.get("operating_mode", "pre_sales"),
             created=data.get("created"),
             target_completion=data.get("target_completion"),
+            blueprint=blueprint_cls,
             commercial=data.get("commercial"),
             stakeholders=data.get("stakeholders"),
             enabled_playbooks=data.get("enabled_playbooks"),
@@ -221,7 +254,7 @@ class YAMLLoader:
     def get_health_score(self, realm_id: str, node_id: str) -> Optional[HealthScore]:
         """Get health score for a node"""
         health_path = (
-            self.infohub_path / realm_id / node_id / "governance" / "health_score.yaml"
+            self._resolve_realm_dir(realm_id) / node_id / "internal-infohub" / "governance" / "health_score.yaml"
         )
         data = self._load_yaml(health_path)
 
@@ -302,7 +335,7 @@ class YAMLLoader:
     def get_risk_register(self, realm_id: str, node_id: str) -> Optional[RiskRegister]:
         """Get risk register for a node"""
         risk_path = (
-            self.infohub_path / realm_id / node_id / "risks" / "risk_register.yaml"
+            self._resolve_realm_dir(realm_id) / node_id / "internal-infohub" / "risks" / "risk_register.yaml"
         )
         data = self._load_yaml(risk_path)
 
@@ -365,7 +398,7 @@ class YAMLLoader:
     ) -> Optional[ActionTracker]:
         """Get action tracker for a node"""
         action_path = (
-            self.infohub_path / realm_id / node_id / "actions" / "action_tracker.yaml"
+            self._resolve_realm_dir(realm_id) / node_id / "internal-infohub" / "actions" / "action_tracker.yaml"
         )
         data = self._load_yaml(action_path)
 
@@ -427,7 +460,7 @@ class YAMLLoader:
     def get_decision_log(self, realm_id: str, node_id: str) -> Optional[DecisionLog]:
         """Get decision log for a node"""
         decision_path = (
-            self.infohub_path / realm_id / node_id / "decisions" / "decision_log.yaml"
+            self._resolve_realm_dir(realm_id) / node_id / "external-infohub" / "decisions" / "decision_log.yaml"
         )
         data = self._load_yaml(decision_path)
 
@@ -476,6 +509,36 @@ class YAMLLoader:
             decisions=decisions,
             pending_customer=data.get("pending_customer"),
         )
+
+    # ==========================================================================
+    # BLUEPRINT, STAKEHOLDERS, VALUE
+    # ==========================================================================
+
+    def get_blueprint(self, realm_id: str, node_id: str) -> Optional[dict]:
+        """Get blueprint for a node"""
+        path = self._resolve_realm_dir(realm_id) / node_id / "blueprint.yaml"
+        return self._load_yaml(path)
+
+    def get_stakeholder_map(self, realm_id: str, node_id: str) -> Optional[dict]:
+        """Get stakeholder map for a node"""
+        path = (
+            self._resolve_realm_dir(realm_id) / node_id
+            / "external-infohub" / "context" / "stakeholder_map.yaml"
+        )
+        return self._load_yaml(path)
+
+    def get_value_tracker(self, realm_id: str, node_id: str) -> Optional[dict]:
+        """Get value tracker for a node"""
+        path = (
+            self._resolve_realm_dir(realm_id) / node_id
+            / "external-infohub" / "value" / "value_tracker.yaml"
+        )
+        return self._load_yaml(path)
+
+    def get_realm_profile(self, realm_id: str) -> Optional[dict]:
+        """Get full realm profile data"""
+        path = self._resolve_realm_dir(realm_id) / "realm_profile.yaml"
+        return self._load_yaml(path)
 
     # ==========================================================================
     # USER PROFILES

@@ -159,6 +159,7 @@ class Stakeholder(BaseModel):
     influence: Optional[str] = None
     relationship: Optional[str] = None
     decision_role: Optional[str] = None
+    linkedin_url: Optional[str] = None
 
 
 class Commercial(BaseModel):
@@ -210,6 +211,13 @@ class EnabledPlaybooks(BaseModel):
     operational: Optional[list[str]] = None
 
 
+class BlueprintClassification(BaseModel):
+    archetype: Optional[str] = None
+    domain: Optional[str] = None
+    track: Optional[str] = None
+    reference_blueprint: Optional[str] = None
+
+
 class Node(BaseModel):
     """Node profile model"""
 
@@ -221,6 +229,7 @@ class Node(BaseModel):
     operating_mode: OperatingMode = OperatingMode.pre_sales
     created: Optional[date] = None
     target_completion: Optional[date] = None
+    blueprint: Optional[BlueprintClassification] = None
     commercial: Optional[Commercial] = None
     stakeholders: Optional[dict[str, Any]] = None
     enabled_playbooks: Optional[EnabledPlaybooks] = None

@@ -150,9 +150,9 @@ Pluggable data source connectors for pulling notes from various systems:
 ```python
 from core.connectors import get_connector, ConnectorType
 
-# Filesystem (reads from vault/infohub/)
+# Filesystem (reads from vault/{realm}/{node}/)
 fs = get_connector(ConnectorType.FILESYSTEM)
-notes = fs.fetch_notes(realm_id='ACME', node_id='PROJECT')
+notes = fs.fetch_notes(realm_id='ACME_CORP', node_id='SECURITY_CONSOLIDATION')
 
 # GitHub (reads issues, PRs)
 gh = get_connector(ConnectorType.GITHUB, config={
@@ -180,9 +180,8 @@ from core.config.paths import (
     DOMAIN_ROOT,       # ea-agentic-lab/domain/
     VAULT_ROOT,        # ea-agentic-lab/vault/
     DATA_ROOT,         # ea-agentic-lab/data/
-    INFOHUB_ROOT,      # ea-agentic-lab/vault/infohub/
+    VAULT_ROOT,        # ea-agentic-lab/vault/
     AGENT_OUTPUT,      # ea-agentic-lab/data/agent_outputs/
-    EXAMPLE_REALM,     # ea-agentic-lab/vault/infohub/examples/ACME/
     get_agent_output_dir,  # Get output dir for specific agent
     get_realm_path,        # Get path to a realm
     get_node_path,         # Get path to a node

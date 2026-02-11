@@ -163,14 +163,14 @@ class PlaybookGenerator:
                 if isinstance(inp, dict):
                     artifact = inp.get("artifact", "input")
                     source = inp.get("source", "")
-                    entry = {"artifact": f"infohub/{{realm}}/{{node}}/{artifact}"}
+                    entry = {"artifact": f"{{realm}}/{{node}}/{artifact}"}
                     if inp.get("optional"):
                         optional.append(entry)
                     else:
                         mandatory.append(entry)
 
         if not mandatory:
-            mandatory.append({"artifact": "infohub/{realm}/{node}/overview.md"})
+            mandatory.append({"artifact": "{realm}/{node}/overview.md"})
 
         return {
             "mandatory": mandatory,
@@ -263,7 +263,7 @@ CREATE Decision:
         primary = outputs.get("primary", {})
 
         primary_artifact = {
-            "path": primary.get("path", "infohub/{realm}/{node}/outputs/process_output.md"),
+            "path": primary.get("path", "{realm}/{node}/outputs/process_output.md"),
             "format": "markdown",
             "sections": [
                 "executive_summary",
@@ -275,14 +275,14 @@ CREATE Decision:
 
         # Decision objects
         decision_objects = {
-            "path": "infohub/{realm}/{node}/decisions/",
+            "path": "{realm}/{node}/external-infohub/decisions/",
             "create_if": ["Process requires decision", "Escalation needed"],
             "template": "ADR format"
         }
 
         # Risk objects
         risk_objects = {
-            "path": "infohub/{realm}/{node}/risks/",
+            "path": "{realm}/{node}/internal-infohub/risks/",
             "create_if": ["Risk identified during execution", "Blocker encountered"],
             "template": "Risk with mitigation plan"
         }

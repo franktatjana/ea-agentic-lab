@@ -19,7 +19,8 @@ class Settings(BaseSettings):
     # __file__ = application/src/api/config.py
     # .parent = api, .parent.parent = src, .parent.parent.parent = application, .parent*4 = ea-agentic-lab
     project_root: Path = Path(__file__).parent.parent.parent.parent  # ea-agentic-lab/
-    infohub_path: Path = project_root / "vault" / "infohub"
+    vault_path: Path = project_root / "vault"
+    domain_path: Path = project_root / "domain"
     config_path: Path = project_root / "domain" / "config"
     user_profiles_path: Path = config_path / "user_profiles"
 

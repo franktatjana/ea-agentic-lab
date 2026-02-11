@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .routers import nodes, health, risks, actions, decisions, profile, widgets, tech_radar
+from .routers import nodes, health, risks, actions, decisions, profile, widgets, tech_radar, playbooks, blueprints, docs
 
 settings = get_settings()
 
@@ -36,6 +36,9 @@ app.include_router(decisions.router, prefix=settings.api_prefix, tags=["Decision
 app.include_router(profile.router, prefix=settings.api_prefix, tags=["Profile"])
 app.include_router(widgets.router, prefix=settings.api_prefix, tags=["Widgets"])
 app.include_router(tech_radar.router, prefix=settings.api_prefix, tags=["Tech Radar"])
+app.include_router(playbooks.router, prefix=settings.api_prefix, tags=["Playbooks"])
+app.include_router(blueprints.router, prefix=settings.api_prefix, tags=["Blueprints"])
+app.include_router(docs.router, prefix=settings.api_prefix, tags=["Documentation"])  # Markdown docs browser API
 
 
 @app.get("/")

@@ -11,7 +11,7 @@ Philosophy:
 
 Evidence Structure Required:
     {
-        'source_artifact': 'infohub/ACME/SECURITY/meetings/2026-01-15.md',
+        'source_artifact': 'ACME_CORP/SECURITY/meetings/2026-01-15.md',
         'date': '2026-01-15',
         'excerpt': 'Customer mentioned budget concerns...',
         'confidence': 'HIGH'  # HIGH | MEDIUM | LOW

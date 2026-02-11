@@ -1,16 +1,23 @@
 """
 Filesystem Connector
 
-Reads markdown notes from the local vault/infohub directory structure.
+Reads markdown notes from the local vault directory structure.
 
 Expected structure:
-    vault/infohub/{realm_id}/{node_id}/
-        ├── meetings/
-        │   ├── external/
-        │   └── internal/
-        ├── decisions/
-        ├── risks/
-        └── actions/
+    vault/{realm_id}/{node_id}/
+        ├── raw/                    # Unprocessed inputs
+        │   ├── meetings/
+        │   │   ├── external/
+        │   │   └── internal/
+        │   └── daily-ops/
+        ├── external-infohub/        # Customer-shareable outputs
+        │   ├── context/
+        │   ├── decisions/
+        │   └── architecture/
+        └── internal-infohub/        # Vendor-only outputs
+            ├── risks/
+            ├── stakeholders/
+            └── competitive/
 """
 
 import re
@@ -27,7 +34,7 @@ class FilesystemConnector(BaseConnector):
     Connector for reading notes from local filesystem.
 
     Configuration:
-        root_path: Path to infohub directory (default: vault/infohub)
+        root_path: Path to vault directory (default: vault/)
     """
 
     @property
@@ -38,9 +45,9 @@ class FilesystemConnector(BaseConnector):
         """Validate configuration"""
         # Set default root path if not provided
         if 'root_path' not in self.config:
-            # Default to project's vault/infohub
-            from ..config.paths import INFOHUB_ROOT
-            self.config['root_path'] = INFOHUB_ROOT
+            # Default to project's vault/
+            from ..config.paths import VAULT_ROOT
+            self.config['root_path'] = VAULT_ROOT
 
         self.root_path = Path(self.config['root_path'])
 
@@ -69,7 +76,7 @@ class FilesystemConnector(BaseConnector):
         for item in realm_path.iterdir():
             if item.is_dir() and not item.name.startswith('.'):
                 # Skip standard subdirs that aren't nodes
-                if item.name not in ['meetings', 'decisions', 'risks', 'actions', 'stakeholders']:
+                if item.name not in ['raw', 'external-infohub', 'internal-infohub', 'intelligence']:
                     nodes.append(item.name)
         return sorted(nodes)
 

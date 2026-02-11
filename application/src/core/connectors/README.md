@@ -23,9 +23,9 @@ Pluggable connectors for fetching data from various sources. Agents use connecto
 ```python
 from core.connectors import get_connector, ConnectorType
 
-# Get filesystem connector (reads from vault/infohub/)
+# Get filesystem connector (reads from vault/)
 fs = get_connector(ConnectorType.FILESYSTEM)
-notes = fs.fetch_notes(realm_id='ACME', node_id='SECURITY_PROJECT')
+notes = fs.fetch_notes(realm_id='ACME_CORP', node_id='SECURITY_CONSOLIDATION')
 
 # Get GitHub connector (reads issues, PRs, discussions)
 gh = get_connector(ConnectorType.GITHUB, config={
@@ -53,7 +53,7 @@ for note in notes:
 
 ### Filesystem Connector
 
-Reads markdown files with YAML frontmatter from `vault/infohub/`.
+Reads markdown files with YAML frontmatter from `vault/{realm}/{node}/`.
 
 ```python
 fs = get_connector(ConnectorType.FILESYSTEM, config={

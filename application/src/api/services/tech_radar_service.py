@@ -57,7 +57,7 @@ class TechRadarService:
 
     def _get_tech_signal_map_path(self, realm_id: str) -> Path:
         """Get path to tech signal map directory for a realm"""
-        return self.infohub_path / realm_id / "tech_signal_map"
+        return self.infohub_path / realm_id / "intelligence" / "tech_signal_map"
 
     def _get_current_map_path(self, realm_id: str) -> Path:
         """Get path to current signal map file"""

@@ -22,11 +22,10 @@ VAULT_ROOT = PROJECT_ROOT / "vault"
 DATA_ROOT = PROJECT_ROOT / "data"
 
 # Input paths - where agents read from
-INFOHUB_ROOT = VAULT_ROOT / "infohub"
 KNOWLEDGE_ROOT = VAULT_ROOT / "knowledge"
 
 # Example realm for testing/demos
-EXAMPLE_REALM = INFOHUB_ROOT / "examples" / "ACME"
+EXAMPLE_REALM = VAULT_ROOT / "ACME_CORP"
 
 # Output paths - where agents write to
 AGENT_OUTPUT = DATA_ROOT / "agent_outputs"
@@ -58,13 +57,13 @@ def get_personality_path(team_name: str, agent_name: str) -> Path:
 
 
 def get_realm_path(realm_id: str) -> Path:
-    """Get path to a realm's InfoHub directory"""
-    return INFOHUB_ROOT / realm_id
+    """Get path to a realm's directory"""
+    return VAULT_ROOT / realm_id
 
 
 def get_node_path(realm_id: str, node_id: str) -> Path:
     """Get path to a specific node within a realm"""
-    return INFOHUB_ROOT / realm_id / node_id
+    return VAULT_ROOT / realm_id / node_id
 
 
 def get_agent_output_dir(agent_id: str) -> Path:
@@ -108,5 +107,5 @@ if __name__ == "__main__":
     print(f"Domain root: {DOMAIN_ROOT}")
     print(f"Vault root: {VAULT_ROOT}")
     print(f"Data root: {DATA_ROOT}")
-    print(f"InfoHub: {INFOHUB_ROOT}")
+    print(f"Knowledge: {KNOWLEDGE_ROOT}")
     print(f"Agent outputs: {AGENT_OUTPUT}")
