@@ -145,7 +145,7 @@ last_updated: "2026-01-23"
 **Cross-reference explicitly:**
 
 ```markdown
-See [Playbook Framework](playbook-framework.md) for design principles.
+See [Playbook Framework](architecture/playbooks/playbook-framework.md) for design principles.
 Related: PB_970 (validation), PB_971 (gap scan).
 ```
 

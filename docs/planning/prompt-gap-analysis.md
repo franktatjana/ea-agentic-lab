@@ -9,9 +9,10 @@
 
 **Analyzed:** 26 agent configs, 25 personality files
 **Best Practices Sources:**
-- `config/prompt_engineering.yaml` (technique mappings)
-- `playbooks/templates/agent_prompt_template.yaml` (template structure)
-- `docs/design/prompt-engineering-principles.md` (technique details)
+
+- `domain/prompts/prompt_engineering.yaml` (technique mappings)
+- `domain/playbooks/templates/agent_prompt_template.yaml` (template structure)
+- `docs/architecture/system/prompt-engineering-principles.md` (technique details)
 
 ### Overall Findings
 
@@ -44,7 +45,7 @@ sa_agent:
     poc_support: [react]
 ```
 
-**Current State (teams/solution_architects/):**
+**Current State (domain/agents/solution_architects/):**
 
 | Required Element | Status | Notes |
 |-----------------|--------|-------|
@@ -76,7 +77,7 @@ risk_radar_agent:
     severity_assessment: [cot, self_consistency]
 ```
 
-**Current State (teams/governance/):**
+**Current State (domain/agents/governance/):**
 
 | Required Element | Status | Notes |
 |-----------------|--------|-------|
@@ -107,7 +108,7 @@ ve_agent:
     tco_analysis: [cot, react]
 ```
 
-**Current State (teams/value_engineering/):**
+**Current State (domain/agents/value_engineering/):**
 
 | Required Element | Status | Notes |
 |-----------------|--------|-------|
@@ -135,7 +136,7 @@ retrospective_agent:
     lesson_generation: [reflexion]
 ```
 
-**Current State (teams/retrospective/):**
+**Current State (domain/agents/retrospective/):**
 
 | Required Element | Status | Notes |
 |-----------------|--------|-------|
@@ -161,7 +162,7 @@ ae_agent:
     opportunity_qualification: [cot, self_consistency]
 ```
 
-**Current State (teams/account_executives/):**
+**Current State (domain/agents/account_executives/):**
 
 | Required Element | Status | Notes |
 |-----------------|--------|-------|
@@ -190,7 +191,7 @@ ca_agent:
     success_planning: [cot, prompt_chaining]
 ```
 
-**Current State (teams/customer_architects/):**
+**Current State (domain/agents/customer_architects/):**
 
 | Required Element | Status | Notes |
 |-----------------|--------|-------|
@@ -215,7 +216,7 @@ meeting_notes_agent:
     risk_signal_detection: [cot]
 ```
 
-**Current State (teams/governance/):**
+**Current State (domain/agents/governance/):**
 
 | Required Element | Status | Notes |
 |-----------------|--------|-------|
@@ -240,7 +241,7 @@ ci_agent:
     battlecard_generation: [cot, few_shot]
 ```
 
-**Current State (teams/competitive_intelligence/):**
+**Current State (domain/agents/competitive_intelligence/):**
 
 | Required Element | Status | Notes |
 |-----------------|--------|-------|
@@ -298,12 +299,12 @@ ci_agent:
 ### Immediate (High Priority)
 
 1. **Add Few-Shot Examples** to:
-   - `teams/governance/personalities/risk_radar_personality.yaml`
-   - `teams/governance/personalities/meeting_notes_personality.yaml`
-   - Create `config/few_shot_examples/risk_radar/` directory
+   - `domain/agents/governance/personalities/risk_radar_personality.yaml`
+   - `domain/agents/governance/personalities/meeting_notes_personality.yaml`
+   - Create `domain/config/few_shot_examples/risk_radar/` directory
 
 2. **Add Reflexion Format** to:
-   - `teams/retrospective/agents/retrospective_agent.yaml`
+   - `domain/agents/retrospective/agents/retrospective_agent.yaml`
    - Include memory_storage_path
 
 3. **Add Technique Instructions** to all personality files:
@@ -369,7 +370,7 @@ Add missing sections to existing `*_personality.yaml` files. This keeps the form
 
 ### Option B: Create Technique-Specific Prompts
 
-Create separate prompt files in `teams/{team}/prompts/` for each technique:
+Create separate prompt files in `domain/agents/{team}/prompts/` for each technique:
 - `cot_technical_analysis.yaml`
 - `react_poc_support.yaml`
 - `few_shot_risk_classification.yaml`
@@ -384,7 +385,7 @@ Migrate all agents to use `playbooks/templates/agent_prompt_template.yaml` struc
 
 ## Example Implementation: Risk Radar Agent
 
-**File:** `teams/governance/personalities/risk_radar_personality.yaml`
+**File:** `domain/agents/governance/personalities/risk_radar_personality.yaml`
 
 The Risk Radar personality was updated as the reference implementation. Each section includes documentation explaining:
 
@@ -466,7 +467,7 @@ After implementing changes:
 
 ## Related Documentation
 
-- [Prompt Engineering Principles](../design/prompt-engineering-principles.md)
-- [Tool Design Principles](../design/tool-design-principles.md)
-- [Agent Prompt Template](../../playbooks/templates/agent_prompt_template.yaml)
-- [Prompt Engineering Config](../../config/prompt_engineering.yaml)
+- [Prompt Engineering Principles](../architecture/system/prompt-engineering-principles.md)
+- [Tool Design Principles](../architecture/system/tool-design-principles.md)
+- [Agent Prompt Template](../../domain/playbooks/templates/agent_prompt_template.yaml)
+- [Prompt Engineering Config](../../domain/prompts/prompt_engineering.yaml)

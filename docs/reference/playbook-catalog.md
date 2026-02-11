@@ -293,7 +293,7 @@ Strategic analysis tools integrated into customer success workflows.
 
 ### Five Whys Analysis
 
-**Path:** `playbooks/executable/PB_501_five_whys_analysis.yaml`
+**Path:** `playbooks/solution_architects/PB_105_five_whys_analysis.yaml`
 
 Root cause analysis for customer issues and blockers.
 
@@ -363,20 +363,24 @@ Playbooks automatically trigger based on signal events:
 Playbook outputs stored in structured paths:
 
 ```
-infohub/{realm}/{node}/
-├── success_plan/
-│   ├── csp.yaml                 # Customer Success Plan
-│   ├── adoption_journey.yaml    # Stage adoption status
-│   └── value_tracking.yaml      # Realized value
-├── engagements/
-│   ├── ebr_2026_q1.md          # Executive review notes
-│   ├── workshops/               # Workshop artifacts
-│   └── calls/                   # Call notes
-├── planning/
-│   ├── account_plan_2026.md    # Annual account plan
-│   └── expansion_plan.md       # Expansion opportunities
-└── retrospectives/
-    └── deal_retro_2026_01.md   # Deal retrospective
+{realm}/{node}/
+├── external-infohub/
+│   ├── value/
+│   │   ├── csp.yaml                 # Customer Success Plan
+│   │   └── value_tracking.yaml      # Realized value
+│   ├── journey/
+│   │   └── adoption_journey.yaml    # Stage adoption status
+│   └── decisions/
+│       └── deal_retro_2026_01.md    # Deal retrospective
+├── internal-infohub/
+│   ├── governance/
+│   │   └── account_plan_2026.md     # Annual account plan
+│   └── actions/
+│       └── expansion_plan.md        # Expansion opportunities
+├── meetings/
+│   ├── ebr_2026_q1.md              # Executive review notes
+│   ├── workshops/                   # Workshop artifacts
+│   └── calls/                       # Call notes
 ```
 
 ---
@@ -385,7 +389,7 @@ infohub/{realm}/{node}/
 
 ### Playbook Structure
 
-All playbooks follow the [Playbook Execution Specification v1.0](../playbooks/playbook-execution-specification.md):
+All playbooks follow the [Playbook Execution Specification v1.0](../architecture/playbooks/playbook-execution-specification.md):
 
 ```yaml
 # Required metadata
@@ -474,5 +478,5 @@ Where:
 
 ## References
 
-- [Playbook Execution Specification](../playbooks/playbook-execution-specification.md)
+- [Playbook Execution Specification](../architecture/playbooks/playbook-execution-specification.md)
 - [Signal Catalog](signal-catalog.md)

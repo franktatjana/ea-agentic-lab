@@ -29,7 +29,7 @@ Signals are **immutable events** that flow between agents. They represent **fact
 
 ## Machine-Readable Contract
 
-The authoritative signal definitions are in: **[config/signal_catalog.yaml](../../config/signal_catalog.yaml)**
+The authoritative signal definitions are in: **[domain/catalogs/signal_catalog.yaml](../../domain/catalogs/signal_catalog.yaml)**
 
 This document provides human context. The YAML file is what agents and system components consume.
 
@@ -50,6 +50,7 @@ This document provides human context. The YAML file is what agents and system co
 │  SIG_GOV_*     Governance       Decisions, escalations                      │
 │  SIG_PB_*      Playbook         Execution start, completion, steps          │
 │  SIG_TECH_*    Tech Signal Map  Technology trends, job scans, insights      │
+│  SIG_MNA_*     Market News      Company, industry, solution-domain news    │
 │  SIG_CUSTOM_*  Custom           User-defined (requires validation)          │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -181,6 +182,39 @@ This document provides human context. The YAML file is what agents and system co
               └─────────────────────────────────────┘
 ```
 
+### Market News Intelligence Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      MARKET NEWS INTELLIGENCE FLOW                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────────────┐     News Sources        ┌─────────────────────┐
+  │  Market News     │◀────────────────────────│   External Sources  │
+  │  Analysis Agent  │      (Scheduled)         │   • News feeds      │
+  └────────┬─────────┘                          │   • Press releases  │
+           │                                    │   • Analyst reports  │
+           │ Classify & Score                   └─────────────────────┘
+           │
+    ┌──────┴──────┐
+    │             │
+    ▼             ▼
+┌────────┐  ┌────────┐
+│ Realm  │  │ Node   │
+│ Digest │  │ Digest │
+└───┬────┘  └───┬────┘
+    │           │
+    │  SIG_MNA_001 (market_news_digest_updated)
+    │           │
+    ▼           ▼
+┌─────────────────────────────────────────────┐
+│              High Impact?                    │
+│                                              │
+│  YES: SIG_MNA_002 → AE, Risk Radar, Orch.  │
+│  Competitive: SIG_MNA_003 → CI, SA, AE     │
+└─────────────────────────────────────────────┘
+```
+
 ---
 
 ## Signal Reference (Quick Index)
@@ -252,6 +286,14 @@ This document provides human context. The YAML file is what agents and system co
 | SIG_TECH_004 | `job_scan_completed` | Tech Signal Scanner Agent | Tech Signal Analyzer Agent |
 
 For detailed Tech Signal Map documentation, see: [Tech Signal Map Architecture](tech-signal-map.md)
+
+### Market News Analysis Signals (SIG_MNA_*)
+
+| Signal ID | Name | Producer | Key Consumers |
+|-----------|------|----------|---------------|
+| SIG_MNA_001 | `market_news_digest_updated` | Market News Analysis Agent | AE Agent, SA Agent, Risk Radar |
+| SIG_MNA_002 | `high_impact_news_detected` | Market News Analysis Agent | AE Agent, Risk Radar, Orchestration Agent |
+| SIG_MNA_003 | `competitive_news_detected` | Market News Analysis Agent | CI Agent, SA Agent, AE Agent |
 
 ---
 
@@ -384,12 +426,12 @@ Which agents subscribe to which signals:
 | Agent | Subscribes To |
 |-------|---------------|
 | **Orchestration Agent** | SIG_LC_*, SIG_PB_* |
-| **AE Agent** | SIG_COM_*, SIG_STK_001, SIG_HLT_001, SIG_TECH_001 |
-| **SA Agent** | SIG_ART_004, SIG_COM_001, SIG_COM_003, SIG_TECH_001, SIG_TECH_002, SIG_TECH_003 |
+| **AE Agent** | SIG_COM_*, SIG_STK_001, SIG_HLT_001, SIG_TECH_001, SIG_MNA_001, SIG_MNA_002 |
+| **SA Agent** | SIG_ART_004, SIG_COM_001, SIG_COM_003, SIG_TECH_001, SIG_TECH_002, SIG_TECH_003, SIG_MNA_001, SIG_MNA_003 |
 | **CA Agent** | SIG_LC_003, SIG_COM_002, SIG_HLT_003 |
-| **CI Agent** | SIG_COM_003, SIG_TECH_001, SIG_TECH_003 |
+| **CI Agent** | SIG_COM_003, SIG_TECH_001, SIG_TECH_003, SIG_MNA_003 |
 | **PM Agent** | SIG_TECH_002 |
-| **Risk Radar Agent** | SIG_ART_003, SIG_STK_002, SIG_HLT_* |
+| **Risk Radar Agent** | SIG_ART_003, SIG_STK_002, SIG_HLT_*, SIG_MNA_001, SIG_MNA_002 |
 | **Governance Agent** | SIG_LC_002, SIG_HLT_001, SIG_HLT_003, SIG_HLT_004 |
 | **Knowledge Curator** | SIG_ART_001, SIG_ART_002, SIG_GOV_001 |
 | **Nudger Agent** | SIG_LC_002, SIG_HLT_003, SIG_HLT_004 |
@@ -401,6 +443,7 @@ Which agents subscribe to which signals:
 | **Playbook Curator** | SIG_LC_003 |
 | **Audit Logger** | SIG_GOV_002, SIG_GOV_003, SIG_PB_001, SIG_PB_002 |
 | **Tech Signal Analyzer Agent** | SIG_TECH_004 |
+| **Market News Analysis Agent** | SIG_LC_001, SIG_MNA_001 |
 
 ---
 
@@ -441,6 +484,7 @@ Signals that trigger customer success playbooks for automated engagement managem
 | SIG_COM_002 | **PB_601** Retrospective | Always |
 | SIG_LC_003 | **PB_CS_303** Renewal Protection | `new_mode == 'renewal'` |
 | SIG_TECH_001 | **PB_CS_101** Stage Adoption Refresh | `ring_changes_count >= 3` |
+| SIG_MNA_002 | **PB_CS_301** Health Triage | `category == 'competitive' AND urgency == 'IMMEDIATE'` |
 | (scheduled) | **PB_CS_202** Cadence Calls | `cadence_call_due` |
 | (scheduled) | **PB_602** Account Planning | `annual_planning_cycle` |
 
@@ -450,10 +494,10 @@ For complete customer success playbook documentation, see: [Playbook Catalog](pl
 
 ## Related Documentation
 
-- [config/signal_catalog.yaml](../../config/signal_catalog.yaml) - Machine-readable definitions
-- [Orchestration Agent](../agents/orchestration-agent.md) - Signal routing and validation
-- [Process Schema](../design/process-schema.md) - How signals trigger processes
-- [Conflict Rules](../design/conflict-rules.md) - Signal conflict detection
+- [domain/catalogs/signal_catalog.yaml](../../domain/catalogs/signal_catalog.yaml) - Machine-readable definitions
+- [Orchestration Agent](../architecture/agents/orchestration-agent.md) - Signal routing and validation
+- [Process Schema](../architecture/system/process-schema.md) - How signals trigger processes
+- [Conflict Rules](../architecture/system/conflict-rules.md) - Signal conflict detection
 - [Playbook Catalog](playbook-catalog.md) - Customer success playbook catalog
 
 ---

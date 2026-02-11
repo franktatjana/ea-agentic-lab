@@ -190,7 +190,7 @@
 
 Customer success playbooks adapted from industry best practices for customer engagement, health management, and value realization.
 
-See: [Customer Success Playbooks](customer-success-playbooks.md) for full documentation.
+See: [Customer Success Playbooks](../guides/for-practitioners/customer-success-playbooks.md) for full documentation.
 
 #### Stage Adoption
 
@@ -235,7 +235,7 @@ See: [Customer Success Playbooks](customer-success-playbooks.md) for full docume
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_501** | **Five Whys Analysis** | Toyota Production System | Root cause needed | Root cause + countermeasures |
+| **PB_105** | **Five Whys Analysis** | Toyota Production System | Root cause needed | Root cause + countermeasures |
 | **PB_601** | **Retrospective** | Agile + Five Whys | Deal won/lost | Learnings + process improvements |
 | **PB_602** | **Account Planning** | Enterprise Sales + Five Whys | Annual planning | Account plan + blockers resolved |
 

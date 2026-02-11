@@ -34,11 +34,12 @@ The **Tech Signal Map** is a decision-support artifact embedded into playbooks, 
            ▼
   ┌─────────────────┐                        ┌─────────────────────┐
   │  Tech Signal    │────────────────────────│   InfoHub           │
-  │  Analyzer Agent │   Writes signal map    │   {realm}/tech_     │
-  └────────┬────────┘                        │   signal_map/       │
-           │                                 │   • current_map     │
-           │ SIG_TECH_001/002/003            │   • map_history/    │
-           ▼                                 └─────────────────────┘
+  │  Analyzer Agent │   Writes signal map    │   {realm}/          │
+  └────────┬────────┘                        │   intelligence/     │
+           │                                 │   tech_signal_map/  │
+           │ SIG_TECH_001/002/003            │   • current_map     │
+           ▼                                 │   • map_history/    │
+                                             └─────────────────────┘
   ┌─────────────────────────────────────────────────────────────────┐
   │                        CONSUMERS                                 │
   │                                                                  │
@@ -343,9 +344,9 @@ ring_rules:
 
 ## Related Documentation
 
-- [config/tech_signal_map_config.yaml](../../config/tech_signal_map_config.yaml) - Technology taxonomy
-- [config/signal_catalog.yaml](../../config/signal_catalog.yaml) - Signal definitions
-- [teams/tech_signal_map/agents/](../../teams/tech_signal_map/agents/) - Agent configurations
+- [config/tech_signal_map_config.yaml](../../domain/catalogs/tech_signal_map_config.yaml) - Technology taxonomy
+- [config/signal_catalog.yaml](../../domain/catalogs/signal_catalog.yaml) - Signal definitions
+- [agents/tech_signal_map/](../../domain/agents/tech_signal_map/agents/) - Agent configurations
 - [Signal Catalog](signal-catalog.md) - All system signals
 
 ---

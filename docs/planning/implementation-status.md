@@ -1,598 +1,258 @@
 # EA Agentic Lab - Implementation Status
 
-**Last Updated:** 2026-01-22
-**Status:** Foundation Complete, 24 Agents Configured, Context/Tool/Prompt Engineering Implemented
+**Last Updated:** 2026-02-10
+**Status:** Domain model defined, 91 playbooks authored, 28 agents configured, application scaffolded
 
 ---
 
 ## Overview
 
-The EA Agentic Lab multi-agent system has been implemented following the Strategic Account Governance Model framework. All 24 agents (15 strategic + 8 governance + 1 orchestration) are configured with comprehensive personality specifications designed to prevent hallucinations and ensure accurate, bounded behavior.
+The EA Agentic Lab is a multi-agent governance system for strategic account management. The domain model, agent definitions, playbook library, and supporting documentation form the foundation. An iOS application and Python backend are scaffolded. The system is in the "domain complete, runtime emerging" phase.
 
 ---
 
-## Implementation Summary
+## Component Status
 
-### ✅ Completed Components
+### 1. Domain Model
 
-#### 1. Core Infrastructure
-- [x] **Base Agent Framework** (`core/agent_framework/base_agent.py`)
-  - Abstract base class for all agents
-  - Standardized process() interface
-  - Signal extraction protocol
-  - Execution logging
-  - Escalation mechanism
+The domain layer (`domain/`) contains all business logic definitions: agents, playbooks, catalogs, config, and mappings. No runtime code, purely declarative YAML and templates.
 
-- [x] **Configuration System** (`core/config/paths.py`)
-  - Centralized path management
-  - File system paths configuration
-  - InfoHub output structure
-  - Directory auto-creation
+| Component | Count | Location | Status |
+|-----------|-------|----------|--------|
+| Playbook YAMLs | 91 | `domain/playbooks/{team}/` | Authored |
+| Agent configs | 28 | `domain/agents/{team}/agents/` | Configured |
+| Personality specs | 28 | `domain/agents/{team}/personalities/` | Configured |
+| Task prompt files | 17 | `domain/agents/{team}/prompts/tasks.yaml` | Authored |
+| Templates | 8 | `domain/playbooks/templates/` | Authored |
+| Canvas specs | 8 | `domain/playbooks/canvas/specs/` | Authored |
+| Operational playbooks | 6 | `domain/playbooks/operational/` | Authored |
+| Catalogs | 5 | `domain/catalogs/` | Authored |
 
-- [x] **Markdown Tools** (`core/tools/markdown_tools.py`)
-  - Markdown with frontmatter parsing
-  - YAML tag extraction
-  - Source file reading
-  - Client profile generation
-  - Dashboard generation
+### 2. Agents (28 configured)
 
-#### 2. Agent Configurations (24/24 Complete)
+All agents have YAML configuration, personality specifications with anti-hallucination controls, and task prompts (CAF format). None have runtime implementations yet.
 
-All agents have:
-- YAML configuration files defining scope and behavior
-- Comprehensive personality specifications with anti-hallucination controls
-- Clear scope boundaries (what they DO and DON'T do)
-- Signal detection patterns
-- Risk assessment criteria
-- Quality standards
+**Leadership Agents (2):**
 
-**Strategic Agents (15):**
+| Agent | Team | Tasks |
+|-------|------|-------|
+| Senior Manager Agent | `leadership/` | 10+ |
+| PM Agent | `product_managers/` | 10+ |
 
-| Agent | Config | Personality | Tasks | Status |
-|-------|--------|-------------|-------|--------|
-| **SA** | ✅ | ✅ | ✅ (+6 journey) | **OPERATIONAL** |
-| **AE** | ✅ | ✅ | ✅ | Configured |
-| **Specialist** | ✅ | ✅ | ✅ | Configured |
-| **PM** | ✅ | ✅ | ✅ | Configured |
-| **CI** | ✅ | ✅ | ✅ | Configured |
-| **Delivery** | ✅ | ✅ | ✅ | Configured |
-| **Partner** | ✅ | ✅ | ✅ | Configured |
-| **CA** | ✅ | ✅ | ✅ (+18 journey/VoC) | Configured |
-| **VE** | ✅ | ✅ | ✅ | Configured |
-| **POC** | ✅ | ✅ | ✅ (+18 POC success) | Configured |
-| **RFP** | ✅ | ✅ | ✅ | Configured |
-| **Retrospective** | ✅ | ✅ | ✅ | Configured |
-| **Senior Manager** | ✅ | ✅ | ✅ | Configured |
+**Sales Agents (4):**
+
+| Agent | Team | Tasks |
+|-------|------|-------|
+| AE Agent | `account_executives/` | 20+ |
+| CI Agent | `competitive_intelligence/` | 10+ |
+| VE Agent | `value_engineering/` | 25+ |
+| Partner Agent | `partners/` | 10+ |
+
+**Architecture Agents (3):**
+
+| Agent | Team | Tasks | Specialist Sub-teams |
+|-------|------|-------|---------------------|
+| SA Agent | `solution_architects/` | 35+ | - |
+| CA Agent | `customer_architects/` | 18+ | - |
+| Specialist Agent | `specialists/` | 10+ | Observability, Search, Security |
+
+**Deal Execution Agents (3):**
+
+| Agent | Team | Tasks |
+|-------|------|-------|
+| RFP Agent | `rfp/` | 10+ |
+| POC Agent | `poc/` | 20+ |
+| InfoSec Agent | `infosec/` | 10+ |
+
+**Delivery Agents (3):**
+
+| Agent | Team | Tasks |
+|-------|------|-------|
+| Delivery Agent | `delivery/` | 10+ |
+| PS Agent | `professional_services/` | 10+ |
+| Support Agent | `support/` | 10+ |
 
 **Governance Agents (8):**
 
 | Agent | Purpose | Status |
 |-------|---------|--------|
-| Risk Radar | Risk detection and tracking | ✅ Configured |
-| Decision Registrar | Decision logging | ✅ Configured |
-| Task Shepherd | Action item tracking | ✅ Configured |
-| Nudger | Proactive reminders | ✅ Configured |
-| Meeting Notes | Meeting intelligence | ✅ Configured |
-| Playbook Curator | Playbook management | ✅ Configured |
-| Knowledge Curator | Best practices | ✅ Configured |
-| Reporter | Status reporting | ✅ Configured |
+| Meeting Notes Agent | Extract decisions/actions/risks from meetings | Configured |
+| Nudger Agent | Reminder and escalation enforcement | Configured |
+| Task Shepherd Agent | Action validation and linkage | Configured |
+| Decision Registrar Agent | Decision lifecycle tracking | Configured |
+| Reporter Agent | Weekly digest generation | Configured |
+| Risk Radar Agent | Risk detection and classification | Configured |
+| Playbook Curator Agent | Playbook validation and governance | Configured |
+| Knowledge Curator Agent | Semantic integrity, artifact lifecycle | Configured |
 
-**Orchestration Agent (1):**
+**Specialized Agents:**
 
 | Agent | Purpose | Status |
 |-------|---------|--------|
-| Orchestration | Process management | ✅ Configured |
+| Retrospective Agent | Win/loss analysis, lessons learned | Configured |
+| Tech Signal Scanner | Technology signal detection | Configured |
+| Tech Signal Analyzer | Technology signal analysis | Configured |
 
-#### 3. Solution Architect (SA) Agent - OPERATIONAL
+**Specialist Sub-teams (3):** Each has a dedicated agent config, personality, and 10 playbooks.
 
-**Implementation:** `teams/solution_architects/sa_agent_impl.py`
-**Runner:** `run_sa_agent.py`
-**Status:** ✅ Fully implemented and ready to run
+| Specialty | Playbooks | Examples |
+|-----------|-----------|---------|
+| Observability | 10 (PB_OBS_001-010) | Deep discovery, SLO/SLI definition, APM implementation |
+| Search | 10 (PB_SRCH_001-010) | Schema design, relevance tuning, RAG system design |
+| Security | 12 (PB_SEC_001-012) | Use case definition, migration planning, competitive battlecard |
 
-**Capabilities:**
-- Extracts technical intelligence from daily operation notes
-- Identifies clients, people, technologies from tags
-- Detects technical decisions and risks
-- Generates client technical profiles
-- Creates consolidated dashboard
-- Produces risk register
-- Validates InfoHub completeness
-- Triggers escalations for high-priority issues
+### 3. Playbooks (91 authored)
 
-**Outputs:**
-```
-infohub/{account}/
-├── _Dashboard.md              # Overview of all accounts
-├── context/
-│   ├── account_profile.md     # Technical profile per account
-│   └── stakeholder_map.yaml
-└── risks/
-    └── risk_register.yaml     # Consolidated risks
-```
+Playbooks are organized by team ownership. Each follows a standardized YAML schema with metadata, trigger conditions, required inputs, key questions, decision logic, expected outputs, stop conditions, and validation checks.
 
-#### 4. Playbook Framework System - IMPLEMENTED
+| Team | Count | Key Playbooks |
+|------|-------|---------------|
+| Strategy | 6 | Three Horizons, Ansoff, BCG, SWOT, PESTLE, Stakeholder Mapping |
+| Solution Architects | 6 | TOGAF ADM, Sizing Estimation, Technical Validation, Solution Description, Five Whys, TECHDRIVE |
+| Customer Architects | 8 | Health Score, Success Plan, Journey VoC, Guidelines, Training, Adoption, Cadence Calls, Health Triage |
+| Specialists: Security | 12 | Technical validation, RFx, solution scoping, use cases, migration, POC, battlecard |
+| Specialists: Search | 10 | Validation, RFx, schema design, relevance tuning, vector search, RAG |
+| Specialists: Observability | 10 | Discovery, demo, validation, SLO/SLI, APM, platform architecture |
+| Account Executives | 3 | Retrospective, Account Planning, MEDDPICC |
+| Operational | 6 | Risk registration, action creation, escalation, health alerts, meeting notes, tech signals |
+| Admins | 4 | Render canvas, canvas gap analysis, validate playbook, blueprint gap scan |
+| Delivery | 2 | Security stage adoption, tech trend response |
+| Competitive Intelligence | 1 | Five Forces |
+| Value Engineering | 1 | Value Engineering |
+| POC | 1 | POC Success Plan |
+| RFP | 1 | RFP Processing |
 
-**Documentation:**
+**Recent additions (2026-02-09):** 6 new playbooks with `vault_routing` metadata aligned to the three-vault knowledge architecture:
 
-- `docs/playbook-framework.md` - Framework design and execution model
-- `docs/reference/framework-catalog.md` - 60+ consulting frameworks cataloged
-- `playbook-integration-summary.md` - Executive summary and roadmap
+- PB_102 Sizing Estimation, PB_103 Technical Validation Checklist, PB_104 Solution Description (SA)
+- PB_404 Customer Guidelines, PB_405 Training Plans, PB_406 Adoption Guidance (CA)
 
-**Status:** ✅ Framework complete, 6 production-ready playbooks implemented
+### 4. Knowledge Architecture
 
-**Concept:** Operationalize proven consulting frameworks (McKinsey, BCG, Bain, Porter, TOGAF, Gainsight) as lightweight, executable agent playbooks. Each playbook follows trigger → input → execute → output → review workflow.
+The three-vault model separates knowledge by audience and sensitivity (see [DDR-001](../decisions/DDR_001_three_vault_knowledge_architecture.md)):
 
-**Implemented Playbooks (9/60):**
+| Vault | Scope | Audience | Content Examples |
+|-------|-------|----------|-----------------|
+| Customer InfoHub | Per account | Shareable with customer | Architecture docs, ADRs, POC plans, training |
+| Internal Account Hub | Per account | Vendor-only | Competitive intel, deal reviews, pricing, risk assessments |
+| Global Knowledge Vault | Cross-account | Vendor-only, anonymized | Best practices, winning patterns, tribal knowledge |
 
-| ID | Framework | Source | Agent | Status |
-|----|-----------|--------|-------|--------|
-| **PB_001** | Three Horizons of Growth | McKinsey | AE Agent | ✅ Production |
-| **PB_101** | TOGAF ADR | The Open Group | SA Agent | ✅ Production |
-| **PB_201** | SWOT Analysis | Albert Humphrey | Cross-functional | ✅ Production |
-| **PB_301** | Value Engineering | SAVE International | VE Agent | ✅ Production |
-| **PB_401** | Customer Health Score | Gainsight | CA Agent | ✅ Production |
-| **PB_701** | Porter's Five Forces | Michael Porter | CI Agent | ✅ Production |
-| **PB_801** | MEDDPICC | PTC/Jack Napoli | AE Agent | ✅ Production |
-| **PB_802** | TECHDRIVE | Industry SA Best Practices | SA Agent | ✅ Production |
-| **PB_901** | RFP Processing | RFP Response | RFP Agent | ✅ Production |
+The 6 new playbooks include `vault_routing` metadata. Existing playbooks need this metadata added (tracked as a consistency task).
 
-**Playbook Structure:**
+### 5. Application
 
-```yaml
-# Each playbook includes:
-- Playbook Metadata (framework, agent role, objective, when NOT to use)
-- Trigger Conditions (automatic, manual, conditional)
-- Required Inputs (mandatory, optional, minimum thresholds)
-- Key Questions to Extract (LLM-answerable from source data)
-- Decision Logic (if-then rules mapping to Decisions/Risks/Initiatives)
-- Expected Outputs (InfoHub artifacts, decision objects, notifications)
-- Stop Conditions (when to escalate to human)
-- Validation Checks (pre/post execution quality gates)
-```
+| Component | Location | Technology | Status |
+|-----------|----------|------------|--------|
+| iOS app | `application/` | Swift | Scaffolded (Dashboard, Nodes, Risks, Actions, Profile views) |
+| Backend | `application/app.py` | Python (Streamlit) | Scaffolded |
 
-**Playbook Locations:**
-```
-playbooks/executable/
-├── PB_001_three_horizons.yaml         # Strategic growth planning
-├── PB_101_togaf_adm.yaml              # Architecture decisions
-├── PB_201_swot_analysis.yaml          # Risk and strategic assessment
-├── PB_301_value_engineering.yaml      # Business case development
-├── PB_401_customer_health_score.yaml  # Retention monitoring
-├── PB_701_five_forces.yaml            # Competitive analysis
-├── PB_801_meddpicc.yaml               # Commercial qualification
-├── PB_802_techdrive.yaml              # Technical qualification
-└── PB_901_*.yaml                      # RFP processing
-```
+### 6. Documentation
 
-**Playbook Coverage:**
+Reorganized (2026-02-10) into reader-intent structure:
 
-- ✅ **Strategic Planning** - Three Horizons (AE Agent)
-- ✅ **Technical Decisions** - TOGAF ADR (SA Agent)
-- ✅ **Risk Assessment** - SWOT Analysis (Cross-functional)
-- ✅ **Value Justification** - Value Engineering (VE Agent)
-- ✅ **Customer Success** - Health Score (CA Agent)
-- ✅ **Competitive Intelligence** - Five Forces (CI Agent)
-- ✅ **Commercial Qualification** - MEDDPICC (AE Agent)
-- ✅ **Technical Qualification** - TECHDRIVE (SA Agent)
-- ✅ **RFP Processing** - RFP Response (RFP Agent)
+| Section | Path | Files | Purpose |
+|---------|------|-------|---------|
+| Architecture | `docs/architecture/` | 26 | System design (agents, playbooks, system) |
+| Operating Model | `docs/operating-model/` | 5 | RACI, engagement phases, realm profiles |
+| Decisions | `docs/decisions/` | 3 | DDR and ADR records |
+| Guides | `docs/guides/` | 10 | For practitioners (6) and developers (4) |
+| Reference | `docs/reference/` | 7 | Catalogs, quick-reference, terminology |
+| Planning | `docs/planning/` | 7 | Gap analyses, status tracking |
 
-**Next Playbooks (Priority Queue):**
-- PB_002: Ansoff Growth Matrix
-- PB_003: BCG Growth-Share Matrix
-- PB_211: Risk Matrix (ISO 31000)
-- PB_703: Win/Loss Analysis
-- PB_111: Technology Adoption Lifecycle
+**Decision records:**
 
-#### 5. Customer-Focused Frameworks - NEW (2026-01-20)
+| ID | Title | Type | Status |
+|----|-------|------|--------|
+| DDR-001 | Three-Vault Knowledge Architecture | Domain | ACCEPTED |
+| ADR-001 | Streamlit Playbook Viewer | Architecture | ACCEPTED |
 
-**Customer Journey Mapping:**
-- Documentation: `docs/guides/customer-journey-voc.md`
-- Template: `playbooks/templates/customer_journey_map_template.yaml`
-- SA Agent: 6 pre-sales journey mapping tasks
-- CA Agent: 5 post-sales journey mapping tasks
-- InfoHub: `infohub/{account}/journey/`
+### 7. Supporting Configuration
 
-**Voice of Customer (VoC):**
-- Documentation: `docs/guides/customer-journey-voc.md`
-- CA Agent: 13 VoC tasks (surveys, feedback, closed-loop)
-- InfoHub: `infohub/{account}/voc/`
-
-**POC Success Plan:**
-- Documentation: `docs/guides/poc-success-plan.md`
-- Template: `playbooks/templates/poc_success_plan_template.yaml`
-- POC Agent: 18 POC success plan tasks
-- InfoHub: `infohub/{account}/opportunities/{opp}/`
-
-**Templates Available (8):**
-
-| Template | Purpose |
-|----------|---------|
-| realm_profile_template.yaml | Strategic account plan |
-| customer_success_plan_template.yaml | Customer Success Plan |
-| poc_success_plan_template.yaml | POC with customer commitments |
-| best_practice_template.yaml | Best practice documentation |
-| deal_retrospective_template.yaml | Win/loss retrospectives |
-| customer_journey_map_template.yaml | Journey and VoC tracking |
-| agent_scratchpad_template.yaml | Agent working memory (context engineering) |
-| agent_prompt_template.yaml | Agent prompt structure (prompt engineering) |
-
-#### 6. Context Engineering, Tool Design & Prompt Engineering - NEW (2026-01-22)
-
-**Context Engineering:**
-
-| File | Purpose |
-|------|---------|
-| `docs/design/context-engineering.md` | Documentation |
-| `config/context_engineering.yaml` | Configuration |
-| `playbooks/templates/agent_scratchpad_template.yaml` | Scratchpad template |
-
-| Feature | What It Does |
-|---------|--------------|
-| Agent Scratchpads | Working memory outside context window for multi-step reasoning |
-| Context Budgets | Token limits per agent (SA: 15K, AE: 12K, CA: 12K, VE: 10K, CI: 8K) |
-| Freshness Tracking | Artifacts tagged current/verify/stale with auto-thresholds |
-| Hierarchical Summarization | 4 compression levels: full → standard → digest → count |
-| Tool Result Clearing | Remove verbose tool outputs at 80% usage, keep summaries |
-| Conversation Compaction | Summarize and reinitiate at 90% usage |
-| Sub-Agent Architectures | Delegate deep analysis to focused sub-agents |
-| Pattern Learning | Cross-node pattern storage for reuse |
-
-**Tool Design:**
-
-| File | Purpose |
-|------|---------|
-| `docs/design/tool-design-principles.md` | Documentation |
-| `config/tool_design.yaml` | Configuration |
-
-| Feature | What It Does |
-|---------|--------------|
-| Tool Consolidation | `get_node_context` returns health+risks+actions in one call |
-| Parameter Naming | Explicit names: `realm_id` not `account`, `due_date` not `date` |
-| Detail Levels | `summary` / `standard` / `full` response control |
-| Human-Readable Output | Always include `_name` or `_title` alongside `_id` fields |
-| Actionable Errors | Errors include `suggestions[]` array with fix instructions |
-
-**Prompt Engineering:**
-
-| File | Purpose |
-|------|---------|
-| `docs/design/prompt-engineering-principles.md` | Documentation |
-| `config/prompt_engineering.yaml` | Configuration |
-| `playbooks/templates/agent_prompt_template.yaml` | Prompt template |
-
-| Technique | What It Does | Used By |
-|-----------|--------------|---------|
-| Chain-of-Thought | Step-by-step reasoning before conclusions | SA, VE, CI |
-| ReAct | Thought → Action → Observation loop | All tool-using agents |
-| Few-Shot | 2-5 examples for consistent output formatting | Governance agents |
-| Self-Consistency | Generate 3 paths, vote on answer | Risk Radar, Health Score |
-| Prompt Chaining | Multi-stage playbook execution | All playbook executors |
-| Tree of Thoughts | Explore 3 branches, evaluate, select best | AE, SA for strategy |
-| Reflexion | Learn from outcomes, store insights | Retrospective Agent |
-| Step-Back Prompting | Establish context before specific analysis | AE, SA, VE |
-| Model Parameters | Temperature/Top-P/Top-K per task type | All agents |
-| Positive Instructions | "What to do" framing vs. lengthy "don'ts" | All agents |
-
-**Prompt Gap Analysis:** `docs/planning/prompt-gap-analysis.md`
-
-| Finding | Status | Priority |
-|---------|--------|----------|
-| Few-Shot examples missing from Risk Radar | ✅ Fixed | High |
-| Few-Shot examples missing from Meeting Notes | ⚠️ Gap | High |
-| Reflexion technique not implemented in Retrospective Agent | ⚠️ Gap | High |
-| Self-Consistency not implemented where configured | ⚠️ Partial | Medium |
-| ReAct format not in agent prompts | ⚠️ Gap | Medium |
-| Scope boundaries and anti-hallucination | ✅ Good | - |
-
-**Reference Implementation:** `teams/governance/personalities/risk_radar_personality.yaml`
-
-Added with full documentation (WHY/EXPECT/MEASURE/IMPROVE):
-
-- 4 few-shot examples for risk classification (critical/high/medium/low)
-- Self-consistency instructions (3 paths, conservative aggregation)
-- Chain-of-thought severity assessment steps
-- Confidence calibration guidelines (0-100% with criteria)
-- Output format schemas (YAML structure)
-- Error handling templates (insufficient/conflicting/ambiguous)
-- Quality metrics to track (consistency rate, calibration, override rate)
-- Feedback loop instructions (when to update examples, adjust thresholds)
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| Checklists | `domain/config/checklists/` | Blueprint, canvas, playbook checklists |
+| Catalogs | `domain/catalogs/` | Agent catalog, signal catalog, tech signal map, archetypes, tool design |
+| Mappings | `domain/mappings/` | Agent role mapping, engagement tracks |
+| Prompts | `domain/prompts/` | Context engineering, prompt engineering configs |
 
 ---
 
-## Agent Personality Specifications
+## Repository Structure
 
-### Design Principles
-
-Each personality file includes:
-
-1. **Core Identity** - Name, role, team affiliation
-2. **Scope & Boundaries** - What the agent DOES and DOESN'T do
-3. **Signal Detection** - Specific keywords, patterns, and triggers
-4. **Anti-Hallucination Controls** - Strict rules preventing invented information
-5. **Communication Style** - Tone, format, and clarity requirements
-6. **Risk Assessment** - Severity classification and escalation triggers
-7. **Quality Standards** - Pre-output validation checks
-8. **Interaction Protocols** - How to work with humans and other agents
-
-### Anti-Hallucination Safeguards
-
-Every agent personality includes:
-
-**Strict Rules:**
-- NEVER invent client names, people, or technologies not in source
-- NEVER extrapolate decisions from vague discussions
-- NEVER assume information without evidence
-- NEVER create risk severity without explicit indicators
-
-**Verification Requirements:**
-- Confirm exact text exists in source
-- Check tag presence for entities (clients, people, tech)
-- Verify dates from filenames or frontmatter
-- Use qualifiers when uncertain ("appears to", "possibly")
-- Add `[NEEDS VERIFICATION]` markers
-- Omit rather than guess
-
-**Source Attribution:**
-- Always include note filename
-- Provide date of note
-- Reference section heading when applicable
-
----
-
-## Directory Structure
-
-```
+```text
 ea-agentic-lab/
-├── core/
-│   ├── agent_framework/
-│   │   └── base_agent.py           # Base agent class
-│   ├── config/
-│   │   └── paths.py                # Path configurations
-│   └── tools/
-│       └── markdown_tools.py       # Markdown file handling
-│
-├── teams/
-│   ├── solution_architects/
-│   │   ├── agents/
-│   │   │   └── sa_agent.yaml
-│   │   ├── personalities/
-│   │   │   └── sa_personality.yaml
-│   │   └── sa_agent_impl.py        # ✅ IMPLEMENTED
-│   │
-│   ├── account_executives/
-│   │   ├── agents/
-│   │   │   └── ae_agent.yaml
-│   │   └── personalities/
-│   │       └── ae_personality.yaml
-│   │
-│   ├── specialists/
-│   │   ├── agents/
-│   │   │   └── specialist_agent.yaml
-│   │   └── personalities/
-│   │       └── specialist_personality.yaml
-│   │
-│   ├── product_managers/
-│   │   ├── agents/
-│   │   │   └── pm_agent.yaml
-│   │   └── personalities/
-│   │       └── pm_personality.yaml
-│   │
-│   ├── competitive_intelligence/
-│   │   ├── agents/
-│   │   │   └── ci_agent.yaml
-│   │   └── personalities/
-│   │       └── ci_personality.yaml
-│   │
-│   ├── delivery/
-│   │   ├── agents/
-│   │   │   └── delivery_agent.yaml
-│   │   └── personalities/
-│   │       └── delivery_personality.yaml
-│   │
-│   ├── partners/
-│   │   ├── agents/
-│   │   │   └── partner_agent.yaml
-│   │   └── personalities/
-│   │       └── partner_personality.yaml
-│   │
-│   └── customer_architects/
-│       ├── agents/
-│       │   └── ca_agent.yaml
-│       └── personalities/
-│           └── ca_personality.yaml
-│
+├── application/                  # Application (Streamlit UI + Swift iOS + Python backend)
+├── data/                         # Runtime data
+├── domain/
+│   ├── agents/                   # 28 agents across 18 teams
+│   │   └── {team}/
+│   │       ├── agents/           # Agent config YAML
+│   │       ├── personalities/    # Personality specs
+│   │       └── prompts/          # Task prompts (CAF format)
+│   ├── playbooks/
+│   │   ├── {team}/               # 91 playbook YAMLs by team
+│   │   ├── operational/          # 6 micro-playbooks
+│   │   ├── canvas/               # 8 canvas specs + registry
+│   │   └── templates/            # 8 reusable templates
+│   ├── catalogs/                 # Agent, signal, tech signal catalogs
+│   ├── config/                   # Checklists, thresholds, connectors
+│   ├── mappings/                 # Role and engagement mappings
+│   └── prompts/                  # Context and prompt engineering
 ├── docs/
-│   └── account-governance/
-│
-├── requirements.txt
-├── run_sa_agent.py                 # ✅ SA Agent runner
-├── agent-architecture.md
-└── implementation-status.md        # This file
+│   ├── architecture/             # Agents, playbooks, system design
+│   ├── operating-model/          # RACI, engagement phases
+│   ├── decisions/                # DDR and ADR records
+│   ├── guides/                   # Practitioner and developer guides
+│   ├── reference/                # Catalogs and quick-reference
+│   └── planning/                 # Status, gaps, reviews
+└── vault/                        # Knowledge vaults (runtime)
 ```
 
 ---
 
-## Running the SA Agent
+## What's Built vs What's Next
 
-### Prerequisites
+### Built (domain layer)
 
-```bash
-pip install -r requirements.txt
-```
+- 91 playbook definitions covering strategy, technical, customer success, specialist, operational, and admin workflows
+- 28 agent configurations with personality specs, anti-hallucination controls, and 200+ task prompts
+- Three-vault knowledge architecture with vault routing on new playbooks
+- Decision documentation framework (DDR + ADR)
+- 8 canvas specifications for visual artifacts
+- Operating model with RACI assignments across all teams
+- Documentation restructured by reader intent
 
-### Execute
+### Not yet built (runtime layer)
 
-```bash
-cd /Users/tatjanafrank/Documents/GitHub/ea-agentic-lab
-python3 run_sa_agent.py
-```
+- Playbook execution engine (load YAML, run steps, generate outputs)
+- Agent runtime (LLM integration, tool calling, signal processing)
+- Trigger system (event-driven playbook activation)
+- Streamlit playbook viewer (ADR-001 accepted, not implemented)
+- Vault routing enforcement (validate vault_routing metadata across all playbooks)
+- Multi-agent orchestration (cross-agent workflows)
+- Backend API endpoints
+- iOS app connected to backend
 
-### What It Does
+### Consistency tasks
 
-1. Reads all markdown files from configured source directory
-2. Extracts tags (clients, people, technologies)
-3. Identifies technical decisions and risks
-4. Generates:
-   - Dashboard with account overview
-   - Account technical profiles
-   - Risk register
-5. Displays escalations requiring attention
-
-### Output Location
-
-```
-infohub/{account}/
-```
+- Add `vault_routing` metadata to existing playbooks (only 6 of 91 have it)
+- Add `raci` section to playbooks missing it
+- Validate all playbook YAMLs against implicit schema conventions
+- Remove legacy files (`domain/agents/solution_architects/agents/_agent.yaml`, `_agent_personality.yaml`)
 
 ---
 
-## Next Implementation Steps
+## Version History
 
-### Immediate (To Get SA Agent Running)
-
-1. **Install Dependencies**
-   ```bash
-   pip3 install pyyaml
-   ```
-
-2. **Run SA Agent**
-   ```bash
-   python3 run_sa_agent.py
-   ```
-
-3. **Review Outputs**
-   - Check generated dashboard
-   - Verify client profiles
-   - Review escalations
-
-### Short-Term (Implement Remaining Agents)
-
-1. **AE Agent** - Commercial intelligence extraction
-2. **PM Agent** - Feature gap tracking
-3. **CI Agent** - Competitive signal detection
-
-### Medium-Term (Agent Orchestration)
-
-1. **Hub Implementation** (`core/hub.py`)
-   - Multi-agent coordination
-   - Workflow orchestration
-   - Cross-agent communication via InfoHub
-
-2. **LLM Integration** (`core/tools/llm_interface.py`)
-   - Claude API integration
-   - Prompt template system
-   - Example-based learning from PDFs
-
-3. **Trigger System**
-   - File watchers for real-time processing
-   - Scheduled runs (daily/weekly)
-   - Event-based triggers
-
-### Long-Term (Production Features)
-
-1. **Integrations**
-   - Slack monitoring
-   - CRM (Salesforce) sync
-   - Jira delivery tracking
-
-2. **Advanced Features**
-   - Interactive dashboards
-   - Multi-agent workflows
-   - Automated reporting
-
----
-
-## Key Design Decisions
-
-### 1. Personality-Driven Behavior
-
-Each agent has a comprehensive personality file that defines:
-- **Bounded scope** - Prevents scope creep
-- **Signal detection** - What to look for
-- **Anti-hallucination rules** - What NEVER to do
-- **Quality checks** - Validation before output
-
-### 2. InfoHub-Centric Architecture
-
-- All agents write to shared InfoHub
-- No direct agent-to-agent messaging
-- InfoHub is single source of truth
-- Enables knowledge reuse across agents
-
-### 3. Human-in-the-Loop
-
-- Agents suggest, never decide
-- Escalations for critical issues
-- All outputs reviewable and editable
-- Transparency over automation
-
-### 4. Modular & Extensible
-
-- Each agent is independent
-- Easy to add new agents
-- Team-specific customization
-- YAML-driven configuration
-
----
-
-## Quality Assurance
-
-### Anti-Hallucination Controls
-
-✅ **Entity Verification**
-- All clients must exist in `client/*` tags
-- All people must exist in `person/*` tags
-- All technologies must be found in content or tags
-
-✅ **Source Attribution**
-- Every fact links back to source note
-- Dates verified from filenames/frontmatter
-- Direct quotes for critical statements
-
-✅ **Uncertainty Handling**
-- Use qualifiers when unsure
-- Add `[NEEDS VERIFICATION]` markers
-- Omit rather than guess
-- Escalate unclear situations
-
-✅ **Scope Boundaries**
-- Each agent knows what it DOESN'T do
-- Defer to other agents for out-of-scope items
-- Never override human decisions
-
----
-
-## Documentation
-
-- **agent-architecture.md** - System architecture overview
-- **implementation-status.md** - This file
-- **Strategic Account Governance Model.md** - Governance framework
-- **requirements.txt** - Python dependencies
-- **README.md** - Project overview
-
----
-
-## Success Metrics
-
-### SA Agent v0.1
-
-- ✅ Processes all 25 daily notes
-- ✅ Extracts clients, people, technologies
-- ✅ Identifies technical decisions and risks
-- ✅ Generates structured outputs
-- ✅ Escalates high-priority issues
-- ⏳ **Pending:** First production run
-
-### System-Wide
-
-- ✅ 24/24 agents configured (15 strategic + 8 governance + 1 orchestration)
-- ✅ All personality files complete
-- ✅ Core framework operational
-- ✅ Anti-hallucination controls in place
-- ✅ Customer-focused frameworks implemented (Journey, VoC, POC Success)
-- ✅ 6 templates available
-- ⏳ **Next:** LLM integration and production features
-
----
-
-**Status:** Foundation complete. All 24 agents configured. Customer-focused frameworks implemented. Ready for LLM integration and production features.
+| Date | Milestone |
+|------|-----------|
+| 2026-01-11 | Playbook framework designed, first 3 playbooks authored |
+| 2026-01-15 | 9 core playbooks complete, framework catalog (60+ frameworks) |
+| 2026-01-20 | Customer-focused frameworks (journey mapping, VoC, POC success) |
+| 2026-01-22 | Context engineering, tool design, prompt engineering principles |
+| 2026-02-01 | Agent task prompts expanded to 17 teams (200+ tasks) |
+| 2026-02-03 | Specialist sub-teams (security, search, observability) with 32 playbooks |
+| 2026-02-03 | Operational playbooks, canvas framework, RACI model |
+| 2026-02-09 | Three-vault knowledge architecture (DDR-001), 6 new playbooks with vault_routing |
+| 2026-02-09 | Decision documentation framework (DDR + ADR), Streamlit viewer decision (ADR-001) |
+| 2026-02-10 | Documentation restructured (architecture/, operating-model/, guides/, decisions/) |
