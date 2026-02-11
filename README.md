@@ -21,6 +21,8 @@ Enterprise account management suffers from:
 
 ## The Solution
 
+[image: Three-Layer Architecture - agents, playbooks, and knowledge working together]
+
 A structured governance system with three layers:
 
 ### 1. Multi-Agent Architecture (24 Agents)
@@ -97,5 +99,5 @@ Three design choices separate this system from traditional account management to
 - [User Handbook](docs/HANDBOOK.md) - Role-based guide for AEs, SAs, CSMs
 - [Product Requirements](PRD.md) - Goals, capabilities, glossary
 - [Documentation Principles](docs/DOCUMENTATION_PRINCIPLES.md) - Writing for humans AND machines
-- [Architecture Docs](docs/agents/agent-architecture.md) - System design
+- [Architecture Docs](docs/architecture/agents/agent-architecture.md) - System design
 - [llms.txt](llms.txt) - LLM-friendly project overview

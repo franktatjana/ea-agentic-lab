@@ -6,6 +6,8 @@ Enterprise pre-sales and post-sales engagements fail not because teams lack tale
 
 EA Agentic Lab solves this by combining pattern recognition for engagement types, reusable blueprints that encode best practices, and AI agents that enforce discipline without slowing teams down.
 
+[image: Three Pillars - people + agents, customers + blueprints, knowledge + vault]
+
 **Three conceptual pillars:**
 
 1. People (Specialists, AEs, SAs, CAs) paired with AI agents, each with role-specific, customizable playbooks and checklists. 
@@ -40,6 +42,8 @@ EA Agentic Lab solves this by combining pattern recognition for engagement types
 
 ## How It Works
 
+[image: System Pipeline - the 6-step engagement lifecycle as a visual journey]
+
 1. **Classify** the engagement across three dimensions: what kind (competitive displacement, greenfield, consolidation, compliance, evaluation, renewal, expansion, strategic), which domain (security, search, observability), and which service tier (POC, economy, premium, fast track)
 2. **Select a blueprint** that defines exactly which playbooks to run, which specialists to involve, and what success looks like
 3. **Execute playbooks** that encode domain expertise as process: strategic playbooks apply proven frameworks, specialist playbooks bring deep domain evaluation, operational playbooks handle meeting notes, action tracking, and health monitoring
@@ -51,7 +55,7 @@ Agents operate within human-defined constraints. They have agency within their s
 
 ## See It In Action
 
-The [ACME demo customer](vault/infohub/ACME/SECURITY_CONSOLIDATION/) shows a live security deal with stakeholders, risks, meetings, framework analyses, and a full InfoHub structure.
+The [vault](vault/) includes three fictional customers (ACME_CORP, GLOBEX, INITECH) with raw meeting notes, daily operations logs, and structured outputs. The [ACME engagement](vault/ACME_CORP/SECURITY_CONSOLIDATION/) shows the full three-vault structure: customer-facing InfoHub, internal account hub, and raw source data.
 
 ---
 
@@ -63,11 +67,11 @@ The [ACME demo customer](vault/infohub/ACME/SECURITY_CONSOLIDATION/) shows a liv
 | Terminology and concepts | [Terminology Model](docs/reference/TERMINOLOGY_MODEL.md) |
 | Engagement classification | [Archetypes catalog](domain/catalogs/archetypes.yaml), [Engagement tracks](domain/mappings/engagement_tracks.yaml) |
 | Blueprints | [Reference blueprints](domain/blueprints/), [Schema and hierarchy](domain/blueprints/README.md) |
-| Agents | [Agent catalog](domain/catalogs/agent_catalog.yaml), [Architecture](docs/agents/agent-architecture.md), [Responsibilities](docs/agents/agent-responsibilities.md) |
+| Agents | [Agent catalog](domain/catalogs/agent_catalog.yaml), [Architecture](docs/architecture/agents/agent-architecture.md), [Responsibilities](docs/architecture/agents/agent-responsibilities.md) |
 | Playbooks | [Playbook library](domain/playbooks/), [Catalog](docs/reference/playbook-catalog.md) |
-| Canvases | [Canvas specs](domain/playbooks/canvas/specs/), [Canvas framework](docs/playbooks/canvas-framework.md) |
+| Canvases | [Canvas specs](domain/playbooks/canvas/specs/), [Canvas framework](docs/architecture/playbooks/canvas-framework.md) |
 | Evaluation criteria | [Security](domain/playbooks/specialists/security/checklists/), [Search](domain/playbooks/specialists/search/checklists/), [Observability](domain/playbooks/specialists/observability/checklists/) |
-| Knowledge architecture | [Vault](vault/), [Knowledge Base](vault/knowledge/), [InfoHub](vault/infohub/) |
-| Learning system | [Checklist learning](docs/specs/checklist-learning-system.md), [Knowledge sharing](docs/specs/knowledge-collection-sharing-spec.md) |
-| Governance | [RACI model](docs/governance/raci-model.md), [Account governance](docs/account-governance/) |
-| Demo customer | [ACME InfoHub](vault/infohub/ACME/SECURITY_CONSOLIDATION/), [Example structure](vault/infohub/examples/ACME/) |
+| Knowledge architecture | [Vault](vault/), [Knowledge Base](vault/knowledge/), [ACME External InfoHub](vault/ACME_CORP/SECURITY_CONSOLIDATION/external-infohub/) |
+| Learning system | [Checklist learning](docs/architecture/system/checklist-learning-system.md), [Knowledge sharing](docs/architecture/system/knowledge-collection-sharing-spec.md) |
+| Operating model | [RACI model](docs/operating-model/raci-model.md), [Account operating model](docs/operating-model/) |
+| Sample data | [Three fictional customers](vault/) (ACME_CORP, GLOBEX, INITECH), [ACME engagement](vault/ACME_CORP/SECURITY_CONSOLIDATION/) |

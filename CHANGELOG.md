@@ -1,5 +1,140 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Landing page at `/` with framework overview, three pillars, lifecycle, personas, and differentiators
+- Dashboard route at `/dashboard` with tiles/list view toggle for realm cards
+- Signal Matcher Agent for automatic action completion from vault signals
+- Operational playbook `OP_ACT_002` for signal-based action completion pipeline
+- Three new health signals: `SIG_HLT_005`, `SIG_HLT_006`, `SIG_HLT_007` for completion lifecycle
+- Risk detail dialog on node page
+- Documentation ordering via `order:` frontmatter field
+- Decision records: DDR-005 (signal-based action completion), ADR-006 (landing page)
+
+### Changed
+
+- Home route `/` is now the landing page, dashboard moved to `/dashboard`
+- Sidebar navigation: added Dashboard item
+- Merged agent architecture diagrams into single consolidated doc
+- Backend `docs_service.py` sorts by frontmatter `order` field
+
+---
+
+## 2026-02-09 - Playbook Editor & Catalog Redesign
+
+### Streamlit Playbook Editor
+
+Added in-app editing for all ~61 playbook YAML files directly from the Streamlit UI. The editor supports two modes to handle the trade-off between convenience and full control.
+
+**Quick Edit tab** provides a structured form for commonly changed fields:
+
+- `framework_name`, `intended_agent_role` (selectbox), `playbook_mode`, `status`
+- `primary_objective`, `when_not_to_use`, `notes`
+- Uses regex string replacement to preserve YAML comments and formatting
+
+**YAML Editor tab** provides raw text editing with validation:
+
+- Full file content in `st.text_area`
+- `yaml.safe_load()` validation before write
+- Error display for invalid YAML, file never corrupted on bad input
+
+**Data loader additions** (`application/src/ui/data_loader.py`):
+
+- `_path` field added to each playbook dict
+- `read_playbook_raw()` for loading raw file content
+- `save_playbook_raw()` for validated writes with cache clearing
+
+### Catalog Redesign
+
+Replaced the 2-column card grid with a single-column inline list for readability:
+
+- Horizontal filter bar: search, role filter, group-by, total count
+- Each row shows ID, name, role badge, status badge, mode, team, objective, triggers
+- Edit button per row opens the editor
+
+**Files changed:**
+
+- `application/pages/3_Playbooks.py` (rewritten)
+- `application/src/ui/data_loader.py` (extended)
+
+---
+
+## 2026-02-09 - PESTLE Analysis Ownership Change
+
+PESTLE Analysis (PB_202) is a strategic macro-environmental assessment that belongs at the leadership level. Moved ownership from SA Agent to AE Agent across all references.
+
+**Files changed:**
+- `domain/playbooks/strategy/PB_202_pestle_analysis.yaml`: `intended_agent_role` SA → AE, decision rule owners updated
+- `domain/mappings/agent_role_mapping.yaml`: moved PB_202 from sa_agent.playbooks_owned to ae_agent.playbooks_owned, updated routing
+- `domain/agents/solution_architects/agents/sa_agent.yaml`: moved PB_202 from owned to contributes_to
+- `docs/operating-model/raci-model.md`: updated PESTLE row to AE Lead
+
+---
+
+## 2026-02-08 - Streamlit App Rewrite (Single-Page Navigation)
+
+Replaced broken multipage Streamlit app with a single-page design. The previous approach used `st.switch_page()` + `st.query_params` to pass realm/node context between pages, which failed silently and showed empty content.
+
+**New design:**
+
+- Sidebar selectboxes for Realm → Node navigation
+- Dispatches to `render_home()`, `render_realm()`, or `render_node()` based on selection
+- Node detail view has 5 tabs: Overview, Blueprint, Health, Risks & Actions, Stakeholders
+- Home view shows realm cards with node counts and health summaries
+
+**Files changed:**
+
+- `application/app.py` (rewritten as single-page app)
+- `application/pages/1_Realm.py` (deleted)
+- `application/pages/2_Node.py` (deleted)
+
+---
+
+## 2026-02-07 - Vault Restructure & Blueprint Instances
+
+### Vault Hierarchy
+
+Restructured vault from flat `vault/{node}/` to nested `vault/{realm}/{node}/` hierarchy. Each node now uses `external-infohub/` and `internal-infohub/` subdirectories instead of the previous flat infohub layout.
+
+```
+vault/
+├── {realm}/
+│   ├── realm_profile.yaml
+│   └── {node}/
+│       ├── node_profile.yaml
+│       ├── blueprint.yaml
+│       ├── external-infohub/
+│       │   ├── overview.md
+│       │   ├── context/
+│       │   │   └── stakeholder_map.yaml
+│       │   ├── meetings/
+│       │   └── value/
+│       │       └── value_tracker.yaml
+│       └── internal-infohub/
+│           ├── governance/
+│           │   └── health_score.yaml
+│           ├── risks/
+│           │   └── risk_register.yaml
+│           ├── actions/
+│           │   └── action_tracker.yaml
+│           └── frameworks/
+```
+
+### Blueprint Instances
+
+Created blueprint instances for 3 sample nodes, each combining archetype, domain, and track dimensions from the reference blueprints:
+
+- Each node's `blueprint.yaml` is a concrete instance tailored to the node's context
+- Reference blueprints moved to `domain/blueprints/reference/{archetype}/`
+
+### Cross-Reference Updates
+
+Updated all documentation, playbook YAMLs, agent configs, and app code to use the new `vault/{realm}/{node}/` paths and infohub directory names.
+
+---
+
 ## 2026-02-02 - Vendor-Neutral Field Naming
 
 ### Code Changes
