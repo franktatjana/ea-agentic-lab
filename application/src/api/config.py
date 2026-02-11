@@ -2,6 +2,7 @@
 Configuration for EA Agentic Lab API
 """
 from pathlib import Path
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
@@ -29,8 +30,15 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24  # 24 hours
 
-    # CORS
+    # CORS (env var: comma-separated string, e.g. "https://a.com,https://b.com")
     cors_origins: list[str] = ["http://localhost:3000"]
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors(cls, v: object) -> object:
+        if isinstance(v, str) and not v.startswith("["):
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v
 
     class Config:
         env_file = ".env"
