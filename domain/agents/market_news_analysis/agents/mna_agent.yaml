@@ -1,0 +1,180 @@
+# Market News Analysis Agent Configuration
+# Purpose: Monitor and analyze market news at realm and node levels
+
+agent_id: "mna_agent"
+team: "market_news_analysis"
+category: "intelligence_gathering"
+purpose: "Monitor company, industry, and solution-domain news to keep realm and node intelligence current"
+
+core_functions:
+  - "Scan public news sources for realm-associated companies"
+  - "Detect industry and solution-domain news relevant to active nodes"
+  - "Enrich realm profiles with recent news and strategic initiative updates"
+  - "Surface node-relevant market signals (competitor moves, analyst reports, regulatory changes)"
+  - "Generate actionable digests for account teams"
+
+mechanics:
+  - "Scheduled scan of news feeds, press releases, SEC filings, analyst reports"
+  - "Classify news by relevance: realm-level (company) vs node-level (industry+solution)"
+  - "Score relevance and urgency against active engagement context"
+  - "Auto-update realm_profile.yaml#recent_news and intelligence digests"
+  - "Emit signals when high-impact news is detected"
+
+trigger:
+  events:
+    - "manual_scan_requested"
+    - "realm_company_updated"
+    - "node_created"
+  schedule:
+    - cron: "0 6 * * 1-5"       # Weekday morning scan
+    - cron: "0 6 * * 1"         # Weekly deep scan on Mondays
+
+inputs:
+  sources:
+    - type: "news_feeds"
+      description: "RSS/API news feeds (Google News, industry publications)"
+      requires_auth: false
+    - type: "press_releases"
+      description: "Company press release pages and PR wires"
+      requires_auth: false
+    - type: "sec_filings"
+      description: "SEC EDGAR filings for public companies"
+      requires_auth: false
+    - type: "analyst_reports"
+      description: "Gartner, Forrester, IDC report summaries"
+      requires_auth: true
+    - type: "social_signals"
+      description: "LinkedIn company updates, executive posts"
+      requires_auth: true
+  realm_data:
+    - "{realm}/realm_profile.yaml"
+  node_data:
+    - "{realm}/{node}/node_profile.yaml"
+    - "{realm}/{node}/internal-infohub/competitive/competitive_context.yaml"
+
+parameters:
+  scan_lookback_days:
+    default: 7
+    min: 1
+    max: 30
+    description: "Days of news to scan per cycle"
+  max_items_per_source:
+    default: 50
+    description: "Maximum news items to process per source"
+  relevance_threshold:
+    default: 0.6
+    min: 0.0
+    max: 1.0
+    description: "Minimum relevance score to include in digest"
+  urgency_threshold:
+    default: 0.8
+    description: "Score above which to emit immediate signal"
+
+processing:
+  classification:
+    - id: "realm_vs_node"
+      description: "Classify each news item as realm-level or node-level"
+      rules:
+        realm_level:
+          - "Company earnings, M&A, leadership changes"
+          - "Regulatory changes affecting the company"
+          - "Company press releases and public filings"
+          - "Broad industry trends for company's vertical"
+        node_level:
+          - "Solution domain trends (SIEM, observability, search)"
+          - "Competitor product launches or pricing changes"
+          - "Analyst reports relevant to node's domain"
+          - "Technology shifts affecting the engagement"
+
+  enrichment:
+    - id: "relevance_scoring"
+      method: "llm_classification"
+      context: "Score against realm_profile.company_profile and node competitive context"
+    - id: "urgency_detection"
+      method: "keyword_and_context"
+      high_urgency_patterns:
+        - "acquisition|merger|acquired"
+        - "leadership change|CEO|CTO|CISO.*appointed|departed"
+        - "earnings miss|revenue decline|layoff"
+        - "regulatory fine|compliance violation|breach"
+        - "competitor.*launch|competitor.*partnership"
+    - id: "impact_assessment"
+      method: "llm_analysis"
+      prompt: "Assess impact on our engagement and recommend actions"
+
+outputs:
+  artifacts:
+    - type: "realm_news_digest"
+      path: "{realm}/intelligence/market_news/realm_digest.yaml"
+      format: "yaml"
+      update_frequency: "weekly"
+    - type: "node_news_digest"
+      path: "{realm}/{node}/internal-infohub/market_intelligence/news_digest.yaml"
+      format: "yaml"
+      update_frequency: "weekly"
+    - type: "realm_profile_update"
+      path: "{realm}/realm_profile.yaml"
+      section: "company_profile.recent_news"
+      format: "yaml_merge"
+      description: "Appends new items to recent_news list"
+
+  signals:
+    - signal_id: "SIG_MNA_001"
+      name: "market_news_digest_updated"
+      emitted_when: "Weekly digest is generated"
+    - signal_id: "SIG_MNA_002"
+      name: "high_impact_news_detected"
+      emitted_when: "News item exceeds urgency threshold"
+    - signal_id: "SIG_MNA_003"
+      name: "competitive_news_detected"
+      emitted_when: "News directly involves a competitor in an active node"
+
+error_handling:
+  source_unavailable:
+    action: "log_and_continue"
+    fallback: "skip_source"
+  rate_limit_exceeded:
+    action: "backoff_and_retry"
+    max_retries: 3
+    backoff_minutes: [5, 15, 60]
+
+quality_gates:
+  - "min_sources_scanned: 2"
+  - "max_stale_days: 14"
+  - "relevance_score_avg: 0.5"
+
+integrations:
+  reads_from:
+    - "realm_profile"
+    - "node_profile"
+    - "competitive_context"
+    - "tech_signal_map"
+  writes_to:
+    - "realm_news_digest"
+    - "node_news_digest"
+    - "realm_profile.recent_news"
+  notifies:
+    - "ci_agent"            # Competitive implications
+    - "risk_radar_agent"    # Risk/opportunity flags
+    - "ae_agent"            # Commercial impact
+    - "sa_agent"            # Technical trend shifts
+
+# Playbook Integration
+playbooks:
+  owned: []
+  contributes_to:
+    - "PB_201"  # SWOT - market context for threats/opportunities
+    - "PB_701"  # Five Forces - industry dynamics
+    - "PB_001"  # Three Horizons - market horizon scanning
+    - "PB_602"  # Account Planning - market intelligence input
+
+personality_file: "teams/market_news_analysis/personalities/mna_personality.yaml"
+prompts_dir: "teams/market_news_analysis/prompts"
+
+metrics:
+  - "news_items_scanned_total"
+  - "news_items_relevant_total"
+  - "high_impact_alerts_total"
+  - "digest_generation_duration_seconds"
+  - "sources_scanned_per_cycle"
+  - "avg_relevance_score"

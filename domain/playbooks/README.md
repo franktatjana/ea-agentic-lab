@@ -4,9 +4,11 @@ Playbooks are actionable, repeatable workflows that agents execute for recurring
 
 ## Key Principles
 
+[image: Playbook Relationships - how strategic, operational, and canvas playbooks work together]
+
 - **Team Ownership**: Each playbook belongs to exactly one team - no shared ownership
 - **Runtime Loading**: Playbooks are loaded at runtime, enabling updates without redeployment
-- **Personalization**: Users can customize playbooks via overrides (see [Personalization Spec](../docs/specs/playbook-personalization-spec.md))
+- **Personalization**: Users can customize playbooks via overrides (see [Personalization Spec](../docs/architecture/system/playbook-personalization-spec.md))
 - **RACI Clarity**: Every playbook defines clear accountability
 
 ---
@@ -53,7 +55,7 @@ Management consulting frameworks for strategic analysis.
 | PB_003 | BCG Matrix | BCG | R: Strategy, A: Management |
 | PB_201 | SWOT Analysis | SWOT | R: Strategy, A: SA |
 | PB_202 | PESTLE Analysis | PESTLE | R: Strategy, A: SA |
-| PB_501 | Stakeholder Mapping | Stakeholder Analysis | R: Strategy, A: AE |
+| PB_203 | Stakeholder Mapping | Stakeholder Analysis | R: Strategy, A: AE |
 
 ### Solution Architects (`solution_architects/`)
 
@@ -62,7 +64,7 @@ Technical architecture and qualification playbooks.
 | ID | Name | Framework | RACI |
 |----|------|-----------|------|
 | PB_101 | TOGAF ADM | TOGAF | R: SA, A: SA Lead |
-| PB_501 | Five Whys Analysis | Root Cause | R: SA, A: SA |
+| PB_105 | Five Whys Analysis | Root Cause | R: SA, A: SA |
 | PB_802 | TECHDRIVE | Technical Qualification | R: SA, A: SA Lead |
 
 ### Account Executives (`account_executives/`)
@@ -139,9 +141,18 @@ System utilities and governance playbooks.
 | PB_970 | Validate Playbook | Playbook QA | R: System, A: Admin |
 | PB_971 | Blueprint Gap Scan | Blueprint completeness | R: System, A: Admin |
 
+### Specialists (`specialists/`)
+
+Domain-specific technical playbooks organized by specialty area. Each subdirectory contains playbooks tailored to a specialist agent's domain, covering validation, discovery, POC, and response workflows.
+
+| Subdirectory | Count | Scope |
+|-------------|-------|-------|
+| `security/` | 12 | SIEM/SOAR validation, security questionnaires, migration planning, competitive battlecards |
+| `search/` | 10 | Schema design, relevance tuning, vector search, RAG system design |
+| `observability/` | 10 | SLO/SLI definition, APM implementation, alerting strategy, platform architecture |
+
 ### Empty (Ready for Future)
 
-- `specialists/` - Specialist team playbooks
 - `management/` - Leadership and management playbooks
 - `infohub/` - Knowledge curation playbooks
 
@@ -290,7 +301,7 @@ steps:
 # Output contract
 outputs:
   format: "markdown"
-  storage_path: "infohub/{realm}/{node}/frameworks/{playbook_id}_{date}.md"
+  storage_path: "{realm}/{node}/internal-infohub/frameworks/{playbook_id}_{date}.md"
   sections:
     - executive_summary
     - detailed_analysis
@@ -301,6 +312,8 @@ outputs:
 ---
 
 ## Playbook Lifecycle
+
+[image: Playbook Lifecycle - state transitions from draft through testing, review, active, to deprecated]
 
 ```text
 ┌─────────┐    ┌────────────┐    ┌────────┐    ┌────────┐    ┌────────────┐
@@ -333,7 +346,7 @@ outputs:
 
 ## Personalization
 
-Users can customize playbooks without modifying base definitions. See [Playbook Personalization Spec](../docs/specs/playbook-personalization-spec.md).
+Users can customize playbooks without modifying base definitions. See [Playbook Personalization Spec](../docs/architecture/system/playbook-personalization-spec.md).
 
 Override priority (highest wins):
 
@@ -344,18 +357,32 @@ Override priority (highest wins):
 
 ---
 
+## Known Gaps
+
+The following agent roles currently have no dedicated playbooks. Existing delivery-related playbooks (PB_CS_101, PB_902) are attributed to SA and CA agents rather than to a dedicated Delivery agent. These gaps should be addressed to ensure every active agent role has at least one playbook.
+
+| Agent Role | Gap | Priority |
+|-----------|-----|----------|
+| Delivery Agent | No dedicated playbooks, delivery work covered by SA/CA playbooks | High |
+| Support Agent | No playbooks for support workflows or escalation handling | High |
+| Product Manager Agent | No playbooks for product-oriented workflows | Medium |
+| Partner Agent | No playbooks for partner engagement or channel workflows | Medium |
+
+---
+
 ## Related Documentation
 
-- [Playbook Personalization Spec](../docs/specs/playbook-personalization-spec.md) - Customization system
-- [Playbook Framework](../docs/playbook-framework.md) - Design principles
-- [Playbook Execution Specification](../docs/playbook-execution-specification.md) - Execution details
-- [Operational Playbook Spec](../docs/operational-playbook-spec.md) - Micro-playbook format
+- [Playbook Personalization Spec](../docs/architecture/system/playbook-personalization-spec.md) - Customization system
+- [Playbook Framework](../docs/architecture/playbooks/playbook-framework.md) - Design principles
+- [Playbook Execution Specification](../docs/architecture/playbooks/playbook-execution-specification.md) - Execution details
+- [Operational Playbook Spec](../docs/architecture/playbooks/operational-playbook-spec.md) - Micro-playbook format
 
 ---
 
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 2.0 | 2026-02-03 | Reorganized by team ownership, added RACI |
-| 1.0 | 2026-01-01 | Initial structure |
+| Version | Date | Changes | Author |
+|---------|------|---------| -------|
+| 2.1 | 2026-02-11 | Added specialists catalog, documented agent role coverage gaps | Tatjana Frank |
+| 2.0 | 2026-02-03 | Reorganized by team ownership, added RACI | |
+| 1.0 | 2026-01-01 | Initial structure | |

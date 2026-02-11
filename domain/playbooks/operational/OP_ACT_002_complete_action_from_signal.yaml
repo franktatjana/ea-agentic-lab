@@ -1,0 +1,234 @@
+# Operational Playbook: Complete Action from Signal
+# Triggered when a signal is detected that may satisfy an open action's done_means
+
+playbook_id: "OP_ACT_002"
+version: "1.0"
+category: "operational"
+
+metadata:
+  name: "Complete Action from Signal"
+  description: "Infers action completion from vault signals, scores confidence, and either auto-completes or requests one-tap confirmation from owner"
+  owner_agent: "signal_matcher_agent"
+  participating_agents:
+    - "task_shepherd_agent"
+    - "nudger_agent"
+
+# Trigger Definition
+trigger:
+  type: "event|schedule"
+  source: "meeting_notes_agent|signal_matcher_agent|playbook_engine"
+  condition: |
+    EVENT_TYPE IN ('meeting_processed', 'artifact_created', 'artifact_updated',
+                   'decision_logged', 'playbook_completed')
+    OR SCHEDULE_TRIGGER == true
+
+# Preconditions
+preconditions:
+  - condition: "EXISTS $.infohub.actions.action_tracker.actions[status IN ('not_started', 'in_progress')]"
+    error_message: "No open actions to match against"
+  - condition: "EXISTS $.signal.source_path OR SCHEDULE_TRIGGER == true"
+    error_message: "No signal to evaluate (event mode requires signal source)"
+
+# Steps
+steps:
+  - step_id: "load_open_actions"
+    name: "Load open actions with done_means"
+    agent: "signal_matcher_agent"
+    action: "read"
+    inputs:
+      - name: "tracker_path"
+        source: "$.infohub.actions.action_tracker"
+    outputs:
+      - name: "open_actions"
+        type: "artifact"
+        destination: "$.context.open_actions"
+    filter: "status IN ('not_started', 'in_progress') AND done_means IS NOT NULL"
+    on_failure: "stop"
+
+  - step_id: "collect_recent_signals"
+    name: "Gather signals from vault artifacts"
+    agent: "signal_matcher_agent"
+    action: "read"
+    inputs:
+      - name: "signal_sources"
+        source: "$.config.signal_source_paths"
+      - name: "lookback_hours"
+        source: "$.config.lookback_hours"
+        default: 48
+    outputs:
+      - name: "signals"
+        type: "artifact"
+        destination: "$.context.signals"
+    description: |
+      Read recent changes from: meetings, daily-ops, poc_status,
+      decision_log, touchpoint_log, agent_work scratchpads.
+      Extract text content and metadata (author, date, source_path).
+    on_failure: "stop"
+
+  - step_id: "match_and_score"
+    name: "Semantically match signals to open actions"
+    agent: "signal_matcher_agent"
+    action: "analyze"
+    inputs:
+      - name: "open_actions"
+        source: "$.context.open_actions"
+      - name: "signals"
+        source: "$.context.signals"
+    outputs:
+      - name: "matches"
+        type: "artifact"
+        destination: "$.context.matches"
+        schema:
+          - action_id: "string"
+          - signal_source: "string"
+          - signal_excerpt: "string"
+          - confidence: "float (0.0-1.0)"
+          - reasoning: "string"
+    description: |
+      For each open action, evaluate all signals against its done_means.
+      Score confidence based on: semantic match (0.35), source credibility (0.25),
+      temporal plausibility (0.20), actor overlap (0.20).
+      Return all matches with confidence > 0.30.
+    on_failure: "stop"
+
+  - step_id: "apply_completion_rules"
+    name: "Route matches by confidence tier"
+    agent: "signal_matcher_agent"
+    action: "compute"
+    inputs:
+      - name: "matches"
+        source: "$.context.matches"
+      - name: "thresholds"
+        source: "$.config.confidence_thresholds"
+    outputs:
+      - name: "auto_complete"
+        type: "artifact"
+        destination: "$.results.auto_complete"
+        description: "Actions with confidence >= 0.90 (except P0)"
+      - name: "suggest_complete"
+        type: "artifact"
+        destination: "$.results.suggest_complete"
+        description: "Actions with 0.60 <= confidence < 0.90, or P0 with >= 0.90"
+      - name: "evidence_only"
+        type: "artifact"
+        destination: "$.results.evidence_only"
+        description: "Actions with 0.30 <= confidence < 0.60"
+    rules:
+      - "P0 actions always require human confirmation regardless of confidence"
+      - "completed_late auto-set when signal.date > action.due_date"
+    on_failure: "stop"
+
+  - step_id: "auto_complete_actions"
+    name: "Mark high-confidence actions as completed"
+    agent: "signal_matcher_agent"
+    action: "write"
+    inputs:
+      - name: "actions_to_complete"
+        source: "$.results.auto_complete"
+      - name: "tracker_path"
+        source: "$.infohub.actions.action_tracker"
+    outputs:
+      - name: "updated_actions"
+        type: "artifact"
+        format: "yaml"
+        destination: "{realm}/{node}/internal-infohub/actions/action_tracker.yaml"
+    writes:
+      - field: "status"
+        value: "completed|completed_late"
+      - field: "completed_date"
+        value: "$.signal.date"
+      - field: "outcome"
+        value: "Auto-detected from {$.signal.source_type}: {$.signal.excerpt}"
+      - field: "completion_evidence"
+        value: "$.match"
+    on_failure: "skip"
+
+  - step_id: "request_confirmations"
+    name: "Send one-tap confirmation to owners"
+    agent: "nudger_agent"
+    action: "notify"
+    inputs:
+      - name: "actions_to_confirm"
+        source: "$.results.suggest_complete"
+    outputs:
+      - name: "confirmation_requests"
+        type: "notification"
+        format: "markdown"
+        destination: "notification_queue"
+    template: |
+      Did you finish "{action.title}"?
+      Based on: {signal.source_type} from {signal.date}
+      Evidence: "{signal.excerpt}"
+      [Confirm done] [Not yet] [Wrong match]
+    on_failure: "skip"
+
+  - step_id: "attach_evidence"
+    name: "Add evidence as progress notes for low-confidence matches"
+    agent: "signal_matcher_agent"
+    action: "write"
+    inputs:
+      - name: "evidence_matches"
+        source: "$.results.evidence_only"
+      - name: "tracker_path"
+        source: "$.infohub.actions.action_tracker"
+    outputs:
+      - name: "updated_notes"
+        type: "artifact"
+        format: "yaml"
+        destination: "{realm}/{node}/internal-infohub/actions/action_tracker.yaml"
+    writes:
+      - field: "progress_notes"
+        append: true
+        value:
+          date: "$.signal.date"
+          note: "Signal detected ({$.match.confidence}): {$.signal.excerpt}"
+          source: "signal_matcher_agent"
+    on_failure: "skip"
+
+  - step_id: "log_all_evaluations"
+    name: "Write audit trail of all match evaluations"
+    agent: "signal_matcher_agent"
+    action: "write"
+    inputs:
+      - name: "all_matches"
+        source: "$.context.matches"
+      - name: "results"
+        source: "$.results"
+    outputs:
+      - name: "match_log"
+        type: "artifact"
+        format: "yaml"
+        destination: "{realm}/{node}/internal-infohub/governance/signal_match_log.yaml"
+    on_failure: "skip"
+
+# Outputs
+outputs:
+  - output_id: "action_tracker_updates"
+    type: "artifact"
+    format: "yaml"
+    destination: "{realm}/{node}/internal-infohub/actions/action_tracker.yaml"
+  - output_id: "confirmation_requests"
+    type: "notification"
+    format: "markdown"
+    destination: "notification_queue"
+  - output_id: "signal_match_log"
+    type: "artifact"
+    format: "yaml"
+    destination: "{realm}/{node}/internal-infohub/governance/signal_match_log.yaml"
+
+# Escalation
+escalation:
+  condition: "$.steps.match_and_score.failed OR $.context.actions_without_done_means.length > 5"
+  target: "task_shepherd_agent"
+  message_template: |
+    SIGNAL MATCHER ISSUE:
+    {$.escalation.reason}
+    Actions without done_means: {$.context.actions_without_done_means.length}
+    Action Required: Add completion criteria to actions
+
+# Completion
+completion:
+  success_criteria: "$.steps.log_all_evaluations.status == 'success'"
+  artifacts_required:
+    - "{realm}/{node}/internal-infohub/governance/signal_match_log.yaml"
+  notification: "signal_matcher_agent"

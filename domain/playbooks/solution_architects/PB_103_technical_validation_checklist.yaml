@@ -1,0 +1,292 @@
+# PLAYBOOK: Technical Validation Checklist
+# Framework operationalization for AI agents
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+framework_name: "Technical Validation Checklist"
+framework_source: "Enterprise Architecture / Solution Validation Best Practices"
+intended_agent_role: "SA Agent (Solution Architect)"
+secondary_agents: ["Specialist provides domain-specific validation criteria", "CA Agent uses checklist during adoption phase"]
+
+primary_objective: "Provide a structured checklist for validating that a proposed or delivered solution meets technical requirements, architecture standards, and customer acceptance criteria"
+
+vault_routing:
+  primary_vault: "Customer InfoHub"
+  rationale: "The checklist is a customer-facing deliverable. It documents what was validated, acceptance criteria met, and any open items. The customer keeps this as proof of technical due diligence."
+  secondary_outputs:
+    - vault: "Internal Account Hub"
+      artifact: "Internal validation notes with candid risk assessments and gaps not shared with customer"
+    - vault: "Global Knowledge Vault"
+      artifact: "Anonymized validation patterns and common gaps (after engagement closes)"
+
+when_not_to_use:
+  - "No technical solution proposed yet (validate after architecture decisions exist)"
+  - "Customer has their own validation framework and does not want vendor input"
+  - "POC-only scope (use POC success criteria from PB_501_poc_success_plan instead)"
+  - "Pure commercial discussion with no technical component"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - "Solution architecture document completed or updated"
+    - "POC completed and moving to production decision"
+    - "Customer requests technical sign-off or go-live readiness review"
+    - "Deployment milestone reached (environment provisioned, integration connected)"
+    - "Pre-renewal technical assessment requested"
+
+  manual:
+    - "SA explicitly creates checklist: '/validate {solution_component}'"
+    - "Customer architect requests validation for handover"
+    - "Delivery team requests go-live readiness checklist"
+
+  conditional:
+    - "IF solution_architecture_finalized AND deployment_phase_starting THEN trigger"
+    - "IF poc_completed AND production_decision_pending THEN trigger"
+    - "IF customer_escalation_about_quality AND no_validation_exists THEN trigger"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "Solution architecture document or ADRs"
+    - artifact: "Customer requirements (functional and non-functional)"
+    - artifact: "Deployment model and environment details"
+
+  optional:
+    - artifact: "POC results and learnings"
+      use: "Incorporate POC findings into production validation"
+    - artifact: "Customer's own acceptance criteria"
+      use: "Align validation checklist with customer expectations"
+    - artifact: "Sizing estimation"
+      use: "Validate infrastructure matches sizing recommendations"
+    - artifact: "Security and compliance requirements"
+      use: "Include security-specific validation items"
+    - artifact: "Integration specifications"
+      use: "Validate integration points and data flows"
+
+  minimum_data_threshold:
+    - "Solution architecture exists (at least high-level)"
+    - "Deployment target is known"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  architecture_validation:
+    - "Does the deployed architecture match the approved design?"
+    - "Are all architecture decisions (ADRs) implemented as documented?"
+    - "Are there deviations from the original design? If so, are they documented?"
+    - "Does the architecture support stated scalability requirements?"
+
+  functional_validation:
+    - "Do all defined use cases work as specified?"
+    - "Are data sources connected and ingesting correctly?"
+    - "Are queries, dashboards, or outputs producing expected results?"
+    - "Are alerting and notification rules configured and tested?"
+
+  non_functional_validation:
+    - "Does performance meet stated requirements (query latency, ingest throughput)?"
+    - "Is high availability configured and tested (failover, replication)?"
+    - "Are backup and disaster recovery procedures in place and tested?"
+    - "Does the solution meet security requirements (encryption, access control, audit)?"
+
+  operational_readiness:
+    - "Is monitoring configured for the deployed solution?"
+    - "Are runbooks or operational procedures documented?"
+    - "Is the customer team trained to operate the solution?"
+    - "Are escalation paths defined for production issues?"
+
+  acceptance:
+    - "Does the customer agree the solution meets their requirements?"
+    - "Are there open items or known limitations accepted by the customer?"
+    - "Is the handover to operations or customer team complete?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    - condition: "all_critical_items_pass"
+      output_type: "Validation Report (PASS)"
+      decision: |
+        CREATE Validation Report:
+          title: "Technical validation for {solution_component}"
+          result: "PASS"
+          critical_items: "All passed"
+          open_items: [non-critical items for follow-up]
+          recommendation: "Proceed to production / go-live"
+
+    - condition: "critical_items_failing"
+      output_type: "Validation Report (FAIL) + Risk + Initiative"
+      decision: |
+        CREATE Validation Report:
+          title: "Technical validation for {solution_component}"
+          result: "FAIL"
+          blocking_items: [list of failed critical items]
+          recommendation: "Address blocking items before go-live"
+
+        CREATE Risk:
+          title: "Technical validation gaps for {node}"
+          severity: "HIGH"
+          category: "technical"
+
+        CREATE Initiative:
+          title: "Resolve validation gaps for {solution_component}"
+          actions: [specific remediation for each blocking item]
+
+    - condition: "partial_pass_with_accepted_risks"
+      output_type: "Validation Report (CONDITIONAL PASS)"
+      decision: |
+        CREATE Validation Report:
+          result: "CONDITIONAL PASS"
+          conditions: [items accepted as known limitations]
+          accepted_by: "Customer stakeholder name and date"
+          follow_up_date: "Date to revisit conditional items"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/{node}/external-infohub/architecture/technical_validation_{slug}.md"
+    vault_type: "customer"
+    format: "markdown (checklist format)"
+    sections:
+      - validation_summary
+      - architecture_checklist
+      - functional_checklist
+      - non_functional_checklist
+      - operational_readiness_checklist
+      - open_items
+      - sign_off
+
+    schema:
+      validation_summary:
+        solution_component: "string"
+        validation_date: "YYYY-MM-DD"
+        result: "enum[PASS|FAIL|CONDITIONAL_PASS]"
+        validated_by: "string (SA name/role)"
+        customer_contact: "string"
+
+      checklist_item:
+        id: "string (e.g., ARCH-001)"
+        category: "enum[ARCHITECTURE|FUNCTIONAL|NON_FUNCTIONAL|OPERATIONAL]"
+        description: "string"
+        priority: "enum[CRITICAL|IMPORTANT|NICE_TO_HAVE]"
+        status: "enum[PASS|FAIL|NOT_TESTED|NOT_APPLICABLE]"
+        evidence: "string (how validated)"
+        notes: "string (observations, limitations)"
+
+      open_items:
+        - item: "string"
+          severity: "enum[BLOCKING|NON_BLOCKING]"
+          owner: "string"
+          target_date: "YYYY-MM-DD"
+
+      sign_off:
+        customer_accepted: "boolean"
+        accepted_by: "string"
+        date: "YYYY-MM-DD"
+        conditions: "array[string] (if conditional pass)"
+
+  internal_notes:
+    path: "{realm}/{node}/internal-infohub/validation_notes_{slug}.md"
+    vault_type: "internal"
+    description: "Candid assessment of gaps, risks, and items not shared with customer"
+
+  risk_objects:
+    path: "{realm}/{node}/internal-infohub/risks/"
+    create_if:
+      - "Critical validation items failing"
+      - "Conditional pass with significant limitations"
+    template: "Risk with mitigation plan"
+
+  notifications:
+    - recipient: "SA Agent"
+      condition: "always"
+      message: "Technical validation complete for {node}: {result}"
+
+    - recipient: "CA Agent"
+      condition: "result == PASS OR CONDITIONAL_PASS"
+      message: "Solution validated, ready for adoption phase: {node}"
+
+    - recipient: "AE Agent"
+      condition: "result == FAIL"
+      message: "Technical validation FAILED for {node}: {blocking_items_count} blocking items"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "no_solution_architecture_exists"
+      reason: "Cannot validate without a defined architecture"
+      action: "SA to complete solution architecture first (PB_104)"
+
+    - condition: "customer_disputes_validation_criteria"
+      reason: "Disagreement on what constitutes acceptance"
+      action: "SA and customer to align on acceptance criteria before validation"
+
+    - condition: "environment_not_accessible"
+      reason: "Cannot validate deployed solution without access"
+      action: "Coordinate environment access with customer"
+
+  insufficient_data:
+    - "No solution architecture or design document"
+    - "No customer requirements to validate against"
+    - "Environment not deployed or accessible"
+
+  ambiguity_signals:
+    - "Requirements vague ('should be fast' without specific latency target)"
+    - "Multiple stakeholders with conflicting acceptance criteria"
+    - "Unclear scope (which components are in scope for validation)"
+
+  human_judgment_required:
+    - "Determining if a partial result constitutes PASS or FAIL"
+    - "Accepting risk for conditional pass items"
+    - "Prioritizing remediation when multiple items fail"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "client_id exists in InfoHub"
+    - "Solution architecture document available"
+    - "Customer requirements documented"
+
+  post_execution:
+    - "All checklist items have a status (no items left as UNKNOWN)"
+    - "Critical items all have evidence or explanation"
+    - "Open items have owners and target dates"
+    - "Result clearly stated (PASS, FAIL, CONDITIONAL_PASS)"
+
+  output_quality:
+    - "No vague validations ('looks good' → cite specific evidence)"
+    - "Customer-facing report contains no internal-only information"
+    - "Open items are actionable (not 'fix issues')"
+    - "Sign-off section present even if not yet signed"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "10-20 minutes (agent) + 30-60 minutes (human validation and customer walkthrough)"
+frequency: "Per solution component or deployment milestone"
+human_review_required: true
+approval_workflow:
+  - reviewer: "SA Agent"
+    approval_gate: "Validate checklist completeness and accuracy"
+  - reviewer: "Specialist"
+    condition: "domain_specific_validation_required == true"
+    approval_gate: "Validate domain-specific items (security, performance)"
+  - reviewer: "Customer Stakeholder"
+    condition: "always"
+    approval_gate: "Accept validation results and sign off"
+
+last_updated: "2026-02-09"
+version: "1.0"
+status: "stub"

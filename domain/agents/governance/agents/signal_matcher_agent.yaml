@@ -1,0 +1,213 @@
+# Signal Matcher Agent
+# Purpose: Infer action completion from seller activity signals, not manual status clicks
+
+agent_id: "signal_matcher_agent"
+team: "governance"
+category: "entropy_reduction"
+purpose: "Eliminate admin burden by inferring action completion from daily operations signals"
+
+# Design Principle:
+# Sellers sell. They should never have to remember what to click and why.
+# This agent reads signals from their natural work artifacts (meetings, daily ops,
+# POC updates, decisions) and correlates them to open actions. Humans validate,
+# they don't administrate.
+
+trigger:
+  events:
+    - "meeting_processed"          # SIG_ART_003: meeting notes extracted
+    - "artifact_created"           # SIG_ART_001: new document in vault
+    - "artifact_updated"           # SIG_ART_002: existing document changed
+    - "decision_logged"            # SIG_GOV_001: decision registered
+    - "playbook_completed"         # SIG_PB_002: playbook execution finished
+  schedule:
+    - cron: "0 10 * * 1-5"        # Daily 10am: scan all open actions against recent signals
+    - cron: "0 16 * * 5"          # Friday 4pm: weekly reconciliation before reporter digest
+
+inputs:
+  primary:
+    - "{realm}/{node}/internal-infohub/actions/action_tracker.yaml"
+  signal_sources:
+    - "{realm}/{node}/raw/meetings/"
+    - "{realm}/{node}/raw/daily-ops/"
+    - "{realm}/{node}/external-infohub/decisions/decision_log.yaml"
+    - "{realm}/{node}/external-infohub/journey/touchpoint_log.yaml"
+    - "{realm}/{node}/external-infohub/opportunities/*/poc_status/"
+    - "{realm}/{node}/internal-infohub/agent_work/"
+
+processing:
+  # Step 1: Collect open actions with their done_means
+  gather_open_actions:
+    source: "action_tracker.yaml"
+    filter: "status IN ('not_started', 'in_progress')"
+    required_fields:
+      - "action_id"
+      - "title"
+      - "owner"
+      - "due_date"
+      - "done_means"              # Set by task_shepherd, the matching target
+
+  # Step 2: Collect recent signals (artifacts changed since last scan)
+  gather_signals:
+    lookback: "48_hours"          # Scan window, overlaps to catch missed signals
+    sources:
+      - id: "meeting_outcomes"
+        path: "raw/meetings/"
+        extract: "action tables, outcome sections, decisions made"
+      - id: "daily_ops"
+        path: "raw/daily-ops/"
+        extract: "status updates, completion mentions, metrics achieved"
+      - id: "poc_status"
+        path: "opportunities/*/poc_status/"
+        extract: "checklist items marked complete, completion percentages"
+      - id: "decision_outcomes"
+        path: "decisions/decision_log.yaml"
+        extract: "decisions with status 'implemented', next_actions completed"
+      - id: "touchpoints"
+        path: "journey/touchpoint_log.yaml"
+        extract: "meetings that occurred, follow_up_required fields"
+      - id: "agent_outputs"
+        path: "agent_work/"
+        extract: "session.status == completed, actions_created"
+
+  # Step 3: Semantic matching (LLM-based)
+  match_signals_to_actions:
+    method: "semantic"
+    description: |
+      For each open action, compare its done_means against all recent signals.
+      Use semantic similarity, not keyword matching. The done_means is the
+      completion criteria set by task_shepherd; signals provide evidence.
+    match_criteria:
+      - "Signal content semantically satisfies action's done_means"
+      - "Signal source is credible (meeting note, POC update, decision log)"
+      - "Signal timing is plausible (after action creation, within due window)"
+      - "Signal author/participants overlap with action owner or stakeholders"
+
+  # Step 4: Score confidence
+  confidence_scoring:
+    factors:
+      - id: "semantic_match"
+        weight: 0.35
+        description: "How closely signal content matches done_means"
+      - id: "source_credibility"
+        weight: 0.25
+        description: "Meeting note > daily ops > agent scratchpad"
+        scores:
+          meeting_note: 1.0
+          decision_log: 1.0
+          poc_status: 0.9
+          daily_ops: 0.8
+          touchpoint: 0.7
+          agent_work: 0.5
+      - id: "temporal_plausibility"
+        weight: 0.20
+        description: "Signal occurred after action created, near due date"
+      - id: "actor_overlap"
+        weight: 0.20
+        description: "Signal involves action owner or related stakeholders"
+
+  # Step 5: Act based on confidence
+  confidence_thresholds:
+    - id: "auto_complete"
+      range: "confidence >= 0.90"
+      action: "Mark action completed, set evidence, notify owner for awareness"
+      requires_human: false
+      revert_window: "48_hours"
+    - id: "suggest_complete"
+      range: "0.60 <= confidence < 0.90"
+      action: "Send one-tap confirmation to owner with evidence summary"
+      requires_human: true
+      template: "confirm_completion"
+    - id: "show_evidence"
+      range: "0.30 <= confidence < 0.60"
+      action: "Attach evidence to action as progress note, no status change"
+      requires_human: false
+    - id: "no_signal"
+      range: "confidence < 0.30"
+      action: "No action taken, leave for nudger_agent to handle"
+      requires_human: false
+
+outputs:
+  artifacts:
+    - type: "action_tracker_update"
+      path: "{realm}/{node}/internal-infohub/actions/action_tracker.yaml"
+      changes:
+        - field: "status"
+          value: "completed|completed_late"
+          condition: "auto_complete OR human_confirmed"
+        - field: "completed_date"
+          value: "signal.date"
+        - field: "outcome"
+          value: "Auto-detected: {evidence_summary}"
+        - field: "completion_evidence"
+          value:
+            signal_source: "artifact path"
+            signal_excerpt: "relevant text"
+            confidence: "0.0-1.0"
+            matched_at: "ISO timestamp"
+            auto_completed: "true|false"
+    - type: "signal_match_log"
+      path: "{realm}/{node}/internal-infohub/governance/signal_match_log.yaml"
+      description: "Audit trail of all matches attempted, including non-matches"
+  notifications:
+    - type: "completion_detected"
+      channel: "slack|email"
+      template: "completion_notification"
+      condition: "auto_complete"
+      content: |
+        Action "{action.title}" marked complete based on {signal.source_type}.
+        Evidence: {signal.excerpt}
+        Wrong? Tap to revert.
+    - type: "completion_suggested"
+      channel: "slack|email"
+      template: "confirm_completion"
+      condition: "suggest_complete"
+      content: |
+        Did you finish "{action.title}"?
+        I found: {signal.excerpt}
+        [Confirm] [Not yet] [Wrong match]
+
+quality_gates:
+  - "Never auto-complete without verifiable signal evidence"
+  - "Never modify action priority or risk severity (out of scope)"
+  - "Signal match log must record every evaluation, including non-matches"
+  - "Auto-completed actions must have revert_window before downstream effects"
+  - "Max 1 confirmation request per action per day (no spam)"
+  - "done_means must exist on action; skip actions without it"
+  - "completed_late auto-set when completed_date > due_date"
+
+anti_patterns:
+  - "Do not guess completion without signal evidence"
+  - "Do not use absence of nudger complaints as a completion signal"
+  - "Do not match signals older than 7 days to avoid stale correlations"
+  - "Do not auto-complete P0 actions (always require human confirmation)"
+  - "Do not process signals from draft or unconfirmed meeting notes"
+
+# Relationship to existing agents
+coordination:
+  task_shepherd:
+    dependency: "Requires done_means field on actions (set by task_shepherd)"
+    handoff: "If done_means is missing, signal_matcher skips and task_shepherd is notified"
+  nudger_agent:
+    replaces: "For matched actions, replaces 'please update status' with 'confirm this is done'"
+    fallback: "Actions with no signal match remain in nudger's scope"
+  meeting_notes_agent:
+    consumes: "Extracted actions and outcomes from processed meeting notes"
+  knowledge_curator:
+    informs: "Completed actions enter 30-day deprecation window per existing rules"
+
+integrations:
+  reads_from:
+    - "action_tracker"
+    - "meeting_notes"
+    - "decision_log"
+    - "touchpoint_log"
+    - "poc_status"
+    - "daily_ops"
+    - "agent_work"
+  writes_to:
+    - "action_tracker"
+    - "signal_match_log"
+  notifies:
+    - "action_owners"
+    - "task_shepherd_agent"        # When done_means is missing
+    - "nudger_agent"               # When action is auto-completed (skip future nudges)

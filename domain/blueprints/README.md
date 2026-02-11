@@ -6,6 +6,8 @@ Blueprints define the composition of playbooks, canvases, and validation rules f
 
 ## Hierarchy
 
+[image: Blueprint Composition - how archetype, domain, and track combine into a blueprint]
+
 ```text
 Engagement = Archetype × Domain × Track
 
@@ -31,17 +33,24 @@ Archetype × Domain → Reference Blueprint selection
 ## Structure
 
 ```text
-config/
-├── archetypes.yaml              # Archetype definitions + Reference Blueprint variants
-└── engagement_tracks.yaml       # Service tier policies
+domain/
+├── catalogs/
+│   └── archetypes.yaml              # Archetype definitions + Reference Blueprint variants
+├── mappings/
+│   └── engagement_tracks.yaml       # Service tier policies
+│
+└── blueprints/
+    ├── reference/                   # Reference Blueprint files
+    │   ├── competitive_displacement/
+    │   │   └── A02_competitive.yaml
+    │   ├── retention_renewal/
+    │   │   └── A02_champion_rebuild.yaml
+    │   └── technical_evaluation/
+    │       └── A02_comparative.yaml
+    └── README.md
 
-blueprints/
-├── reference/                   # Reference Blueprint files
-│   └── {archetype}/
-│       ├── A01_basic.yaml
-│       ├── A02_competitive.yaml
-│       └── ...
-└── README.md
+vault/{realm}/{node}/
+└── blueprint.yaml                   # Blueprint Instance (per node)
 ```
 
 ## Terminology
@@ -51,7 +60,7 @@ blueprints/
 | **Archetype** | Engagement pattern classified by signals, independent of technology domain. |
 | **Domain** | Specialist area (Security, Search, Observability). Orthogonal to Archetype. |
 | **Reference Blueprint** | Reusable playbook/asset composition. Multiple variants (A01-A06) per Archetype. |
-| **Blueprint Instance** | Node-specific instance (lives in InfoHub: `{realm}/{node}/blueprint.yaml`) |
+| **Blueprint Instance** | Node-specific instance (lives in vault: `vault/{realm}/{node}/blueprint.yaml`) |
 | **Engagement Track** | Service tier policy overlay (POC, Economy, Premium, Fast Track). Orthogonal to Archetype and Domain. |
 
 ## Reference Blueprint Schema
@@ -59,6 +68,7 @@ blueprints/
 ```yaml
 version: "1.0"
 archetype: "{archetype_id}"
+blueprint_id: "{A0x_variant}"
 
 metadata:
   name: "Human-readable name"

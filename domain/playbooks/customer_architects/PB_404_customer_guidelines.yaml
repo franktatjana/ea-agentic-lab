@@ -1,0 +1,273 @@
+# PLAYBOOK: Customer Guidelines and How-Tos
+# Framework operationalization for AI agents
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+framework_name: "Customer Guidelines and How-Tos"
+framework_source: "Customer Success / Technical Enablement Best Practices"
+intended_agent_role: "CA Agent (Customer Architect)"
+secondary_agents: ["SA Agent provides technical architecture context", "Specialist provides domain-specific procedures"]
+
+primary_objective: "Produce customer-facing operational guidelines and how-to documents that enable the customer team to use, configure, and maintain the deployed solution independently"
+
+vault_routing:
+  primary_vault: "Customer InfoHub"
+  rationale: "Guidelines and how-tos are professional services assets created for the customer. They enable self-sufficiency and reduce dependency on vendor support. The customer keeps these as operational documentation."
+  secondary_outputs:
+    - vault: "Global Knowledge Vault"
+      artifact: "Anonymized guideline templates and common procedures (after engagement closes)"
+
+when_not_to_use:
+  - "Solution not yet deployed (guidelines require a running system to reference)"
+  - "Customer has mature internal documentation and does not need vendor-authored guides"
+  - "Vendor product documentation already covers the procedure (link instead of duplicating)"
+  - "Pre-sales phase (too early for operational guidelines)"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - "Solution deployed to production or staging environment"
+    - "Customer asks 'how do I...' during cadence call or support interaction"
+    - "Recurring support cases indicate knowledge gap (same issue raised 3+ times)"
+    - "New feature or configuration change deployed that customers need to understand"
+    - "Onboarding phase starting for new customer team members"
+
+  manual:
+    - "CA explicitly creates guideline: '/guideline create {topic}'"
+    - "Customer requests operational documentation"
+    - "SA hands off solution to CA with documentation gaps noted"
+
+  conditional:
+    - "IF support_case_count[same_topic] >= 3 THEN trigger (knowledge gap detected)"
+    - "IF new_team_members_onboarding AND no_operational_docs THEN trigger"
+    - "IF solution_upgrade_deployed AND operational_changes_required THEN trigger"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "Deployed solution description (from PB_104 or equivalent)"
+    - artifact: "Specific procedure or topic to document"
+    - artifact: "Target audience (admin, analyst, developer, manager)"
+
+  optional:
+    - artifact: "Support case history for the topic"
+      use: "Identify common pitfalls and FAQ items"
+    - artifact: "Customer's existing documentation standards"
+      use: "Match format and terminology customer team expects"
+    - artifact: "Product documentation references"
+      use: "Link to official docs instead of duplicating"
+    - artifact: "Screenshots or environment access"
+      use: "Include visual references for step-by-step procedures"
+
+  minimum_data_threshold:
+    - "Clear topic or procedure to document"
+    - "Solution deployed and accessible"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  scope:
+    - "What specific task or procedure does this guideline cover?"
+    - "Who is the target audience (technical skill level)?"
+    - "Is this a one-time setup or a recurring procedure?"
+    - "What prerequisites must be in place before following this guide?"
+
+  procedure:
+    - "What are the exact steps to complete this task?"
+    - "What are common mistakes or pitfalls to avoid?"
+    - "What does a successful outcome look like?"
+    - "What should the user do if something goes wrong?"
+
+  context:
+    - "Why is this procedure important (business context)?"
+    - "How does this relate to other operational procedures?"
+    - "Are there environment-specific variations (dev, staging, production)?"
+    - "What permissions or roles are required?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    - condition: "simple_procedure AND single_audience"
+      output_type: "How-To Guide"
+      decision: |
+        CREATE How-To Guide:
+          title: "How to {action}"
+          format: "Step-by-step (1-3 pages)"
+          sections: [overview, prerequisites, steps, verification, troubleshooting]
+
+    - condition: "complex_procedure OR multiple_audiences"
+      output_type: "Operational Guideline"
+      decision: |
+        CREATE Operational Guideline:
+          title: "Guideline: {topic}"
+          format: "Comprehensive (3-10 pages)"
+          sections: [overview, audience, prerequisites, procedures, best practices, troubleshooting, references]
+
+    - condition: "recurring_support_issue"
+      output_type: "How-To Guide + FAQ"
+      decision: |
+        CREATE How-To Guide:
+          title: "How to {action}"
+          based_on: "Support case analysis"
+
+        UPDATE FAQ:
+          path: "{realm}/{node}/external-infohub/guidelines/faq.md"
+          add_entry: "{question} → {answer with link to how-to}"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/{node}/external-infohub/guidelines/{slug}.md"
+    vault_type: "customer"
+    format: "markdown"
+    sections:
+      - title_and_metadata
+      - overview
+      - prerequisites
+      - procedure_steps
+      - verification
+      - troubleshooting
+      - related_resources
+
+    schema:
+      title: "string (action-oriented: 'How to...' or 'Guideline: ...')"
+      audience: "string (e.g., 'Platform Administrators')"
+      last_updated: "YYYY-MM-DD"
+      applies_to: "string (product version, environment)"
+
+      overview: "string (1-2 sentences: what this guide covers and why)"
+
+      prerequisites:
+        - item: "string (what must be in place)"
+          how_to_check: "string (how to verify prerequisite is met)"
+
+      procedure_steps:
+        - step_number: "number"
+          action: "string (imperative: 'Navigate to...', 'Click...', 'Run...')"
+          detail: "string (additional context if needed)"
+          expected_result: "string (what user should see after this step)"
+
+      verification:
+        - check: "string (how to confirm procedure succeeded)"
+          expected: "string (what success looks like)"
+
+      troubleshooting:
+        - symptom: "string (what went wrong)"
+          cause: "string (likely reason)"
+          resolution: "string (how to fix)"
+
+  faq_update:
+    path: "{realm}/{node}/external-infohub/guidelines/faq.md"
+    vault_type: "customer"
+    create_if: "recurring support issue triggered this guideline"
+
+  notifications:
+    - recipient: "CA Agent"
+      condition: "always"
+      message: "Guideline created/updated for {node}: {title}"
+
+    - recipient: "Customer Stakeholder"
+      condition: "guideline_requested_by_customer == true"
+      message: "Requested documentation available: {title}"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "procedure_requires_vendor_internal_access"
+      reason: "Cannot document a procedure that customer cannot perform independently"
+      action: "Reframe as a support request process, not a self-service guide"
+
+    - condition: "product_behavior_unclear"
+      reason: "CA cannot document procedure if product behavior is ambiguous"
+      action: "Verify with specialist or product documentation first"
+
+    - condition: "security_sensitive_procedure"
+      reason: "Procedure involves security-critical operations requiring careful review"
+      action: "SA or specialist to review and approve before publishing"
+
+  insufficient_data:
+    - "Topic too vague ('how to use the platform' → narrow to specific task)"
+    - "Solution not deployed (no system to reference)"
+    - "No access to environment for verification"
+
+  ambiguity_signals:
+    - "Multiple ways to accomplish the same task (document the recommended approach)"
+    - "Procedure differs across environments (document variations explicitly)"
+    - "Product behavior inconsistent with documentation"
+
+  human_judgment_required:
+    - "Choosing appropriate detail level for target audience"
+    - "Deciding whether to link to product docs vs. writing custom procedure"
+    - "Determining if a workaround should be documented or if a product fix is expected"
+
+# ==============================================================================
+# CONTENT GUARDRAILS
+# ==============================================================================
+content_guardrails:
+  must_include:
+    - "Clear action-oriented title"
+    - "Target audience and prerequisites"
+    - "Step-by-step procedure with expected results"
+    - "Verification steps"
+    - "Troubleshooting for common issues"
+
+  must_exclude:
+    - "Vendor-internal procedures or tools"
+    - "Commercial information"
+    - "Competitive comparisons"
+    - "Workarounds for known bugs without context (document as known limitation)"
+
+  tone:
+    - "Direct, imperative language ('Navigate to...', 'Click...')"
+    - "Customer-centric (use customer's terminology where possible)"
+    - "Assume competence but not product expertise"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "client_id exists in InfoHub"
+    - "Topic is specific enough to produce actionable guidance"
+    - "Solution deployed and procedure is executable"
+
+  post_execution:
+    - "All steps produce the expected result when followed"
+    - "Prerequisites are complete and verifiable"
+    - "Troubleshooting covers at least the most common failure"
+    - "No vendor-internal content included"
+
+  output_quality:
+    - "Steps are numbered and unambiguous"
+    - "Each step has one action (not compound steps)"
+    - "Screenshots or references included where helpful"
+    - "Document tested against actual environment if possible"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "10-20 minutes (agent) + 15-30 minutes (human review and environment verification)"
+frequency: "As needed, triggered by support patterns, onboarding, or feature changes"
+human_review_required: true
+approval_workflow:
+  - reviewer: "CA Agent"
+    approval_gate: "Validate accuracy and completeness"
+  - reviewer: "SA Agent"
+    condition: "architecture_related_procedure == true"
+    approval_gate: "Validate technical accuracy"
+
+last_updated: "2026-02-09"
+version: "1.0"
+status: "stub"

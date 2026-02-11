@@ -1,0 +1,290 @@
+# PLAYBOOK: Sizing Estimation
+# Framework operationalization for AI agents
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+framework_name: "Sizing Estimation"
+framework_source: "Enterprise Architecture / Capacity Planning Best Practices"
+intended_agent_role: "SA Agent (Solution Architect)"
+secondary_agents: ["Specialist provides domain-specific sizing benchmarks", "AE Agent uses sizing for commercial scoping"]
+
+primary_objective: "Produce sizing estimates (compute, storage, ingest rate, user counts, retention) for proposed or existing deployments to support architecture decisions and commercial scoping"
+
+vault_routing:
+  primary_vault: "Internal Account Hub"
+  rationale: "Contains commercial-adjacent data (capacity vs. license tiers, cost implications). Customer receives a sanitized summary via the solution description, not the raw sizing model."
+  secondary_outputs:
+    - vault: "Customer InfoHub"
+      artifact: "High-level capacity summary (non-commercial) embedded in solution description"
+    - vault: "Global Knowledge Vault"
+      artifact: "Anonymized sizing patterns and benchmarks (after engagement closes)"
+
+when_not_to_use:
+  - "Customer already has validated sizing from a previous engagement"
+  - "Proof-of-concept scope only (POC sizing is covered by PB_501_poc_success_plan)"
+  - "No technical discovery completed (sizing without architecture context is guesswork)"
+  - "Customer has not shared workload characteristics (data volume, user counts, retention needs)"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - "Architecture decision made on deployment model (cloud, on-prem, hybrid)"
+    - "Use case definition completed with data volume estimates"
+    - "Customer asks 'what infrastructure do we need?'"
+    - "Commercial scoping requires capacity-based pricing input"
+    - "Renewal approaching and usage has changed significantly"
+
+  manual:
+    - "SA explicitly requests sizing: '/sizing estimate {use_case}'"
+    - "AE requests sizing for deal scoping"
+    - "Specialist provides domain-specific workload profile"
+
+  conditional:
+    - "IF deployment_model_decided AND data_volume_known THEN trigger"
+    - "IF commercial_scoping_in_progress AND no_sizing_exists THEN trigger"
+    - "IF usage_growth > 50% AND current_sizing_outdated THEN trigger"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "Use case descriptions with expected data sources"
+    - artifact: "Estimated data volume (GB/day or events/second)"
+    - artifact: "Deployment model (cloud, on-prem, hybrid)"
+    - artifact: "Retention requirements (days, months, years)"
+
+  optional:
+    - artifact: "Current infrastructure details"
+      use: "Baseline for migration sizing"
+    - artifact: "Peak vs. average workload ratios"
+      use: "Capacity headroom calculation"
+    - artifact: "Geographic distribution requirements"
+      use: "Multi-region sizing implications"
+    - artifact: "Compliance or data residency constraints"
+      use: "May force specific deployment topology"
+    - artifact: "Growth projections (6 month, 12 month, 3 year)"
+      use: "Right-sizing for future capacity"
+
+  minimum_data_threshold:
+    - "At least one use case with estimated data volume"
+    - "Deployment model preference stated"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  workload_profile:
+    - "What is the expected daily ingest volume (GB/day, events/second)?"
+    - "What is the ratio of write to read operations?"
+    - "What are peak traffic patterns (time of day, seasonal)?"
+    - "How many concurrent users will query the system?"
+    - "What is the expected query complexity (simple lookups vs. aggregations)?"
+
+  storage_and_retention:
+    - "What is the required data retention period?"
+    - "Is there a tiered retention model (hot/warm/cold)?"
+    - "What compression ratios are realistic for this data type?"
+    - "Are there compliance-driven retention minimums?"
+
+  infrastructure:
+    - "What is the target deployment model (cloud provider, on-prem hardware)?"
+    - "Are there existing infrastructure constraints (network bandwidth, rack space)?"
+    - "Is high availability required (multi-AZ, cross-region replication)?"
+    - "What is the disaster recovery RTO/RPO requirement?"
+
+  growth:
+    - "What is expected data growth rate over 12 months?"
+    - "Are additional use cases planned that would increase load?"
+    - "Is there a headroom policy (e.g., 30% buffer above peak)?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    - condition: "sizing_straightforward AND single_use_case"
+      output_type: "Sizing Document"
+      decision: |
+        CREATE Sizing Estimate:
+          title: "Sizing estimation for {use_case}"
+          deployment_model: "{model}"
+          capacity_summary: [compute, storage, ingest]
+          confidence: "HIGH"
+          assumptions: [list]
+
+    - condition: "multiple_use_cases OR complex_topology"
+      output_type: "Sizing Document + Initiative"
+      decision: |
+        CREATE Sizing Estimate:
+          title: "Sizing estimation for {node} ({use_case_count} use cases)"
+          confidence: "MEDIUM"
+          assumptions: [list]
+          gaps: [items needing specialist input]
+
+        CREATE Initiative:
+          title: "Validate sizing with {domain} specialist"
+          owner: "SA Agent"
+          actions:
+            - "Engage specialist for workload-specific benchmarks"
+            - "Validate assumptions against reference architectures"
+
+    - condition: "sizing_exceeds_standard_tiers OR edge_case"
+      output_type: "Sizing Document + Risk"
+      decision: |
+        CREATE Sizing Estimate:
+          confidence: "LOW"
+
+        CREATE Risk:
+          title: "Sizing uncertainty for {node}"
+          severity: "MEDIUM"
+          category: "technical"
+          description: "Workload profile exceeds standard sizing benchmarks"
+          mitigation: ["POC to validate sizing assumptions", "Phased rollout"]
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/{node}/external-infohub/sizing_estimation_{use_case_slug}.md"
+    vault_type: "internal"
+    format: "markdown"
+    sections:
+      - executive_summary
+      - workload_profile
+      - capacity_calculations
+      - infrastructure_recommendation
+      - growth_projection
+      - assumptions_and_risks
+      - cost_implications
+
+    schema:
+      executive_summary: "string (one paragraph: what, how big, what's needed)"
+      workload_profile:
+        daily_ingest_volume: "string (e.g., '50 GB/day')"
+        peak_events_per_second: "number"
+        concurrent_users: "number"
+        query_complexity: "enum[LOW|MEDIUM|HIGH]"
+        retention_period: "string (e.g., '90 days hot, 1 year warm')"
+
+      capacity_calculations:
+        compute:
+          nodes: "number"
+          cpu_per_node: "string"
+          memory_per_node: "string"
+          rationale: "string"
+        storage:
+          raw_storage: "string (e.g., '5 TB')"
+          with_replication: "string (e.g., '15 TB at 3x replication')"
+          tiered_breakdown: "object (hot/warm/cold)"
+        network:
+          bandwidth_required: "string"
+          cross_region: "boolean"
+
+      growth_projection:
+        twelve_month_estimate: "string"
+        scaling_approach: "enum[VERTICAL|HORIZONTAL|ELASTIC]"
+        headroom_percentage: "number"
+
+      assumptions:
+        - assumption: "string"
+          impact_if_wrong: "string"
+
+  customer_summary:
+    path: "{realm}/{node}/external-infohub/architecture/capacity_summary.md"
+    vault_type: "customer"
+    description: "Sanitized capacity overview without commercial details, embedded in solution architecture"
+    excludes: ["cost implications", "license tier mapping", "discount structures"]
+
+  risk_objects:
+    path: "{realm}/{node}/internal-infohub/risks/"
+    create_if:
+      - "Sizing confidence LOW"
+      - "Workload exceeds standard benchmarks"
+    template: "Risk with mitigation plan"
+
+  notifications:
+    - recipient: "AE Agent"
+      condition: "always"
+      message: "Sizing estimation complete for {node}: {summary}"
+
+    - recipient: "Specialist"
+      condition: "specialist_validation_needed == true"
+      message: "Sizing requires {domain} specialist validation: {gaps}"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "no_workload_data"
+      reason: "Cannot produce meaningful sizing without data volume estimates"
+      action: "SA to conduct technical discovery first"
+
+    - condition: "conflicting_requirements"
+      reason: "Requirements conflict (e.g., low cost + high availability + on-prem)"
+      action: "SA to facilitate trade-off discussion with customer"
+
+    - condition: "sizing_implies_non_standard_deployment"
+      reason: "Workload requires custom architecture outside standard patterns"
+      action: "Engage specialist and product engineering for guidance"
+
+  insufficient_data:
+    - "No data volume estimates available"
+    - "Deployment model not decided"
+    - "Retention requirements unknown"
+
+  ambiguity_signals:
+    - "Customer provides contradictory volume estimates"
+    - "Multiple deployment models under consideration"
+    - "Growth projections vary widely across stakeholders"
+
+  human_judgment_required:
+    - "Selecting headroom percentage based on business criticality"
+    - "Choosing between cost optimization and performance margin"
+    - "Mapping sizing to specific license tiers"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "client_id exists in InfoHub"
+    - "At least one use case with data volume estimate"
+    - "Deployment model preference documented"
+
+  post_execution:
+    - "All capacity dimensions addressed (compute, storage, network)"
+    - "Assumptions explicitly listed"
+    - "Confidence level stated (HIGH, MEDIUM, LOW)"
+    - "Growth projection included"
+
+  output_quality:
+    - "No vague sizing ('big enough' → specify node count and specs)"
+    - "All numbers cite source (customer input, benchmark, assumption)"
+    - "Customer-facing summary excludes commercial details"
+    - "Assumptions include impact-if-wrong assessment"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "5-10 minutes (agent) + 15-30 minutes (human review and validation)"
+frequency: "Per use case or deployment phase, updated when workload changes significantly"
+human_review_required: true
+approval_workflow:
+  - reviewer: "SA Agent"
+    approval_gate: "Validate sizing calculations and assumptions"
+  - reviewer: "Specialist"
+    condition: "specialist_validation_needed == true"
+    approval_gate: "Validate domain-specific benchmarks"
+  - reviewer: "AE Agent"
+    condition: "commercial_scoping_in_progress == true"
+    approval_gate: "Confirm sizing aligns with commercial proposal"
+
+last_updated: "2026-02-09"
+version: "1.0"
+status: "stub"

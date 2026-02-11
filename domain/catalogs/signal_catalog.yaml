@@ -9,7 +9,7 @@
 # that flow between agents. They represent facts about what happened, not
 # commands to do something.
 #
-# For human documentation, see: docs/architecture/signal-catalog.md
+# For human documentation, see: docs/reference/signal-catalog.md
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -53,6 +53,10 @@ categories:
   tech_signal_map:
     description: "Tech Signal Map - decision-support artifact for technology intelligence from job posting analysis"
     prefix: "SIG_TECH"
+
+  market_news:
+    description: "Market News Analysis - company, industry, and solution-domain news intelligence"
+    prefix: "SIG_MNA"
 
   custom:
     description: "User-defined signals (require orchestrator validation)"
@@ -802,6 +806,156 @@ signals:
 
     emitted_when: "Daily scan detects action past due date"
 
+  - signal_id: "SIG_HLT_005"
+    name: "action_completion_detected"
+    category: "health"
+    version: 1
+    description: "Signal Matcher has detected evidence that an action may be completed"
+
+    producer: "Signal Matcher Agent"
+    consumers:
+      - agent: "Nudger Agent"
+        action: "Cancel pending reminders for this action if auto-completed"
+      - agent: "Task Shepherd Agent"
+        action: "Validate completion evidence quality"
+      - agent: "Health Score Agent"
+        action: "Factor into health recalculation"
+      - agent: "Reporter Agent"
+        action: "Include in weekly digest"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "action_id"
+          type: "string"
+        - field: "confidence"
+          type: "number"
+          description: "Match confidence score (0.0-1.0)"
+        - field: "resolution"
+          type: "enum"
+          values: ["auto_completed", "confirmation_requested", "evidence_attached"]
+        - field: "signal_source"
+          type: "string"
+          description: "Vault path to the artifact that provided evidence"
+        - field: "detected_at"
+          type: "datetime"
+      optional:
+        - field: "signal_excerpt"
+          type: "string"
+          description: "Relevant text from the source artifact"
+        - field: "done_means"
+          type: "string"
+          description: "The completion criteria that was matched against"
+        - field: "completed_late"
+          type: "boolean"
+          description: "True if signal date > action due date"
+
+    emitted_when: "Signal Matcher finds evidence matching an open action's done_means with confidence >= 0.30"
+
+    anti_patterns:
+      - "Do not emit for draft or unconfirmed meeting notes"
+      - "Do not emit multiple times for the same action-signal pair"
+      - "Do not emit if action has no done_means defined"
+
+    example:
+      realm_id: "ACME_CORP"
+      node_id: "SECURITY_CONSOLIDATION"
+      action_id: "ACT_P0_001"
+      confidence: 0.92
+      resolution: "auto_completed"
+      signal_source: "vault/ACME_CORP/SECURITY_CONSOLIDATION/raw/meetings/external/2026-01-22-poc-kickoff.md"
+      signal_excerpt: "POC kickoff meeting held, revised proposal was presented and accepted"
+      done_means: "POC proposal document submitted to customer"
+      detected_at: "2026-01-22T16:00:00Z"
+
+  - signal_id: "SIG_HLT_006"
+    name: "action_completion_confirmed"
+    category: "health"
+    version: 1
+    description: "Action owner has confirmed a suggested completion via one-tap confirm"
+
+    producer: "UI / Human Actor"
+    consumers:
+      - agent: "Signal Matcher Agent"
+        action: "Mark action as completed in tracker with human-confirmed evidence"
+      - agent: "Nudger Agent"
+        action: "Cancel all pending reminders for this action"
+      - agent: "Knowledge Curator"
+        action: "Start 30-day deprecation timer"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "action_id"
+          type: "string"
+        - field: "confirmed_by"
+          type: "string"
+          description: "Human who confirmed completion"
+        - field: "confirmed_at"
+          type: "datetime"
+      optional:
+        - field: "original_signal_source"
+          type: "string"
+          description: "The signal that triggered the confirmation request"
+        - field: "correction"
+          type: "string"
+          description: "If owner selected 'Wrong match', their explanation"
+
+    emitted_when: "Owner taps Confirm/Not yet/Wrong match on a completion suggestion"
+
+    anti_patterns:
+      - "Do not auto-emit; must originate from human interaction"
+      - "Do not emit for auto-completed actions (those use SIG_HLT_005 only)"
+
+  - signal_id: "SIG_HLT_007"
+    name: "action_completion_reverted"
+    category: "health"
+    version: 1
+    description: "An auto-completed action has been reverted by the owner within the revert window"
+
+    producer: "UI / Human Actor"
+    consumers:
+      - agent: "Signal Matcher Agent"
+        action: "Revert action status to previous state, log mismatch for learning"
+      - agent: "Nudger Agent"
+        action: "Re-enable reminders for this action"
+      - agent: "Task Shepherd Agent"
+        action: "Review done_means clarity if multiple reverts occur"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "action_id"
+          type: "string"
+        - field: "reverted_by"
+          type: "string"
+        - field: "reverted_at"
+          type: "datetime"
+        - field: "reason"
+          type: "string"
+          description: "Why the auto-completion was wrong"
+      optional:
+        - field: "original_confidence"
+          type: "number"
+          description: "Confidence score of the match that was reverted"
+        - field: "original_signal_source"
+          type: "string"
+
+    emitted_when: "Owner reverts an auto-completed action within the 48h revert window"
+
+    anti_patterns:
+      - "Do not allow revert after revert window expires"
+      - "Do not allow revert on human-confirmed completions (those are final)"
+
   # ============================================================================
   # GOVERNANCE SIGNALS
   # ============================================================================
@@ -933,6 +1087,154 @@ signals:
           type: "number"
 
     emitted_when: "Escalation is marked resolved"
+
+  - signal_id: "SIG_GOV_004"
+    name: "approval_requested"
+    category: "governance"
+    version: 1
+    description: "An agent has produced an artifact or recommendation that requires human approval before downstream processing continues"
+
+    producer: "Any Agent"
+    consumers:
+      - agent: "Notification Service"
+        action: "Notify approver via UI or push notification"
+      - agent: "Nudger Agent"
+        action: "Track approval SLA and send reminders if overdue"
+      - agent: "Audit Logger"
+        action: "Record approval request"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "approval_id"
+          type: "string"
+          description: "Unique identifier for this approval request"
+        - field: "approval_type"
+          type: "enum"
+          values: ["node_activation", "content_share", "strategic_recommendation",
+                   "escalation_resolution", "blueprint_change", "high_value_action"]
+          description: "Category of approval needed"
+        - field: "artifact_path"
+          type: "string"
+          description: "InfoHub path to the artifact requiring approval"
+        - field: "requested_by"
+          type: "string"
+          description: "Agent that produced the artifact"
+        - field: "approver"
+          type: "string"
+          description: "Human role or person expected to approve"
+        - field: "requested_at"
+          type: "datetime"
+        - field: "summary"
+          type: "string"
+          description: "One-line description of what needs approval"
+      optional:
+        - field: "sla_hours"
+          type: "integer"
+          description: "Hours before this approval is considered overdue. Default: 24"
+        - field: "blocked_signals"
+          type: "array"
+          description: "Downstream signals that are held until approval is granted"
+        - field: "context"
+          type: "string"
+          description: "Additional context for the approver"
+        - field: "source_playbook"
+          type: "string"
+          description: "Playbook ID that triggered this approval gate"
+
+    emitted_when: "Agent produces a high-stakes artifact that crosses a defined approval threshold"
+
+    approval_thresholds:
+      - type: "node_activation"
+        condition: "Node transitions from planning to active"
+        approver: "AE or Senior Manager"
+      - type: "content_share"
+        condition: "Artifact written to external-infohub and flagged for customer sharing"
+        approver: "SA Agent owner or AE"
+      - type: "strategic_recommendation"
+        condition: "Playbook output recommends strategic posture change (e.g. defensive pivot)"
+        approver: "Senior Manager"
+      - type: "high_value_action"
+        condition: "Action impacts deal > $1M or involves executive stakeholder"
+        approver: "Senior Manager"
+
+    anti_patterns:
+      - "Do not request approval for routine governance actions (nudges, staleness flags)"
+      - "Do not request approval for artifacts written to internal-infohub only"
+      - "Do not create duplicate approval requests for the same artifact"
+
+    example:
+      realm_id: "ACME"
+      node_id: "SECURITY_CONSOLIDATION"
+      approval_id: "APR_2026_02_10_001"
+      approval_type: "content_share"
+      artifact_path: "vault/ACME_CORP/SECURITY_CONSOLIDATION/external-infohub/architecture/ADR_001_security_platform.md"
+      requested_by: "sa_agent"
+      approver: "Jane Smith"
+      requested_at: "2026-02-10T14:30:00Z"
+      summary: "ADR for security platform selection ready for customer sharing"
+      sla_hours: 24
+      blocked_signals: ["SIG_ART_001"]
+
+  - signal_id: "SIG_GOV_005"
+    name: "approval_resolved"
+    category: "governance"
+    version: 1
+    description: "A human has approved, rejected, or requested changes on a pending approval"
+
+    producer: "UI / Human Actor"
+    consumers:
+      - agent: "Orchestration Agent"
+        action: "Release blocked signals if approved, or route back to producing agent if rejected"
+      - agent: "Nudger Agent"
+        action: "Cancel pending approval reminders"
+      - agent: "Audit Logger"
+        action: "Record approval outcome"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "approval_id"
+          type: "string"
+          description: "Matches the original approval request"
+        - field: "outcome"
+          type: "enum"
+          values: ["approved", "rejected", "changes_requested"]
+        - field: "resolved_by"
+          type: "string"
+          description: "Human who resolved the approval"
+        - field: "resolved_at"
+          type: "datetime"
+      optional:
+        - field: "feedback"
+          type: "string"
+          description: "Approver's comments, required if outcome is rejected or changes_requested"
+        - field: "time_to_resolve_hours"
+          type: "number"
+        - field: "decision_id"
+          type: "string"
+          description: "If approval resulted in a logged decision"
+
+    emitted_when: "Human submits approval, rejection, or change request via UI"
+
+    anti_patterns:
+      - "Do not auto-approve; this signal must originate from a human action"
+      - "Do not resolve without feedback when rejecting or requesting changes"
+
+    example:
+      realm_id: "ACME"
+      node_id: "SECURITY_CONSOLIDATION"
+      approval_id: "APR_2026_02_10_001"
+      outcome: "approved"
+      resolved_by: "human:jane_smith"
+      resolved_at: "2026-02-10T16:45:00Z"
+      time_to_resolve_hours: 2.25
 
   # ============================================================================
   # PLAYBOOK SIGNALS
@@ -1296,6 +1598,215 @@ signals:
       new_technologies: 3
       sources_scanned: ["linkedin", "indeed", "company_careers"]
 
+  # ============================================================================
+  # MARKET NEWS ANALYSIS SIGNALS
+  # ============================================================================
+
+  - signal_id: "SIG_MNA_001"
+    name: "market_news_digest_updated"
+    category: "market_news"
+    version: 1
+    description: "A market news digest has been generated or updated for a realm or node"
+
+    producer: "Market News Analysis Agent"
+    consumers:
+      - agent: "AE Agent"
+        action: "Review digest for commercial opportunities and talking points"
+      - agent: "SA Agent"
+        action: "Review technical and market trend implications"
+      - agent: "Risk Radar Agent"
+        action: "Scan digest for risk signals and deal threats"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+          description: "Realm identifier"
+        - field: "digest_scope"
+          type: "enum"
+          values: ["realm", "node"]
+          description: "Whether this is a realm-level or node-level digest"
+        - field: "generated_at"
+          type: "datetime"
+        - field: "period_start"
+          type: "date"
+        - field: "period_end"
+          type: "date"
+        - field: "items_relevant"
+          type: "integer"
+          description: "Number of relevant news items in the digest"
+      optional:
+        - field: "node_id"
+          type: "string"
+          description: "Node identifier (required when digest_scope is 'node')"
+        - field: "domain"
+          type: "string"
+          description: "Solution domain (e.g., 'security', 'observability', 'search')"
+        - field: "sources_scanned"
+          type: "integer"
+        - field: "high_impact_count"
+          type: "integer"
+          description: "Number of high-impact items in the digest"
+        - field: "digest_path"
+          type: "string"
+          description: "Vault path to the generated digest file"
+
+    emitted_when: "Weekly digest is generated for a realm or node"
+
+    anti_patterns:
+      - "Do not emit if no relevant news items were found"
+      - "Do not emit for partial scans that fail quality gates"
+
+    example:
+      realm_id: "ACME_CORP"
+      digest_scope: "node"
+      node_id: "SECURITY_CONSOLIDATION"
+      domain: "security"
+      generated_at: "2026-02-10T06:00:00Z"
+      period_start: "2026-02-03"
+      period_end: "2026-02-10"
+      items_relevant: 11
+      sources_scanned: 7
+      high_impact_count: 3
+      digest_path: "vault/ACME_CORP/SECURITY_CONSOLIDATION/internal-infohub/market_intelligence/news_digest.yaml"
+
+  - signal_id: "SIG_MNA_002"
+    name: "high_impact_news_detected"
+    category: "market_news"
+    version: 1
+    description: "A high-impact news item has been detected that requires immediate attention"
+
+    producer: "Market News Analysis Agent"
+    consumers:
+      - agent: "AE Agent"
+        action: "Assess commercial impact and adjust engagement strategy"
+      - agent: "Risk Radar Agent"
+        action: "Evaluate risk implications and update risk register"
+      - agent: "Orchestration Agent"
+        action: "Determine if immediate stakeholder notification is needed"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "headline"
+          type: "string"
+          description: "News headline or summary"
+        - field: "category"
+          type: "enum"
+          values: ["financial", "leadership", "product", "regulatory", "competitive", "strategic"]
+        - field: "source"
+          type: "string"
+        - field: "confidence"
+          type: "enum"
+          values: ["confirmed", "reported", "rumored"]
+        - field: "relevance_score"
+          type: "number"
+          description: "Relevance score (0.0-1.0)"
+        - field: "detected_at"
+          type: "datetime"
+      optional:
+        - field: "affected_nodes"
+          type: "array"
+          description: "Node IDs affected by this news"
+        - field: "impact_assessment"
+          type: "string"
+          description: "AI-generated impact analysis"
+        - field: "recommended_actions"
+          type: "array"
+          description: "Suggested actions by role"
+        - field: "urgency"
+          type: "enum"
+          values: ["IMMEDIATE", "THIS_WEEK", "NEXT_REVIEW", "MONITOR"]
+
+    emitted_when: "News item exceeds urgency threshold (relevance_score >= 0.8)"
+
+    anti_patterns:
+      - "Do not emit for routine company updates (blog posts, minor PR)"
+      - "Do not emit for unverified rumors unless confidence is explicitly 'rumored'"
+      - "Do not emit more than 3 high-impact signals per realm per day"
+
+    example:
+      realm_id: "INITECH"
+      headline: "Initech closes $45M Series C led by Insight Partners"
+      category: "financial"
+      source: "TechCrunch"
+      confidence: "confirmed"
+      relevance_score: 0.93
+      detected_at: "2026-02-04T09:15:00Z"
+      affected_nodes: ["SEARCH_EVALUATION"]
+      impact_assessment: "Fresh capital eliminates budget risk for search platform investment"
+      urgency: "THIS_WEEK"
+
+  - signal_id: "SIG_MNA_003"
+    name: "competitive_news_detected"
+    category: "market_news"
+    version: 1
+    description: "News directly involving a competitor in an active node engagement"
+
+    producer: "Market News Analysis Agent"
+    consumers:
+      - agent: "Competitive Intelligence Agent"
+        action: "Update battlecards and competitive positioning"
+      - agent: "SA Agent"
+        action: "Prepare technical counter-positioning"
+      - agent: "AE Agent"
+        action: "Adjust deal strategy based on competitive shift"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+          description: "Node where competitor is active"
+        - field: "competitor"
+          type: "string"
+          description: "Competitor name"
+        - field: "news_type"
+          type: "enum"
+          values: ["product_launch", "pricing_change", "partnership", "acquisition", "analyst_rating", "outage_incident"]
+        - field: "headline"
+          type: "string"
+        - field: "source"
+          type: "string"
+        - field: "detected_at"
+          type: "datetime"
+      optional:
+        - field: "our_response"
+          type: "string"
+          description: "Recommended counter-response"
+        - field: "urgency"
+          type: "enum"
+          values: ["IMMEDIATE", "THIS_WEEK", "NEXT_REVIEW", "MONITOR"]
+        - field: "confidence"
+          type: "enum"
+          values: ["confirmed", "reported", "rumored"]
+        - field: "impact_on_deal"
+          type: "enum"
+          values: ["positive", "negative", "neutral"]
+          description: "Whether this helps or hurts our position"
+
+    emitted_when: "News directly involves a competitor listed in a node's competitive_context"
+
+    anti_patterns:
+      - "Do not emit for competitors not in any active node's competitive context"
+      - "Do not emit for generic competitor marketing content"
+      - "Do not duplicate signals already emitted by CI Agent from other sources"
+
+    example:
+      realm_id: "INITECH"
+      node_id: "SEARCH_EVALUATION"
+      competitor: "Algolia"
+      news_type: "pricing_change"
+      headline: "Algolia announces 30% price increase for growth-tier customers"
+      source: "Industry pricing intelligence"
+      detected_at: "2026-01-18T10:00:00Z"
+      our_response: "Update TCO comparison; $100K+ annual savings opportunity"
+      urgency: "THIS_WEEK"
+      confidence: "reported"
+      impact_on_deal: "positive"
+
 # ------------------------------------------------------------------------------
 # CUSTOM SIGNAL VALIDATION RULES
 # ------------------------------------------------------------------------------
@@ -1363,3 +1874,28 @@ signal_flows:
       - "SIG_TECH_001"  # tech_signal_map_updated
       - "SIG_TECH_002"  # new_technology_detected (for each new tech)
       - "SIG_TECH_003"  # technology_trending (for significant changes)
+
+  approval_workflow:
+    description: "Flow from agent output through human approval gate to downstream release"
+    signals:
+      - "SIG_GOV_004"  # approval_requested (agent produces high-stakes artifact)
+      - "SIG_HLT_004"  # action_overdue (Nudger reminds if SLA breached)
+      - "SIG_GOV_005"  # approval_resolved (human approves, rejects, or requests changes)
+      - "SIG_ART_002"  # artifact_updated (if changes_requested, agent revises)
+
+  market_news_intelligence:
+    description: "Flow from news scan to digest generation and high-impact alerts"
+    signals:
+      - "SIG_MNA_001"  # market_news_digest_updated (weekly)
+      - "SIG_MNA_002"  # high_impact_news_detected (on-demand)
+      - "SIG_MNA_003"  # competitive_news_detected (feeds CI Agent)
+
+  action_signal_completion:
+    description: "Flow from seller activity signals to automatic action completion"
+    signals:
+      - "SIG_ART_003"  # meeting_processed (triggers signal scan)
+      - "SIG_ART_001"  # artifact_created (new vault content as signal)
+      - "SIG_ART_002"  # artifact_updated (changed vault content as signal)
+      - "SIG_HLT_005"  # action_completion_detected (match found)
+      - "SIG_HLT_006"  # action_completion_confirmed (human confirms suggestion)
+      - "SIG_HLT_007"  # action_completion_reverted (human reverts auto-complete)
