@@ -118,13 +118,13 @@ class DocsService:
     def get_content(self, doc_path: str) -> Optional[str]:
         """Read a markdown file by its relative path within docs/."""
         safe_path = Path(doc_path)
-        # Prevent path traversal attacks (e.g. ../../etc/passwd)
-        if ".." in safe_path.parts:
+        if ".." in safe_path.parts or safe_path.is_absolute():
             return None
 
-        full_path = self.docs_path / safe_path
-        # Only serve existing .md files
-        if not full_path.is_file() or not full_path.suffix == ".md":
+        full_path = (self.docs_path / safe_path).resolve()
+        if not full_path.is_relative_to(self.docs_path.resolve()):
+            return None
+        if not full_path.is_file() or full_path.suffix != ".md":
             return None
 
         try:

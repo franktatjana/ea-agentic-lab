@@ -85,12 +85,21 @@ class PlaybookService:
 
     def _resolve_path(self, team: str, filename: str) -> Optional[Path]:
         """Resolve playbook path, handling nested directories like specialists/security/"""
+        if ".." in team or ".." in filename or "/" in team or "/" in filename:
+            return None
+
         path = self.playbook_root / team / filename
-        if path.exists():
-            return path
+        resolved = path.resolve()
+        if not resolved.is_relative_to(self.playbook_root.resolve()):
+            return None
+        if resolved.exists() and resolved.is_file():
+            return resolved
+
         for candidate in self.playbook_root.rglob(filename):
             if candidate.parent.name == team:
-                return candidate
+                candidate_resolved = candidate.resolve()
+                if candidate_resolved.is_relative_to(self.playbook_root.resolve()):
+                    return candidate_resolved
         return None
 
     def get_playbook(self, team: str, filename: str) -> Optional[dict[str, Any]]:

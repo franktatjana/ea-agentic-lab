@@ -9,13 +9,14 @@ from .config import get_settings
 from .routers import nodes, health, risks, actions, decisions, profile, widgets, tech_radar, playbooks, blueprints, docs
 
 settings = get_settings()
+settings.validate_production()
 
 app = FastAPI(
     title=settings.api_title,
     version=settings.api_version,
     description="REST API for EA Agentic Lab iOS companion app",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if settings.debug else None,
+    redoc_url="/redoc" if settings.debug else None,
 )
 
 # CORS middleware

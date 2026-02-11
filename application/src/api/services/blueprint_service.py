@@ -56,6 +56,8 @@ class BlueprintService:
         return blueprints
 
     def get_reference_blueprint(self, archetype: str, blueprint_id: str) -> Optional[dict[str, Any]]:
+        if ".." in archetype or "/" in archetype or ".." in blueprint_id or "/" in blueprint_id:
+            return None
         root = self.domain_path / "blueprints" / "reference" / archetype
         if not root.exists():
             return None
@@ -88,6 +90,8 @@ class BlueprintService:
         return lookup
 
     def get_reference_blueprint_raw(self, archetype: str, blueprint_id: str) -> Optional[str]:
+        if ".." in archetype or "/" in archetype or ".." in blueprint_id or "/" in blueprint_id:
+            return None
         root = self.domain_path / "blueprints" / "reference" / archetype
         if not root.exists():
             return None

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     api_title: str = "EA Agentic Lab API"
     api_version: str = "1.0.0"
     api_prefix: str = "/api/v1"
-    debug: bool = True
+    debug: bool = False
 
     # Paths
     # __file__ = application/src/api/config.py
@@ -30,11 +30,18 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60 * 24  # 24 hours
 
     # CORS
-    cors_origins: list[str] = ["*"]
+    cors_origins: list[str] = ["http://localhost:3000"]
 
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+
+    def is_production(self) -> bool:
+        return not self.debug
+
+    def validate_production(self) -> None:
+        if self.is_production() and self.secret_key == "dev-secret-key-change-in-production":
+            raise ValueError("SECRET_KEY must be changed from default in production (set DEBUG=false)")
 
 
 @lru_cache
