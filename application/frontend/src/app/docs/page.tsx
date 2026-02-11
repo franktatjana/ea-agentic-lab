@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { Suspense, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -184,7 +184,7 @@ function collectDirPaths(entries: DocTreeEntry[]): string[] {
  * - Right panel: rendered markdown content
  * Selected doc path is stored in the URL query param (?path=...) for shareability.
  */
-export default function DocsPage() {
+function DocsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const activePath = searchParams.get("path") || "README.md"; // Default to root README
@@ -333,5 +333,13 @@ export default function DocsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function DocsPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-64"><p className="text-muted-foreground">Loading...</p></div>}>
+      <DocsPageContent />
+    </Suspense>
   );
 }
