@@ -32,6 +32,8 @@ knowledge/
 └── templates/                # Reusable templates (symlink to playbooks/templates)
 ```
 
+[image: Knowledge Base vs InfoHub - global cross-account reference material vs account-specific operational data]
+
 ## Distinction from InfoHub
 
 | Aspect | Knowledge Base | InfoHub |
@@ -62,5 +64,5 @@ Agents write to Knowledge Base to:
 
 ## Related Documentation
 
-- [InfoHub](../infohub/README.md) - Account-specific operational data
+- Account data is now organized per-realm under `vault/{realm}/{node}/` with `external-infohub/` and `internal-infohub/` subdirectories
 - [Best Practices Library](best_practices/README.md) - Detailed best practice structure
