@@ -25,30 +25,31 @@ Enterprise account management suffers from:
 
 A structured governance system with three layers:
 
-### 1. Multi-Agent Architecture (24 Agents)
+### 1. Multi-Agent Architecture (32 Agents)
 
 | Layer | Agents | Purpose |
 |-------|--------|---------|
-| Strategic | 15 | Apply judgment, use frameworks, make recommendations |
-| Governance | 8 | Enforce process, maintain artifacts, reduce entropy |
-| Orchestration | 1 | Coordinate agents, detect conflicts, manage workflows |
+| Strategic | 19 | Apply judgment, use frameworks, make recommendations |
+| Governance | 10 | Enforce process, maintain artifacts, reduce entropy |
+| Intelligence | 3 | Signal processing, market news analysis, trend detection |
 
 ### 2. Playbook Engine
 
 | Type | Count | Purpose |
 |------|-------|---------|
-| Strategic Playbooks | 17+ | Framework operationalization (SWOT, Three Horizons, TOGAF) |
-| Operational Playbooks | 5+ | Event-driven procedures (risk registration, action creation) |
-| Canvas Playbooks | 2 | Visual artifact rendering |
+| Strategic Playbooks | 65 | Framework operationalization across 12 team domains |
+| Operational Playbooks | 7 | Event-driven procedures (risk registration, action creation) |
+| Canvas Specs | 9 | Visual artifact rendering (decision, risk, value, architecture) |
 
-### 3. InfoHub (Knowledge Repository)
+### 3. Three-Vault Knowledge Architecture
 
-Structured storage organized by:
+Structured storage organized by Realm (company) and Node (initiative), with each Node containing three purpose-built vaults:
 
-- **Realm** = Company (ACME, GlobalTech, FinCorp)
-- **Node** = Initiative within a Realm (Security Consolidation, Observability Rollout)
+- **External InfoHub** - Customer-facing knowledge: architecture decisions, journey maps, stakeholder maps, opportunities
+- **Internal InfoHub** - Team-facing knowledge: risk registers, action trackers, competitive context, frameworks, governance
+- **Raw Vault** - Unprocessed inputs: meeting notes, field notes, daily ops logs
 
-Each Node contains: meetings, decisions, risks, actions, architecture, value tracking, governance.
+Each vault is machine-readable YAML, enabling agents to validate, gap-scan, and cross-reference data automatically.
 
 ---
 
@@ -58,9 +59,9 @@ Three design choices separate this system from traditional account management to
 
 **Documents for machines, artifacts for humans.** Everything is stored as structured, machine-readable YAML with schema validation. Canvases, reports, and dashboards are rendered from that data on demand. This inverts the traditional approach where humans write documents that machines cannot parse. When data is machine-readable first, agents can validate it, gap-scan it, cross-reference it, and render it into any format a stakeholder needs.
 
-**Personalizable AI agent teams.** The 24 agents are not a monolithic system. Each Account Executive gets their own agent team configured for their accounts, domains, and engagement patterns. One AE running three security deals and a search expansion gets a team weighted toward security and search specialists with competitive displacement playbooks loaded. Another AE managing strategic renewals gets retention-focused agents with health monitoring and champion mapping. The agent team adapts to how each person works, not the other way around.
+**Personalizable AI agent teams.** The 32 agents are not a monolithic system. Each Account Executive gets their own agent team configured for their accounts, domains, and engagement patterns. One AE running three security deals and a search expansion gets a team weighted toward security and search specialists with competitive displacement playbooks loaded. Another AE managing strategic renewals gets retention-focused agents with health monitoring and champion mapping. The agent team adapts to how each person works, not the other way around.
 
-**Customer-facing knowledge as a deliverable.** When the system works on a customer engagement, it does not just track internal notes. It creates a structured InfoHub for that customer, organized by initiative, with every artifact, decision, risk, and action item captured with full provenance. This means the engagement itself produces a curated knowledge repository that can be shared with the customer, handed off to a new team member, or audited years later. Knowledge sharing is not a side effect, it is the primary output.
+**Customer-facing knowledge as a deliverable.** When the system works on a customer engagement, it does not just track internal notes. It creates a structured knowledge vault for that customer, organized by initiative across three vaults (external-infohub, internal-infohub, raw), with every artifact, decision, risk, and action item captured with full provenance. This means the engagement itself produces a curated knowledge repository that can be shared with the customer, handed off to a new team member, or audited years later. Knowledge sharing is not a side effect, it is the primary output.
 
 **Proactive governance, not passive dashboards.** Traditional tools show you a dashboard and wait for you to check it. This system's governance agents continuously scan for gaps, flag overdue actions, detect stale artifacts, and nudge before problems become visible. The difference is between a smoke detector and a fire report.
 
@@ -75,7 +76,7 @@ Three design choices separate this system from traditional account management to
 - **Runtime:** Python 3.11+
 - **Data Format:** YAML with JSON Schema validation
 - **API:** FastAPI (backend)
-- **UI:** Streamlit (demo), mobile companion app (planned)
+- **UI:** Next.js 15 with shadcn/ui (web application), Streamlit (demo)
 - **Testing:** pytest
 
 ---
@@ -84,12 +85,14 @@ Three design choices separate this system from traditional account management to
 
 | Metric | Value |
 |--------|-------|
-| Agents Defined | 24 |
-| Strategic Playbooks | 17 |
-| Canvas Types | 8 |
-| Architecture | Complete |
+| Agents Defined | 32 |
+| Strategic Playbooks | 65 |
+| Operational Playbooks | 7 |
+| Canvas Types | 9 |
+| Blueprint Templates | 3 |
+| Sample Realms | 3 (ACME_CORP, GLOBEX, INITECH) |
 
-**Phase:** Vertical slice complete. Ready for execution engine implementation.
+**Phase:** Domain model and web application complete. Frontend provides dashboard, playbook catalog, agent profiles, blueprint overview, and documentation browser. Backend API serves playbooks, blueprints, and docs. Ready for execution engine and agent runtime implementation.
 
 ---
 
