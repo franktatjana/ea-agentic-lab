@@ -470,7 +470,7 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 | Pattern detected | CA Agent | Systemic issue identified |
 | Architecture issue | SA Agent | Design-related tickets |
 | Customer frustration | AE Agent | Relationship risk |
-| Critical escalation | Senior Manager | P0/Sev1 ongoing |
+| Critical escalation | Senior Manager | Critical/Sev1 ongoing |
 
 ---
 

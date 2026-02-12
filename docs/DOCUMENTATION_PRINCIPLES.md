@@ -177,7 +177,7 @@ actions:
     description: "Complete security assessment"
     assignee: "John Smith"
     due_date: "2026-01-30"
-    priority: "P1"
+    priority: "high"
 risks_identified:
   - risk_id: "RISK_012"
     description: "Timeline pressure may compromise testing"
@@ -229,7 +229,7 @@ title: "Complete security assessment"
 description: "Run full security scan on Phase 1 components"
 assignee: "John Smith"
 status: "in_progress"           # pending | in_progress | blocked | completed | cancelled
-priority: "P1"                  # P0 | P1 | P2 | P3
+priority: "high"                 # critical | high | medium | low
 created_date: "2026-01-23"
 due_date: "2026-01-30"
 completed_date: null
@@ -332,7 +332,7 @@ Before saving any artifact (meeting note, decision, risk, action, canvas), verif
 - [ ] **Status** uses defined enum values (not free text)
 - [ ] **Dates** in ISO format (`2026-01-23`, not "next Tuesday")
 - [ ] **Owner/Assignee** is a specific person (not "team" or "TBD")
-- [ ] **Severity/Priority** uses defined levels (`P0`/`P1`/`P2`, `critical`/`high`/`medium`/`low`)
+- [ ] **Severity/Priority** uses defined levels (`critical`/`high`/`medium`/`low`)
 - [ ] **Related items** linked by ID (not description)
 - [ ] **Provenance** captured (source meeting, playbook run)
 - [ ] **No narrative blobs** - structured fields only

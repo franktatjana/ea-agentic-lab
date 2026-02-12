@@ -669,14 +669,14 @@ class PlaybookMerger:
 
 | Component | Purpose | Priority |
 |-----------|---------|----------|
-| Override file storage | Store user/team/region overrides | P0 |
-| User identity service | Know current user context | P0 |
-| Override validation API | Validate before save | P0 |
-| Merge engine | Combine base + overrides | P0 |
-| Override UI | Create/edit overrides | P1 |
-| Override versioning | Track override history | P1 |
-| Override sharing | Share overrides between users | P2 |
-| Override analytics | Usage and effectiveness | P2 |
+| Override file storage | Store user/team/region overrides | Critical |
+| User identity service | Know current user context | Critical |
+| Override validation API | Validate before save | Critical |
+| Merge engine | Combine base + overrides | Critical |
+| Override UI | Create/edit overrides | High |
+| Override versioning | Track override history | High |
+| Override sharing | Share overrides between users | Medium |
+| Override analytics | Usage and effectiveness | Medium |
 
 ---
 

@@ -152,17 +152,53 @@ Permanent. Grows with every engagement. Feeds back into blueprints, playbooks, a
 
 ### Ownership
 
-Curator agents (automated extraction and anonymization), validated by domain specialists.
+Human-curated. Agents can propose items, but humans review and approve before knowledge enters the vault.
 
 ### Directory Structure
 
-| Directory | Content |
-|-----------|---------|
-| `best_practices/{domain}/` | Validated best practices by domain (security, observability, search, platform) |
-| `lessons_learned/` | Aggregated retrospective insights |
-| `patterns/success_patterns/` | Anonymized success patterns |
-| `patterns/risk_patterns/` | Common risk indicators |
-| `patterns/competitive_patterns/` | Displacement patterns |
+```text
+vault/knowledge/
+├── operations/                        # How the team works
+│   ├── engagement-management/         # Process and methodology
+│   ├── stakeholder-handling/          # Relationship practices
+│   └── delivery-execution/            # Delivery and execution patterns
+├── content/                           # How team works with customer
+│   ├── security/                      # Security domain practices
+│   ├── observability/                 # Observability domain practices
+│   ├── search/                        # Search domain practices
+│   ├── platform/                      # Platform domain practices
+│   └── general/                       # Cross-domain content practices
+├── external/                          # Outside knowledge sources
+│   ├── industry/                      # Analyst reports, standards
+│   └── research/                      # Published research, benchmarks
+├── assets/                            # Reusable deliverables
+│   ├── templates/                     # Document templates
+│   └── references/                    # Reference materials
+└── .proposals/                        # Agent-proposed items (review queue)
+```
+
+### Knowledge Item Schema
+
+Each item is a YAML file with frontmatter metadata (id, title, type, category, domain, archetype, phase, relevance, tags, confidence, source) followed by markdown content. The metadata enables machine-queryable filtering at runtime.
+
+### How Agents Consume Knowledge
+
+Pre-loaded context injection: during playbook execution (step 3 of the pipeline), the PlaybookExecutor calls the KnowledgeService to fetch items matching the node's blueprint classification (domain, archetype, phase). Matched items are injected into the agent's input context as `knowledge_context`. Agents receive richer inputs without any code changes to their `process()` methods.
+
+### Ingestion Paths
+
+Two paths, both human-curated:
+
+1. **Manual entry**: Humans add items through the Knowledge Vault UI (`/knowledge`)
+2. **Agent proposals**: Agents emit `knowledge_proposal` signals, items land in `.proposals/`, humans review and approve via the UI
+
+### Confidence Levels
+
+| Level | Meaning |
+|-------|---------|
+| `proposed` | Agent-generated, awaiting human review |
+| `reviewed` | Human-reviewed and approved |
+| `validated` | Proven through multiple engagements |
 
 ## Raw Ingestion Zone
 

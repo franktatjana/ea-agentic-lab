@@ -22,6 +22,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { BlueprintComposer } from "@/components/blueprint-composer";
 
 function formatLabel(s: string): string {
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -124,6 +125,7 @@ function BlueprintCard({ bp }: { bp: Record<string, unknown> }) {
 export default function ReferenceBlueprintsPage() {
   const [search, setSearch] = useState("");
   const [archetypeFilter, setArchetypeFilter] = useState("all");
+  const [showComposer, setShowComposer] = useState(false);
 
   const { data: blueprints, isLoading } = useQuery({
     queryKey: ["referenceBlueprints"],
@@ -177,13 +179,18 @@ export default function ReferenceBlueprintsPage() {
             Back
           </Button>
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold">Reference Blueprints</h1>
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold">Blueprints</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             Composable templates that define playbook composition, canvases, checklists, and governance per engagement archetype and track.
           </p>
         </div>
+        <Button variant="outline" size="sm" onClick={() => setShowComposer((v) => !v)}>
+          {showComposer ? "Hide Composer" : "Compose"}
+        </Button>
       </div>
+
+      {showComposer && <BlueprintComposer />}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">

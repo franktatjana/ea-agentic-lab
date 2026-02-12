@@ -3,10 +3,25 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 from ..services.blueprint_service import BlueprintService, get_blueprint_service
+from ..services.composition_service import CompositionService, get_composition_service
 
 router = APIRouter()
+
+
+class ComposeRequest(BaseModel):
+    archetype: str
+    domain: str
+    track: str
+    variant: Optional[str] = None
+
+
+class SaveBlueprintRequest(BaseModel):
+    blueprint: dict
+    archetype: str
+    blueprint_id: str
 
 
 @router.get("/blueprints/archetypes")
@@ -25,6 +40,14 @@ async def get_tracks(svc: BlueprintService = Depends(get_blueprint_service)):
 async def get_checklist_definitions(svc: BlueprintService = Depends(get_blueprint_service)):
     """Checklist definitions lookup (rule_id -> name, assertion, severity)"""
     return svc.get_checklist_definitions()
+
+
+@router.get("/blueprints/playbook-index")
+async def get_playbook_index(
+    svc: CompositionService = Depends(get_composition_service),
+):
+    """All playbooks indexed by ID with name, team, category, objective"""
+    return svc.get_playbook_index()
 
 
 @router.get("/blueprints/reference")
@@ -60,3 +83,32 @@ async def get_reference_blueprint_raw(
     if content is None:
         raise HTTPException(status_code=404, detail="Reference blueprint not found")
     return {"content": content}
+
+
+@router.post("/blueprints/compose")
+async def compose_blueprint(
+    body: ComposeRequest,
+    svc: CompositionService = Depends(get_composition_service),
+):
+    """Compose a blueprint from archetype + domain + track"""
+    result = svc.compose(
+        archetype=body.archetype,
+        domain=body.domain,
+        track=body.track,
+        variant=body.variant,
+    )
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@router.post("/blueprints/compose/save")
+async def save_composed_blueprint(
+    body: SaveBlueprintRequest,
+    svc: CompositionService = Depends(get_composition_service),
+):
+    """Save a composed blueprint as a reference blueprint YAML"""
+    ok, msg = svc.save_blueprint(body.blueprint, body.archetype, body.blueprint_id)
+    if not ok:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"status": "ok", "path": msg}

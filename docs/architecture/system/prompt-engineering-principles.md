@@ -337,7 +337,7 @@ few_shot_examples:
           - description: "Send security architecture proposal"
             owner: "SA"
             due: "2026-01-29"
-            priority: P1
+            priority: high
 
         risks_identified:
           - signal: "Mentioned LegacySIEM has been reaching out"

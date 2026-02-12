@@ -41,7 +41,7 @@ Scheduled quarterly business review with Dr. Chen, who owns the platform enginee
 Dr. Chen expressed satisfaction with the observability platform performance:
 - "The APM rollout has reduced our mean-time-to-detection by 40%"
 - Plant observability project on track for June completion
-- 250 active Kibana users, up from 180 last quarter
+- 250 active dashboard users, up from 180 last quarter
 
 ### 2. Security Consolidation Initiative
 **Key announcement**: Board has approved budget for security vendor consolidation.

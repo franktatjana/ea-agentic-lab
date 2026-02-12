@@ -375,9 +375,9 @@ Document what specialists know but agents might not:
 ```yaml
 # In operational playbook documentation
 implicit_knowledge:
-  - term: "P0 action"
+  - term: "Critical action"
     meaning: "Highest priority action, typically blocking customer progress or revenue"
-    agent_guidance: "P0 actions should be addressed before any other work"
+    agent_guidance: "Critical actions should be addressed before any other work"
 
   - term: "Health score yellow"
     meaning: "Score between 50-70, indicates elevated risk"

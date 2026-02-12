@@ -577,9 +577,9 @@ def render_action_tracker_view(client_id: str):
     with col1:
         st.metric("Total Actions", summary.get('total_actions', 0))
     with col2:
-        st.metric("🔴 P0 Critical", summary.get('p0_critical', 0))
+        st.metric("🔴 Critical", summary.get('critical', 0))
     with col3:
-        st.metric("🟠 P1 High", summary.get('p1_high', 0))
+        st.metric("🟠 High", summary.get('high', 0))
     with col4:
         st.metric("✅ Completed", summary.get('completed', 0))
     with col5:
@@ -597,10 +597,10 @@ def render_action_tracker_view(client_id: str):
     # Action list by priority
     actions = tracker.get('actions', [])
 
-    # P0 Actions
-    p0_actions = [a for a in actions if a.get('priority') == 'P0']
+    # Critical Actions
+    p0_actions = [a for a in actions if a.get('priority') == 'critical']
     if p0_actions:
-        st.markdown("### 🔴 P0 - Critical Actions (Due within 48 hours)")
+        st.markdown("### 🔴 Critical Actions (Due within 48 hours)")
         for action in p0_actions:
             with st.container(border=True):
                 col1, col2, col3 = st.columns([3, 1, 1])
@@ -624,18 +624,18 @@ def render_action_tracker_view(client_id: str):
                 if risks:
                     st.caption(f"🔗 Linked risks: {', '.join(risks)}")
 
-    # P1 Actions
-    p1_actions = [a for a in actions if a.get('priority') == 'P1']
+    # High Actions
+    p1_actions = [a for a in actions if a.get('priority') == 'high']
     if p1_actions:
-        with st.expander(f"🟠 P1 - High Priority Actions ({len(p1_actions)})", expanded=False):
+        with st.expander(f"🟠 High Priority Actions ({len(p1_actions)})", expanded=False):
             for action in p1_actions:
                 status_icon = "✅" if action.get('status') == 'completed' else "🔄" if action.get('status') == 'in_progress' else "⏳"
                 st.markdown(f"{status_icon} **{action.get('title')}** - {action.get('owner', 'TBD')} (Due: {action.get('due_date', 'TBD')})")
 
-    # P2 Actions
-    p2_actions = [a for a in actions if a.get('priority') == 'P2']
+    # Medium Actions
+    p2_actions = [a for a in actions if a.get('priority') == 'medium']
     if p2_actions:
-        with st.expander(f"🟡 P2 - Medium Priority Actions ({len(p2_actions)})", expanded=False):
+        with st.expander(f"🟡 Medium Priority Actions ({len(p2_actions)})", expanded=False):
             for action in p2_actions:
                 status_icon = "✅" if action.get('status') == 'completed' else "🔄" if action.get('status') == 'in_progress' else "⏳"
                 st.markdown(f"{status_icon} **{action.get('title')}** - {action.get('owner', 'TBD')} (Due: {action.get('due_date', 'TBD')})")
@@ -758,8 +758,8 @@ def render_dashboard_tab(client_id: str, account: dict):
             st.progress(progress, text=f"{completed}/{total} actions completed")
 
             # Quick stats
-            st.write(f"🔴 **Critical (P0):** {summary.get('p0_critical', 0)}")
-            st.write(f"🟠 **High (P1):** {summary.get('p1_high', 0)}")
+            st.write(f"🔴 **Critical:** {summary.get('critical', 0)}")
+            st.write(f"🟠 **High:** {summary.get('high', 0)}")
             st.write(f"⚠️ **Overdue:** {summary.get('overdue', 0)}")
 
     # Risks and Decisions

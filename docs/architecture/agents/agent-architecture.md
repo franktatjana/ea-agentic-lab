@@ -268,7 +268,7 @@ flowchart BT
     IS -->|security blockers| SM
     CI -->|competitive threats| SM
     PS -->|delivery risks, scope mismatch| SM
-    SUP -->|P1 incidents, SLA breach| SM
+    SUP -->|Critical incidents, SLA breach| SM
     VE -->|value not realized| SM
 
     SM -->|deals > $2M| VP

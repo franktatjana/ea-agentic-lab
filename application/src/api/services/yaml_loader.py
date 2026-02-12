@@ -415,7 +415,7 @@ class YAMLLoader:
                     description=action_data.get("description"),
                     owner=action_data.get("owner", ""),
                     due_date=action_data.get("due_date"),
-                    priority=action_data.get("priority", "P2"),
+                    priority=action_data.get("priority", "medium"),
                     status=action_data.get("status", "not_started"),
                     source=action_data.get("source"),
                     source_type=action_data.get("source_type"),
@@ -434,9 +434,9 @@ class YAMLLoader:
         summary_data = data.get("summary", {})
         summary = ActionSummary(
             total_actions=summary_data.get("total_actions", len(actions)),
-            p0_critical=summary_data.get("p0_critical", 0),
-            p1_high=summary_data.get("p1_high", 0),
-            p2_medium=summary_data.get("p2_medium", 0),
+            critical=summary_data.get("critical", 0),
+            high=summary_data.get("high", 0),
+            medium=summary_data.get("medium", 0),
             completed=summary_data.get("completed", 0),
             in_progress=summary_data.get("in_progress", 0),
             not_started=summary_data.get("not_started", 0),
@@ -460,7 +460,7 @@ class YAMLLoader:
     def get_decision_log(self, realm_id: str, node_id: str) -> Optional[DecisionLog]:
         """Get decision log for a node"""
         decision_path = (
-            self._resolve_realm_dir(realm_id) / node_id / "external-infohub" / "decisions" / "decision_log.yaml"
+            self._resolve_realm_dir(realm_id) / node_id / "internal-infohub" / "decisions" / "decision_log.yaml"
         )
         data = self._load_yaml(decision_path)
 
@@ -523,7 +523,7 @@ class YAMLLoader:
         """Get stakeholder map for a node"""
         path = (
             self._resolve_realm_dir(realm_id) / node_id
-            / "external-infohub" / "context" / "stakeholder_map.yaml"
+            / "internal-infohub" / "context" / "stakeholder_map.yaml"
         )
         return self._load_yaml(path)
 
@@ -531,7 +531,7 @@ class YAMLLoader:
         """Get value tracker for a node"""
         path = (
             self._resolve_realm_dir(realm_id) / node_id
-            / "external-infohub" / "value" / "value_tracker.yaml"
+            / "internal-infohub" / "value" / "value_tracker.yaml"
         )
         return self._load_yaml(path)
 
@@ -578,7 +578,7 @@ class YAMLLoader:
                 risk_alerts=notif_data.get("risk_alerts", True),
                 risk_severities=notif_data.get("risk_severities", ["critical", "high"]),
                 action_reminders=notif_data.get("action_reminders", True),
-                action_priorities=notif_data.get("action_priorities", ["P0", "P1"]),
+                action_priorities=notif_data.get("action_priorities", ["critical", "high"]),
                 signal_categories=notif_data.get(
                     "signal_categories", ["health", "governance"]
                 ),

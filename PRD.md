@@ -72,11 +72,11 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Agent Registry | Centralized agent definitions with capabilities, thresholds, boundaries | P0 |
-| Signal Routing | Event-driven communication between agents | P0 |
-| Handover Protocol | Structured handoff with context preservation | P0 |
-| Escalation Hierarchy | Automated escalation based on authority levels | P1 |
-| Agent Monitoring | Health, activity, and performance tracking | P2 |
+| Agent Registry | Centralized agent definitions with capabilities, thresholds, boundaries | Critical |
+| Signal Routing | Event-driven communication between agents | Critical |
+| Handover Protocol | Structured handoff with context preservation | Critical |
+| Escalation Hierarchy | Automated escalation based on authority levels | High |
+| Agent Monitoring | Health, activity, and performance tracking | Medium |
 
 ### 4.2 Playbook Engine
 
@@ -84,12 +84,12 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Playbook Loader | Schema validation, YAML parsing | P0 |
-| Decision Logic Language (DLL) | Machine-executable conditions | P0 |
-| Threshold Manager | Configurable business parameters | P0 |
-| Evidence Validator | Citation requirement enforcement | P1 |
-| Playbook Executor | End-to-end orchestration | P0 |
-| Run Tracing | Execution history and audit trail | P1 |
+| Playbook Loader | Schema validation, YAML parsing | Critical |
+| Decision Logic Language (DLL) | Machine-executable conditions | Critical |
+| Threshold Manager | Configurable business parameters | Critical |
+| Evidence Validator | Citation requirement enforcement | High |
+| Playbook Executor | End-to-end orchestration | Critical |
+| Run Tracing | Execution history and audit trail | High |
 
 ### 4.3 InfoHub (Knowledge Repository)
 
@@ -97,11 +97,11 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Realm/Node Hierarchy | Company → Initiative structure | P0 |
-| Artifact Storage | Decisions, risks, actions, meetings, architecture | P0 |
-| Versioning | Artifact history and change tracking | P1 |
-| Promotion Workflow | Draft → Review → Published lifecycle | P1 |
-| Cross-Node Queries | Realm-level aggregation | P2 |
+| Realm/Node Hierarchy | Company → Initiative structure | Critical |
+| Artifact Storage | Decisions, risks, actions, meetings, architecture | Critical |
+| Versioning | Artifact history and change tracking | High |
+| Promotion Workflow | Draft → Review → Published lifecycle | High |
+| Cross-Node Queries | Realm-level aggregation | Medium |
 
 ### 4.4 Canvas Framework
 
@@ -109,11 +109,11 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Canvas Registry | 8 canvas types with specs and templates | P0 |
-| Dual Output | Markdown (git) + HTML (humans) | P0 |
-| Gap Analysis | Missing, incomplete, stale detection | P0 |
-| Event-Driven Refresh | Auto-render on data changes | P1 |
-| Canvas Lifecycle | Draft → Published → Stale → Archived | P1 |
+| Canvas Registry | 8 canvas types with specs and templates | Critical |
+| Dual Output | Markdown (git) + HTML (humans) | Critical |
+| Gap Analysis | Missing, incomplete, stale detection | Critical |
+| Event-Driven Refresh | Auto-render on data changes | High |
+| Canvas Lifecycle | Draft → Published → Stale → Archived | High |
 
 ### 4.5 Checklist & Validation
 
@@ -121,11 +121,11 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Playbook Checklists | Pre/post execution validation | P0 |
-| Blueprint Checklists | Cross-cutting governance rules | P1 |
-| Staleness Detection | Artifact age monitoring | P0 |
-| Contradiction Detection | Conflicting values across artifacts | P2 |
-| Auto-Fix Recommendations | Suggested playbooks for gaps | P1 |
+| Playbook Checklists | Pre/post execution validation | Critical |
+| Blueprint Checklists | Cross-cutting governance rules | High |
+| Staleness Detection | Artifact age monitoring | Critical |
+| Contradiction Detection | Conflicting values across artifacts | Medium |
+| Auto-Fix Recommendations | Suggested playbooks for gaps | High |
 
 ### 4.6 Configuration Layer
 
@@ -133,11 +133,11 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Path Variables | Decouple playbooks from hardcoded paths | P0 |
-| Threshold Overrides | Blueprint → Realm → Node cascade | P0 |
-| Signal Catalog | Producer/consumer definitions | P0 |
-| Agent Catalog | Centralized agent registry | P1 |
-| Operating Mode Rules | Mode → Playbook applicability matrix | P1 |
+| Path Variables | Decouple playbooks from hardcoded paths | Critical |
+| Threshold Overrides | Blueprint → Realm → Node cascade | Critical |
+| Signal Catalog | Producer/consumer definitions | Critical |
+| Agent Catalog | Centralized agent registry | High |
+| Operating Mode Rules | Mode → Playbook applicability matrix | High |
 
 ---
 

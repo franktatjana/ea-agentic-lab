@@ -4,7 +4,7 @@ Based on InfoHub YAML schemas
 """
 from datetime import date, datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -62,10 +62,10 @@ class RiskCategory(str, Enum):
 
 
 class Priority(str, Enum):
-    p0 = "P0"
-    p1 = "P1"
-    p2 = "P2"
-    p3 = "P3"
+    critical = "critical"
+    high = "high"
+    medium = "medium"
+    low = "low"
 
 
 class ActionStatus(str, Enum):
@@ -152,6 +152,13 @@ class UserRole(str, Enum):
 # ==============================================================================
 
 
+class Stance(str, Enum):
+    champion = "champion"
+    supporter = "supporter"
+    neutral = "neutral"
+    blocker = "blocker"
+
+
 class Stakeholder(BaseModel):
     name: str
     title: str
@@ -160,6 +167,32 @@ class Stakeholder(BaseModel):
     relationship: Optional[str] = None
     decision_role: Optional[str] = None
     linkedin_url: Optional[str] = None
+    stance: Optional[Stance] = None
+
+
+class StanceProposal(BaseModel):
+    proposal_id: str
+    stakeholder_id: str
+    stakeholder_name: str
+    current_stance: Optional[str] = None
+    proposed_stance: Literal["champion", "supporter", "neutral", "blocker"]
+    reason: str
+    proposed_by: str
+    proposed_date: str
+    source: str = ""
+
+
+class StanceProposalCreate(BaseModel):
+    stakeholder_id: str
+    proposed_stance: Literal["champion", "supporter", "neutral", "blocker"]
+    reason: str
+    proposed_by: str
+    source: str = ""
+
+
+class StanceProposalAction(BaseModel):
+    notes: Optional[str] = None
+    reason: Optional[str] = None
 
 
 class Commercial(BaseModel):
@@ -323,6 +356,7 @@ class HealthAlert(BaseModel):
     alert: str
     severity: str
     triggered: Optional[datetime] = None
+    evidence: Optional[str] = None
 
 
 class HealthAlerts(BaseModel):
@@ -454,7 +488,7 @@ class Action(BaseModel):
     description: Optional[str] = None
     owner: str
     due_date: date
-    priority: Priority = Priority.p2
+    priority: Priority = Priority.medium
     status: ActionStatus = ActionStatus.not_started
     source: Optional[str] = None
     source_type: Optional[str] = None
@@ -473,9 +507,9 @@ class Action(BaseModel):
 
 class ActionSummary(BaseModel):
     total_actions: int = 0
-    p0_critical: int = 0
-    p1_high: int = 0
-    p2_medium: int = 0
+    critical: int = 0
+    high: int = 0
+    medium: int = 0
     completed: int = 0
     in_progress: int = 0
     not_started: int = 0
@@ -585,7 +619,7 @@ class NotificationPreferences(BaseModel):
     risk_alerts: bool = True
     risk_severities: list[Severity] = [Severity.critical, Severity.high]
     action_reminders: bool = True
-    action_priorities: list[Priority] = [Priority.p0, Priority.p1]
+    action_priorities: list[Priority] = [Priority.critical, Priority.high]
     signal_categories: list[SignalCategory] = [
         SignalCategory.health,
         SignalCategory.governance,
@@ -676,9 +710,9 @@ class WidgetActionData(BaseModel):
 
     node_id: str
     node_name: str
-    p0_count: int
-    p1_count: int
-    p2_count: int
+    critical_count: int
+    high_count: int
+    medium_count: int
     overdue_count: int
     completed_count: int
     total_count: int

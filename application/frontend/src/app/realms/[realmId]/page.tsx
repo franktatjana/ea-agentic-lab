@@ -72,19 +72,41 @@ function ProfileField({
   icon?: React.ElementType;
 }) {
   if (value == null || value === "") return null;
+
+  const renderValue = () => {
+    if (typeof value === "object" && !Array.isArray(value)) {
+      return (
+        <div className="space-y-0.5">
+          {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
+            <p key={k} className="text-sm">
+              <span className="text-muted-foreground">{k.replace(/_/g, " ")}:</span>{" "}
+              {typeof v === "object" ? JSON.stringify(v) : String(v)}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    if (Array.isArray(value)) {
+      return <p className="text-sm">{value.join(", ")}</p>;
+    }
+    return <p className="text-sm">{String(value)}</p>;
+  };
+
   return (
     <div className="flex items-start gap-3 py-2">
       {Icon && <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />}
       <div>
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm">{String(value)}</p>
+        {renderValue()}
       </div>
     </div>
   );
 }
 
 function ProfileTab({ profile }: { profile: Record<string, unknown> }) {
-  const company = (profile.company_info || profile) as Record<string, unknown>;
+  const company = (profile.company_info || profile.company_profile || profile) as Record<string, unknown>;
+  const overview = (company.company_overview || {}) as Record<string, unknown>;
+  const classification = (profile.classification || {}) as Record<string, unknown>;
   const relationship = profile.relationship as Record<string, unknown> | undefined;
 
   return (
@@ -102,10 +124,10 @@ function ProfileTab({ profile }: { profile: Record<string, unknown> }) {
         </CardHeader>
         <CardContent className="space-y-1">
           <ProfileField label="Industry" value={company.industry || profile.industry} icon={Briefcase} />
-          <ProfileField label="Employees" value={company.employees || profile.employees} icon={Users} />
-          <ProfileField label="Revenue" value={company.revenue || profile.revenue} icon={DollarSign} />
-          <ProfileField label="Headquarters" value={company.headquarters || profile.headquarters} icon={MapPin} />
-          <ProfileField label="Region" value={company.region || profile.region} icon={Globe} />
+          <ProfileField label="Employees" value={overview.employees || company.employees || profile.employees} icon={Users} />
+          <ProfileField label="Revenue" value={overview.annual_revenue || overview.revenue || company.revenue || profile.revenue} icon={DollarSign} />
+          <ProfileField label="Headquarters" value={overview.headquarters || company.headquarters || profile.headquarters} icon={MapPin} />
+          <ProfileField label="Region" value={company.region || classification.region || profile.region} icon={Globe} />
           {!!(company.business_description || profile.business_description) && (
             <div className="pt-2">
               <p className="text-xs text-muted-foreground">Business Description</p>
@@ -140,7 +162,7 @@ function ProfileTab({ profile }: { profile: Record<string, unknown> }) {
 
 function CompetitiveTab({ profile }: { profile: Record<string, unknown> }) {
   const competitive = (profile.competitive || profile.competitive_landscape) as Record<string, unknown> | undefined;
-  const competitors = (competitive?.competitors || profile.competitors) as Record<string, unknown>[] | string[] | undefined;
+  const competitors = (competitive?.competitors || competitive?.primary_competitors || profile.competitors) as Record<string, unknown>[] | string[] | undefined;
   const differentiation = (competitive?.differentiation || competitive?.differentiation_points || profile.differentiation) as string[] | Record<string, unknown>[] | undefined;
 
   return (
@@ -165,15 +187,15 @@ function CompetitiveTab({ profile }: { profile: Record<string, unknown> }) {
                     <p className="text-sm">{comp}</p>
                   ) : (
                     <div className="space-y-1 flex-1">
-                      <p className="text-sm font-medium">{String((comp as Record<string, unknown>).name || `Competitor ${i + 1}`)}</p>
-                      {!!(comp as Record<string, unknown>).strengths && (
+                      <p className="text-sm font-medium">{String((comp as Record<string, unknown>).name || (comp as Record<string, unknown>).competitor || `Competitor ${i + 1}`)}</p>
+                      {!!((comp as Record<string, unknown>).strengths || (comp as Record<string, unknown>).our_differentiation) && (
                         <p className="text-xs text-muted-foreground">
-                          Strengths: {String((comp as Record<string, unknown>).strengths)}
+                          Strengths: {String((comp as Record<string, unknown>).strengths || (comp as Record<string, unknown>).our_differentiation)}
                         </p>
                       )}
-                      {!!(comp as Record<string, unknown>).weaknesses && (
+                      {!!((comp as Record<string, unknown>).weaknesses || (comp as Record<string, unknown>).displacement_strategy) && (
                         <p className="text-xs text-muted-foreground">
-                          Weaknesses: {String((comp as Record<string, unknown>).weaknesses)}
+                          Strategy: {String((comp as Record<string, unknown>).weaknesses || (comp as Record<string, unknown>).displacement_strategy)}
                         </p>
                       )}
                       {!!(comp as Record<string, unknown>).threat_level && (
@@ -223,8 +245,26 @@ function CompetitiveTab({ profile }: { profile: Record<string, unknown> }) {
 }
 
 function GrowthTab({ profile }: { profile: Record<string, unknown> }) {
-  const growth = (profile.growth || profile.account_growth) as Record<string, unknown> | undefined;
-  const objectives = (growth?.objectives || growth?.account_objectives || profile.account_objectives || profile.objectives) as string[] | Record<string, unknown>[] | undefined;
+  const growth = (profile.growth || profile.account_growth || profile.growth_strategy) as Record<string, unknown> | undefined;
+
+  const rawObjectives = growth?.objectives || growth?.account_objectives || profile.account_objectives || profile.objectives;
+  const objectives: Record<string, unknown>[] | string[] | undefined = (() => {
+    if (!rawObjectives) return undefined;
+    if (Array.isArray(rawObjectives)) return rawObjectives;
+    if (typeof rawObjectives === "object") {
+      const grouped = rawObjectives as Record<string, unknown>;
+      return Object.entries(grouped).flatMap(([term, items]) =>
+        Array.isArray(items)
+          ? items.map((item: Record<string, unknown>) => ({
+              ...item,
+              term: term.replace(/_/g, " "),
+            }))
+          : []
+      );
+    }
+    return undefined;
+  })();
+
   const whitespace = (growth?.whitespace || growth?.whitespace_analysis || profile.whitespace || profile.whitespace_analysis) as Record<string, unknown> | string[] | undefined;
 
   return (
@@ -243,12 +283,31 @@ function GrowthTab({ profile }: { profile: Record<string, unknown> }) {
           </CardHeader>
           <CardContent>
             <ul className="space-y-2">
-              {objectives.map((obj, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm">
-                  <TrendingUp className="h-4 w-4 text-green-400 mt-0.5 shrink-0" />
-                  <span>{typeof obj === "string" ? obj : String((obj as Record<string, unknown>).description || (obj as Record<string, unknown>).objective || JSON.stringify(obj))}</span>
-                </li>
-              ))}
+              {objectives.map((obj, i) => {
+                if (typeof obj === "string") {
+                  return (
+                    <li key={i} className="flex items-start gap-2 text-sm">
+                      <TrendingUp className="h-4 w-4 text-green-400 mt-0.5 shrink-0" />
+                      <span>{obj}</span>
+                    </li>
+                  );
+                }
+                const o = obj as Record<string, unknown>;
+                return (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <TrendingUp className="h-4 w-4 text-green-400 mt-0.5 shrink-0" />
+                    <div>
+                      <span>{String(o.description || o.objective || JSON.stringify(o))}</span>
+                      {!!(o.target || o.term) && (
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {!!o.target && String(o.target)}
+                          {!!o.term && <> · {String(o.term)}</>}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </CardContent>
         </Card>
@@ -260,9 +319,12 @@ function GrowthTab({ profile }: { profile: Record<string, unknown> }) {
             <CardTitle className="text-base flex items-center gap-2">
               Whitespace Analysis
               <HelpPopover title="Whitespace analysis">
-                Identifies untapped opportunities within this account, such as
-                products not yet adopted, departments not yet engaged, or use
-                cases not yet explored. Feeds into expansion planning.
+                Untapped expansion opportunities within this account: departments
+                not yet engaged, use cases not deployed, or regions not covered.
+                Dollar values represent estimated annual recurring revenue (ARR)
+                potential if the opportunity is closed. Fit scores indicate how
+                well the opportunity matches our product capabilities. Blockers
+                show what needs to be resolved before pursuit.
               </HelpPopover>
             </CardTitle>
           </CardHeader>
@@ -276,13 +338,51 @@ function GrowthTab({ profile }: { profile: Record<string, unknown> }) {
                 ))}
               </ul>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {Object.entries(whitespace).map(([key, val]) => (
                   <div key={key}>
-                    <p className="text-xs text-muted-foreground">{key.replace(/_/g, " ")}</p>
-                    <p className="text-sm">{typeof val === "string" ? val : JSON.stringify(val)}</p>
+                    <p className="text-xs font-medium text-muted-foreground capitalize mb-1.5">{key.replace(/_/g, " ")}</p>
+                    {Array.isArray(val) ? (
+                      <ul className="space-y-1.5">
+                        {(val as Record<string, unknown>[]).map((item, j) => (
+                          <li key={j} className="text-sm p-2.5 rounded bg-muted/30 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium">{String(item.department || item.use_case || item.region || JSON.stringify(item))}</span>
+                              {!!item.potential && (
+                                <span className="text-xs font-medium text-green-400">
+                                  ${Number(item.potential).toLocaleString()} <span className="text-muted-foreground font-normal">est. ARR</span>
+                                </span>
+                              )}
+                            </div>
+                            {!!(item.fit_score || item.blocker || item.status) && (
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                {!!item.fit_score && <span>Fit: <span className={item.fit_score === "HIGH" ? "text-green-400" : item.fit_score === "MEDIUM" ? "text-yellow-400" : "text-muted-foreground"}>{String(item.fit_score)}</span></span>}
+                                {!!item.status && <span>{String(item.status)}</span>}
+                                {!!item.blocker && <span className="text-yellow-400/80">Blocker: {String(item.blocker)}</span>}
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm">{typeof val === "string" ? val : JSON.stringify(val)}</p>
+                    )}
                   </div>
                 ))}
+                {(() => {
+                  const total = Object.values(whitespace).flat().reduce<number>((sum, item) => {
+                    if (typeof item === "object" && item && "potential" in item) {
+                      return sum + Number((item as Record<string, unknown>).potential || 0);
+                    }
+                    return sum;
+                  }, 0);
+                  return total > 0 ? (
+                    <div className="pt-3 border-t border-border flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Total expansion potential</span>
+                      <span className="font-semibold text-green-400">${total.toLocaleString()} <span className="text-muted-foreground font-normal text-xs">est. ARR</span></span>
+                    </div>
+                  ) : null;
+                })()}
               </div>
             )}
           </CardContent>

@@ -1,68 +1,95 @@
-# Knowledge Base
+# Global Knowledge Vault
 
-The Knowledge Base contains reusable reference material, best practices, and aggregated learnings that are **not account-specific**. This is separate from InfoHub, which stores account/client-specific operational data.
+The Knowledge Vault is the system's institutional memory, a human-curated knowledge base that grows with every engagement. Agents pull relevant knowledge at runtime to make better decisions, without their personalities, prompts, or playbooks being auto-modified.
 
-## Purpose
-
-The Knowledge Base provides:
-
-- **Best practices** - Standardized approaches for solution areas
-- **Lessons learned** - Aggregated insights from retrospectives
-- **Patterns** - Identified patterns across accounts
-- **Templates** - Reusable starting points for artifacts
+The static layer (agent personality + playbooks) stays stable and human-controlled. The dynamic layer (this vault) grows over time. Agents receive relevant knowledge as enriched context at runtime.
 
 ## Directory Structure
 
 ```text
-knowledge/
-├── best_practices/           # Standardized best practice documentation
-│   ├── security/             # Security Analytics, SIEM, Threat Detection
-│   ├── observability/        # APM, Logging, Metrics, Tracing
-│   ├── search/               # Enterprise Search, RAG, Vector Search
-│   └── platform/             # Cross-cutting platform best practices
+vault/knowledge/
+├── operations/                        # How the team works
+│   ├── engagement-management/         # Process and methodology
+│   ├── stakeholder-handling/          # Relationship practices
+│   └── delivery-execution/            # Delivery and execution patterns
 │
-├── lessons_learned/          # Aggregated retrospective insights
-│   └── quarterly/            # Quarterly summaries
+├── content/                           # How team works with customer
+│   ├── security/                      # Security domain practices
+│   ├── observability/                 # Observability domain practices
+│   ├── search/                        # Search domain practices
+│   ├── platform/                      # Platform domain practices
+│   └── general/                       # Cross-domain content practices
 │
-├── patterns/                 # Identified patterns across accounts
-│   ├── success_patterns/     # What works well
-│   ├── risk_patterns/        # Common risk indicators
-│   └── competitive_patterns/ # Competitive displacement patterns
+├── external/                          # Outside knowledge sources
+│   ├── industry/                      # Analyst reports, standards
+│   └── research/                      # Published research, benchmarks
 │
-└── templates/                # Reusable templates (symlink to playbooks/templates)
+├── assets/                            # Reusable deliverables
+│   ├── templates/                     # Document templates
+│   └── references/                    # Reference materials, calculators
+│
+└── .proposals/                        # Agent-proposed items (review queue)
+    └── {proposal_id}.yaml            # Pending human review
 ```
 
-[image: Knowledge Base vs InfoHub - global cross-account reference material vs account-specific operational data]
+## Knowledge Item Schema
+
+Each item is a YAML file with frontmatter for machine-queryable filtering plus markdown content.
+
+```yaml
+---
+id: "KV_001"
+title: "Short descriptive title"
+type: best_practice              # best_practice | lesson_learned | pattern | research | asset
+category: content                # operations | content | external | asset
+domain: security                 # security | observability | search | platform | general
+archetype: consolidation         # matches blueprint archetypes, or "all"
+phase: pre_sales                 # pre_sales | implementation | post_sales | all
+relevance:                       # which agent roles benefit
+  - solution_architect
+  - account_executive
+tags: ["tag1", "tag2"]
+confidence: validated            # proposed | reviewed | validated
+source:
+  type: engagement               # engagement | expert | research | analyst_report
+  origin: "Description of source"
+  author: "Author name"
+created: "2026-01-15"
+updated: "2026-02-01"
+---
+
+Markdown content here...
+```
+
+## How Knowledge Enters the Vault
+
+Two ingestion paths, both human-curated:
+
+1. **Manual entry**: Humans add items directly through the Knowledge Vault UI (create, edit, tag)
+2. **Agent proposals**: Agents extract candidate knowledge from engagements, write to `.proposals/`, humans review and approve before it enters the main vault
+
+## How Agents Consume Knowledge
+
+Pre-loaded context injection: before an agent processes inputs, the PlaybookExecutor fetches relevant items (matched by domain, archetype, phase) and injects them into the agent's input context. Agents receive richer context without any code changes.
+
+## Confidence Levels
+
+| Level | Meaning |
+|-------|---------|
+| `proposed` | Agent-generated, awaiting human review |
+| `reviewed` | Human-reviewed and approved |
+| `validated` | Proven through multiple engagements |
 
 ## Distinction from InfoHub
 
-| Aspect | Knowledge Base | InfoHub |
+| Aspect | Knowledge Vault | InfoHub |
 |--------|----------------|---------|
-| **Scope** | Global, cross-account | Account-specific |
-| **Content** | Reference material | Operational data |
-| **Updates** | Periodic (quarterly) | Continuous |
-| **Examples** | Best practices, patterns | Risks, decisions, meetings |
-
-## Agent Interactions
-
-### Reading from Knowledge Base
-
-Agents read Knowledge Base to:
-
-- Apply best practices during solution design
-- Check for known patterns when assessing risks
-- Use templates for artifact creation
-- Reference lessons learned for similar situations
-
-### Writing to Knowledge Base
-
-Agents write to Knowledge Base to:
-
-- Aggregate lessons from retrospectives
-- Document newly identified patterns
-- Update best practices based on field experience
+| **Scope** | Global, cross-account, anonymized | Account-specific |
+| **Content** | Best practices, patterns, lessons | Operational data |
+| **Updates** | Human-curated additions | Continuous agent updates |
+| **Audience** | All agents across all engagements | Agents working on specific node |
 
 ## Related Documentation
 
-- Account data is now organized per-realm under `vault/{realm}/{node}/` with `external-infohub/` and `internal-infohub/` subdirectories
-- [Best Practices Library](best_practices/README.md) - Detailed best practice structure
+- [Knowledge Vault Architecture](../../docs/architecture/system/knowledge-vault-architecture.md)
+- [DDR-001: Three-Vault Knowledge Architecture](../../docs/decisions/DDR_001_three_vault_knowledge_architecture.md)

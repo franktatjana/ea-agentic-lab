@@ -28,7 +28,7 @@ The Task Shepherd validates action items from meetings and decisions against str
 - Verify due dates are realistic and specific calendar dates
 - Check for duplicate actions across sources
 - Link actions to parent decisions and source meetings
-- Infer priority from context (blocker -> P0, executive ask -> P0, risk mitigation -> P1, default -> P2)
+- Infer priority from context (blocker -> critical, executive ask -> critical, risk mitigation -> high, default -> medium)
 - Detect blocking dependencies between actions
 
 ## Scope Boundaries

@@ -103,6 +103,8 @@ Git history captures file-level changes. The Status History section captures *wh
 | [DDR-003](DDR_003_domain_specialist_agents.md) | Domain Specialist Agent Pattern | ACCEPTED |
 | [DDR-004](DDR_004_tech_signal_intelligence.md) | Technology Signal Intelligence System | ACCEPTED |
 | [DDR-005](DDR_005_signal_based_action_completion.md) | Signal-Based Action Completion | ACCEPTED |
+| [DDR-006](DDR_006_infohub_shared_screen_test.md) | InfoHub Shared Screen Test | ACCEPTED |
+| [DDR-007](DDR_007_blueprint_instance_engagement_plan.md) | Blueprint Instance as Engagement Plan | ACCEPTED |
 
 ### Architecture Decision Records
 

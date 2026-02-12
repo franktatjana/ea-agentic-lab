@@ -170,13 +170,13 @@ Unexpected invitation to CTO meeting. Marcus Weber called emergency alignment se
 
 | Action | Owner | Due Date | Priority |
 |--------|-------|----------|----------|
-| Revised POC proposal with expanded scope | Alex Thompson | 2026-01-17 | P0 |
-| OT/ICS at-scale architecture | Maria Santos | 2026-01-17 | P0 |
-| LegacySIEM migration assessment | Nina Kowalski | 2026-01-20 | P0 |
-| Klaus Hoffman 1:1 relationship building | James Park | 2026-01-19 | P0 |
-| Industrietechnik environment research | SA + Specialist | 2026-01-18 | P1 |
-| Competitive response to LegacySIEM proposal | CI Team | 2026-01-17 | P0 |
-| Executive sponsor assignment (urgent) | James Park | 2026-01-16 | P0 |
+| Revised POC proposal with expanded scope | Alex Thompson | 2026-01-17 | critical |
+| OT/ICS at-scale architecture | Maria Santos | 2026-01-17 | critical |
+| LegacySIEM migration assessment | Nina Kowalski | 2026-01-20 | critical |
+| Klaus Hoffman 1:1 relationship building | James Park | 2026-01-19 | critical |
+| Industrietechnik environment research | SA + Specialist | 2026-01-18 | high |
+| Competitive response to LegacySIEM proposal | CI Team | 2026-01-17 | critical |
+| Executive sponsor assignment (urgent) | James Park | 2026-01-16 | critical |
 
 ## Immediate Risks Identified
 

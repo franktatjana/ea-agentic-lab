@@ -23,7 +23,7 @@
 | [Account Profile](account_profile.yaml) | Core account data | Needs update |
 | [Risk Register](risks/risk_register.yaml) | 12 risks (4 critical) | **ESCALATED** |
 | [Decision Log](decisions/decision_log.yaml) | 11 decisions | 6 new strategic |
-| [Action Tracker](actions/action_tracker.yaml) | 18 actions | 8 P0 due |
+| [Action Tracker](actions/action_tracker.yaml) | 18 actions | 8 critical due |
 | [Health Score](governance/health_score.yaml) | 68/100 | **DECLINING** |
 | [Klaus Hoffman](stakeholders/klaus_hoffman.yaml) | CISO Profile | **CRITICAL** |
 | [Value Tracker](value/value_tracker.yaml) | $840K realized | In validation |
@@ -72,7 +72,7 @@
 | [2026-01-12](frameworks/PB_001_three_horizons_20260112.md) | Three Horizons | Valid |
 | [2026-01-12](frameworks/PB_301_value_engineering_20260112.md) | Value Engineering | Needs revision |
 
-## P0 Actions (Immediate)
+## Critical Actions (Immediate)
 
 | Action | Owner | Due |
 |--------|-------|-----|
@@ -159,7 +159,7 @@ SECURITY_CONSOLIDATION/
     │   ├── PB_201_swot_20260112.md        # Superseded
     │   └── PB_301_value_engineering_20260112.md
     ├── actions/
-    │   └── action_tracker.yaml            # 18 actions (P0-P2)
+    │   └── action_tracker.yaml            # 18 actions (critical-medium)
     └── agent_work/
         └── scratchpad_sa_2026-01-22_*.yaml
 ```

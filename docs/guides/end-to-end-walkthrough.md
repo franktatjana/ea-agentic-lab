@@ -69,7 +69,7 @@ After the meeting, you submit your notes. The Meeting Notes Agent processes them
 
 The Task Shepherd validates each action has an owner and due date. The Risk Radar creates a risk register entry for the Klaus veto scenario. The CI Agent starts building the LegacySIEM competitive analysis.
 
-**Your next move:** The AE Agent surfaces a prompt: "New critical stakeholder identified (Klaus Hoffman, CISO, veto power). Recommended: schedule 1:1 within 5 business days. Approach: Respect, Educate, Prove, Partner." You schedule the meeting and update the stakeholder record with engagement priority P0.
+**Your next move:** The AE Agent surfaces a prompt: "New critical stakeholder identified (Klaus Hoffman, CISO, veto power). Recommended: schedule 1:1 within 5 business days. Approach: Respect, Educate, Prove, Partner." You schedule the meeting and update the stakeholder record with engagement priority critical.
 
 ### Week 2: Stakeholder Mapping
 
@@ -77,10 +77,10 @@ You run PB_203 (Stakeholder Mapping). The playbook walks you through identifying
 
 | Stakeholder | Role | Influence | Sentiment | Priority |
 |-------------|------|-----------|-----------|----------|
-| Marcus Weber | CTO | Budget authority | Supportive | P0 |
-| Dr. Sarah Chen | Head of Engineering | Technical champion | Strong advocate | P1 |
-| Klaus Hoffman | CISO | Veto power | Skeptical but open | P0 |
-| Stefan Muller | SecOps Lead | Day-to-day evaluator | Neutral | P1 |
+| Marcus Weber | CTO | Budget authority | Supportive | Critical |
+| Dr. Sarah Chen | Head of Engineering | Technical champion | Strong advocate | High |
+| Klaus Hoffman | CISO | Veto power | Skeptical but open | Critical |
+| Stefan Muller | SecOps Lead | Day-to-day evaluator | Neutral | High |
 
 The playbook runs gap detection and flags: Klaus has no LinkedIn profile documented (LOW severity), no 1:1 meeting history yet (MEDIUM severity), and no documented success criteria from his perspective (HIGH severity).
 

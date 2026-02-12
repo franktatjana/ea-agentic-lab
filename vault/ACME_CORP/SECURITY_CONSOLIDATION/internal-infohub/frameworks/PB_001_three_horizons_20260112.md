@@ -27,7 +27,7 @@ ACME Corporation's revenue portfolio shows **high concentration risk in Horizon 
 | Product | Use Case | ARR Contribution | Health |
 |---------|----------|------------------|--------|
 | Search solution | Operational Analytics | $2,100,000 | Stable |
-| Kibana | Dashboards | $700,000 | Growing |
+| Dashboards | Visualization & Reporting | $700,000 | Growing |
 | APM | Performance Monitoring | $700,000 | Growing |
 
 **Assessment**:
@@ -38,7 +38,7 @@ ACME Corporation's revenue portfolio shows **high concentration risk in Horizon 
 
 **Recommended Actions**:
 1. Complete plant observability rollout (June 2026)
-2. Drive Kibana adoption in additional departments
+2. Drive dashboard adoption in additional departments
 3. Expand APM to cover remaining 55 services
 
 ### Horizon 2: Emerging Business (Build & Scale)
@@ -115,9 +115,9 @@ H3: ██                                        2% (pipeline)
 
 | Action ID | Priority | Action | Owner | Due Date |
 |-----------|----------|--------|-------|----------|
-| ACT_001 | P1 | Execute security POC successfully | SA Agent | 2026-03-15 |
-| ACT_002 | P1 | Secure H1 renewal commitment | AE Agent | 2026-06-30 |
-| ACT_003 | P2 | Identify H3 stakeholders | AE Agent | 2026-03-31 |
+| ACT_001 | high | Execute security POC successfully | SA Agent | 2026-03-15 |
+| ACT_002 | high | Secure H1 renewal commitment | AE Agent | 2026-06-30 |
+| ACT_003 | medium | Identify H3 stakeholders | AE Agent | 2026-03-31 |
 
 ## Validation
 

@@ -436,15 +436,15 @@ activity_capture:
 
 | Addition | Effort | Impact | Priority | Status |
 |----------|--------|--------|----------|--------|
-| POV Framework Enhancement | Medium | High | P1 | DONE |
-| Technical Discovery Framework | Low | High | P1 | DONE |
-| Working Agreements | Low | Medium | P2 | Pending |
-| Opportunity Hygiene | Medium | High | P1 | DONE |
-| Request SLAs | Low | Medium | P2 | Pending |
-| Communities of Practice | Medium | Medium | P3 | Pending |
-| Deliberate Practice | High | Medium | P3 | Pending |
-| Activity Capture Standards | Low | Medium | P2 | Pending |
-| Deal Retrospective Practice | Medium | High | P1 | DONE |
+| POV Framework Enhancement | Medium | High | High | DONE |
+| Technical Discovery Framework | Low | High | High | DONE |
+| Working Agreements | Low | Medium | Medium | Pending |
+| Opportunity Hygiene | Medium | High | High | DONE |
+| Request SLAs | Low | Medium | Medium | Pending |
+| Communities of Practice | Medium | Medium | Low | Pending |
+| Deliberate Practice | High | Medium | Low | Pending |
+| Activity Capture Standards | Low | Medium | Medium | Pending |
+| Deal Retrospective Practice | Medium | High | High | DONE |
 
 ## Implementation Notes
 

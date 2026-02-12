@@ -76,6 +76,7 @@ export interface HealthAlert {
   severity: string;
   triggered?: string;
   action?: string;
+  evidence?: string;
 }
 
 export interface Risk {
@@ -119,9 +120,9 @@ export interface ActionTracker {
   node_id: string;
   summary: {
     total_actions: number;
-    p0_critical: number;
-    p1_high: number;
-    p2_medium: number;
+    critical: number;
+    high: number;
+    medium: number;
     completed: number;
     overdue: number;
   };
@@ -162,6 +163,85 @@ export interface PlaybookOutput {
   notifications?: Array<Record<string, unknown>>;
 }
 
+// Knowledge Vault
+export interface KnowledgeSource {
+  type: string;
+  origin: string;
+  author: string;
+}
+
+export interface KnowledgeItem {
+  id: string;
+  title: string;
+  type: string;
+  category: string;
+  domain: string;
+  archetype: string;
+  phase: string;
+  relevance: string[];
+  tags: string[];
+  confidence: string;
+  source: KnowledgeSource;
+  content: string;
+  created: string;
+  updated: string;
+}
+
+export interface KnowledgeProposal extends KnowledgeItem {
+  proposed_by: string;
+  proposed_from: { realm: string; node: string; run_id: string };
+  proposal_status: string;
+  proposal_date: string;
+  reviewer_notes: string;
+}
+
+export interface KnowledgeStats {
+  total_items: number;
+  by_category: Record<string, number>;
+  by_domain: Record<string, number>;
+  by_confidence: Record<string, number>;
+  by_type: Record<string, number>;
+  pending_proposals: number;
+}
+
+export interface PlaybookSteckbrief {
+  playbook_id?: string;
+  name?: string;
+  category?: string;
+  mode?: string;
+  version?: string;
+  status?: string;
+  one_liner?: string;
+  framework_origin?: string;
+  owner_agent?: string;
+  supporting_agents?: string[];
+  triggers_summary?: string[];
+  anti_patterns?: string[];
+  key_inputs?: string[];
+  key_outputs?: string[];
+  key_decisions?: string[];
+  complexity?: string;
+  estimated_inputs?: number;
+  estimated_rules?: number;
+  source_file?: string;
+  last_updated?: string;
+}
+
+export interface PlaybookMetadata {
+  category?: string;
+  framework?: string;
+  team_owner?: string;
+  specialty?: string;
+  description?: string;
+}
+
+export interface PlaybookRaci {
+  responsible?: { role?: string; agent?: string };
+  accountable?: { role?: string; human_required?: boolean };
+  consulted?: Array<{ role?: string }>;
+  informed?: Array<{ role?: string }>;
+}
+
 export interface Playbook {
   _id: string;
   _filename: string;
@@ -190,4 +270,22 @@ export interface Playbook {
   estimated_execution_time?: string;
   frequency?: string;
   human_review_required?: boolean;
+  // Specialist playbook fields
+  metadata?: PlaybookMetadata;
+  raci?: PlaybookRaci;
+  triggers?: Array<Record<string, unknown>>;
+  inputs?: {
+    required?: Array<Record<string, string>>;
+    optional?: Array<Record<string, string>>;
+  };
+  outputs?: Record<string, unknown>;
+  steps?: Array<Record<string, unknown>>;
+  discovery_framework?: Record<string, unknown>;
+  evaluation_checklist?: Record<string, unknown>;
+  // Strategic playbook fields
+  steckbrief?: PlaybookSteckbrief;
+  framework_source?: string;
+  version?: string;
+  decision_logic?: Record<string, unknown>;
+  vault_routing?: Record<string, unknown>;
 }

@@ -34,7 +34,7 @@ Introduce a Signal Matcher Agent that reads vault artifacts (meeting notes, POC 
 | Suggest complete | 0.60 - 0.89 | Owner gets one-tap confirm/reject notification |
 | Evidence only | 0.30 - 0.59 | Evidence attached to action for human review, no status change |
 
-**Safety rails:** P0 actions always require human confirmation regardless of score. Auto-completions include a 48h revert window. Multiple reverts on the same action trigger a review of the `done_means` clarity.
+**Safety rails:** Critical actions always require human confirmation regardless of score. Auto-completions include a 48h revert window. Multiple reverts on the same action trigger a review of the `done_means` clarity.
 
 **Three new signals** added to the signal catalog: `SIG_HLT_005` (completion detected), `SIG_HLT_006` (completion confirmed by human), `SIG_HLT_007` (completion reverted by human).
 

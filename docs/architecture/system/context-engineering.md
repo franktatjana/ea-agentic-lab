@@ -46,7 +46,7 @@ Context is a **precious, finite resource**. Every token depletes the model's cap
 │  │       │              │              │              │            │       │
 │  │  ┌────┴────────────────────────────────────────────┴────┐      │       │
 │  │  │              Context Priority Rules                   │      │       │
-│  │  │  1. Critical risks  2. P0 actions  3. Recent decisions│      │       │
+│  │  │  1. Critical risks  2. Critical actions  3. Recent decisions│      │       │
 │  │  └──────────────────────────────────────────────────────┘      │       │
 │  └─────────────────────────────────────────────────────────────────┘       │
 │                                                                              │
@@ -155,14 +155,14 @@ When context exceeds budget:
 # Always keep (never truncate)
 always_keep:
   - active_critical_risks
-  - pending_p0_actions
+  - pending_critical_actions
   - current_session_context
   - active_escalations
 
 # Priority order for remaining context
 priority_order:
   1. active_risks (keep 10, severity high/critical)
-  2. pending_actions (keep 15, P0/P1 or overdue)
+  2. pending_actions (keep 15, critical/high or overdue)
   3. recent_decisions (keep 10, < 30 days)
   4. stakeholders (keep 10, high influence)
   5. meeting_notes (keep 5, < 14 days)

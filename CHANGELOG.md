@@ -22,6 +22,36 @@
 
 ---
 
+## 2026-02-12 - Competitive Intelligence UI & Realm Profile Tabs
+
+### Competitive Intelligence Panel
+
+Replaced raw JSON dump in Internal InfoHub with structured `CompetitiveIntelligencePanel` component. The panel renders `competitive_context.yaml` data in sections account teams can act on: threat summary with win probability, per-competitor accordion (footprint, activity timeline, strengths/weaknesses, counter strategies), battlecard (our advantages with proof points, their advantages with counters), messaging do/don't guidance, win themes with stakeholder resonance, CI actions with status tracking, and competitive history with lessons learned.
+
+Enhanced the Overview tab `CompetitiveLandscape` component with color-coded threat level badges, our differentiation points, risk factors, and POC success criteria.
+
+Created `competitive_context.yaml` sample data for GLOBEX (ObservabilityVendorA critical threat, Prometheus/Grafana medium threat) and INITECH (Algolia high threat, OpenSearch low, Typesense medium), modeled after the ACME battlecard playbook structure.
+
+### Stakeholder Interactivity
+
+Added clickable stakeholder cards with slide-over detail panel (`StakeholderDetailPanel` via Sheet component). Panel surfaces 20+ hidden data fields: role in deal, relationship status, technology context, priorities, concerns, champion value, limitations, strategy, notes, and action required.
+
+Added metric card filtering on the Stakeholders tab: clicking Champions/Supporters/Neutral/Blockers filters the stakeholder grid by stance, with toggle-off behavior.
+
+### Realm Profile Tabs
+
+Fixed field resolution for Profile, Competitive, and Growth tabs where YAML field names didn't match frontend expectations (`company_profile` vs `company_info`, `primary_competitors` vs `competitors`, nested `account_objectives` vs flat array). Added fallback chains and flattening logic.
+
+Added competitive landscape and growth strategy data to GLOBEX and INITECH `realm_profile.yaml` files.
+
+Improved Growth tab whitespace analysis with labeled "est. ARR" values, color-coded fit scores, blocker display, total expansion potential summary, and updated HelpPopover explaining the numbers for demo audiences.
+
+### Knowledge Vault Layout
+
+Fixed Knowledge Vault detail view layout: constrained prose width to `max-w-4xl`, corrected double padding from Card + CardContent, restored app-consistent spacing and heading sizes.
+
+---
+
 ## 2026-02-09 - Playbook Editor & Catalog Redesign
 
 ### Streamlit Playbook Editor

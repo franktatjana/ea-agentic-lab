@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Building2,
   Bot,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -183,6 +184,20 @@ export function Sidebar() {
 
         <Separator className="my-3" />
         <Link
+          href="/knowledge"
+          className={cn(
+            "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+            pathname.startsWith("/knowledge")
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+          )}
+        >
+          <BookOpen className="h-4 w-4 text-indigo-400" />
+          Knowledge Vault
+        </Link>
+
+        <Separator className="my-3" />
+        <Link
           href="/docs"
           className={cn(
             "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
@@ -196,6 +211,15 @@ export function Sidebar() {
         </Link>
       </nav>
 
+      <div className="mx-3 mb-2 rounded-md border border-yellow-600/30 bg-yellow-600/5 px-3 py-2.5">
+        <p className="text-[11px] font-semibold text-yellow-400/90">Concept Showcase</p>
+        <p className="text-[10px] text-muted-foreground mt-1 leading-relaxed">
+          Not a production app. A working demo of a concept framework for agentic
+          enterprise governance. All names and scenarios are fictional.
+          Documentation is written for agents, not humans. The UI renders
+          machine-readable data into human views on demand.
+        </p>
+      </div>
       <Separator />
       <div className="p-3">
         <p className="text-xs text-muted-foreground text-center">

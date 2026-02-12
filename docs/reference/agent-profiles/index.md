@@ -60,7 +60,7 @@ Delivery agents bridge what was sold with what gets implemented, coordinating ha
 |-------|---------|--------------|
 | [Delivery](delivery/delivery-agent.md) | Sales-to-delivery continuity | Senior Manager (HIGH impl risk) |
 | [Professional Services (PS)](delivery/ps-agent.md) | Pre-sales to post-sales delivery bridge | Senior Manager (scope issues) |
-| [Support](delivery/support-agent.md) | Support operations and account health signals | Senior Manager (P1 on strategic account) |
+| [Support](delivery/support-agent.md) | Support operations and account health signals | Senior Manager (critical on strategic account) |
 
 ## Domain Specialists (3)
 
@@ -125,7 +125,7 @@ AE -> Delivery   (contract signed)
 Delivery -> PS   (implementation start)
 Delivery -> CA   (go-live complete)
 Support -> CA    (pattern detected)
-Support -> SM    (P1 on strategic account)
+Support -> SM    (critical on strategic account)
 ```
 
 ### Governance Chain

@@ -153,12 +153,12 @@ tags:
 
 | Action | Owner | Due Date | Priority |
 |--------|-------|----------|----------|
-| Submit POC proposal | Alex Thompson | 2026-01-15 | P1 |
-| Prepare OT/ICS demo environment | Nina Kowalski | 2026-01-19 | P1 |
-| TCO comparison analysis | Maria Santos | 2026-01-17 | P1 |
-| Request CTO meeting via Dr. Chen | Alex Thompson | 2026-01-13 | P1 |
-| Competitive intelligence on Sentinel | CI Team | 2026-01-18 | P2 |
-| Identify manufacturing security reference | Maria Santos | 2026-01-17 | P2 |
+| Submit POC proposal | Alex Thompson | 2026-01-15 | high |
+| Prepare OT/ICS demo environment | Nina Kowalski | 2026-01-19 | high |
+| TCO comparison analysis | Maria Santos | 2026-01-17 | high |
+| Request CTO meeting via Dr. Chen | Alex Thompson | 2026-01-13 | high |
+| Competitive intelligence on Sentinel | CI Team | 2026-01-18 | medium |
+| Identify manufacturing security reference | Maria Santos | 2026-01-17 | medium |
 
 ## Next Review
 - Date: 2026-01-26

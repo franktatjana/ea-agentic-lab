@@ -43,7 +43,7 @@ The Support Agent does not own dedicated numbered playbooks. It covers Blueprint
 
 The Support Agent activates on support activity signals that indicate account health changes, escalation needs, or pattern formation.
 
-- P0/Sev1 incident on any account (immediate)
+- Critical/Sev1 incident on any account (immediate)
 - Ticket volume increase exceeding 20% week-over-week
 - Same issue recurring three or more times
 - SLA breach or at-risk status
@@ -60,7 +60,7 @@ The Support Agent activates on support activity signals that indicate account he
 | Pattern detected | CA Agent | Systemic issue identified |
 | Architecture issue | SA Agent | Design-related tickets recurring |
 | Customer frustration | AE Agent | Relationship risk detected |
-| Critical escalation | Senior Manager | P0/Sev1 ongoing |
+| Critical escalation | Senior Manager | Critical/Sev1 ongoing |
 
 ### Inbound (others -> this agent)
 
@@ -73,10 +73,10 @@ The Support Agent activates on support activity signals that indicate account he
 
 The Support Agent escalates based on severity classification and pattern detection. Patterns matter more than individual incidents, but critical severity always triggers immediate action.
 
-- P0/Sev1 incident triggers immediate auto-notification to account team and Senior Manager
+- Critical/Sev1 incident triggers immediate auto-notification to account team and Senior Manager
 - Customer threatening cancellation escalates immediately
 - Executive complaint escalates immediately
-- Multiple P1 tickets in the same week trigger 24-hour escalation
+- Multiple critical tickets in the same week trigger 24-hour escalation
 - CSAT score drop exceeding one point triggers 24-hour escalation
 - Ticket volume increase exceeding 20% flagged in weekly review
 

@@ -191,12 +191,12 @@ This is the conversion opportunity. Strategy:
 
 | Action ID | Priority | Action | Owner | Due |
 |-----------|----------|--------|-------|-----|
-| SWOT_A1 | P0 | Klaus relationship building | James Park | Jan 19 |
-| SWOT_A2 | P0 | Revised POC proposal (20-plant) | Alex Thompson | Jan 17 |
-| SWOT_A3 | P0 | LegacySIEM competitive response | CI Team | Jan 17 |
-| SWOT_A4 | P0 | OT/ICS at-scale architecture | Maria Santos | Jan 17 |
-| SWOT_A5 | P1 | LegacySIEM migration assessment | Nina Kowalski | Jan 20 |
-| SWOT_A6 | P1 | Industrietechnik research | Nina + Maria | Jan 18 |
+| SWOT_A1 | critical | Klaus relationship building | James Park | Jan 19 |
+| SWOT_A2 | critical | Revised POC proposal (20-plant) | Alex Thompson | Jan 17 |
+| SWOT_A3 | critical | LegacySIEM competitive response | CI Team | Jan 17 |
+| SWOT_A4 | critical | OT/ICS at-scale architecture | Maria Santos | Jan 17 |
+| SWOT_A5 | high | LegacySIEM migration assessment | Nina Kowalski | Jan 20 |
+| SWOT_A6 | high | Industrietechnik research | Nina + Maria | Jan 18 |
 
 ### Strategic Recommendation
 

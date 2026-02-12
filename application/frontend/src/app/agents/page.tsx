@@ -49,7 +49,7 @@ const HANDOFF_FLOWS: HandoffFlow[] = [
       { from: "Delivery", to: "PS", trigger: "Implementation start", description: "Delivery agent engages Professional Services for hands-on implementation, scoping workshops, and resource allocation." },
       { from: "Delivery", to: "CA", trigger: "Go-live complete", description: "System is live. Customer Architect takes over for ongoing adoption tracking, health monitoring, and expansion identification." },
       { from: "Support", to: "CA", trigger: "Pattern detected", description: "Support identifies recurring issues or usage patterns that signal architectural concerns. CA investigates for systemic resolution." },
-      { from: "Support", to: "SM", trigger: "P1 on strategic account", description: "A priority-1 incident hits a strategic account. Senior Manager is alerted for executive communication and resource escalation." },
+      { from: "Support", to: "SM", trigger: "High-priority on strategic account", description: "A high-priority incident hits a strategic account. Senior Manager is alerted for executive communication and resource escalation." },
     ],
   },
   {

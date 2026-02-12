@@ -3,7 +3,7 @@ title: "Internal InfoHub Reference"
 description: "Reference guide for the vendor-internal Internal InfoHub, covering structure, content rules, agent ownership, governance, and lifecycle"
 category: "reference"
 keywords: ["internal-infohub", "vendor-hub", "knowledge-vault", "risk-register", "governance", "competitive"]
-last_updated: "2026-02-10"
+last_updated: "2026-02-11"
 ---
 
 # Internal InfoHub Reference
@@ -12,30 +12,54 @@ The Internal InfoHub is the vendor-internal operational workspace for an engagem
 
 The Internal InfoHub exists because candid analysis requires a safe space. Risk assessments lose value when sanitized for customer consumption. Competitive intelligence becomes useless when stripped of specifics. Stakeholder profiles need internal observations about motivations and biases to be actionable. Separating this content structurally, not just by metadata, ensures that a single misconfigured tag cannot expose sensitive material.
 
-For the architectural rationale behind the three-vault separation, see [DDR-001](../decisions/DDR_001_three_vault_knowledge_architecture.md). For the customer-facing counterpart, see the [External InfoHub Reference](external-infohub-reference.md).
+For the architectural rationale behind the three-vault separation, see [DDR-001](../decisions/DDR_001_three_vault_knowledge_architecture.md). For the content boundary definition, see [DDR-006](../decisions/DDR_006_infohub_shared_screen_test.md). For the customer-facing counterpart, see the [External InfoHub Reference](external-infohub-reference.md).
 
 ## Directory Structure
 
-The Internal InfoHub follows a consistent directory layout across all engagement nodes. Each top-level directory serves a distinct operational function and is owned by a specific agent or agent group. The structure below reflects the actual ACME_CORP / SECURITY_CONSOLIDATION example.
+The Internal InfoHub follows a consistent directory layout across all engagement nodes. Each top-level directory serves a distinct operational function and is owned by a specific agent or agent group. The structure below reflects the ACME_CORP / SECURITY_CONSOLIDATION example after the DDR-006 restructuring that moved engagement context, journey, decisions, opportunities, and value tracking here from the External InfoHub.
 
 ```text
 internal-infohub/
+├── context/
+│   ├── node_overview.yaml             # Business and technical context
+│   ├── engagement_history.md          # Timeline of key engagement events
+│   └── stakeholder_map.yaml          # Stakeholder profiles with influence analysis
+│
+├── decisions/
+│   └── decision_log.yaml             # Pursuit decisions and internal deliberations
+│
+├── journey/
+│   ├── customer_journey_map.yaml     # Vendor's analysis of customer journey
+│   └── touchpoint_log.yaml          # Record of all customer interactions
+│
+├── opportunities/
+│   └── security_poc/
+│       ├── discovery.yaml            # Discovery findings and requirements
+│       ├── requirements.yaml         # Formal requirements
+│       ├── success_criteria.yaml     # POC success criteria
+│       ├── poc_success_plan.yaml     # Execution plan
+│       └── poc_status/
+│           └── status_2026-01-16.yaml
+│
+├── value/
+│   └── value_tracker.yaml            # ROI projections and value tracking
+│
 ├── risks/
-│   ├── risk_register.yaml              # Active risk register with IDs and status
-│   └── risk_history.yaml               # Historical risk evolution and closures
+│   ├── risk_register.yaml            # Active risk register with IDs and status
+│   └── risk_history.yaml             # Historical risk evolution and closures
 │
 ├── stakeholders/
-│   ├── sarah_chen.yaml                 # Individual profiles with internal notes
+│   ├── sarah_chen.yaml               # Individual profiles with internal notes
 │   ├── klaus_hoffman.yaml
 │   └── marcus_weber.yaml
 │
 ├── competitive/
-│   └── competitive_context.yaml        # Incumbent analysis, positioning strategy
+│   └── competitive_context.yaml      # Incumbent analysis, positioning strategy
 │
 ├── governance/
-│   ├── health_score.yaml               # Engagement health metrics
-│   ├── operating_cadence.yaml          # Meeting cadence, review cycles
-│   └── alerts/                         # Governance alerts and escalations
+│   ├── health_score.yaml             # Engagement health metrics
+│   ├── operating_cadence.yaml        # Meeting cadence, review cycles
+│   └── alerts/                       # Governance alerts and escalations
 │
 ├── frameworks/
 │   ├── PB_001_three_horizons_20260112.md       # Strategic framework outputs
@@ -44,10 +68,10 @@ internal-infohub/
 │   └── PB_301_value_engineering_20260112.md
 │
 ├── market_intelligence/
-│   └── news_digest.yaml               # Market signals, industry news
+│   └── news_digest.yaml              # Market signals, industry news
 │
 ├── actions/
-│   └── action_tracker.yaml            # Action items with IDs, owners, status
+│   └── action_tracker.yaml           # Action items with IDs, owners, status
 │
 └── agent_work/
     └── scratchpad_sa_2026-01-22_displacement_analysis.yaml

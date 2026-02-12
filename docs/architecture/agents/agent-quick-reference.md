@@ -50,7 +50,7 @@
 |-------|---------|-------|--------------|
 | **Delivery** | Implementation | Sales → delivery handoff | SM (HIGH impl risk) |
 | **PS** | Services bridge | Pre/post-sales services | SM (scope issues) |
-| **Support** | Support coordination | Ticket patterns, DSE | SM (P0/Sev1) |
+| **Support** | Support coordination | Ticket patterns, DSE | SM (Critical/Sev1) |
 
 ---
 
@@ -127,7 +127,7 @@ CA → SA         : Architecture issue
 CA → SM         : Health < 50
 
 Support → CA    : Pattern detected
-Support → SM    : P0/Sev1
+Support → SM    : Critical/Sev1
 ```
 
 ### Governance Chain

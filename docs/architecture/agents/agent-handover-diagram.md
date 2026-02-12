@@ -93,7 +93,7 @@ flowchart TB
     CA -->|Support pattern| SUPPORT
 
     SUPPORT -->|Pattern detected| CA
-    SUPPORT -->|P0/Sev1| SM
+    SUPPORT -->|Critical/Sev1| SM
 
     PARTNER -->|Referral| AE
     PARTNER -->|Technical issue| SA
@@ -422,7 +422,7 @@ flowchart TD
 | Contract signed | Delivery Agent | PS | SM if HIGH risk |
 | Implementation | PS Agent | Delivery | SA if technical |
 | Go-live | CA Agent | Support | SM if health <50 |
-| Support issue | Support Agent | CA, SA | SM if P0/Sev1 |
+| Support issue | Support Agent | CA, SA | SM if Critical/Sev1 |
 | Partner engagement | Partner Agent | AE, SA | SM if risk |
 | Meeting completed | Meeting Notes | TS, DR, RR | - |
 | Action created | Task Shepherd | Nudger | - |

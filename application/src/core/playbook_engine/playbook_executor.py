@@ -2,15 +2,16 @@
 Playbook Executor - Orchestrates end-to-end playbook execution
 
 This is the central coordinator of the playbook engine, implementing
-a 7-step execution pipeline:
+an 8-step execution pipeline:
 
-    1. Load Playbook     - Parse YAML, validate schema
-    2. Load Thresholds   - Get config-driven business parameters
-    3. Validate Inputs   - Check required data exists (TODO)
-    4. Evaluate Rules    - Run DLL conditions against InfoHub context
-    5. Generate Outputs  - Create decision/risk artifacts from fired rules
-    6. Validate Evidence - Ensure all claims have citations
-    7. Write Outputs     - Persist artifacts and execution trace
+    1. Load Playbook       - Parse YAML, validate schema
+    2. Load Thresholds     - Get config-driven business parameters
+    3. Enrich with Knowledge - Pull relevant items from Knowledge Vault
+    4. Validate Inputs     - Check required data exists (TODO)
+    5. Evaluate Rules      - Run DLL conditions against InfoHub context
+    6. Generate Outputs    - Create decision/risk artifacts from fired rules
+    7. Validate Evidence   - Ensure all claims have citations
+    8. Write Outputs       - Persist artifacts and execution trace
 
 Integration Points:
     - Reads from: domain/playbooks/executable/*.yaml, application/settings/playbook_thresholds.yaml
@@ -34,6 +35,7 @@ from .playbook_loader import PlaybookLoader
 from .dll_evaluator import DLLEvaluator
 from .threshold_manager import ThresholdManager
 from .evidence_validator import EvidenceValidator
+from .knowledge_enricher import enrich_context_with_knowledge
 
 
 class PlaybookExecutor:
@@ -117,7 +119,15 @@ class PlaybookExecutor:
                 'thresholds_count': len(thresholds_used)
             })
 
-            # Step 3: Validate inputs (minimal check for POC)
+            # Step 3: Enrich context with Knowledge Vault
+            self._log_step(trace, 'enrich_knowledge', 'started')
+            context = enrich_context_with_knowledge(context, playbook)
+            knowledge_items = context.get('knowledge_context', {}).get('items', [])
+            self._log_step(trace, 'enrich_knowledge', 'success', {
+                'knowledge_items_injected': len(knowledge_items)
+            })
+
+            # Step 4: Validate inputs (minimal check for POC)
             self._log_step(trace, 'validate_inputs', 'started')
             # TODO: Implement input validation
             self._log_step(trace, 'validate_inputs', 'success', {
