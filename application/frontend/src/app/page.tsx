@@ -197,8 +197,8 @@ const DIFFERENTIATORS = [
 ];
 
 const STATS = [
-  { icon: Bot, value: "30", label: "AI Agents" },
-  { icon: BookOpen, value: "60+", label: "Playbooks" },
+  { icon: Bot, value: "31", label: "AI Agents" },
+  { icon: BookOpen, value: "72", label: "Playbooks" },
   { icon: Frame, value: "8", label: "Canvas Types" },
   { icon: Repeat, value: "6-Step", label: "Lifecycle" },
 ];

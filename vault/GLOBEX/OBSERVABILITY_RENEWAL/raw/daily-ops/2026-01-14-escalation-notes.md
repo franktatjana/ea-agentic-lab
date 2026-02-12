@@ -51,11 +51,11 @@ Pulled the last 90 days of support tickets:
 
 | Severity | Count | Avg Resolution | SLA Met |
 |----------|-------|----------------|---------|
-| P1 | 2 | 5.2 hours | 0% |
-| P2 | 8 | 72 hours | 62% |
-| P3 | 15 | 5 days | 80% |
+| high | 2 | 5.2 hours | 0% |
+| medium | 8 | 72 hours | 62% |
+| low | 15 | 5 days | 80% |
 
-**Pattern**: Both P1 tickets were cluster performance issues. Root cause: They haven't upgraded to latest version which has significant performance improvements.
+**Pattern**: Both high-priority tickets were cluster performance issues. Root cause: They haven't upgraded to latest version which has significant performance improvements.
 
 **Quick Win**: Version upgrade could resolve performance issues and improve experience.
 

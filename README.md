@@ -25,7 +25,7 @@ Enterprise account management suffers from:
 
 A structured governance system with three layers:
 
-### 1. Multi-Agent Architecture (32 Agents)
+### 1. Multi-Agent Architecture (31 Agents)
 
 | Layer | Agents | Purpose |
 |-------|--------|---------|
@@ -39,7 +39,7 @@ A structured governance system with three layers:
 |------|-------|---------|
 | Strategic Playbooks | 65 | Framework operationalization across 12 team domains |
 | Operational Playbooks | 7 | Event-driven procedures (risk registration, action creation) |
-| Canvas Specs | 9 | Visual artifact rendering (decision, risk, value, architecture) |
+| Canvas Specs | 8 | Visual artifact rendering (decision, risk, value, architecture) |
 
 ### 3. Three-Vault Knowledge Architecture
 
@@ -59,7 +59,7 @@ Three design choices separate this system from traditional account management to
 
 **Documents for machines, artifacts for humans.** Everything is stored as structured, machine-readable YAML with schema validation. Canvases, reports, and dashboards are rendered from that data on demand. This inverts the traditional approach where humans write documents that machines cannot parse. When data is machine-readable first, agents can validate it, gap-scan it, cross-reference it, and render it into any format a stakeholder needs.
 
-**Personalizable AI agent teams.** The 32 agents are not a monolithic system. Each Account Executive gets their own agent team configured for their accounts, domains, and engagement patterns. One AE running three security deals and a search expansion gets a team weighted toward security and search specialists with competitive displacement playbooks loaded. Another AE managing strategic renewals gets retention-focused agents with health monitoring and champion mapping. The agent team adapts to how each person works, not the other way around.
+**Personalizable AI agent teams.** The 31 agents are not a monolithic system. Each Account Executive gets their own agent team configured for their accounts, domains, and engagement patterns. One AE running three security deals and a search expansion gets a team weighted toward security and search specialists with competitive displacement playbooks loaded. Another AE managing strategic renewals gets retention-focused agents with health monitoring and champion mapping. The agent team adapts to how each person works, not the other way around.
 
 **Customer-facing knowledge as a deliverable.** When the system works on a customer engagement, it does not just track internal notes. It creates a structured knowledge vault for that customer, organized by initiative across three vaults (external-infohub, internal-infohub, raw), with every artifact, decision, risk, and action item captured with full provenance. This means the engagement itself produces a curated knowledge repository that can be shared with the customer, handed off to a new team member, or audited years later. Knowledge sharing is not a side effect, it is the primary output.
 
@@ -85,14 +85,14 @@ Three design choices separate this system from traditional account management to
 
 | Metric | Value |
 |--------|-------|
-| Agents Defined | 32 |
+| Agents Defined | 31 |
 | Strategic Playbooks | 65 |
 | Operational Playbooks | 7 |
-| Canvas Types | 9 |
+| Canvas Types | 8 |
 | Blueprint Templates | 3 |
 | Sample Realms | 3 (ACME_CORP, GLOBEX, INITECH) |
 
-**Phase:** Domain model and web application complete. Frontend provides dashboard, playbook catalog, agent profiles, blueprint overview, and documentation browser. Backend API serves playbooks, blueprints, and docs. Ready for execution engine and agent runtime implementation.
+**Phase:** Domain model and web application complete. Frontend provides dashboard, realm/node explorer with multi-tab detail views (overview, stakeholders, competitive intelligence, growth), playbook catalog, agent profiles, blueprint overview, knowledge vault with article detail and agent intelligence, and documentation browser. Backend API serves realms, nodes, playbooks, blueprints, knowledge vault CRUD, and docs. Ready for execution engine and agent runtime implementation.
 
 ---
 

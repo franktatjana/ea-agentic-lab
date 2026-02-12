@@ -51,7 +51,7 @@ Amy led the analysis:
    - Knowledge lost when he left
 
 2. **Support Experience Degradation**
-   - P1 took 6 hours (SLA: 4 hours)
+   - High-priority ticket took 6 hours (SLA: 4 hours)
    - No proactive outreach on issues
    - Documentation outdated for features they use
 

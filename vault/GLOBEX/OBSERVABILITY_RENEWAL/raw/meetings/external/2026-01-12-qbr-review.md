@@ -48,8 +48,8 @@ When pressed, she admitted: "We're also evaluating whether we need this level of
 ## Support Issues Discussed
 
 Robert brought up several support escalations:
-1. **P1 Ticket #45892** - 6-hour resolution for cluster performance issue
-2. **P2 Ticket #46234** - Dashboard loading times degraded for 2 weeks
+1. **High-Priority Ticket #45892** - 6-hour resolution for cluster performance issue
+2. **Medium-Priority Ticket #46234** - Dashboard loading times degraded for 2 weeks
 3. **Documentation complaint** - "Your docs are outdated for the latest version"
 
 Robert: "I shouldn't have to escalate to get basic support. We're paying enterprise rates but getting startup-level service."
