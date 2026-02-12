@@ -2015,8 +2015,8 @@ function HealthTab({ realmId, nodeId }: { realmId: string; nodeId: string }) {
                     <SeverityBadge severity={alert.severity} />
                     <div className="flex-1">
                       <p className="text-sm">{String(alert.alert)}</p>
-                      {!!(alert as Record<string, unknown>).evidence && (
-                        <p className="text-xs text-muted-foreground mt-1">{String((alert as Record<string, unknown>).evidence)}</p>
+                      {alert.evidence && (
+                        <p className="text-xs text-muted-foreground mt-1">{alert.evidence}</p>
                       )}
                     </div>
                   </div>
