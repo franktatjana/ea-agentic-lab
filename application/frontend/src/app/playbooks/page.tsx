@@ -14,6 +14,8 @@ import {
   ArrowRight,
   X,
   UserCog,
+  CheckCircle2,
+  Library,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Input } from "@/components/ui/input";
@@ -27,7 +29,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { MetricCard } from "@/components/metric-card";
 import { RoleBadge, StatusBadge, ModeBadge, getModeInfo, getRoleKey } from "@/components/badges";
 import { HelpPopover } from "@/components/help-popover";
 import type { Playbook } from "@/types";
@@ -424,44 +425,84 @@ export default function PlaybookCatalogPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <MetricCard label="Total Playbooks" value={stats.total} />
-        <MetricCard label="Production Ready" value={stats.production} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-green-600/20 bg-green-600/10 h-full">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Library className="h-5 w-5 text-green-400" />
+              <span className="font-semibold">All Playbooks</span>
+            </div>
+            <p className="text-2xl font-bold mb-2">{stats.total}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Reusable execution units that encode best practices, frameworks, and specialist knowledge across all teams and roles.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-emerald-600/20 bg-emerald-600/10 h-full">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+              <span className="font-semibold">Production Ready</span>
+            </div>
+            <p className="text-2xl font-bold mb-2">{stats.production}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Validated playbooks ready for production deployment, tested against governance constraints and quality gates.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-blue-600/20 bg-blue-600/10 h-full">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <UserCog className="h-5 w-5 text-blue-400" />
+              <span className="font-semibold">Agent Roles</span>
+            </div>
+            <p className="text-2xl font-bold mb-2">{roleStats.length}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Distinct agent roles with dedicated playbooks, from Account Executives and Solution Architects to Governance and Delivery.
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {roleStats.length > 0 && (
-        <div>
-          <h2 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-            <UserCog className="h-4 w-4 text-muted-foreground" />
-            Browse by Agent Role ({roleStats.length})
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-            {roleStats.map(({ role, count }) => (
-              <Card
-                key={role}
-                className={`cursor-pointer transition-colors ${
-                  roleFilter === role
-                    ? ROLE_ACTIVE_COLORS[role] || "border-primary/60 bg-primary/5"
-                    : ROLE_COLORS[role] || "hover:border-primary/30"
-                }`}
-                onClick={() => handleRoleClick(role)}
-              >
-                <CardContent className="p-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium">{ROLE_LABELS[role] || formatLabel(role)}</span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Badge variant="secondary" className="text-[10px]">{count}</Badge>
-                      <ArrowRight className="h-3 w-3 text-muted-foreground" />
+        <>
+          <Separator />
+          <div>
+            <h2 className="text-sm font-medium mb-2 flex items-center gap-1.5">
+              <UserCog className="h-4 w-4 text-muted-foreground" />
+              Browse by Agent Role
+            </h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Filter playbooks by the agent role they are designed for. Each role has specialized playbooks tailored to its domain expertise.
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+              {roleStats.map(({ role, count }) => (
+                <Card
+                  key={role}
+                  className={`cursor-pointer transition-colors ${
+                    roleFilter === role
+                      ? ROLE_ACTIVE_COLORS[role] || "border-primary/60 bg-primary/5"
+                      : ROLE_COLORS[role] || "hover:border-primary/30"
+                  }`}
+                  onClick={() => handleRoleClick(role)}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium">{ROLE_LABELS[role] || formatLabel(role)}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Badge variant="secondary" className="text-[10px]">{count}</Badge>
+                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">
-                    {ROLE_DESCRIPTIONS[role] || ""}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
+                    <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">
+                      {ROLE_DESCRIPTIONS[role] || ""}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       <Separator />

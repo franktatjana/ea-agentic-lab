@@ -173,7 +173,11 @@ function getOutputItems(pb: Playbook): string[] {
     if (Array.isArray(sections)) return sections.map(String);
     return ["Output artifact"];
   }
-  if (pb.steckbrief?.key_outputs) return pb.steckbrief.key_outputs;
+  if (pb.steckbrief?.key_outputs) {
+    return pb.steckbrief.key_outputs.map((item: unknown) =>
+      typeof item === "string" ? item : (item as Record<string, string>).artifact || String(item)
+    );
+  }
   return [];
 }
 
@@ -610,12 +614,6 @@ function PlaybookViewerContent() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/playbooks">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-        </Link>
         <h1 className="text-2xl font-bold truncate min-w-0 flex-1">{displayName}</h1>
         <Link href={`/docs?path=architecture/playbooks/playbook-framework`}>
           <Button variant="outline" size="sm" className="text-xs gap-1.5">

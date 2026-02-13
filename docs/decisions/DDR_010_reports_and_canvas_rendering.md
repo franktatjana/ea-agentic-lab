@@ -72,6 +72,34 @@ Canvas rendering uses a format-dispatch pattern: each canvas section declares it
 **Risks:**
 - Canvas spec schema evolution must stay synchronized between YAML specs, backend assemblers, and frontend renderers. Mitigated by the generic fallback assembler that handles unknown specs gracefully.
 
+## Open Questions: Data Ownership Gaps
+
+The reports system reads vault YAML written by agents and playbooks. Three data ownership gaps were identified during implementation that affect long-term data freshness.
+
+### 1. Commercial fields in node_profile.yaml have no agent owner
+
+`opportunity_arr`, `probability`, `stage`, `next_milestone`, `next_milestone_date` live in `node_profile.yaml` and are surfaced on the portfolio dashboard. No agent or operational playbook writes to these fields. The AE agent owns pipeline intelligence conceptually, but its configured write targets are `risk_register.yaml` and `action_tracker.yaml`, not `node_profile.yaml`.
+
+**Impact:** Dashboard pipeline metrics ($1.1M total, $609K weighted) rely on manually maintained data. As the system scales, these fields will go stale unless an agent or playbook takes ownership.
+
+**Proposed resolution:** Either extend OP_MTG_001 (meeting notes) to detect commercial signal changes and update node_profile, or create a new operational playbook `OP_COM_001` owned by the AE agent that syncs CRM signals to node_profile.yaml.
+
+### 2. Canvas re-rendering has no trigger loop
+
+Canvas specs define `triggers.on_update` conditions (e.g., "New pain points discovered", "Competitive analysis updated"), but no playbook or agent evaluates these triggers. Canvases render from current vault data on demand (good), but there is no mechanism to notify users that a canvas should be reviewed after underlying data changes.
+
+**Impact:** Low for now, canvases always render fresh data when opened. Becomes relevant when canvases are exported as PDF/slides or cached for distribution, since stale exports would not reflect recent vault changes.
+
+**Proposed resolution:** The admin playbook `PB_ADM_002` (Canvas Gap Analysis) already defines a gap-scan pattern. Extend it to compare canvas section data timestamps against last-rendered timestamps and emit a `SIG_CANVAS_STALE` signal when drift exceeds a threshold.
+
+### 3. Reporter agent and dashboard service duplicate aggregation logic
+
+The reporter_agent produces weekly markdown digests reading the same sources the dashboard service reads (action_tracker, decision_log, risk_register, health_score, value_tracker). Both compute similar aggregates (top risks, overdue actions, health trends) independently.
+
+**Impact:** No functional issue today since both are read-only. Risk is logic drift: if the health trend calculation changes in one place but not the other, the weekly digest and dashboard could disagree.
+
+**Proposed resolution:** When the reporter agent gets a runtime implementation, have it call the dashboard summary endpoint rather than re-reading vault files directly. This makes the dashboard service the single source of truth for portfolio-level aggregation, and the reporter agent becomes a consumer that formats the data for Slack/email delivery.
+
 ## Related Decisions
 
 - [DDR-002: Canvas Framework](DDR_002_canvas_framework.md): Defined the canvas concept and 8 canvas types. This decision implements the rendering pipeline.

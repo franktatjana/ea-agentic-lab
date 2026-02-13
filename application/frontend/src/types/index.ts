@@ -374,6 +374,27 @@ export interface DashboardSummary {
   nodes: DashboardNode[];
 }
 
+// Canvas catalog
+export interface CanvasCatalogItem {
+  canvas_id: string;
+  name: string;
+  description: string;
+  status: string;
+  owner: string;
+  use_case: string;
+  priority: string;
+  cadence: string;
+  output: string;
+  core_canvas: boolean;
+  required_by: string[];
+  has_spec: boolean;
+  has_assembler: boolean;
+  sections: string[];
+  section_formats: string[];
+  section_count: number;
+  layout: string;
+}
+
 // Canvas rendering
 export interface CanvasSection {
   id: string;

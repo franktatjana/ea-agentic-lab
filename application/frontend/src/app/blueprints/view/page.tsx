@@ -408,12 +408,6 @@ function BlueprintViewContent() {
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/blueprints">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-        </Link>
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold truncate">{displayName}</h1>
           <div className="flex items-center gap-2 mt-1 flex-wrap">

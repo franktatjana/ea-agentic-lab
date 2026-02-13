@@ -265,7 +265,10 @@ export const api = {
   getInternalInfoHub: (realmId: string, nodeId: string) =>
     fetchApi<Record<string, unknown>>(`/nodes/${realmId}/${nodeId}/internal-infohub`),
 
-  // Canvas rendering
+  // Canvas
+  getCanvasCatalog: () =>
+    fetchApi<import("@/types").CanvasCatalogItem[]>("/canvas/catalog"),
+
   getCanvas: (realmId: string, nodeId: string, canvasId: string) =>
     fetchApi<import("@/types").CanvasData>(`/nodes/${realmId}/${nodeId}/canvas/${canvasId}`),
 };

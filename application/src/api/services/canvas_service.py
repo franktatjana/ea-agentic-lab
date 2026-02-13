@@ -700,6 +700,55 @@ class CanvasService:
             return None
 
 
+    # -- catalog --
+
+    def get_catalog(self) -> list[dict[str, Any]]:
+        registry = self._load_yaml(self.domain_path / "playbooks" / "canvas" / "registry.yaml")
+        if not registry:
+            return []
+
+        canvases_map = registry.get("canvases", {})
+        catalog = []
+
+        for canvas_id, entry in canvases_map.items():
+            spec = self._load_spec(canvas_id)
+            section_names = []
+            section_formats = []
+            if spec:
+                for sid, sdef in spec.get("sections", {}).items():
+                    section_names.append(sdef.get("label", sid))
+                    fmt = sdef.get("format", "default")
+                    if fmt not in section_formats:
+                        section_formats.append(fmt)
+
+            has_assembler = canvas_id in {
+                "context_canvas", "decision_canvas", "risk_governance",
+                "value_stakeholders", "architecture_decision",
+            }
+
+            catalog.append({
+                "canvas_id": canvas_id,
+                "name": entry.get("name", canvas_id),
+                "description": spec.get("description", entry.get("use_case", "")) if spec else entry.get("use_case", ""),
+                "status": entry.get("status", "unknown"),
+                "owner": entry.get("owner", ""),
+                "use_case": entry.get("use_case", ""),
+                "priority": entry.get("priority", "medium"),
+                "cadence": entry.get("cadence", ""),
+                "output": entry.get("output", ""),
+                "core_canvas": entry.get("core_canvas", False),
+                "required_by": entry.get("required_by", []),
+                "has_spec": spec is not None,
+                "has_assembler": has_assembler,
+                "sections": section_names,
+                "section_formats": section_formats,
+                "section_count": len(section_names),
+                "layout": spec.get("layout", {}).get("grid", "") if spec else "",
+            })
+
+        return catalog
+
+
 @lru_cache
 def get_canvas_service() -> CanvasService:
     settings = get_settings()

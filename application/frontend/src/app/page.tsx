@@ -212,6 +212,12 @@ export default function LandingPage() {
           Multi-Agent Governance Platform
         </Badge>
         <h1 className="text-4xl font-bold tracking-tight">EA Agentic Lab</h1>
+        <p className="text-sm text-muted-foreground">
+          by{" "}
+          <Link href="/about" className="text-foreground hover:underline">
+            Tatjana Frank
+          </Link>
+        </p>
         <p className="text-xl text-muted-foreground max-w-2xl">
           Structure where there was chaos. Enterprise pre-sales and post-sales
           engagements powered by AI agents that enforce discipline without

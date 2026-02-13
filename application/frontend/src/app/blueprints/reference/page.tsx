@@ -8,7 +8,8 @@ import {
   Layers,
   Clock,
   Gauge,
-  ArrowLeft,
+  Grid3X3,
+  BookOpen,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Input } from "@/components/ui/input";
@@ -21,8 +22,10 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { BlueprintComposer } from "@/components/blueprint-composer";
+import { HelpPopover } from "@/components/help-popover";
 
 function formatLabel(s: string): string {
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -137,10 +140,44 @@ export default function ReferenceBlueprintsPage() {
     queryFn: () => api.getArchetypes(),
   });
 
+  const { data: allPlaybooks } = useQuery({
+    queryKey: ["playbooks"],
+    queryFn: () => api.listPlaybooks(),
+  });
+
   const archetypeKeys = useMemo(() => {
     const archetypes = archetypesData?.archetypes as Record<string, unknown> | undefined;
     return archetypes ? Object.keys(archetypes) : [];
   }, [archetypesData]);
+
+  const coveredArchetypes = useMemo(() => {
+    if (!blueprints) return 0;
+    const archs = new Set<string>();
+    for (const bp of blueprints) {
+      const arch = String(bp._archetype_dir || bp.archetype || "");
+      if (arch) archs.add(arch);
+    }
+    return archs.size;
+  }, [blueprints]);
+
+  const referencedPlaybooks = useMemo(() => {
+    if (!blueprints) return 0;
+    const ids = new Set<string>();
+    for (const bp of blueprints) {
+      const playbooks = bp.playbooks as Record<string, unknown> | undefined;
+      if (!playbooks) continue;
+      for (const [, trackVal] of Object.entries(playbooks)) {
+        if (!trackVal || typeof trackVal !== "object") continue;
+        const track = trackVal as Record<string, unknown>;
+        const req = track.required as Record<string, unknown>[];
+        const opt = track.optional as Record<string, unknown>[];
+        if (Array.isArray(req)) req.forEach((p) => ids.add(String(p.playbook_id || "")));
+        if (Array.isArray(opt)) opt.forEach((p) => ids.add(String(p.playbook_id || "")));
+      }
+    }
+    ids.delete("");
+    return ids.size;
+  }, [blueprints]);
 
   const filtered = useMemo(() => {
     if (!blueprints) return [];
@@ -171,17 +208,19 @@ export default function ReferenceBlueprintsPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/blueprints">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-        </Link>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">Blueprints</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">Blueprints</h1>
+            <HelpPopover title="What are Blueprints?">
+              Reference blueprints are composable templates that define which
+              playbooks, canvases, checklists, and governance rules apply to a
+              given engagement archetype. Each blueprint varies by track (POC,
+              Economy, Premium, Fast Track) to match the engagement&apos;s service tier.
+            </HelpPopover>
+          </div>
+          <p className="text-muted-foreground text-sm mt-1">
             Composable templates that define playbook composition, canvases, checklists, and governance per engagement archetype and track.
           </p>
         </div>
@@ -190,7 +229,56 @@ export default function ReferenceBlueprintsPage() {
         </Button>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="border-purple-600/20 bg-purple-600/10 h-full">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Layers className="h-5 w-5 text-purple-400" />
+              <span className="font-semibold">Templates</span>
+            </div>
+            <p className="text-2xl font-bold mb-2">{blueprints?.length ?? 0}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Reference blueprint templates that compose playbooks, canvases, and governance rules for each engagement pattern.
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-blue-600/20 bg-blue-600/10 h-full">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Grid3X3 className="h-5 w-5 text-blue-400" />
+              <span className="font-semibold">Archetypes Covered</span>
+            </div>
+            <p className="text-2xl font-bold mb-2">
+              {coveredArchetypes} <span className="text-base font-normal text-muted-foreground">of {archetypeKeys.length}</span>
+            </p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {archetypeKeys.length - coveredArchetypes > 0
+                ? `${archetypeKeys.length - coveredArchetypes} archetype${archetypeKeys.length - coveredArchetypes > 1 ? "s" : ""} not yet covered by blueprints.`
+                : "All engagement archetypes have blueprint templates."}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="border-green-600/20 bg-green-600/10 h-full">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen className="h-5 w-5 text-green-400" />
+              <span className="font-semibold">Playbooks Referenced</span>
+            </div>
+            <p className="text-2xl font-bold mb-2">
+              {referencedPlaybooks} <span className="text-base font-normal text-muted-foreground">of {allPlaybooks?.length ?? "..."}</span>
+            </p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Distinct playbooks composed into blueprints across all tracks. {allPlaybooks && allPlaybooks.length > referencedPlaybooks
+                ? `${allPlaybooks.length - referencedPlaybooks} playbooks are standalone or team-specific.`
+                : ""}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {showComposer && <BlueprintComposer />}
+
+      <Separator />
 
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">

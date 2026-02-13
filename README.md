@@ -92,7 +92,7 @@ Three design choices separate this system from traditional account management to
 | Blueprint Templates | 3 |
 | Sample Realms | 3 (ACME_CORP, GLOBEX, INITECH) |
 
-**Phase:** Domain model and web application complete. Frontend provides portfolio dashboard with aggregated metrics and attention items, realm/node explorer with multi-tab detail views (overview, scenario, stakeholders, competitive intelligence, growth), canvas rendering for strategic artifacts (context, decision, risk governance, value/stakeholders, architecture decision), playbook catalog, agent profiles, blueprint overview, knowledge vault with article detail and agent intelligence, node creation dialog, and documentation browser. Backend API serves realms, nodes, canvases, dashboard summary, playbooks, blueprints, knowledge vault CRUD, and docs. Ready for execution engine and agent runtime implementation.
+**Phase:** Domain model and web application complete. Frontend provides portfolio dashboard with aggregated metrics and attention items, realm/node explorer with multi-tab detail views (overview, scenario, stakeholders, competitive intelligence, growth), canvas rendering for strategic artifacts (context, decision, risk governance, value/stakeholders, architecture decision), canvas library with catalog API and filter tabs, playbook catalog with summary cards and role browsing, agent profiles, blueprint overview with coverage metrics, knowledge vault with article detail and agent intelligence, node creation dialog, about page, and documentation browser. Backend API serves realms, nodes, canvases, canvas catalog, dashboard summary, playbooks, blueprints, knowledge vault CRUD, and docs. Ready for execution engine and agent runtime implementation.
 
 ---
 

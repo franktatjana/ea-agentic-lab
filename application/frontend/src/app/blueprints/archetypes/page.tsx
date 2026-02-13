@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
-  ArrowLeft,
   ArrowRight,
   Clock,
   Zap,
@@ -16,7 +15,6 @@ import {
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { HelpPopover } from "@/components/help-popover";
 
@@ -210,19 +208,11 @@ export default function ArchetypesCatalogPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/blueprints">
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold">Archetype Catalog</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            Engagement classification patterns. Each archetype defines why a customer is engaging, which signals identify it, and which blueprints govern it.
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-bold">Archetype Catalog</h1>
+        <p className="text-muted-foreground text-sm mt-0.5">
+          Engagement classification patterns. Each archetype defines why a customer is engaging, which signals identify it, and which blueprints govern it.
+        </p>
       </div>
 
       {/* Classification model explanation */}

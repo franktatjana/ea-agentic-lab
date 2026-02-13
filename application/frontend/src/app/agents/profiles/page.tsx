@@ -13,7 +13,6 @@ import {
   Settings,
   Microscope,
   ArrowRight,
-  ArrowLeft,
   Zap,
   Users,
 } from "lucide-react";
@@ -174,13 +173,6 @@ export default function AgentProfilesPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
-        <Link
-          href="/agents"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-3"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Back to Agents
-        </Link>
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold">Agent Profiles</h1>
           <HelpPopover title="Agent Profiles">

@@ -1,7 +1,7 @@
 # EA Agentic Lab - Implementation Status
 
-**Last Updated:** 2026-02-10
-**Status:** Domain model defined, 91 playbooks authored, 28 agents configured, application scaffolded
+**Last Updated:** 2026-02-13
+**Status:** Domain model defined, 91 playbooks authored, 28 agents configured, web application functional with dashboard, canvas rendering, and node management
 
 ---
 
@@ -143,8 +143,36 @@ The 6 new playbooks include `vault_routing` metadata. Existing playbooks need th
 
 | Component | Location | Technology | Status |
 |-----------|----------|------------|--------|
-| iOS app | `application/` | Swift | Scaffolded (Dashboard, Nodes, Risks, Actions, Profile views) |
-| Backend | `application/app.py` | Python (Streamlit) | Scaffolded |
+| Web frontend | `application/frontend/` | Next.js 16, React 19, Tailwind CSS 4, Shadcn | Functional |
+| Backend API | `application/src/api/` | Python 3.12+, FastAPI, PyYAML | Functional |
+| iOS app | `application/` | Swift | Scaffolded |
+
+**Backend services (8):**
+
+| Service | Purpose | Status |
+|---------|---------|--------|
+| `yaml_loader.py` | Core vault YAML reader, realm/node/health/risk/action loading | Functional |
+| `vault_service.py` | InfoHub access (external + internal), blueprint mutations | Functional |
+| `canvas_service.py` | Canvas spec + vault data assembly, 5 canvas-type assemblers | Functional |
+| `dashboard_service.py` | Portfolio aggregation across all realms/nodes | Functional |
+| `node_service.py` | Node creation with blueprint composition | Functional |
+| `stance_service.py` | Stakeholder stance proposals and approval workflow | Functional |
+| `knowledge_service.py` | Knowledge vault CRUD and proposals | Functional |
+| `docs_service.py` | Documentation tree and content serving | Functional |
+
+**Frontend pages:**
+
+| Page | Route | Key features |
+|------|-------|-------------|
+| Landing | `/` | Framework overview, pillars, lifecycle, personas |
+| Dashboard | `/dashboard` | Portfolio metrics (6 cards), attention items, per-realm node rows with health/risks/pipeline/milestones |
+| Realm detail | `/realms/[id]` | Profile tabs, node list, competitive landscape, growth strategy |
+| Node detail | `/realms/[id]/nodes/[id]` | Overview, Blueprint, Health, Risks & Actions, Stakeholders tabs, canvas viewer |
+| Playbooks | `/playbooks` | Catalog with filters, detail view |
+| Knowledge | `/knowledge` | Knowledge vault with stats, proposals |
+| Documentation | `/docs` | Markdown browser with sidebar tree |
+
+**Canvas rendering (DDR-010):** 5 canvas assemblers implemented (context, decision, risk governance, value/stakeholders, architecture decision) with generic fallback. Frontend format-dispatch renderer handles 10+ section formats.
 
 ### 6. Documentation
 
@@ -164,7 +192,22 @@ Reorganized (2026-02-10) into reader-intent structure:
 | ID | Title | Type | Status |
 |----|-------|------|--------|
 | DDR-001 | Three-Vault Knowledge Architecture | Domain | ACCEPTED |
-| ADR-001 | Streamlit Playbook Viewer | Architecture | ACCEPTED |
+| DDR-002 | Canvas Framework | Domain | ACCEPTED |
+| DDR-003 | Domain Specialist Agents | Domain | ACCEPTED |
+| DDR-004 | Tech Signal Intelligence | Domain | ACCEPTED |
+| DDR-005 | Signal-Based Action Completion | Domain | ACCEPTED |
+| DDR-006 | InfoHub Shared Screen Test | Domain | ACCEPTED |
+| DDR-007 | Blueprint Instance Engagement Plan | Domain | ACCEPTED |
+| DDR-008 | Knowledge Vault Learning System | Domain | ACCEPTED |
+| DDR-009 | Stakeholder Stance Classification | Domain | ACCEPTED |
+| DDR-010 | Reports and Canvas Rendering | Domain | ACCEPTED |
+| ADR-001 | Streamlit Playbook Viewer | Architecture | SUPERSEDED |
+| ADR-002 | Next.js Web Application | Architecture | ACCEPTED |
+| ADR-003 | Multi-UI Architecture | Architecture | ACCEPTED |
+| ADR-004 | FastAPI Backend | Architecture | ACCEPTED |
+| ADR-005 | Documentation Browser | Architecture | ACCEPTED |
+| ADR-006 | Landing Page Route Restructure | Architecture | ACCEPTED |
+| ADR-007 | Interactive Framework Map | Architecture | DEFERRED |
 
 ### 7. Supporting Configuration
 
@@ -227,11 +270,19 @@ ea-agentic-lab/
 - Playbook execution engine (load YAML, run steps, generate outputs)
 - Agent runtime (LLM integration, tool calling, signal processing)
 - Trigger system (event-driven playbook activation)
-- Streamlit playbook viewer (ADR-001 accepted, not implemented)
 - Vault routing enforcement (validate vault_routing metadata across all playbooks)
 - Multi-agent orchestration (cross-agent workflows)
-- Backend API endpoints
+- Report generation pipeline (LLM-synthesized reports from vault data, see DDR-010 future scope)
+- Canvas export (PDF/slide generation from rendered canvases)
 - iOS app connected to backend
+
+### Data ownership gaps
+
+Identified during dashboard implementation (documented in DDR-010 Open Questions):
+
+- **Commercial fields in node_profile.yaml have no agent owner.** `opportunity_arr`, `probability`, `stage`, `next_milestone` are read by the dashboard but no agent or playbook writes to them. The AE agent owns pipeline intelligence but writes to risk_register and action_tracker, not node_profile. Proposed: new `OP_COM_001` playbook or extend OP_MTG_001.
+- **Canvas re-rendering has no trigger loop.** Canvas specs define `triggers.on_update` conditions but nothing evaluates them. Canvases render fresh data on demand (acceptable for now), but stale exports would not reflect recent changes. Proposed: extend PB_ADM_002 (Canvas Gap Analysis) with staleness detection.
+- **Reporter agent and dashboard service duplicate aggregation logic.** Both read the same vault sources and compute similar aggregates. Proposed: when reporter gets runtime, have it consume the dashboard API endpoint.
 
 ### Consistency tasks
 
@@ -256,3 +307,5 @@ ea-agentic-lab/
 | 2026-02-09 | Three-vault knowledge architecture (DDR-001), 6 new playbooks with vault_routing |
 | 2026-02-09 | Decision documentation framework (DDR + ADR), Streamlit viewer decision (ADR-001) |
 | 2026-02-10 | Documentation restructured (architecture/, operating-model/, guides/, decisions/) |
+| 2026-02-12 | Competitive intelligence UI, stakeholder interactivity, realm profile tabs |
+| 2026-02-13 | Canvas rendering pipeline (5 assemblers, format-dispatch renderer), portfolio dashboard with aggregated metrics, DDR-010 accepted |

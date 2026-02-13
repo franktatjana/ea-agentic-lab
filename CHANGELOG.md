@@ -4,21 +4,35 @@
 
 ### Added
 
+- Canvas Library page at `/canvas` with catalog API endpoint, summary cards, filter tabs (all/core/specialized/planned), and per-canvas cards showing sections, owner, cadence, and data pipeline status
+- Canvas catalog backend: `GET /canvas/catalog` endpoint returning canvas metadata from registry and specs
+- About page at `/about` with authorship skeleton
+- Authorship attribution: "by Tatjana Frank" on landing page hero, copyright in sidebar footer
+- Blueprint reference page: summary cards with coverage ratios (archetypes covered X of Y, playbooks referenced X of Y)
+- Playbook catalog: summary cards (All Playbooks, Production Ready, Agent Roles) matching blueprint card style
+- Canvas rendering pipeline: 5 canvas-type assemblers (context, decision, risk governance, value/stakeholders, architecture decision) with generic fallback, format-dispatch frontend renderer supporting 10+ section formats
+- Portfolio dashboard with 6 aggregated metrics (active nodes, avg health with trend, critical risks, overdue actions, pipeline ARR, weighted pipeline), attention items section, and per-realm node rows showing health/risks/milestones/commercial data
+- Dashboard backend service aggregating across all realms and nodes in a single API call
 - Landing page at `/` with framework overview, three pillars, lifecycle, personas, and differentiators
-- Dashboard route at `/dashboard` with tiles/list view toggle for realm cards
 - Signal Matcher Agent for automatic action completion from vault signals
 - Operational playbook `OP_ACT_002` for signal-based action completion pipeline
 - Three new health signals: `SIG_HLT_005`, `SIG_HLT_006`, `SIG_HLT_007` for completion lifecycle
 - Risk detail dialog on node page
 - Documentation ordering via `order:` frontmatter field
-- Decision records: DDR-005 (signal-based action completion), ADR-006 (landing page)
+- Decision records: DDR-005 (signal-based action completion), ADR-006 (landing page), DDR-010 (reports and canvas rendering)
 
 ### Changed
 
+- Dashboard route `/dashboard` now shows portfolio-level aggregation instead of basic realm tiles
 - Home route `/` is now the landing page, dashboard moved to `/dashboard`
-- Sidebar navigation: added Dashboard item
+- Sidebar navigation: added Dashboard, Canvas Library, and About items
+- Removed back buttons from sub-pages (archetypes, blueprints, playbooks, agents), browser back handles navigation
 - Merged agent architecture diagrams into single consolidated doc
 - Backend `docs_service.py` sorts by frontmatter `order` field
+
+### Fixed
+
+- MEDDPICC playbook viewer crash: `steckbrief.key_outputs` objects with `{artifact, format}` keys were passed as React children instead of extracting the artifact string
 
 ---
 

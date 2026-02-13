@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Home,
   LayoutDashboard,
+  LayoutGrid,
   Layers,
   FileText,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
   Building2,
   Bot,
   BookOpen,
+  User,
   Sun,
   Moon,
 } from "lucide-react";
@@ -31,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home", icon: Home, iconColor: "text-blue-400" },
   { href: "/blueprints", label: "Blueprints", icon: Layers, iconColor: "text-purple-400" },
   { href: "/agents", label: "Agents", icon: Bot, iconColor: "text-amber-400" },
+  { href: "/canvas", label: "Canvas Library", icon: LayoutGrid, iconColor: "text-cyan-400" },
 ];
 
 export function Sidebar() {
@@ -213,6 +216,18 @@ export function Sidebar() {
           <FileText className="h-4 w-4 text-green-400" />
           Documentation
         </Link>
+        <Link
+          href="/about"
+          className={cn(
+            "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+            pathname.startsWith("/about")
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+          )}
+        >
+          <User className="h-4 w-4 text-rose-400" />
+          About
+        </Link>
       </nav>
 
       <div className="mx-3 mb-2 rounded-md border border-yellow-600/30 bg-yellow-600/5 px-3 py-2.5">
@@ -226,9 +241,10 @@ export function Sidebar() {
       </div>
       <Separator />
       <div className="p-3 flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          EA Agentic Lab v1.0
-        </p>
+        <div>
+          <p className="text-xs text-muted-foreground">EA Agentic Lab v1.0</p>
+          <p className="text-[10px] text-muted-foreground/70">Tatjana Frank, 2026</p>
+        </div>
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
