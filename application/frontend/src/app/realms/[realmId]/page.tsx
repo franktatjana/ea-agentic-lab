@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
@@ -14,6 +15,7 @@ import {
   MapPin,
   Briefcase,
   DollarSign,
+  Plus,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +25,9 @@ import { Separator } from "@/components/ui/separator";
 import { MetricCard } from "@/components/metric-card";
 import { HealthBar } from "@/components/health-bar";
 import { StatusBadge } from "@/components/badges";
+import { Button } from "@/components/ui/button";
 import { HelpPopover } from "@/components/help-popover";
+import { CreateNodeDialog } from "@/components/create-node-dialog";
 import type { Realm, NodeSummary } from "@/types";
 
 function NodeCard({
@@ -416,6 +420,8 @@ export default function RealmDetailPage() {
     enabled: !!realmId,
   });
 
+  const [createOpen, setCreateOpen] = useState(false);
+
   const { data: profile } = useQuery({
     queryKey: ["realmProfile", realmId],
     queryFn: () => api.getRealmProfile(realmId),
@@ -500,6 +506,9 @@ export default function RealmDetailPage() {
             tracks its own health score, risks, actions, stakeholders, and
             blueprint progress independently.
           </HelpPopover>
+          <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)} className="ml-auto">
+            <Plus className="h-4 w-4 mr-1" /> New Node
+          </Button>
         </div>
         {nodesLoading ? (
           <p className="text-muted-foreground text-sm">Loading nodes...</p>
@@ -537,6 +546,8 @@ export default function RealmDetailPage() {
           </TabsContent>
         </Tabs>
       )}
+
+      <CreateNodeDialog realmId={realmId} open={createOpen} onOpenChange={setCreateOpen} />
     </div>
   );
 }

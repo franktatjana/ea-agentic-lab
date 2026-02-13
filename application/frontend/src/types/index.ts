@@ -19,6 +19,30 @@ export interface NodeSummary {
   overdue_actions?: number;
 }
 
+export interface CreateNodeRequest {
+  node_id: string;
+  name: string;
+  purpose?: string;
+  archetype: string;
+  domain: string;
+  track: string;
+  variant?: string;
+  operating_mode?: string;
+  target_completion?: string;
+  opportunity_arr?: number;
+  probability?: number;
+  stage?: string;
+}
+
+export interface CreateNodeResponse {
+  node_id: string;
+  realm_id: string;
+  name: string;
+  status: string;
+  blueprint_summary: Record<string, unknown>;
+  warnings: string[];
+}
+
 export interface BlueprintClassification {
   archetype?: string;
   domain?: string;
@@ -288,4 +312,87 @@ export interface Playbook {
   version?: string;
   decision_logic?: Record<string, unknown>;
   vault_routing?: Record<string, unknown>;
+}
+
+// Dashboard
+export interface DashboardPortfolio {
+  total_realms: number;
+  total_nodes: number;
+  active_nodes: number;
+  avg_health: number | null;
+  health_trend: string;
+  total_critical_risks: number;
+  total_overdue_actions: number;
+  total_pending_decisions: number;
+  total_pipeline_arr: number;
+  weighted_pipeline: number;
+}
+
+export interface DashboardAttentionItem {
+  realm_id: string;
+  node_id: string;
+  node_name: string;
+  type: string;
+  severity: string;
+  message: string;
+  detail: string;
+}
+
+export interface DashboardNode {
+  realm_id: string;
+  realm_name: string;
+  node_id: string;
+  node_name: string;
+  status: string;
+  operating_mode: string;
+  health_score: number | null;
+  health_previous: number | null;
+  health_trend: string;
+  health_status: string;
+  critical_risks: number;
+  high_risks: number;
+  total_risks: number;
+  overdue_actions: number;
+  total_actions: number;
+  completed_actions: number;
+  pending_decisions: number;
+  blocking_decisions: number;
+  total_decisions: number;
+  opportunity_arr: number | null;
+  probability: number | null;
+  stage: string;
+  next_milestone: string;
+  next_milestone_date: string;
+  target_completion: string;
+  archetype: string;
+  domain: string;
+}
+
+export interface DashboardSummary {
+  portfolio: DashboardPortfolio;
+  attention_items: DashboardAttentionItem[];
+  nodes: DashboardNode[];
+}
+
+// Canvas rendering
+export interface CanvasSection {
+  id: string;
+  label: string;
+  format: string;
+  data: Record<string, unknown>;
+}
+
+export interface CanvasData {
+  canvas_id: string;
+  name: string;
+  description: string;
+  metadata: {
+    node_name: string;
+    realm_name: string;
+    stage: string;
+    status: string;
+    last_updated: string;
+  };
+  layout: Record<string, unknown>;
+  sections: CanvasSection[];
 }

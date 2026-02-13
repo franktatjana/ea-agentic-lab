@@ -20,6 +20,10 @@ The External InfoHub contains only customer-safe deliverables. The structure bel
 
 ```text
 external-infohub/
+├── engagement_overview.md              # Narrative overview: objective, why now, expected outcomes
+├── account_team.yaml                   # Named contacts, roles, escalation path
+├── engagement_timeline.yaml            # Phases, milestones, upcoming decision points
+├── success_criteria.yaml               # Jointly agreed POC/evaluation criteria
 └── architecture/
     └── ADR_001_security_platform.md    # Architecture decision records
 ```
@@ -28,16 +32,24 @@ Additional directories may be added as customer deliverables are produced:
 
 ```text
 external-infohub/
-├── architecture/          # ADRs, reference architectures, integration diagrams
-├── technical-guides/      # Implementation guides, configuration recommendations
-├── deliverables/          # Proposals, SOWs, project plans co-owned with customer
-└── outcomes/              # Customer-approved success metrics, realized value reports
+├── engagement_overview.md   # Always created first, narrative entry point
+├── account_team.yaml        # Team contacts and escalation
+├── engagement_timeline.yaml # Phases and milestones
+├── success_criteria.yaml    # Evaluation criteria with owners
+├── architecture/            # ADRs, reference architectures, integration diagrams
+├── technical-guides/        # Implementation guides, configuration recommendations
+├── deliverables/            # Proposals, SOWs, project plans co-owned with customer
+└── outcomes/                # Customer-approved success metrics, realized value reports
 ```
 
 ## What Belongs Here
 
 Every artifact must pass the shared screen test: safe to project during a customer meeting. The following content types are appropriate for this hub.
 
+- **Engagement overview**: narrative summary of objective, why now, expected outcomes, and next steps
+- **Account team**: named contacts with roles, responsibilities, and escalation path
+- **Engagement timeline**: phases, milestones, and upcoming decision points
+- **Success criteria**: jointly agreed POC or evaluation criteria with owners and validation methods
 - **Solution architecture**: ADRs, reference architectures, integration diagrams, deployment guides
 - **Technical guidelines**: implementation guides, configuration recommendations, best practices specific to their environment
 - **Customer deliverables**: proposals, SOWs, project plans that the customer co-owns
@@ -63,8 +75,12 @@ Content that fails the shared screen test belongs in the [Internal InfoHub](inte
 
 ## Agent Ownership
 
-| Directory | Owner Agent | Content Scope |
+| File / Directory | Owner Agent | Content Scope |
 |-----------|-------------|---------------|
+| `engagement_overview.md` | AE Agent | Narrative overview, objectives, why now, next steps |
+| `account_team.yaml` | AE Agent | Named contacts, roles, escalation path |
+| `engagement_timeline.yaml` | AE Agent, CA Agent | Phases, milestones, decision points |
+| `success_criteria.yaml` | SA Agent, POC Agent | Evaluation criteria, validation methods, owners |
 | `architecture/` | SA Agent | ADRs, solution design, reference architectures, integration docs |
 | `technical-guides/` | SA Agent, Specialist Agents | Implementation guidance, configuration docs |
 | `deliverables/` | AE Agent | Customer-approved proposals, SOWs, shared project plans |
@@ -103,9 +119,11 @@ The External InfoHub has a longer lifecycle than its internal counterpart becaus
 
 Playbooks that produce customer deliverables write directly to the External InfoHub via `vault_routing` metadata.
 
-| Playbook | Output | Directory |
-|----------|--------|-----------|
-| PB_103 Technical Validation | Validation checklist, technical requirements | `architecture/` |
+| Playbook | Output | Target |
+|----------|--------|--------|
+| PB_101 Discovery & Qualification | Engagement overview, account team contacts | `engagement_overview.md`, `account_team.yaml` |
+| PB_102 Stakeholder Mapping | Engagement timeline with decision points | `engagement_timeline.yaml` |
+| PB_103 Technical Validation | Validation checklist, success criteria | `architecture/`, `success_criteria.yaml` |
 | PB_104 Solution Description | Solution design document, reference architecture | `architecture/` |
 | PB_404 Customer Guidelines | Customer-facing guidelines, best practices | `technical-guides/` |
 | PB_405 Training Plans | Learning paths, training schedules | `deliverables/` |

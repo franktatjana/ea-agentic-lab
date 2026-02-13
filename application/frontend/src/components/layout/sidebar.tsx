@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTheme } from "next-themes";
 import { useQuery } from "@tanstack/react-query";
 import {
   Home,
@@ -13,6 +14,8 @@ import {
   Building2,
   Bot,
   BookOpen,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
@@ -32,6 +35,7 @@ const NAV_ITEMS: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
 
   const { data: realms } = useQuery({
     queryKey: ["realms"],
@@ -221,10 +225,17 @@ export function Sidebar() {
         </p>
       </div>
       <Separator />
-      <div className="p-3">
-        <p className="text-xs text-muted-foreground text-center">
+      <div className="p-3 flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
           EA Agentic Lab v1.0
         </p>
+        <button
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+          aria-label="Toggle theme"
+        >
+          {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+        </button>
       </div>
     </aside>
   );

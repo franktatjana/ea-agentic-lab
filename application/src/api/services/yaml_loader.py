@@ -2,9 +2,12 @@
 YAML Loader Service for EA Agentic Lab API
 Reads InfoHub YAML files and returns structured data
 """
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
+
+logger = logging.getLogger(__name__)
 
 import yaml
 
@@ -182,31 +185,33 @@ class YAMLLoader:
             if node_dir.is_dir() and not node_dir.name.startswith("."):
                 node_profile_path = node_dir / "node_profile.yaml"
                 if node_profile_path.exists():
-                    node = self.get_node(realm_id, node_dir.name)
-                    if node:
-                        # Get health score and risk counts for summary
-                        health = self.get_health_score(realm_id, node_dir.name)
-                        risks = self.get_risk_register(realm_id, node_dir.name)
-                        actions = self.get_action_tracker(realm_id, node_dir.name)
+                    try:
+                        node = self.get_node(realm_id, node_dir.name)
+                        if node:
+                            health = self.get_health_score(realm_id, node_dir.name)
+                            risks = self.get_risk_register(realm_id, node_dir.name)
+                            actions = self.get_action_tracker(realm_id, node_dir.name)
 
-                        nodes.append(
-                            NodeSummary(
-                                node_id=node.node_id,
-                                realm_id=node.realm_id,
-                                name=node.name,
-                                status=node.status,
-                                operating_mode=node.operating_mode,
-                                health_score=(
-                                    health.health_score.current if health else None
-                                ),
-                                critical_risks=(
-                                    risks.summary.critical if risks else None
-                                ),
-                                overdue_actions=(
-                                    actions.summary.overdue if actions else None
-                                ),
+                            nodes.append(
+                                NodeSummary(
+                                    node_id=node.node_id,
+                                    realm_id=node.realm_id,
+                                    name=node.name,
+                                    status=node.status,
+                                    operating_mode=node.operating_mode,
+                                    health_score=(
+                                        health.health_score.current if health else None
+                                    ),
+                                    critical_risks=(
+                                        risks.summary.critical if risks else None
+                                    ),
+                                    overdue_actions=(
+                                        actions.summary.overdue if actions else None
+                                    ),
+                                )
                             )
-                        )
+                    except Exception as e:
+                        logger.warning(f"Skipping node {node_dir.name}: {e}")
         return nodes
 
     def get_node(self, realm_id: str, node_id: str) -> Optional[Node]:

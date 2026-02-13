@@ -16,6 +16,7 @@ import {
   Calendar,
   AlertTriangle,
   CheckCircle2,
+  Circle,
   Clock,
   DollarSign,
   Linkedin,
@@ -87,10 +88,23 @@ import {
 } from "@/components/ui/sheet";
 import { StatusBadge, SeverityBadge } from "@/components/badges";
 import { HelpPopover } from "@/components/help-popover";
+import { CanvasViewer } from "@/components/canvas-viewer";
 import type { Node, HealthScore, RiskRegister, ActionTracker, Risk, Action } from "@/types";
 
 function formatLabel(s: string) {
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatCurrency(value: number | string): string {
+  if (typeof value === "string") {
+    if (value.startsWith("$")) return value;
+    const n = parseFloat(value.replace(/[^0-9.-]/g, ""));
+    if (isNaN(n)) return value;
+    return formatCurrency(n);
+  }
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (value >= 1_000) return `$${Math.round(value / 1_000)}K`;
+  return `$${value}`;
 }
 
 const ARCHETYPE_COLORS: Record<string, string> = {
@@ -1160,73 +1174,711 @@ function CompetitiveIntelligencePanel({ data }: { data: Record<string, unknown> 
   );
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+function NarrativeBanner({
+  background,
+  purpose,
+  businessCase,
+  commercial,
+}: {
+  background?: string;
+  purpose?: string;
+  businessCase?: Record<string, unknown>;
+  commercial?: Record<string, unknown>;
+}) {
+  const text = background || purpose;
+  if (!text) return null;
+
+  const hasHighlights = commercial?.opportunity_arr != null ||
+    !!businessCase?.projected_savings || !!businessCase?.roi_target || !!businessCase?.payback_period;
+
+  return (
+    <Card className="bg-primary/5 border-primary/10">
+      <CardContent className="pt-4 pb-3">
+        <div className="flex items-start gap-3">
+          <BookOpen className="h-4 w-4 text-primary/60 shrink-0 mt-0.5" />
+          <div className="space-y-2 min-w-0">
+            <p className="text-sm leading-relaxed whitespace-pre-line">{text}</p>
+            {background && purpose && (
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium">Purpose:</span> {purpose}
+              </p>
+            )}
+            {hasHighlights && (
+              <div className="flex flex-wrap gap-x-5 gap-y-1 pt-2 border-t border-primary/10">
+                {commercial?.opportunity_arr != null && (
+                  <span className="text-xs">
+                    <span className="text-muted-foreground">ARR:</span>{" "}
+                    <span className="font-medium">{formatCurrency(Number(commercial.opportunity_arr))}</span>
+                  </span>
+                )}
+                {!!businessCase?.projected_savings && (
+                  <span className="text-xs">
+                    <span className="text-muted-foreground">Savings:</span>{" "}
+                    <span className="font-medium">{String(businessCase.projected_savings)}</span>
+                  </span>
+                )}
+                {!!businessCase?.roi_target && (
+                  <span className="text-xs">
+                    <span className="text-muted-foreground">ROI:</span>{" "}
+                    <span className="font-medium">{String(businessCase.roi_target)}</span>
+                  </span>
+                )}
+                {!!businessCase?.payback_period && (
+                  <span className="text-xs">
+                    <span className="text-muted-foreground">Payback:</span>{" "}
+                    <span className="font-medium">{String(businessCase.payback_period)}</span>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function KeyMetricsStrip({
+  commercial,
+  healthScore,
+  businessCase,
+  currentPhase,
+}: {
+  commercial?: Record<string, unknown>;
+  healthScore?: HealthScore;
+  businessCase?: Record<string, unknown>;
+  currentPhase?: string;
+}) {
+  const metrics: { label: string; value: string; color?: string }[] = [];
+
+  if (commercial?.opportunity_arr != null) {
+    const raw = Number(commercial.opportunity_arr);
+    metrics.push({ label: "Opportunity ARR", value: isNaN(raw) ? String(commercial.opportunity_arr) : formatCurrency(raw) });
+  }
+  if (commercial?.probability != null) {
+    metrics.push({ label: "Probability", value: `${commercial.probability}%` });
+  }
+  if (commercial?.stage != null) {
+    metrics.push({ label: "Stage", value: formatLabel(String(commercial.stage)) });
+  }
+  if (healthScore?.health_score) {
+    const hs = healthScore.health_score;
+    const score = hs.current;
+    const color = score >= 80 ? "text-green-400" : score >= 60 ? "text-yellow-400" : "text-red-400";
+    const trend = hs.trend === "improving" ? " +" : hs.trend === "declining" ? " -" : "";
+    metrics.push({ label: "Health", value: `${score}/100${trend}`, color });
+  }
+  if (businessCase?.projected_savings) {
+    metrics.push({ label: "Projected Savings", value: String(businessCase.projected_savings) });
+  }
+  if (currentPhase) {
+    metrics.push({ label: "Current Phase", value: currentPhase });
+  } else if (commercial?.next_milestone) {
+    metrics.push({ label: "Next Milestone", value: String(commercial.next_milestone) });
+  }
+
+  if (metrics.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      {metrics.map((m) => (
+        <div key={m.label} className="p-3 rounded-lg bg-muted/30 border border-border/50">
+          <p className="text-xs text-muted-foreground">{m.label}</p>
+          <p className={`text-lg font-bold mt-0.5 ${m.color || ""}`}>{m.value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StrategicDriversSection({ drivers }: { drivers?: Record<string, unknown>[] }) {
+  if (!drivers || drivers.length === 0) return null;
+
+  const urgencyBorder: Record<string, string> = {
+    critical: "border-l-red-500",
+    high: "border-l-amber-500",
+    medium: "border-l-yellow-500",
+    low: "border-l-gray-500",
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <Zap className="h-4 w-4" />
+          Strategic Drivers
+          <HelpPopover title="Strategic drivers">
+            The business imperatives behind this engagement. Each driver explains
+            a specific reason this initiative exists, its urgency, and timeline.
+            Sourced from discovery conversations and business case analysis.
+          </HelpPopover>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {drivers.map((d, i) => {
+          const urgency = String(d.urgency || "medium").toLowerCase();
+          return (
+            <div key={i} className={`border-l-2 ${urgencyBorder[urgency] || "border-l-gray-500"} pl-3 py-1`}>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">{String(d.driver || "")}</span>
+                <SeverityBadge severity={urgency} />
+                {!!d.board_mandate && (
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">Board Mandate</Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">{String(d.description || "")}</p>
+              {!!(d.cost_justification || d.timeline) && (
+                <p className="text-xs text-muted-foreground/70 mt-0.5">
+                  {!!d.cost_justification && <>{String(d.cost_justification)}</>}
+                  {!!(d.cost_justification && d.timeline) && <> &middot; </>}
+                  {!!d.timeline && <>Timeline: {String(d.timeline)}</>}
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ExecutiveQuotesSection({ statements }: { statements?: Record<string, unknown>[] }) {
+  if (!statements || statements.length === 0) return null;
+
+  const visible = statements.slice(0, 4);
+
+  return (
+    <div>
+      <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+        <MessageSquare className="h-4 w-4" />
+        Key Stakeholder Voices
+        <HelpPopover title="Stakeholder voices">
+          Direct quotes from key stakeholders captured during meetings and
+          conversations. Each includes context and strategic implication
+          for the engagement team.
+        </HelpPopover>
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {visible.map((s, i) => (
+          <div key={i} className="border-l-2 border-primary/30 pl-3 py-2">
+            <p className="text-sm italic leading-relaxed">&ldquo;{String(s.quote || "")}&rdquo;</p>
+            <p className="text-xs text-muted-foreground mt-1.5">
+              {String(s.stakeholder || "")}
+              {!!s.date && <> &middot; {String(s.date)}</>}
+            </p>
+            {!!s.implication && (
+              <p className="text-xs text-primary/70 mt-1 flex items-start gap-1">
+                <Lightbulb className="h-3 w-3 shrink-0 mt-0.5" />
+                {String(s.implication)}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TimelineIndicator({
+  phases,
+  milestones,
+}: {
+  phases?: Record<string, unknown>[];
+  milestones?: Record<string, unknown>[];
+}) {
+  if (!phases || phases.length === 0) return null;
+
+  const statusIcon = (status: string) => {
+    switch (status) {
+      case "completed": return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />;
+      case "in_progress": return <Clock className="h-3.5 w-3.5 text-primary shrink-0" />;
+      default: return <Circle className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />;
+    }
+  };
+
+  const statusLabel = (status: string) => {
+    switch (status) {
+      case "completed": return "text-emerald-400";
+      case "in_progress": return "text-primary";
+      default: return "text-muted-foreground";
+    }
+  };
+
+  const formatDate = (d: unknown) => {
+    if (!d) return "";
+    const s = String(d);
+    try {
+      return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    } catch { return s.slice(5); }
+  };
+
+  const upcoming = milestones?.filter(
+    (m) => {
+      const s = String(m.status || "").toLowerCase();
+      return s === "pending" || s === "planned";
+    }
+  ).slice(0, 4);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <GitCommitVertical className="h-4 w-4" />
+          Engagement Timeline
+          <HelpPopover title="Timeline & milestones">
+            Engagement lifecycle phases and upcoming milestones. Blocking
+            milestones require customer decisions before the engagement can
+            progress. Phase status is updated automatically by governance agents.
+          </HelpPopover>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="space-y-1.5">
+          {phases.map((p, i) => {
+            const status = String(p.status || "planned").toLowerCase();
+            return (
+              <div key={i} className="flex items-center gap-2.5">
+                {statusIcon(status)}
+                <span className={`text-xs font-medium flex-1 ${statusLabel(status)}`}>
+                  {String(p.phase || "")}
+                </span>
+                <span className="text-[11px] text-muted-foreground/60 tabular-nums shrink-0">
+                  {formatDate(p.start)} – {formatDate(p.end)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {upcoming && upcoming.length > 0 && (
+          <div className="border-t border-border/50 pt-3">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Upcoming Milestones</p>
+            <div className="space-y-2">
+              {upcoming.map((m, i) => {
+                const blocking = !!m.blocking;
+                return (
+                  <div key={i} className="flex items-start gap-2.5">
+                    {blocking ? (
+                      <AlertTriangle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
+                    ) : (
+                      <Milestone className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-medium ${blocking ? "text-red-400" : ""}`}>
+                          {String(m.milestone || "")}
+                        </span>
+                        {blocking && (
+                          <Badge className="text-[10px] px-1 py-0 bg-red-600/20 text-red-400 border-red-600/30">
+                            BLOCKING
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground/60">
+                        {formatDate(m.date)}
+                        {!!m.owner && <> &middot; {String(m.owner)}</>}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function BusinessCaseSection({ businessCase }: { businessCase?: Record<string, unknown> }) {
+  if (!businessCase) return null;
+  const entries: { label: string; value: string }[] = [];
+  if (businessCase.current_spend) entries.push({ label: "Current Spend", value: String(businessCase.current_spend) });
+  if (businessCase.proposed_spend) entries.push({ label: "Proposed Spend", value: String(businessCase.proposed_spend) });
+  if (businessCase.projected_savings) entries.push({ label: "Projected Savings", value: String(businessCase.projected_savings) });
+  if (businessCase.roi_target) entries.push({ label: "ROI Target", value: String(businessCase.roi_target) });
+  if (businessCase.payback_period) entries.push({ label: "Payback", value: String(businessCase.payback_period) });
+  if (entries.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <DollarSign className="h-4 w-4" />
+          Business Case
+          <HelpPopover title="Business case">
+            Financial justification for this engagement, including current
+            spend, proposed solution cost, and projected savings. Sourced
+            from value engineering analysis and CRM data.
+          </HelpPopover>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2.5">
+        {entries.map((e) => (
+          <div key={e.label} className="flex items-baseline justify-between gap-2">
+            <span className="text-xs text-muted-foreground">{e.label}</span>
+            <span className="text-sm font-medium text-right">{e.value}</span>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ScenarioTab({ node, realmId, nodeId }: { node: Node; realmId: string; nodeId: string }) {
+  const { data: infoHub, isLoading } = useQuery<Record<string, any>>({
+    queryKey: ["internal-infohub", realmId, nodeId],
+    queryFn: () => api.getInternalInfoHub(realmId, nodeId),
+  });
+
+  if (isLoading) return <p className="text-muted-foreground text-sm">Loading scenario...</p>;
+
+  const nodeOverview = (infoHub?.context as any)?.node_overview as Record<string, any> | undefined;
+  const businessCtx = nodeOverview?.business_context as Record<string, any> | undefined;
+  const timeline = nodeOverview?.timeline as Record<string, any> | undefined;
+  const milestones = timeline?.key_milestones as Record<string, unknown>[] | undefined;
+  const keyInsights = nodeOverview?.key_insights as Record<string, any> | undefined;
+  const execStatements = keyInsights?.executive_statements as Record<string, unknown>[] | undefined;
+  const lossInsights = keyInsights?.loss_insights as Record<string, unknown>[] | undefined;
+  const commercial = node.commercial as Record<string, any> | undefined;
+  const successCriteria = nodeOverview?.success_criteria as Record<string, any> | undefined;
+  const businessCase = businessCtx?.business_case_summary as Record<string, unknown> | undefined;
+
+  const isLost = String(commercial?.stage || "").toLowerCase().includes("lost") ||
+                 String(node.status || "").toLowerCase() === "cancelled";
+
+  const hasContent = businessCtx?.background || milestones?.length || execStatements?.length;
+  if (!hasContent) {
+    return (
+      <div className="text-center py-12">
+        <BookOpen className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+        <p className="text-sm text-muted-foreground">
+          No scenario data available yet. The engagement narrative will be assembled
+          automatically as meetings, decisions, and agent analyses accumulate.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8 max-w-3xl">
+      <div>
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <BookOpen className="h-5 w-5" />
+          Engagement Scenario
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          A narrative walkthrough of this engagement: what happened, the key decisions, and lessons
+          learned. Use this to understand the full context before diving into detailed tabs.
+        </p>
+      </div>
+
+      {/* The Story */}
+      {!!businessCtx?.background && (
+        <section className="space-y-2">
+          <h3 className="text-base font-semibold">The Story</h3>
+          <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 space-y-3">
+            <p className="text-sm leading-relaxed whitespace-pre-line">
+              {String(businessCtx.background)}
+            </p>
+            {(commercial?.opportunity_arr != null || !!businessCase?.projected_savings || !!businessCase?.roi_target || !!businessCase?.payback_period) && (
+              <div className="flex flex-wrap gap-x-5 gap-y-1 pt-2 border-t border-primary/10">
+                {commercial?.opportunity_arr != null && (
+                  <span className="text-xs">
+                    <span className="text-muted-foreground">ARR Opportunity:</span>{" "}
+                    <span className="font-medium">{formatCurrency(Number(commercial.opportunity_arr))}</span>
+                  </span>
+                )}
+                {!!businessCase?.projected_savings && (
+                  <span className="text-xs">
+                    <span className="text-muted-foreground">Projected Savings:</span>{" "}
+                    <span className="font-medium">{String(businessCase.projected_savings)}</span>
+                  </span>
+                )}
+                {!!businessCase?.roi_target && (
+                  <span className="text-xs">
+                    <span className="text-muted-foreground">ROI Target:</span>{" "}
+                    <span className="font-medium">{String(businessCase.roi_target)}</span>
+                  </span>
+                )}
+                {!!businessCase?.payback_period && (
+                  <span className="text-xs">
+                    <span className="text-muted-foreground">Payback:</span>{" "}
+                    <span className="font-medium">{String(businessCase.payback_period)}</span>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Deal Progression / Timeline */}
+      {milestones && milestones.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-base font-semibold">Deal Progression</h3>
+          <div className="relative pl-4 border-l-2 border-border space-y-3">
+            {milestones.map((m, i) => {
+              const isBlocking = !!m.blocking;
+              const impactLevel = String(m.impact || "").toLowerCase();
+              const isCritical = impactLevel === "critical" || isBlocking;
+              const outcome = m.outcome ? String(m.outcome) : null;
+
+              return (
+                <div key={i} className="relative">
+                  <div className={`absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full border-2 ${
+                    isCritical ? "bg-red-500 border-red-400" :
+                    String(m.status) === "completed" ? "bg-emerald-500 border-emerald-400" :
+                    "bg-muted border-border"
+                  }`} />
+                  <div className="flex items-baseline gap-2">
+                    <span className={`text-sm font-mono font-medium shrink-0 ${isCritical ? "text-red-400" : "text-muted-foreground"}`}>
+                      {String(m.date || "")}
+                    </span>
+                    <span className={`text-sm ${isCritical ? "text-red-400 font-medium" : ""}`}>
+                      {String(m.milestone || "")}
+                    </span>
+                  </div>
+                  {outcome && (
+                    <p className="text-xs text-muted-foreground mt-0.5 ml-[5.5rem]">{outcome}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Key Stakeholder Moments */}
+      {execStatements && execStatements.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-base font-semibold">Key Moments</h3>
+          <p className="text-sm text-muted-foreground">
+            Direct stakeholder quotes that shaped the engagement trajectory.
+          </p>
+          <div className="space-y-3">
+            {execStatements.map((s, i) => (
+              <div key={i} className="border-l-2 border-primary/30 pl-3 py-1">
+                <p className="text-sm italic">&ldquo;{String(s.quote || "")}&rdquo;</p>
+                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                  <span>{String(s.stakeholder || "")}</span>
+                  {!!s.date && <>&middot; {String(s.date)}</>}
+                  {!!s.context && <>&middot; {String(s.context)}</>}
+                </div>
+                {!!s.implication && (
+                  <p className="text-xs text-primary/70 mt-1 flex items-start gap-1">
+                    <Lightbulb className="h-3 w-3 shrink-0 mt-0.5" />
+                    {String(s.implication)}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* POC / Success Criteria */}
+      {successCriteria?.poc_criteria && (
+        <section className="space-y-3">
+          <h3 className="text-base font-semibold">Success Criteria</h3>
+          {(() => {
+            const techCriteria = successCriteria.poc_criteria.technical as Record<string, unknown>[] | undefined;
+            const bizCriteria = successCriteria.poc_criteria.business as Record<string, unknown>[] | undefined;
+            const allCriteria = [...(techCriteria || []), ...(bizCriteria || [])];
+            if (allCriteria.length === 0) return null;
+
+            const statusIcon = (status: string) => {
+              switch (status) {
+                case "met": return <CheckCircle2 className="h-3.5 w-3.5 text-green-400 shrink-0" />;
+                case "partially_met": return <AlertTriangle className="h-3.5 w-3.5 text-yellow-400 shrink-0" />;
+                case "not_met": return <Ban className="h-3.5 w-3.5 text-red-400 shrink-0" />;
+                default: return <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+              }
+            };
+
+            return (
+              <div className="space-y-1.5">
+                {allCriteria.map((c, i) => (
+                  <div key={i} className="flex items-start gap-2 text-sm">
+                    {statusIcon(String(c.status || ""))}
+                    <div className="min-w-0">
+                      <span>{String(c.criterion || "")}</span>
+                      {!!c.notes && (
+                        <span className="text-xs text-muted-foreground ml-1">({String(c.notes)})</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </section>
+      )}
+
+      {/* Outcome + Loss Analysis */}
+      {isLost && (
+        <section className="space-y-3">
+          <h3 className="text-base font-semibold text-red-400">Outcome: Deal Lost</h3>
+          {!!commercial?.loss_reason && (
+            <p className="text-sm">{String(commercial.loss_reason)}</p>
+          )}
+          {!!commercial?.competitor_won && (
+            <p className="text-sm text-muted-foreground">
+              Won by: <span className="text-foreground font-medium">{String(commercial.competitor_won)}</span>
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Key Lessons */}
+      {lossInsights && lossInsights.length > 0 && (
+        <section className="space-y-3">
+          <h3 className="text-base font-semibold">Key Lessons</h3>
+          <div className="space-y-2">
+            {lossInsights.map((ins, i) => (
+              <div key={i} className="bg-muted/30 rounded-lg p-3 text-sm">
+                <p className="font-medium">{String(ins.insight || "")}</p>
+                {!!ins.action && (
+                  <p className="text-xs text-muted-foreground mt-1">Action: {String(ins.action)}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Strategic Drivers quick reference */}
+      {businessCtx?.strategic_drivers && (
+        <section className="space-y-3">
+          <h3 className="text-base font-semibold">Why This Mattered</h3>
+          <div className="space-y-2">
+            {(businessCtx.strategic_drivers as Record<string, unknown>[]).map((d, i) => (
+              <div key={i} className="flex items-baseline gap-2 text-sm">
+                <SeverityBadge severity={String(d.urgency || "medium").toLowerCase()} />
+                <span className="font-medium">{String(d.driver || "")}</span>
+                <span className="text-muted-foreground">{String(d.description || "")}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Footer */}
+      <div className="border-t border-border pt-4 text-xs text-muted-foreground">
+        This scenario is auto-assembled from meeting notes, agent analyses, and CRM data.
+        For raw source material, see the Internal InfoHub tab.
+      </div>
+    </div>
+  );
+}
+
 function OverviewTab({ node, realmId, nodeId }: { node: Node; realmId: string; nodeId: string }) {
   const { data: valueData, isLoading: valueLoading } = useQuery({
     queryKey: ["value", realmId, nodeId],
     queryFn: () => api.getValue(realmId, nodeId),
   });
 
+  const { data: infoHub } = useQuery<Record<string, any>>({
+    queryKey: ["internal-infohub", realmId, nodeId],
+    queryFn: () => api.getInternalInfoHub(realmId, nodeId),
+  });
+
+  const { data: healthData } = useQuery<HealthScore>({
+    queryKey: ["health", realmId, nodeId],
+    queryFn: () => api.getHealth(realmId, nodeId),
+  });
+
+  const nodeOverview = (infoHub?.context as any)?.node_overview as Record<string, any> | undefined;
+  const businessContext = nodeOverview?.business_context as Record<string, any> | undefined;
+  const timelineData = nodeOverview?.timeline as Record<string, any> | undefined;
+  const keyInsights = nodeOverview?.key_insights as Record<string, any> | undefined;
+  const businessCase = businessContext?.business_case_summary as Record<string, unknown> | undefined;
+
+  const phases = timelineData?.phases as Record<string, unknown>[] | undefined;
+  const currentPhase = phases?.find(
+    (p) => String(p.status || "").toLowerCase() === "in_progress"
+  );
+
+  const stakeholders = Array.isArray(node.stakeholders) ? node.stakeholders : [];
+  const showMoreStakeholders = stakeholders.length > 4;
+  const visibleStakeholders = stakeholders.slice(0, 4);
+
   return (
     <div className="space-y-6">
-      {node.commercial && Object.keys(node.commercial).length > 0 && (
-        <CommercialSection commercial={node.commercial} />
-      )}
+      {/* Row 1: Narrative + Strategic Drivers */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <NarrativeBanner
+          background={businessContext?.background ? String(businessContext.background) : undefined}
+          purpose={node.purpose}
+          businessCase={businessCase}
+          commercial={node.commercial as Record<string, unknown> | undefined}
+        />
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            Initiative
-            <HelpPopover title="Initiative details">
-              The purpose and timeline of this engagement node. Defines
-              what this initiative aims to achieve and when it should be
-              completed.
-            </HelpPopover>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {node.purpose && (
-              <div>
-                <p className="text-xs text-muted-foreground">Purpose</p>
-                <p className="text-sm">{node.purpose}</p>
-              </div>
-            )}
-            {node.target_completion && (
-              <div>
-                <p className="text-xs text-muted-foreground">Target Completion</p>
-                <p className="text-sm flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {node.target_completion}
-                </p>
-              </div>
+        {businessContext?.strategic_drivers && (
+          <StrategicDriversSection
+            drivers={businessContext.strategic_drivers as Record<string, unknown>[]}
+          />
+        )}
+      </div>
+
+      {/* Row 2: Timeline + Business Case */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {timelineData && (
+          <TimelineIndicator
+            phases={phases}
+            milestones={timelineData.key_milestones as Record<string, unknown>[] | undefined}
+          />
+        )}
+
+        {businessCase && <BusinessCaseSection businessCase={businessCase} />}
+      </div>
+
+      {/* Row 3: Key Metrics */}
+      <KeyMetricsStrip
+        commercial={node.commercial as Record<string, unknown> | undefined}
+        healthScore={healthData}
+        businessCase={businessCase}
+        currentPhase={currentPhase ? String(currentPhase.phase || "") : undefined}
+      />
+
+      {/* Remaining sections */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {keyInsights?.executive_statements && (
+          <ExecutiveQuotesSection
+            statements={keyInsights.executive_statements as Record<string, unknown>[]}
+          />
+        )}
+
+        {node.competitive && Object.keys(node.competitive).length > 0 && (
+          <CompetitiveLandscape competitive={node.competitive} />
+        )}
+
+        {visibleStakeholders.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Key Stakeholders
+              <HelpPopover title="Key stakeholders">
+                Decision-makers and influencers involved in this node. Stance
+                indicates their disposition (champion, supporter, neutral,
+                blocker). Influence shows their decision-making power.
+              </HelpPopover>
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              {visibleStakeholders.map((s, i) => (
+                <StakeholderCard key={i} stakeholder={s} />
+              ))}
+            </div>
+            {showMoreStakeholders && (
+              <p className="text-xs text-muted-foreground mt-2">
+                Showing 4 of {stakeholders.length} stakeholders. See Stakeholders tab for full details.
+              </p>
             )}
           </div>
-        </CardContent>
-      </Card>
-
-      {node.stakeholders && node.stakeholders.length > 0 && (
-        <div>
-          <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Key Stakeholders
-            <HelpPopover title="Key stakeholders">
-              Decision-makers and influencers involved in this node. Stance
-              indicates their disposition (champion, supporter, neutral,
-              blocker). Influence shows their decision-making power.
-            </HelpPopover>
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {node.stakeholders.map((s, i) => (
-              <StakeholderCard key={i} stakeholder={s} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {node.competitive && Object.keys(node.competitive).length > 0 && (
-        <CompetitiveLandscape competitive={node.competitive} />
-      )}
+        )}
+      </div>
 
       {valueData && !valueLoading && (
         <ValueTrackerSection data={valueData} />
@@ -1234,6 +1886,7 @@ function OverviewTab({ node, realmId, nodeId }: { node: Node; realmId: string; n
     </div>
   );
 }
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 // -- Blueprint Tab --
 
@@ -1248,6 +1901,7 @@ function BlueprintTab({ realmId, nodeId }: { realmId: string; nodeId: string }) 
   const [selectedAdd, setSelectedAdd] = useState<{ id: string; name: string } | null>(null);
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
   const [removeReason, setRemoveReason] = useState("");
+  const [selectedCanvas, setSelectedCanvas] = useState<string | null>(null);
 
   const { data: blueprint, isLoading, error } = useQuery({
     queryKey: ["blueprint", realmId, nodeId],
@@ -1518,7 +2172,11 @@ function BlueprintTab({ realmId, nodeId }: { realmId: string; nodeId: string }) 
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {canvasList.map((c, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                <div
+                  key={i}
+                  className="flex items-center justify-between p-3 rounded-lg bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => setSelectedCanvas(String(c.canvas_id || ""))}
+                >
                   <div>
                     <p className="text-sm font-medium">{formatLabel(String(c.canvas_id || "Unknown"))}</p>
                     {!!c.location && (
@@ -1534,6 +2192,16 @@ function BlueprintTab({ realmId, nodeId }: { realmId: string; nodeId: string }) 
             )}
           </CardContent>
         </Card>
+      )}
+
+      {selectedCanvas && (
+        <CanvasViewer
+          realmId={realmId}
+          nodeId={nodeId}
+          canvasId={selectedCanvas}
+          open={!!selectedCanvas}
+          onOpenChange={(open) => { if (!open) setSelectedCanvas(null); }}
+        />
       )}
 
       {checklists && typeof checklists === "object" && Object.keys(checklists).length > 0 && (
@@ -1794,7 +2462,7 @@ function BlueprintTab({ realmId, nodeId }: { realmId: string; nodeId: string }) 
 
       {/* Add Playbook Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl overflow-hidden">
           <DialogHeader>
             <DialogTitle>Add Playbook</DialogTitle>
             <DialogDescription>Select a playbook from the catalog to add to this engagement.</DialogDescription>
@@ -1809,7 +2477,7 @@ function BlueprintTab({ realmId, nodeId }: { realmId: string; nodeId: string }) 
                 className="pl-9"
               />
             </div>
-            <div className="max-h-48 overflow-y-auto border rounded-md">
+            <div className="max-h-64 overflow-y-auto border rounded-md overflow-x-hidden">
               {availablePlaybooks.length === 0 && (
                 <p className="text-xs text-muted-foreground p-3">No playbooks available.</p>
               )}
@@ -3541,8 +4209,16 @@ function ExternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
   const value = data.value as Record<string, unknown> | undefined;
   const opportunities = (data.opportunities || []) as Record<string, unknown>[];
   const overview = data.overview as string | undefined;
+  const accountTeamData = data.account_team as Record<string, unknown> | undefined;
+  const accountTeam = (accountTeamData?.account_team || []) as Record<string, unknown>[];
+  const escalation = accountTeamData?.escalation as Record<string, unknown> | undefined;
+  const timelineData = data.engagement_timeline as Record<string, unknown> | undefined;
+  const timelinePhases = (timelineData?.phases || []) as Record<string, unknown>[];
+  const timelineMilestones = (timelineData?.upcoming_milestones || timelineData?.key_milestones || []) as Record<string, unknown>[];
+  const timelineSummary = timelineData?.engagement_summary as Record<string, unknown> | undefined;
+  const successData = data.success_criteria as Record<string, unknown> | undefined;
 
-  const hasContent = overview || nodeOverview || stakeholderMap || engagementHistory || adrs.length > 0 || decisionList.length > 0 || touchpointList.length > 0 || value || opportunities.length > 0;
+  const hasContent = overview || nodeOverview || stakeholderMap || engagementHistory || adrs.length > 0 || decisionList.length > 0 || touchpointList.length > 0 || value || opportunities.length > 0 || accountTeam.length > 0 || timelinePhases.length > 0 || successData;
   if (!hasContent) return <p className="text-muted-foreground text-sm">No customer-facing InfoHub content yet.</p>;
 
   return (
@@ -3563,6 +4239,278 @@ function ExternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
           </CardHeader>
           <CardContent>
             <VaultMarkdown content={overview} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Account Team */}
+      {accountTeam.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <UserCheck className="h-4 w-4" />
+              Your Account Team
+              <HelpPopover title="Account team">
+                Your dedicated team for this engagement. Contact any member
+                directly for questions related to their area of responsibility.
+              </HelpPopover>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {accountTeam.map((member, i) => (
+                <div key={i} className="p-3 rounded-lg bg-muted/30">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{String(member.name || "")}</p>
+                      <p className="text-xs text-muted-foreground">{String(member.role || "")}</p>
+                    </div>
+                  </div>
+                  {!!member.responsibility && (
+                    <p className="text-xs text-muted-foreground mt-1.5">{String(member.responsibility)}</p>
+                  )}
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs">
+                    {!!member.email && (
+                      <a href={`mailto:${String(member.email)}`} className="text-primary/70 hover:text-primary transition-colors">
+                        {String(member.email)}
+                      </a>
+                    )}
+                    {!!member.phone && (
+                      <span className="text-muted-foreground">{String(member.phone)}</span>
+                    )}
+                  </div>
+                  {!!member.availability && (
+                    <p className="text-[11px] text-muted-foreground/60 mt-1">{String(member.availability)}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            {escalation && (
+              <div className="border-t border-border pt-3 space-y-1 text-xs">
+                <p className="font-medium text-muted-foreground">Escalation</p>
+                {!!escalation.executive_sponsor && (
+                  <p>Executive Sponsor: <span className="text-foreground">{String(escalation.executive_sponsor)}</span></p>
+                )}
+                {!!escalation.support_portal && (
+                  <p>Support Portal: <span className="text-foreground">{String(escalation.support_portal)}</span></p>
+                )}
+                {!!escalation.emergency_hotline && (
+                  <p>Emergency: <span className="text-foreground">{String(escalation.emergency_hotline)}</span></p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Engagement Timeline */}
+      {timelinePhases.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <GitCommitVertical className="h-4 w-4" />
+              Engagement Timeline
+              <HelpPopover title="Engagement timeline">
+                The agreed phases and milestones for this engagement. Each phase
+                includes specific deliverables. Milestones marked as requiring
+                a decision need your input to proceed.
+              </HelpPopover>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {timelineSummary && (
+              <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                {!!timelineSummary.current_phase && (
+                  <div>
+                    <span className="text-xs text-muted-foreground">Current Phase</span>
+                    <p className="font-medium">{String(timelineSummary.current_phase)}</p>
+                  </div>
+                )}
+                {!!timelineSummary.start_date && (
+                  <div>
+                    <span className="text-xs text-muted-foreground">Started</span>
+                    <p className="font-medium">{String(timelineSummary.start_date)}</p>
+                  </div>
+                )}
+                {!!(timelineSummary.target_completion || timelineSummary.close_date) && (
+                  <div>
+                    <span className="text-xs text-muted-foreground">Target</span>
+                    <p className="font-medium">{String(timelineSummary.target_completion || timelineSummary.close_date)}</p>
+                  </div>
+                )}
+                {!!timelineSummary.outcome && (
+                  <div>
+                    <span className="text-xs text-muted-foreground">Outcome</span>
+                    <p className="font-medium">{String(timelineSummary.outcome)}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Phase stepper */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {timelinePhases.map((p, i) => {
+                const status = String(p.status || "planned").toLowerCase();
+                const phaseColor = status === "completed" ? "bg-emerald-600/20 border-emerald-600/40 text-emerald-400"
+                  : status === "in_progress" ? "bg-primary/20 border-primary/40 text-primary"
+                  : "bg-muted/30 border-border text-muted-foreground";
+                const deliverables = (p.deliverables || []) as string[];
+                return (
+                  <div key={i} className={`flex-1 min-w-[120px] rounded-md border px-3 py-2 ${phaseColor}`}>
+                    <p className="text-xs font-medium">{String(p.phase || "")}</p>
+                    <p className="text-[10px] opacity-70 mt-0.5">
+                      {!!p.start && String(p.start).slice(5)}
+                      {!!p.end && <> - {String(p.end).slice(5)}</>}
+                    </p>
+                    {status === "in_progress" && (
+                      <p className="text-[10px] font-semibold mt-0.5 uppercase tracking-wider">Active</p>
+                    )}
+                    {deliverables.length > 0 && (
+                      <div className="mt-1.5 space-y-0.5">
+                        {deliverables.slice(0, 3).map((d, j) => (
+                          <p key={j} className="text-[10px] opacity-60 truncate">{d}</p>
+                        ))}
+                        {deliverables.length > 3 && (
+                          <p className="text-[10px] opacity-40">+{deliverables.length - 3} more</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Milestones */}
+            {timelineMilestones.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Milestones</p>
+                <div className="space-y-1.5">
+                  {timelineMilestones.map((m, i) => {
+                    const needsDecision = !!m.requires_decision;
+                    const mStatus = String(m.status || "").toLowerCase();
+                    const isCompleted = mStatus === "completed";
+                    return (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        {isCompleted ? (
+                          <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" />
+                        ) : needsDecision ? (
+                          <AlertTriangle className="h-3 w-3 text-amber-400 shrink-0" />
+                        ) : (
+                          <Clock className="h-3 w-3 text-muted-foreground shrink-0" />
+                        )}
+                        <span className="font-medium text-muted-foreground shrink-0">{String(m.date || "")}</span>
+                        <span className={isCompleted ? "text-muted-foreground" : ""}>{String(m.milestone || "")}</span>
+                        {!!m.owner && <span className="text-muted-foreground/60">({String(m.owner)})</span>}
+                        {needsDecision && !isCompleted && (
+                          <Badge className="text-[10px] px-1 py-0 bg-amber-600/20 text-amber-400 border-amber-600/30">
+                            DECISION NEEDED
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Success Criteria */}
+      {successData && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              Success Criteria
+              <HelpPopover title="Success criteria">
+                Jointly agreed criteria for evaluating this engagement. Technical
+                criteria validate platform capabilities, business criteria confirm
+                organizational fit and ROI.
+              </HelpPopover>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!!successData.poc_scope && (
+              <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+                {(() => {
+                  const scope = successData.poc_scope as Record<string, unknown>;
+                  return Object.entries(scope).map(([key, val]) => (
+                    <div key={key}>
+                      <span className="font-medium">{formatLabel(key)}:</span> {String(val)}
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
+            {(() => {
+              const techCriteria = (successData.technical_criteria || []) as Record<string, unknown>[];
+              const bizCriteria = (successData.business_criteria || []) as Record<string, unknown>[];
+              const dealReqs = (successData.deal_requirements || []) as string[];
+
+              const statusIcon = (status: string) => {
+                switch (status) {
+                  case "met": return <CheckCircle2 className="h-3.5 w-3.5 text-green-400 shrink-0" />;
+                  case "partially_met": return <AlertTriangle className="h-3.5 w-3.5 text-yellow-400 shrink-0" />;
+                  case "not_met": return <Ban className="h-3.5 w-3.5 text-red-400 shrink-0" />;
+                  default: return <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />;
+                }
+              };
+
+              return (
+                <>
+                  {techCriteria.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Technical Criteria</p>
+                      <div className="space-y-1.5">
+                        {techCriteria.map((c, i) => (
+                          <div key={i} className="flex items-start gap-2 text-sm">
+                            {statusIcon(String(c.status || "pending"))}
+                            <div className="min-w-0">
+                              <span>{String(c.criterion || "")}</span>
+                              {!!c.validation_method && (
+                                <span className="text-xs text-muted-foreground ml-1">({String(c.validation_method)})</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {bizCriteria.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Business Criteria</p>
+                      <div className="space-y-1.5">
+                        {bizCriteria.map((c, i) => (
+                          <div key={i} className="flex items-start gap-2 text-sm">
+                            {statusIcon(String(c.status || "pending"))}
+                            <div className="min-w-0">
+                              <span>{String(c.criterion || "")}</span>
+                              {!!c.validation_method && (
+                                <span className="text-xs text-muted-foreground ml-1">({String(c.validation_method)})</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {dealReqs.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Deal Requirements</p>
+                      <ul className="space-y-1">
+                        {dealReqs.map((r, i) => (
+                          <li key={i} className="text-sm flex items-start gap-2">
+                            <Target className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                            {r}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </CardContent>
         </Card>
       )}
@@ -4344,6 +5292,10 @@ export default function NodeDetailPage() {
           <TabsTrigger value="stakeholders">Stakeholders</TabsTrigger>
           <TabsTrigger value="signals">Signals</TabsTrigger>
           <TabsTrigger value="journey">Journey</TabsTrigger>
+          <TabsTrigger value="scenario">
+            <BookOpen className="h-3.5 w-3.5 mr-1 text-violet-400" />
+            Scenario
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="mt-4">
@@ -4380,6 +5332,10 @@ export default function NodeDetailPage() {
 
         <TabsContent value="journey" className="mt-4">
           <JourneyTab realmId={realmId} nodeId={nodeId} />
+        </TabsContent>
+
+        <TabsContent value="scenario" className="mt-4">
+          <ScenarioTab node={node} realmId={realmId} nodeId={nodeId} />
         </TabsContent>
       </Tabs>
     </div>

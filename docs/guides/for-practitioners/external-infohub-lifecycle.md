@@ -68,13 +68,15 @@ External InfoHub content should be kept current throughout the engagement and up
 
 | Content Type | Update Trigger | Minimum Frequency |
 |-------------|---------------|-------------------|
+| Engagement overview | Major engagement shifts, phase transitions | Quarterly |
+| Account team | Team changes, role reassignments | As changes occur |
+| Engagement timeline | Milestone completion, phase transitions | As events occur |
+| Success criteria | Status changes (met/not met), scope adjustments | After each validation |
 | Solution architecture | Design changes, new ADRs | As changes occur |
 | Value tracker | Value milestones, QBR preparation | Monthly |
 | Adoption progress | Usage data updates | Monthly |
-| Engagement timeline | Milestone completion | As events occur |
 | Meeting summaries | After each customer meeting | Within 48 hours |
 | Training materials | Curriculum changes | As needed |
-| Overview page | Major engagement shifts | Quarterly |
 
 ### Freshness Monitoring
 
@@ -94,7 +96,7 @@ Deprecate content when it is superseded by newer information, no longer accurate
    ```markdown
    > **Deprecated**: Superseded by [new-document.md](path/to/new-document.md) on YYYY-MM-DD.
    ```
-2. Update the `overview.md` to reflect the current state
+2. Update `engagement_overview.md` to reflect the current state
 3. Do not delete the deprecated file; it remains for audit trail purposes
 
 ### Engagement Close Archival
@@ -110,7 +112,10 @@ When an engagement transitions from pre-sales to post-sales, or when it closes e
 
 Use this checklist for periodic quality audits of the External InfoHub. The Knowledge Curator agent runs automated checks, but manual review catches nuances that automation misses.
 
-- [ ] `overview.md` accurately reflects the current engagement state
+- [ ] `engagement_overview.md` accurately reflects the current engagement state
+- [ ] `account_team.yaml` has current contacts and escalation path
+- [ ] `engagement_timeline.yaml` reflects latest phase and milestone status
+- [ ] `success_criteria.yaml` criteria statuses are up to date
 - [ ] All architecture docs match the current solution design
 - [ ] Value tracker includes the latest metrics
 - [ ] No orphaned files (documents not linked from any index)

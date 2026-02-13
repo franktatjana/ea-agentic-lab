@@ -42,7 +42,12 @@ class VaultService:
         hub = node_path / "external-infohub"
         if not hub.is_dir():
             return {}
+        overview_md = self._read_text_or_none(hub / "engagement_overview.md")
         return {
+            "overview": overview_md,
+            "account_team": self._load_yaml(hub / "account_team.yaml"),
+            "engagement_timeline": self._load_yaml(hub / "engagement_timeline.yaml"),
+            "success_criteria": self._load_yaml(hub / "success_criteria.yaml"),
             "architecture": {
                 "adrs": self._load_markdown_dir(hub / "architecture" / "adrs")
                         or self._load_markdown_dir(hub / "architecture"),

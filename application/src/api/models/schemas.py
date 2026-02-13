@@ -41,12 +41,18 @@ class Probability(str, Enum):
     possible = "possible"
     likely = "likely"
     certain = "certain"
+    high = "high"
+    medium = "medium"
+    low = "low"
+    occurred = "occurred"
+    realized = "realized"
 
 
 class RiskStatus(str, Enum):
     open = "open"
     mitigated = "mitigated"
     closed = "closed"
+    materialized = "materialized"
 
 
 class RiskCategory(str, Enum):
@@ -75,6 +81,9 @@ class ActionStatus(str, Enum):
     blocked = "blocked"
     superseded = "superseded"
     completed_late = "completed_late"
+    failed = "failed"
+    cancelled = "cancelled"
+    overdue = "overdue"
 
 
 class DecisionStatus(str, Enum):
@@ -106,6 +115,10 @@ class Trend(str, Enum):
     improving = "improving"
     stable = "stable"
     declining = "declining"
+    collapsed = "collapsed"
+    lost = "lost"
+    terminal = "terminal"
+    mixed = "mixed"
 
 
 class SignalCategory(str, Enum):
@@ -249,6 +262,34 @@ class BlueprintClassification(BaseModel):
     domain: Optional[str] = None
     track: Optional[str] = None
     reference_blueprint: Optional[str] = None
+
+
+class CreateNodeRequest(BaseModel):
+    """Request to create a new node within a realm"""
+
+    node_id: str = Field(..., pattern=r"^[A-Z][A-Z0-9_]{2,49}$")
+    name: str
+    purpose: Optional[str] = None
+    archetype: str
+    domain: str
+    track: str
+    variant: Optional[str] = None
+    operating_mode: OperatingMode = OperatingMode.pre_sales
+    target_completion: Optional[date] = None
+    opportunity_arr: Optional[int] = None
+    probability: Optional[int] = None
+    stage: Optional[str] = "discovery"
+
+
+class CreateNodeResponse(BaseModel):
+    """Response after creating a node"""
+
+    node_id: str
+    realm_id: str
+    name: str
+    status: str
+    blueprint_summary: dict[str, Any] = {}
+    warnings: list[str] = []
 
 
 class Node(BaseModel):

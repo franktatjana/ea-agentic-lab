@@ -76,7 +76,7 @@ Three design choices separate this system from traditional account management to
 - **Runtime:** Python 3.11+
 - **Data Format:** YAML with JSON Schema validation
 - **API:** FastAPI (backend)
-- **UI:** Next.js 15 with shadcn/ui (web application), Streamlit (demo)
+- **UI:** Next.js 16 with shadcn/ui (web application), Streamlit (demo)
 - **Testing:** pytest
 
 ---
@@ -92,7 +92,7 @@ Three design choices separate this system from traditional account management to
 | Blueprint Templates | 3 |
 | Sample Realms | 3 (ACME_CORP, GLOBEX, INITECH) |
 
-**Phase:** Domain model and web application complete. Frontend provides dashboard, realm/node explorer with multi-tab detail views (overview, stakeholders, competitive intelligence, growth), playbook catalog, agent profiles, blueprint overview, knowledge vault with article detail and agent intelligence, and documentation browser. Backend API serves realms, nodes, playbooks, blueprints, knowledge vault CRUD, and docs. Ready for execution engine and agent runtime implementation.
+**Phase:** Domain model and web application complete. Frontend provides portfolio dashboard with aggregated metrics and attention items, realm/node explorer with multi-tab detail views (overview, scenario, stakeholders, competitive intelligence, growth), canvas rendering for strategic artifacts (context, decision, risk governance, value/stakeholders, architecture decision), playbook catalog, agent profiles, blueprint overview, knowledge vault with article detail and agent intelligence, node creation dialog, and documentation browser. Backend API serves realms, nodes, canvases, dashboard summary, playbooks, blueprints, knowledge vault CRUD, and docs. Ready for execution engine and agent runtime implementation.
 
 ---
 
@@ -103,4 +103,5 @@ Three design choices separate this system from traditional account management to
 - [Product Requirements](PRD.md) - Goals, capabilities, glossary
 - [Documentation Principles](docs/DOCUMENTATION_PRINCIPLES.md) - Writing for humans AND machines
 - [Architecture Docs](docs/architecture/agents/agent-architecture.md) - System design
+- [Decision Records](docs/decisions/README.md) - Domain and architecture decisions
 - [llms.txt](llms.txt) - LLM-friendly project overview

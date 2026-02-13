@@ -12,8 +12,12 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-// Realms & Nodes
+// Dashboard
 export const api = {
+  getDashboardSummary: () =>
+    fetchApi<import("@/types").DashboardSummary>("/dashboard/summary"),
+
+  // Realms & Nodes
   listRealms: () => fetchApi<import("@/types").Realm[]>("/realms"),
 
   getRealm: (realmId: string) =>
@@ -24,6 +28,12 @@ export const api = {
 
   listNodes: (realmId: string) =>
     fetchApi<import("@/types").NodeSummary[]>(`/realms/${realmId}/nodes`),
+
+  createNode: (realmId: string, data: import("@/types").CreateNodeRequest) =>
+    fetchApi<import("@/types").CreateNodeResponse>(`/realms/${realmId}/nodes`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   getNode: (realmId: string, nodeId: string) =>
     fetchApi<import("@/types").Node>(`/nodes/${realmId}/${nodeId}`),
@@ -254,4 +264,8 @@ export const api = {
 
   getInternalInfoHub: (realmId: string, nodeId: string) =>
     fetchApi<Record<string, unknown>>(`/nodes/${realmId}/${nodeId}/internal-infohub`),
+
+  // Canvas rendering
+  getCanvas: (realmId: string, nodeId: string, canvasId: string) =>
+    fetchApi<import("@/types").CanvasData>(`/nodes/${realmId}/${nodeId}/canvas/${canvasId}`),
 };

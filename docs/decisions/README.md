@@ -105,6 +105,9 @@ Git history captures file-level changes. The Status History section captures *wh
 | [DDR-005](DDR_005_signal_based_action_completion.md) | Signal-Based Action Completion | ACCEPTED |
 | [DDR-006](DDR_006_infohub_shared_screen_test.md) | InfoHub Shared Screen Test | ACCEPTED |
 | [DDR-007](DDR_007_blueprint_instance_engagement_plan.md) | Blueprint Instance as Engagement Plan | ACCEPTED |
+| [DDR-008](DDR_008_knowledge_vault_learning_system.md) | Knowledge Vault Learning System | ACCEPTED |
+| [DDR-009](DDR_009_stakeholder_stance_classification.md) | Stakeholder Stance Classification | ACCEPTED |
+| [DDR-010](DDR_010_reports_and_canvas_rendering.md) | Reports System with Canvas Rendering | ACCEPTED |
 
 ### Architecture Decision Records
 
@@ -116,3 +119,4 @@ Git history captures file-level changes. The Status History section captures *wh
 | [ADR-004](ADR_004_fastapi_backend.md) | FastAPI Backend Architecture | ACCEPTED |
 | [ADR-005](ADR_005_documentation_browser.md) | Integrated Documentation Browser | ACCEPTED |
 | [ADR-006](ADR_006_landing_page_route_restructure.md) | Landing Page and Route Restructuring | ACCEPTED |
+| [ADR-007](ADR_007_interactive_framework_map.md) | Interactive Framework Map | DEFERRED |

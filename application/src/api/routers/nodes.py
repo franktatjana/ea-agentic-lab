@@ -5,10 +5,14 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
-from ..models.schemas import Node, NodeSummary, Realm, StanceProposalCreate, StanceProposalAction
+from ..models.schemas import (
+    Node, NodeSummary, Realm, CreateNodeRequest, CreateNodeResponse,
+    StanceProposalCreate, StanceProposalAction,
+)
 from ..services.yaml_loader import get_yaml_loader, YAMLLoader
 from ..services.vault_service import VaultService, get_vault_service
 from ..services.stance_service import StanceService, get_stance_service
+from ..services.node_service import NodeService, get_node_service
 
 router = APIRouter()
 
@@ -56,6 +60,19 @@ async def list_nodes(
 ):
     """List all nodes in a realm with summary data"""
     return loader.list_nodes(realm_id)
+
+
+@router.post("/realms/{realm_id}/nodes", response_model=CreateNodeResponse, status_code=201)
+async def create_node(
+    realm_id: str,
+    body: CreateNodeRequest,
+    svc: NodeService = Depends(get_node_service),
+):
+    """Create a new node with a composed blueprint"""
+    response, status_code, message = svc.create_node(realm_id, body)
+    if not response:
+        raise HTTPException(status_code=status_code, detail=message)
+    return response
 
 
 @router.get("/nodes/{realm_id}/{node_id}", response_model=Node)
