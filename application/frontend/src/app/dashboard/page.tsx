@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { HelpPopover } from "@/components/help-popover";
 import type { DashboardSummary, DashboardNode, DashboardAttentionItem } from "@/types";
 
 function formatCurrency(value: number): string {
@@ -54,7 +55,12 @@ function PortfolioMetrics({ portfolio }: { portfolio: DashboardSummary["portfoli
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       <Card>
         <CardContent className="p-4">
-          <p className="text-xs text-muted-foreground">Active / Total Nodes</p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs text-muted-foreground">Active / Total Nodes</p>
+            <HelpPopover title="Active / Total Nodes">
+              Nodes with status &quot;active&quot; vs. total across all realms. Inactive nodes include cancelled, closed, or paused engagements.
+            </HelpPopover>
+          </div>
           <div className="flex items-baseline gap-1.5 mt-1">
             <span className="text-2xl font-bold">{portfolio.active_nodes}</span>
             <span className="text-sm text-muted-foreground">/ {portfolio.total_nodes}</span>
@@ -64,7 +70,12 @@ function PortfolioMetrics({ portfolio }: { portfolio: DashboardSummary["portfoli
 
       <Card>
         <CardContent className="p-4">
-          <p className="text-xs text-muted-foreground">Avg Health</p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs text-muted-foreground">Avg Health</p>
+            <HelpPopover title="Average Health Score">
+              Mean health score across all nodes (0-100). Green above 75, yellow 60-75, red below 60. Trend arrow shows portfolio direction.
+            </HelpPopover>
+          </div>
           <div className="flex items-baseline gap-2 mt-1">
             <span className={cn("text-2xl font-bold", healthColor(portfolio.avg_health))}>
               {portfolio.avg_health ?? "-"}
@@ -76,7 +87,12 @@ function PortfolioMetrics({ portfolio }: { portfolio: DashboardSummary["portfoli
 
       <Card>
         <CardContent className="p-4">
-          <p className="text-xs text-muted-foreground">Critical Risks</p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs text-muted-foreground">Critical Risks</p>
+            <HelpPopover title="Critical Risks">
+              Total number of risks rated &quot;critical&quot; across all nodes. These require immediate attention and are flagged in the attention section below.
+            </HelpPopover>
+          </div>
           <div className="flex items-baseline gap-2 mt-1">
             <span className={cn("text-2xl font-bold", portfolio.total_critical_risks > 0 && "text-red-400")}>
               {portfolio.total_critical_risks}
@@ -87,7 +103,12 @@ function PortfolioMetrics({ portfolio }: { portfolio: DashboardSummary["portfoli
 
       <Card>
         <CardContent className="p-4">
-          <p className="text-xs text-muted-foreground">Overdue Actions</p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs text-muted-foreground">Overdue Actions</p>
+            <HelpPopover title="Overdue Actions">
+              Action items past their due date across all nodes. High counts indicate execution bottlenecks or resource constraints.
+            </HelpPopover>
+          </div>
           <div className="flex items-baseline gap-2 mt-1">
             <span className={cn("text-2xl font-bold", portfolio.total_overdue_actions > 0 && "text-yellow-400")}>
               {portfolio.total_overdue_actions}
@@ -98,7 +119,12 @@ function PortfolioMetrics({ portfolio }: { portfolio: DashboardSummary["portfoli
 
       <Card>
         <CardContent className="p-4">
-          <p className="text-xs text-muted-foreground">Pipeline (ARR)</p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs text-muted-foreground">Pipeline (ARR)</p>
+            <HelpPopover title="Pipeline ARR">
+              Total Annual Recurring Revenue across all active opportunities. Sum of opportunity_arr from node commercial data.
+            </HelpPopover>
+          </div>
           <div className="flex items-baseline gap-1.5 mt-1">
             <span className="text-2xl font-bold">
               {formatCurrency(portfolio.total_pipeline_arr)}
@@ -109,7 +135,12 @@ function PortfolioMetrics({ portfolio }: { portfolio: DashboardSummary["portfoli
 
       <Card>
         <CardContent className="p-4">
-          <p className="text-xs text-muted-foreground">Weighted Pipeline</p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs text-muted-foreground">Weighted Pipeline</p>
+            <HelpPopover title="Weighted Pipeline">
+              Pipeline ARR multiplied by win probability for each opportunity. Represents expected revenue value adjusted for deal likelihood.
+            </HelpPopover>
+          </div>
           <div className="flex items-baseline gap-1.5 mt-1">
             <span className="text-2xl font-bold text-primary">
               {formatCurrency(portfolio.weighted_pipeline)}
@@ -121,8 +152,14 @@ function PortfolioMetrics({ portfolio }: { portfolio: DashboardSummary["portfoli
   );
 }
 
+function realmShortName(item: DashboardAttentionItem): string {
+  const raw = item.realm_name || item.realm_id || "";
+  return raw.split(/[\s_]/)[0];
+}
+
 function AttentionSection({ items }: { items: DashboardAttentionItem[] }) {
-  if (items.length === 0) return null;
+  const filtered = items.filter((item) => !(item.type === "critical_risks" && item.detail === "0 total risks"));
+  if (filtered.length === 0) return null;
 
   const iconMap: Record<string, React.ReactNode> = {
     health_declining: <Activity className="h-3.5 w-3.5" />,
@@ -138,13 +175,13 @@ function AttentionSection({ items }: { items: DashboardAttentionItem[] }) {
           <AlertTriangle className="h-4 w-4 text-yellow-500" />
           Needs Attention
           <Badge variant="secondary" className="text-xs ml-1">
-            {items.length}
+            {filtered.length}
           </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-3">
         <div className="grid gap-1.5">
-          {items.map((item, i) => (
+          {filtered.map((item, i) => (
             <Link
               key={`${item.node_id}-${item.type}-${i}`}
               href={`/realms/${item.realm_id}/nodes/${item.node_id}`}
@@ -157,6 +194,8 @@ function AttentionSection({ items }: { items: DashboardAttentionItem[] }) {
                   {iconMap[item.type] || <CircleDot className="h-3.5 w-3.5" />}
                 </span>
                 <span className="text-muted-foreground truncate min-w-0">
+                  <span className="font-medium text-foreground/70">{realmShortName(item)}</span>
+                  {" "}
                   {item.node_name}
                 </span>
                 <span className="font-medium truncate min-w-0 flex-1">

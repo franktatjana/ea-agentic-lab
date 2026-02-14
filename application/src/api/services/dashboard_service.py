@@ -148,6 +148,7 @@ class DashboardService:
         items: list[dict[str, Any]] = []
         base = {
             "realm_id": node["realm_id"],
+            "realm_name": node["realm_name"],
             "node_id": node["node_id"],
             "node_name": node["node_name"],
         }
@@ -169,7 +170,7 @@ class DashboardService:
                 "detail": f"Was {node.get('health_previous', '?')}",
             })
 
-        if (node.get("critical_risks") or 0) > 0:
+        if (node.get("critical_risks") or 0) > 0 and (node.get("total_risks") or 0) > 0:
             items.append({
                 **base,
                 "type": "critical_risks",

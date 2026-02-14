@@ -79,6 +79,52 @@ Three different field names refer to the same concept across formats: `intended_
 **Risks:**
 - If steckbrief fields are edited without updating root fields (or vice versa), values will drift. The frontend currently reads `playbook_mode || steckbrief.mode` as a fallback chain, masking potential inconsistencies.
 
+## Addendum: playbook_category and notes fields
+
+**Date:** 2026-02-13
+
+### playbook_category
+
+Groups playbooks by what they help accomplish. Eight allowed values:
+
+| Category | Description | Example playbooks |
+|----------|-------------|-------------------|
+| strategic_frameworks | Long-term planning, portfolio strategy, horizon mapping | Three Horizons, BCG Matrix, SWOT |
+| discovery_investigation | Deep research, gap analysis, signal detection | Deep Discovery, Five Forces, Retrospective |
+| technical_execution | Solution design, architecture, implementation planning | Technical Validation, POC, Solution Scoping |
+| pursuit_sales_support | Deal strategy, RFx response, competitive positioning | MEDDPICC, RFx Response, Competitive Battlecard |
+| content_generation | Document creation, report assembly, deliverable production | (future) |
+| relationship_governance | Health monitoring, stakeholder management, adoption | Customer Health Score, Cadence Calls |
+| system_governance | Automation, process enforcement, playbook validation | Validate Playbook, Blueprint Gap Scan, Canvas Rendering |
+| knowledge_management | Knowledge capture, lessons learned, reporting | (in progress, no playbooks assigned yet) |
+
+Categories are assigned via `playbook_category` at root level. The frontend catalog uses these for browse-by-category filtering.
+
+### notes field and the "Conceptual Framework vs Why It Matters" distinction
+
+Every playbook should communicate its value proposition to the reader. Two patterns apply depending on whether the playbook operationalizes a named industry framework:
+
+**Pattern 1: Named conceptual framework.** When `framework_source` exists (e.g., "McKinsey & Company", "Sakichi Toyoda", "PTC/Jack Napoli"), the UI displays a "Conceptual Framework" label with the source name and uses `notes` as a description underneath.
+
+**Pattern 2: Process-oriented playbook.** When no `framework_source` exists, the playbook describes an internal process rather than a named methodology. The `notes` field then appears under a "Why It Matters" label, explaining the business value of the process in one sentence.
+
+All 46 playbooks that previously lacked both `framework_source` and `notes` were updated with a `notes` value explaining why the process matters. Examples:
+
+| Playbook | notes |
+|----------|-------|
+| OP_MTG_001 | "Transforms unstructured meeting notes into structured vault artifacts that agents can act on" |
+| PB_SEC_005 | "De-risks SIEM migration by providing a structured transition plan from legacy to modern platform" |
+| PB_OBS_010 | "Reduces alert fatigue by designing actionable alerting that teams actually respond to" |
+| PB_SRCH_008 | "Bridges the gap between LLM capabilities and enterprise knowledge through structured retrieval design" |
+
+### Frontend rendering rules
+
+The playbook detail view metadata grid applies this logic:
+
+1. If `framework_source` present: show "Conceptual Framework" (col-span-2) with source name bold, `notes` as description below
+2. If no `framework_source` but `notes` present: show "Why It Matters" (col-span-2) with notes text
+3. If neither present: nothing renders in that slot
+
 ## Related Decisions
 
 - [DDR-003: Domain Specialist Agents](DDR_003_domain_specialist_agents.md) established the specialist team structure that led to the specialist YAML format
@@ -89,3 +135,4 @@ Three different field names refer to the same concept across formats: `intended_
 | Date | Status | Note |
 |------|--------|------|
 | 2026-02-13 | ACCEPTED | Added `playbook_mode` to all 72 playbooks, documented redundancy for future cleanup |
+| 2026-02-13 | UPDATED | Added `playbook_category` taxonomy (8 categories), `notes` field with "Conceptual Framework vs Why It Matters" distinction, updated 46 playbooks with notes |

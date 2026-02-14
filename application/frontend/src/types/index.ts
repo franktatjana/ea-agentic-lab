@@ -337,6 +337,7 @@ export interface DashboardPortfolio {
 
 export interface DashboardAttentionItem {
   realm_id: string;
+  realm_name: string;
   node_id: string;
   node_name: string;
   type: string;

@@ -31,15 +31,15 @@ import { RoleBadge, getRoleKey } from "@/components/badges";
 import { HelpPopover } from "@/components/help-popover";
 import type { Playbook } from "@/types";
 
-const CATEGORY_INFO: Record<string, { label: string; agentToAgent?: boolean }> = {
+const CATEGORY_INFO: Record<string, { label: string; agentToAgent?: boolean; inProgress?: boolean }> = {
   strategic_frameworks: { label: "Strategic Frameworks" },
   discovery_investigation: { label: "Discovery & Investigation" },
   technical_execution: { label: "Technical Execution" },
   pursuit_sales_support: { label: "Pursuit & Sales Support" },
   content_generation: { label: "Content Generation" },
   relationship_governance: { label: "Relationship Governance" },
-  automated_operations: { label: "Automated Operations", agentToAgent: true },
   system_governance: { label: "System Governance", agentToAgent: true },
+  knowledge_management: { label: "Knowledge & Reporting", inProgress: true },
 };
 
 const CATEGORY_DESCRIPTIONS: Record<string, string> = {
@@ -49,8 +49,8 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
   pursuit_sales_support: "Deal strategy, RFx response, competitive positioning, pipeline management",
   content_generation: "Document creation, report assembly, deliverable production, artifact synthesis",
   relationship_governance: "Health monitoring, stakeholder management, adoption tracking, retention",
-  automated_operations: "Event-driven workflows, routine automation, signal processing, scheduling",
-  system_governance: "Quality assurance, playbook validation, process enforcement, meta-operations",
+  system_governance: "Automation, process enforcement, playbook validation, signal processing, scheduling",
+  knowledge_management: "Knowledge capture, lessons learned, reporting, institutional memory. No playbooks assigned yet.",
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -60,8 +60,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   pursuit_sales_support: "border-rose-600/30 hover:border-rose-500/50",
   content_generation: "border-cyan-600/30 hover:border-cyan-500/50",
   relationship_governance: "border-emerald-600/30 hover:border-emerald-500/50",
-  automated_operations: "border-orange-600/30 hover:border-orange-500/50",
   system_governance: "border-lime-600/30 hover:border-lime-500/50",
+  knowledge_management: "border-fuchsia-600/30 hover:border-fuchsia-500/50",
 };
 
 const CATEGORY_ACTIVE_COLORS: Record<string, string> = {
@@ -71,8 +71,8 @@ const CATEGORY_ACTIVE_COLORS: Record<string, string> = {
   pursuit_sales_support: "border-rose-500/60 bg-rose-600/5",
   content_generation: "border-cyan-500/60 bg-cyan-600/5",
   relationship_governance: "border-emerald-500/60 bg-emerald-600/5",
-  automated_operations: "border-orange-500/60 bg-orange-600/5",
   system_governance: "border-lime-500/60 bg-lime-600/5",
+  knowledge_management: "border-fuchsia-500/60 bg-fuchsia-600/5",
 };
 
 function formatLabel(s: string): string {
@@ -321,6 +321,7 @@ export default function PlaybookCatalogPage() {
   const categoryStats = useMemo(() => {
     if (!playbooks) return [];
     const counts: Record<string, number> = {};
+    for (const key of Object.keys(CATEGORY_INFO)) counts[key] = 0;
     for (const pb of playbooks) {
       const cat = pb.playbook_category || "uncategorized";
       counts[cat] = (counts[cat] || 0) + 1;
@@ -492,22 +493,27 @@ export default function PlaybookCatalogPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
               {categoryStats.map(({ category, count }) => {
                 const info = CATEGORY_INFO[category];
+                const isEmpty = count === 0;
                 return (
                   <Card
                     key={category}
-                    className={`cursor-pointer transition-colors ${
-                      categoryFilter === category
-                        ? CATEGORY_ACTIVE_COLORS[category] || "border-primary/60 bg-primary/5"
-                        : CATEGORY_COLORS[category] || "hover:border-primary/30"
+                    className={`transition-colors ${
+                      isEmpty
+                        ? `opacity-60 ${CATEGORY_COLORS[category] || ""}`
+                        : `cursor-pointer ${
+                            categoryFilter === category
+                              ? CATEGORY_ACTIVE_COLORS[category] || "border-primary/60 bg-primary/5"
+                              : CATEGORY_COLORS[category] || "hover:border-primary/30"
+                          }`
                     }`}
-                    onClick={() => handleCategoryClick(category)}
+                    onClick={isEmpty ? undefined : () => handleCategoryClick(category)}
                   >
                     <CardContent className="p-3">
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-medium">{info?.label || formatLabel(category)}</span>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <Badge variant="secondary" className="text-[10px]">{count}</Badge>
-                          <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                          {!isEmpty && <ArrowRight className="h-3 w-3 text-muted-foreground" />}
                         </div>
                       </div>
                       <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">
@@ -516,6 +522,11 @@ export default function PlaybookCatalogPage() {
                       {info?.agentToAgent && (
                         <Badge variant="outline" className="mt-1.5 text-[9px] font-normal">
                           agent-to-agent
+                        </Badge>
+                      )}
+                      {info?.inProgress && (
+                        <Badge variant="outline" className="mt-1.5 text-[9px] font-normal text-fuchsia-400 border-fuchsia-600/40">
+                          in progress
                         </Badge>
                       )}
                     </CardContent>

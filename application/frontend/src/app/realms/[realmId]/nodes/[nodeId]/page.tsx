@@ -1245,38 +1245,76 @@ function KeyMetricsStrip({
   healthScore,
   businessCase,
   currentPhase,
+  targetCompletion,
 }: {
   commercial?: Record<string, unknown>;
   healthScore?: HealthScore;
   businessCase?: Record<string, unknown>;
   currentPhase?: string;
+  targetCompletion?: string;
 }) {
-  const metrics: { label: string; value: string; color?: string }[] = [];
+  const metrics: { label: string; value: string; color?: string; help: string }[] = [];
 
   if (commercial?.opportunity_arr != null) {
     const raw = Number(commercial.opportunity_arr);
-    metrics.push({ label: "Opportunity ARR", value: isNaN(raw) ? String(commercial.opportunity_arr) : formatCurrency(raw) });
+    metrics.push({
+      label: "Opportunity ARR",
+      value: isNaN(raw) ? String(commercial.opportunity_arr) : formatCurrency(raw),
+      help: "Annual recurring revenue potential for this engagement. Sourced from CRM data.",
+    });
   }
   if (commercial?.probability != null) {
-    metrics.push({ label: "Probability", value: `${commercial.probability}%` });
+    metrics.push({
+      label: "Probability",
+      value: `${commercial.probability}%`,
+      help: "Estimated win probability based on deal qualification and stage progression.",
+    });
   }
   if (commercial?.stage != null) {
-    metrics.push({ label: "Stage", value: formatLabel(String(commercial.stage)) });
+    metrics.push({
+      label: "Stage",
+      value: formatLabel(String(commercial.stage)),
+      help: "Current sales stage in the pursuit lifecycle (e.g. qualification, proposal, negotiation).",
+    });
   }
   if (healthScore?.health_score) {
     const hs = healthScore.health_score;
     const score = hs.current;
     const color = score >= 80 ? "text-green-400" : score >= 60 ? "text-yellow-400" : "text-red-400";
     const trend = hs.trend === "improving" ? " +" : hs.trend === "declining" ? " -" : "";
-    metrics.push({ label: "Health", value: `${score}/100${trend}`, color });
+    metrics.push({
+      label: "Health",
+      value: `${score}/100${trend}`,
+      color,
+      help: "Composite health score (0-100) combining engagement, delivery, risk, and commercial signals. +/- indicates trend direction.",
+    });
   }
   if (businessCase?.projected_savings) {
-    metrics.push({ label: "Projected Savings", value: String(businessCase.projected_savings) });
+    metrics.push({
+      label: "Projected Savings",
+      value: String(businessCase.projected_savings),
+      help: "Estimated cost savings from the proposed solution, used in business case justification.",
+    });
+  }
+  if (targetCompletion) {
+    metrics.push({
+      label: "Target Close",
+      value: new Date(targetCompletion).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+      help: "Target completion date for this engagement. Drives milestone planning and resource allocation.",
+    });
   }
   if (currentPhase) {
-    metrics.push({ label: "Current Phase", value: currentPhase });
+    metrics.push({
+      label: "Current Phase",
+      value: currentPhase,
+      help: "Active phase from the node's blueprint lifecycle (e.g. discovery, validation, execution).",
+    });
   } else if (commercial?.next_milestone) {
-    metrics.push({ label: "Next Milestone", value: String(commercial.next_milestone) });
+    metrics.push({
+      label: "Next Milestone",
+      value: String(commercial.next_milestone),
+      help: "Upcoming milestone event that requires preparation or action from the account team.",
+    });
   }
 
   if (metrics.length === 0) return null;
@@ -1285,7 +1323,10 @@ function KeyMetricsStrip({
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
       {metrics.map((m) => (
         <div key={m.label} className="p-3 rounded-lg bg-muted/30 border border-border/50">
-          <p className="text-xs text-muted-foreground">{m.label}</p>
+          <p className="text-xs text-muted-foreground flex items-center gap-1">
+            {m.label}
+            <HelpPopover title={m.label}>{m.help}</HelpPopover>
+          </p>
           <p className={`text-lg font-bold mt-0.5 ${m.color || ""}`}>{m.value}</p>
         </div>
       ))}
@@ -1841,6 +1882,7 @@ function OverviewTab({ node, realmId, nodeId }: { node: Node; realmId: string; n
         healthScore={healthData}
         businessCase={businessCase}
         currentPhase={currentPhase ? String(currentPhase.phase || "") : undefined}
+        targetCompletion={node.target_completion as string | undefined}
       />
 
       {/* Remaining sections */}
