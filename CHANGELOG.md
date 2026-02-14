@@ -6,10 +6,13 @@
 
 - Canvas Library page at `/canvas` with catalog API endpoint, summary cards, filter tabs (all/core/specialized/planned), and per-canvas cards showing sections, owner, cadence, and data pipeline status
 - Canvas catalog backend: `GET /canvas/catalog` endpoint returning canvas metadata from registry and specs
-- About page at `/about` with authorship skeleton
-- Authorship attribution: "by Tatjana Frank" on landing page hero, copyright in sidebar footer
+- About page with project disclaimer, fictional vendor notice, and CC BY-NC-SA 4.0 license
+- CC BY-NC-SA 4.0 license file
+- Dynamic stats on home page and agents hub (playbooks, blueprints, canvas types fetched from API)
+- Playbook metadata standardization: `playbook_category` and `status` fields across all 72 playbooks
 - Blueprint reference page: summary cards with coverage ratios (archetypes covered X of Y, playbooks referenced X of Y)
-- Playbook catalog: summary cards (All Playbooks, Production Ready, Agent Roles) matching blueprint card style
+- Playbook catalog: summary cards (All Playbooks, Production Ready, Agent Roles), browse-by-role and browse-by-category filters
+- Decision records: DDR-011 (report generation pipeline), DDR-012 (playbook metadata standardization)
 - Canvas rendering pipeline: 5 canvas-type assemblers (context, decision, risk governance, value/stakeholders, architecture decision) with generic fallback, format-dispatch frontend renderer supporting 10+ section formats
 - Portfolio dashboard with 6 aggregated metrics (active nodes, avg health with trend, critical risks, overdue actions, pipeline ARR, weighted pipeline), attention items section, and per-realm node rows showing health/risks/milestones/commercial data
 - Dashboard backend service aggregating across all realms and nodes in a single API call
@@ -23,6 +26,9 @@
 
 ### Changed
 
+- Playbook catalog: 2-column grid layout, compact cards with role badge top-right, category as colored text
+- Playbook detail view: icons on all metadata title labels, 3x2 detail card grid
+- Fictional vendor names standardized across all vault data (Titanmetrics, Vizara, DataForge, ShieldOne)
 - Dashboard route `/dashboard` now shows portfolio-level aggregation instead of basic realm tiles
 - Home route `/` is now the landing page, dashboard moved to `/dashboard`
 - Sidebar navigation: added Dashboard, Canvas Library, and About items
@@ -44,7 +50,7 @@ Replaced raw JSON dump in Internal InfoHub with structured `CompetitiveIntellige
 
 Enhanced the Overview tab `CompetitiveLandscape` component with color-coded threat level badges, our differentiation points, risk factors, and POC success criteria.
 
-Created `competitive_context.yaml` sample data for GLOBEX (ObservabilityVendorA critical threat, Prometheus/Grafana medium threat) and INITECH (Algolia high threat, OpenSearch low, Typesense medium), modeled after the ACME battlecard playbook structure.
+Created `competitive_context.yaml` sample data for GLOBEX (ObservabilityVendorA critical threat, Titanmetrics/Vizara medium threat) and INITECH (Algolia high threat, OpenSearch low, Typesense medium), modeled after the ACME battlecard playbook structure.
 
 ### Stakeholder Interactivity
 

@@ -6,9 +6,9 @@
 
 | Field | Value |
 |-------|-------|
-| **Outcome** | Lost to Databricks |
+| **Outcome** | Lost to DataForge |
 | **Close Date** | 2026-01-10 |
-| **Loss Reason** | Champion departure + new CDO with Databricks preference |
+| **Loss Reason** | Champion departure + new CDO with DataForge preference |
 | **ARR Lost** | $420,000 |
 | **Duration** | 118 days (Sep 15 - Jan 10) |
 | **POC Result** | 85% success criteria met |
@@ -20,7 +20,7 @@
 
 ## Deal Summary
 
-ACME sought to consolidate 4 fragmented analytics tools (Tableau, Power BI, Python/Jupyter, Crystal Reports) into a unified analytics platform. The deal progressed strongly through discovery and POC with VP Data & Analytics Thomas Richter as champion. The POC was technically successful (85% criteria met). However, when Thomas resigned on Nov 28, the newly appointed CDO Anna Bergmann selected Databricks based on her 3-year prior experience.
+ACME sought to consolidate 4 fragmented analytics tools (Tableau, Power BI, Python/Jupyter, Crystal Reports) into a unified analytics platform. The deal progressed strongly through discovery and POC with VP Data & Analytics Thomas Richter as champion. The POC was technically successful (85% criteria met). However, when Thomas resigned on Nov 28, the newly appointed CDO Anna Bergmann selected DataForge based on her 3-year prior experience.
 
 ## Quick Links
 
@@ -35,7 +35,7 @@ ACME sought to consolidate 4 fragmented analytics tools (Tableau, Power BI, Pyth
 | [Thomas Richter](internal-infohub/stakeholders/thomas_richter.yaml) | Former Champion | **DEPARTED** |
 | [Anna Bergmann](internal-infohub/stakeholders/anna_bergmann.yaml) | CDO (Decision Maker) | **SELECTED COMPETITOR** |
 | [Value Tracker](internal-infohub/value/value_tracker.yaml) | Value hypotheses | Invalidated |
-| [Competitive Context](internal-infohub/competitive/competitive_context.yaml) | Databricks won | Lost |
+| [Competitive Context](internal-infohub/competitive/competitive_context.yaml) | DataForge won | Lost |
 | [Journey Map](internal-infohub/journey/customer_journey_map.yaml) | Full journey | Closed |
 
 ## Health Score Trajectory
@@ -65,9 +65,9 @@ Score
 | 2025-10-15 | POC scope approved | Peak probability (65%) |
 | 2025-11-12 | POC kickoff | Strong start |
 | 2025-11-28 | **Thomas Richter resigned** | **CRITICAL** |
-| 2025-12-01 | Anna Bergmann appointed CDO | Databricks bias |
+| 2025-12-01 | Anna Bergmann appointed CDO | DataForge bias |
 | 2025-12-18 | POC review (85% met) | Technical success |
-| 2026-01-10 | **DEAL LOST** | Databricks selected |
+| 2026-01-10 | **DEAL LOST** | DataForge selected |
 
 ## Why We Lost
 
@@ -79,7 +79,7 @@ Thomas Richter was our only executive champion. When he departed, we had no back
 
 | Factor | Description |
 |--------|-------------|
-| New CDO bias | Anna Bergmann had 3-year Databricks relationship |
+| New CDO bias | Anna Bergmann had 3-year DataForge relationship |
 | Late engagement | Took 14 days to meet Anna (should have been 48 hours) |
 | No CTO coverage | Marcus Weber was only engaged on security node |
 | POC insufficient | 85% technical success couldn't overcome relationship bias |
@@ -139,7 +139,7 @@ Thomas Richter was our only executive champion. When he departed, we had no back
 - **Observability**: Unaffected
 - **Security Consolidation**: Unaffected (separate decision makers)
 - **Analytics**: Lost, revisit in 12-18 months
-- **Watch Item**: Databricks expansion into adjacent areas
+- **Watch Item**: DataForge expansion into adjacent areas
 
 ---
 
@@ -183,7 +183,7 @@ DATA_ANALYTICS/
     │   ├── risk_register.yaml             # 3 risks materialized
     │   └── risk_history.yaml
     ├── competitive/
-    │   └── competitive_context.yaml       # Databricks won
+    │   └── competitive_context.yaml       # DataForge won
     ├── stakeholders/
     │   ├── thomas_richter.yaml            # Champion (departed)
     │   └── anna_bergmann.yaml             # CDO (selected competitor)

@@ -243,7 +243,17 @@ export function Sidebar() {
       <div className="p-3 flex items-center justify-between">
         <div>
           <p className="text-xs text-muted-foreground">EA Agentic Lab v1.0</p>
-          <p className="text-[10px] text-muted-foreground/70">Tatjana Frank, 2026</p>
+          <p className="text-[10px] text-muted-foreground/70">
+            <a
+              href="https://github.com/franktatjana"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors"
+            >
+              Tatjana Frank
+            </a>
+            , 2026
+          </p>
         </div>
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}

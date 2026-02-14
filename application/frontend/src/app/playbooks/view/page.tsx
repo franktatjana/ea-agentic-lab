@@ -19,6 +19,15 @@ import {
   Footprints,
   ExternalLink,
   ChevronDown,
+  Activity,
+  CircleDot,
+  Tag,
+  Microscope,
+  Gauge,
+  UserCheck,
+  ShieldCheck,
+  Eye,
+  BookOpen,
 } from "lucide-react";
 import CodeMirror from "@uiw/react-codemirror";
 import { yaml } from "@codemirror/lang-yaml";
@@ -26,7 +35,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { RoleBadge, StatusBadge, ModeBadge } from "@/components/badges";
+import { getModeInfo } from "@/components/badges";
 import { HelpPopover } from "@/components/help-popover";
 import type { Playbook } from "@/types";
 
@@ -84,6 +93,7 @@ function getAntiPatterns(pb: Playbook): string[] {
 
 /** Sort file paths (containing / or ending in .ext) to the bottom */
 const isFilePath = (s: string) => /[/\\]/.test(s) || /\.\w{1,4}$/.test(s);
+const stripVaultPrefix = (s: string) => s.replace(/^\{realm\}\/\{node\}\//i, "");
 function sortPathsLast(items: string[]): string[] {
   return [...items].sort((a, b) => Number(isFilePath(a)) - Number(isFilePath(b)));
 }
@@ -91,10 +101,12 @@ function sortPathsLast(items: string[]): string[] {
 /** Extract input items from any format */
 function getInputItems(pb: Playbook): string[] {
   let items: string[] = [];
-  if (pb.required_inputs?.mandatory) {
-    items = pb.required_inputs.mandatory
-      .map((item) => (typeof item === "string" ? item : item.artifact || ""))
-      .filter(Boolean);
+  const ri = pb.required_inputs || pb.validation_inputs;
+  if (ri?.mandatory) {
+    items = ri.mandatory
+      .map((item) => (typeof item === "string" ? item : item.description || item.artifact || ""))
+      .filter(Boolean)
+      .map(stripVaultPrefix);
   } else if (pb.inputs?.required) {
     items = pb.inputs.required.map((item) => item.name || "").filter(Boolean);
   } else if (pb.steckbrief?.key_inputs) {
@@ -105,10 +117,12 @@ function getInputItems(pb: Playbook): string[] {
 
 function getOptionalInputItems(pb: Playbook): string[] {
   let items: string[] = [];
-  if (pb.required_inputs?.optional) {
-    items = pb.required_inputs.optional
-      .map((item) => (typeof item === "string" ? item : item.artifact || ""))
-      .filter(Boolean);
+  const ri = pb.required_inputs || pb.validation_inputs;
+  if (ri?.optional) {
+    items = ri.optional
+      .map((item) => (typeof item === "string" ? item : item.use || item.description || item.artifact || ""))
+      .filter(Boolean)
+      .map(stripVaultPrefix);
   } else if (pb.inputs?.optional) {
     items = pb.inputs.optional.map((item) => item.name || "").filter(Boolean);
   }
@@ -219,23 +233,6 @@ function getDiscoveryTopics(pb: Playbook): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Complexity badge colors
-// ---------------------------------------------------------------------------
-const COMPLEXITY_COLORS: Record<string, string> = {
-  LOW: "bg-green-600/20 text-green-400 border-green-600/30",
-  MEDIUM: "bg-yellow-600/20 text-yellow-400 border-yellow-600/30",
-  HIGH: "bg-orange-600/20 text-orange-400 border-orange-600/30",
-  VERY_HIGH: "bg-red-600/20 text-red-400 border-red-600/30",
-};
-
-const CATEGORY_COLORS: Record<string, string> = {
-  strategy: "bg-purple-600/20 text-purple-400 border-purple-600/30",
-  technical: "bg-blue-600/20 text-blue-400 border-blue-600/30",
-  governance: "bg-amber-600/20 text-amber-400 border-amber-600/30",
-  commercial: "bg-emerald-600/20 text-emerald-400 border-emerald-600/30",
-  operational: "bg-cyan-600/20 text-cyan-400 border-cyan-600/30",
-};
-
 // ---------------------------------------------------------------------------
 // Expand/collapse toggle for detail cards
 // ---------------------------------------------------------------------------
@@ -255,13 +252,11 @@ function ExpandToggle({ count, expanded, onToggle }: { count: number; expanded: 
 // ---------------------------------------------------------------------------
 // PlaybookSummary: works for all playbook formats
 // ---------------------------------------------------------------------------
-function PlaybookSummary({ playbook, objective, owner, specialty, team, file }: {
+function PlaybookSummary({ playbook, objective, owner, specialty }: {
   playbook: Playbook | undefined;
   objective?: string;
   owner?: string;
   specialty?: string;
-  team: string;
-  file: string;
 }) {
   if (!playbook) return null;
 
@@ -291,10 +286,10 @@ function PlaybookSummary({ playbook, objective, owner, specialty, team, file }: 
     humanReview != null || playbook.notes || category || complexity || frameworkSource;
   const hasDetails =
     triggerSections || inputs.length > 0 || outputs.length > 0 ||
-    collaborators.length > 0 || antiPatterns.length > 0 ||
+    owner || collaborators.length > 0 || antiPatterns.length > 0 ||
     steps.length > 0 || discoveryTopics.length > 0;
 
-  const hasBadges = !!(owner || mode || playbook?.status || specialty);
+  const hasBadges = !!(mode || playbook?.status || specialty);
   if (!hasMetaBar && !hasDetails && !objective && !hasBadges) return null;
 
   return (
@@ -302,259 +297,312 @@ function PlaybookSummary({ playbook, objective, owner, specialty, team, file }: 
       {/* Top bar: key facts */}
       {(hasMetaBar || objective || hasBadges) && (
         <Card>
-          <CardContent className="p-4 space-y-2.5">
+          <CardContent className="p-5 space-y-4">
             {/* Description */}
             {objective && (
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <p className="text-sm leading-relaxed">
                 {objective}
               </p>
             )}
-            {/* Badges + file path */}
-            {hasBadges && (
-              <div className="flex items-center gap-2 flex-wrap">
-                {owner && <RoleBadge role={owner} />}
-                {mode && <ModeBadge mode={mode} />}
-                {playbook?.status && <StatusBadge status={playbook.status} />}
-                {specialty && (
-                  <Badge variant="outline" className="text-xs bg-teal-600/20 text-teal-400 border-teal-600/30">
-                    {formatLabel(specialty)}
-                  </Badge>
-                )}
-                <span className="text-sm text-muted-foreground">
-                  {team} / {file}
-                </span>
-              </div>
-            )}
-            {/* Inline key-value metadata */}
-            {hasMetaBar && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                {category && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="text-muted-foreground">Category</span>
-                    <Badge variant="outline" className={`text-xs ${CATEGORY_COLORS[category] || ""}`}>
-                      {formatLabel(category)}
-                    </Badge>
-                  </span>
-                )}
-                {complexity && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="text-muted-foreground">Complexity</span>
-                    <Badge variant="outline" className={`text-xs ${COMPLEXITY_COLORS[complexity] || ""}`}>
-                      {formatLabel(complexity)}
-                    </Badge>
-                  </span>
-                )}
-                {humanReview != null && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="text-muted-foreground">Review</span>
-                    <span className={`font-medium ${humanReview ? "text-amber-400" : ""}`}>
-                      {humanReview ? "Required" : "Not required"}
-                    </span>
-                  </span>
-                )}
-                {playbook.estimated_execution_time && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span>{playbook.estimated_execution_time}</span>
-                  </span>
-                )}
-                {playbook.frequency && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <CalendarClock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span>{playbook.frequency}</span>
-                  </span>
-                )}
-                {frameworkSource && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="text-muted-foreground">Framework</span>
-                    <span>{frameworkSource}</span>
-                  </span>
-                )}
-                {playbook.notes && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <StickyNote className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <span className="text-muted-foreground">{playbook.notes}</span>
-                  </span>
-                )}
-              </div>
+
+            {/* Metadata grid */}
+            {(hasBadges || hasMetaBar) && (
+              <>
+                <div className="border-t border-border" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3 text-sm">
+                  {mode && (
+                    <div>
+                      <p className="text-xs text-muted-foreground/70 mb-0.5 flex items-center gap-1"><Activity className="h-3 w-3" />Mode</p>
+                      <p className="font-medium">{getModeInfo(mode).label}</p>
+                    </div>
+                  )}
+                  {playbook?.status && (
+                    <div>
+                      <p className="text-xs text-muted-foreground/70 mb-0.5 flex items-center gap-1"><CircleDot className="h-3 w-3" />Status</p>
+                      <p className={`font-medium ${playbook.status === "production_ready" ? "text-green-400" : ""}`}>
+                        {formatLabel(playbook.status)}
+                      </p>
+                    </div>
+                  )}
+                  {category && (
+                    <div>
+                      <p className="text-xs text-muted-foreground/70 mb-0.5 flex items-center gap-1"><Tag className="h-3 w-3" />Category</p>
+                      <p className="font-medium">{formatLabel(category)}</p>
+                    </div>
+                  )}
+                  {specialty && (
+                    <div>
+                      <p className="text-xs text-muted-foreground/70 mb-0.5 flex items-center gap-1"><Microscope className="h-3 w-3" />Specialty</p>
+                      <p className="font-medium">{formatLabel(specialty)}</p>
+                    </div>
+                  )}
+                  {complexity && (
+                    <div>
+                      <p className="text-xs text-muted-foreground/70 mb-0.5 flex items-center gap-1"><Gauge className="h-3 w-3" />Complexity</p>
+                      <p className="font-medium">{formatLabel(complexity)}</p>
+                    </div>
+                  )}
+                  {humanReview != null && (
+                    <div>
+                      <p className="text-xs text-muted-foreground/70 mb-0.5 flex items-center gap-1"><UserCheck className="h-3 w-3" />Human-in-the-Loop</p>
+                      <p className={humanReview ? "font-medium text-amber-400" : "text-muted-foreground"}>
+                        {humanReview ? "Yes" : "No"}
+                      </p>
+                    </div>
+                  )}
+                  {humanReview && playbook.raci?.accountable?.role && (
+                    <div>
+                      <p className="text-xs text-muted-foreground/70 mb-0.5 flex items-center gap-1"><ShieldCheck className="h-3 w-3" />Accountable</p>
+                      <p className="font-medium">{formatLabel(playbook.raci.accountable.role)}</p>
+                    </div>
+                  )}
+                  {humanReview && outputs.length > 0 && (
+                    <div>
+                      <p className="text-xs text-muted-foreground/70 mb-0.5 flex items-center gap-1"><Eye className="h-3 w-3" />Reviews</p>
+                      <p className="font-medium">{outputs.join(", ")}</p>
+                    </div>
+                  )}
+                  {playbook.estimated_execution_time && (
+                    <div>
+                      <p className="text-xs text-muted-foreground/70 mb-0.5 flex items-center gap-1"><Clock className="h-3 w-3" />Execution Time</p>
+                      <p>{playbook.estimated_execution_time}</p>
+                    </div>
+                  )}
+                  {playbook.frequency && (
+                    <div>
+                      <p className="text-xs text-muted-foreground/70 mb-0.5 flex items-center gap-1"><CalendarClock className="h-3 w-3" />Frequency</p>
+                      <p>{playbook.frequency}</p>
+                    </div>
+                  )}
+                  {frameworkSource && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground/70 mb-0.5 flex items-center gap-1"><BookOpen className="h-3 w-3" />Conceptual Framework</p>
+                      <p className="font-medium">{frameworkSource}</p>
+                      {playbook.notes && (
+                        <p className="text-xs text-muted-foreground/60 mt-0.5">{playbook.notes}</p>
+                      )}
+                    </div>
+                  )}
+                  {!frameworkSource && playbook.notes && (
+                    <div className="col-span-2">
+                      <p className="text-xs text-muted-foreground/70 mb-0.5 flex items-center gap-1"><StickyNote className="h-3 w-3" />Why It Matters</p>
+                      <p className="text-sm text-muted-foreground">{playbook.notes}</p>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
       )}
 
-      {/* Detail cards */}
-      {hasDetails && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {/* Triggers: section labels + first item each, rest collapsed */}
-          {triggerSections && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="h-4 w-4 text-amber-400" />
-                  <h3 className="text-sm font-semibold">Trigger Conditions</h3>
-                </div>
-                <div className="space-y-2">
-                  {triggerSections.map((section) => {
-                    const preview = section.items.slice(0, 1);
-                    const rest = section.items.slice(1);
-                    return (
-                      <div key={section.label}>
-                        <p className="text-xs font-medium text-amber-400/80 uppercase tracking-wide mb-0.5">
-                          {section.label}
-                        </p>
-                        <ul className="space-y-0.5">
-                          {preview.map((item, i) => (
-                            <li key={i} className="text-sm text-muted-foreground leading-snug">{item}</li>
-                          ))}
-                          {expandTriggers && rest.map((item, i) => (
-                            <li key={`r-${i}`} className="text-sm text-muted-foreground leading-snug">{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    );
-                  })}
-                </div>
-                {(() => {
-                  const total = triggerSections.reduce((s, sec) => s + Math.max(0, sec.items.length - 1), 0);
-                  return <ExpandToggle count={total} expanded={expandTriggers} onToggle={() => setExpandTriggers(v => !v)} />;
-                })()}
-              </CardContent>
-            </Card>
-          )}
+      {/* Detail cards: always 6 boxes in 3x2 grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {/* 1. Trigger Conditions */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="h-4 w-4 text-amber-400" />
+                <h3 className="text-sm font-semibold">Trigger Conditions</h3>
+              </div>
+              {triggerSections ? (
+                <>
+                  <div className="space-y-2">
+                    {triggerSections.map((section) => {
+                      const preview = section.items.slice(0, 1);
+                      const rest = section.items.slice(1);
+                      return (
+                        <div key={section.label}>
+                          <p className="text-xs font-medium text-amber-400/80 uppercase tracking-wide mb-0.5">
+                            {section.label}
+                          </p>
+                          <ul className="space-y-0.5">
+                            {preview.map((item, i) => (
+                              <li key={i} className="text-sm text-muted-foreground leading-snug">{item}</li>
+                            ))}
+                            {expandTriggers && rest.map((item, i) => (
+                              <li key={`r-${i}`} className="text-sm text-muted-foreground leading-snug">{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {(() => {
+                    const total = triggerSections.reduce((s, sec) => s + Math.max(0, sec.items.length - 1), 0);
+                    return <ExpandToggle count={total} expanded={expandTriggers} onToggle={() => setExpandTriggers(v => !v)} />;
+                  })()}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground/50">Not defined</p>
+              )}
+            </CardContent>
+          </Card>
 
-          {/* Inputs: required visible, optional collapsed */}
-          {inputs.length > 0 && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <ArrowDownToLine className="h-4 w-4 text-blue-400" />
-                  <h3 className="text-sm font-semibold">Inputs</h3>
-                </div>
-                <ul className="space-y-0.5">
-                  {inputs.map((item, i) => (
-                    <li key={i} className="text-sm text-muted-foreground">{item}</li>
-                  ))}
-                </ul>
-                {optionalInputs.length > 0 && (
-                  <>
-                    {expandInputs && (
-                      <div className="mt-2 pt-2 border-t border-border">
-                        <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wide mb-0.5">Optional</p>
-                        <ul className="space-y-0.5">
-                          {optionalInputs.map((item, i) => (
-                            <li key={i} className="text-sm text-muted-foreground">{item}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    <ExpandToggle
-                      count={optionalInputs.length}
-                      expanded={expandInputs}
-                      onToggle={() => setExpandInputs(v => !v)}
-                    />
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          {/* 2. Inputs */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <ArrowDownToLine className="h-4 w-4 text-blue-400" />
+                <h3 className="text-sm font-semibold">Inputs</h3>
+              </div>
+              {inputs.length > 0 ? (
+                <>
+                  <ul className="space-y-0.5">
+                    {inputs.map((item, i) => (
+                      <li key={i} className="text-sm text-muted-foreground">{item}</li>
+                    ))}
+                  </ul>
+                  {optionalInputs.length > 0 && (
+                    <>
+                      {expandInputs && (
+                        <div className="mt-2 pt-2 border-t border-border">
+                          <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wide mb-0.5">Optional</p>
+                          <ul className="space-y-0.5">
+                            {optionalInputs.map((item, i) => (
+                              <li key={i} className="text-sm text-muted-foreground">{item}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      <ExpandToggle
+                        count={optionalInputs.length}
+                        expanded={expandInputs}
+                        onToggle={() => setExpandInputs(v => !v)}
+                      />
+                    </>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground/50">Not defined</p>
+              )}
+            </CardContent>
+          </Card>
 
-          {/* Outputs: first 3 visible */}
-          {outputs.length > 0 && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <ArrowUpFromLine className="h-4 w-4 text-green-400" />
-                  <h3 className="text-sm font-semibold">Outputs</h3>
-                </div>
-                <ul className="space-y-0.5">
-                  {(expandOutputs ? outputs : outputs.slice(0, 3)).map((item, i) => (
-                    <li key={i} className="text-sm text-muted-foreground">{item}</li>
-                  ))}
-                </ul>
-                <ExpandToggle count={outputs.length - 3} expanded={expandOutputs} onToggle={() => setExpandOutputs(v => !v)} />
-              </CardContent>
-            </Card>
-          )}
+          {/* 3. Outputs */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <ArrowUpFromLine className="h-4 w-4 text-green-400" />
+                <h3 className="text-sm font-semibold">Outputs</h3>
+              </div>
+              {outputs.length > 0 ? (
+                <>
+                  <ul className="space-y-0.5">
+                    {(expandOutputs ? outputs : outputs.slice(0, 3)).map((item, i) => (
+                      <li key={i} className="text-sm text-muted-foreground">{item}</li>
+                    ))}
+                  </ul>
+                  <ExpandToggle count={outputs.length - 3} expanded={expandOutputs} onToggle={() => setExpandOutputs(v => !v)} />
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground/50">Not defined</p>
+              )}
+            </CardContent>
+          </Card>
 
-          {/* Collaborators: first 3 visible */}
-          {collaborators.length > 0 && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users2 className="h-4 w-4 text-purple-400" />
-                  <h3 className="text-sm font-semibold">Collaborators</h3>
-                </div>
-                <ul className="space-y-0.5">
-                  {(expandCollaborators ? collaborators : collaborators.slice(0, 3)).map((agent) => (
-                    <li key={agent} className="text-sm text-muted-foreground">{agent}</li>
-                  ))}
-                </ul>
-                <ExpandToggle count={collaborators.length - 3} expanded={expandCollaborators} onToggle={() => setExpandCollaborators(v => !v)} />
-              </CardContent>
-            </Card>
-          )}
+          {/* 4. Owner & Collaborators */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Users2 className="h-4 w-4 text-purple-400" />
+                <h3 className="text-sm font-semibold">Owner & Collaborators</h3>
+              </div>
+              {(owner || collaborators.length > 0) ? (
+                <>
+                  {owner && (
+                    <div className="mb-2">
+                      <p className="text-xs font-medium text-purple-400/80 uppercase tracking-wide mb-0.5">Owner</p>
+                      <p className="text-sm text-muted-foreground">{formatLabel(owner)}</p>
+                    </div>
+                  )}
+                  {collaborators.length > 0 && (
+                    <div>
+                      {owner && <p className="text-xs font-medium text-purple-400/80 uppercase tracking-wide mb-0.5">Collaborators</p>}
+                      <ul className="space-y-0.5">
+                        {(expandCollaborators ? collaborators : collaborators.slice(0, 3)).map((agent) => (
+                          <li key={agent} className="text-sm text-muted-foreground">{agent}</li>
+                        ))}
+                      </ul>
+                      <ExpandToggle count={collaborators.length - 3} expanded={expandCollaborators} onToggle={() => setExpandCollaborators(v => !v)} />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground/50">Not defined</p>
+              )}
+            </CardContent>
+          </Card>
 
-          {/* Anti-patterns: first 2 visible */}
-          {antiPatterns.length > 0 && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="h-4 w-4 text-red-400" />
-                  <h3 className="text-sm font-semibold">When Not to Use</h3>
-                </div>
-                <ul className="space-y-0.5">
-                  {(expandAntiPatterns ? antiPatterns : antiPatterns.slice(0, 2)).map((item, i) => (
-                    <li key={i} className="text-sm text-muted-foreground leading-snug">{item}</li>
-                  ))}
-                </ul>
-                <ExpandToggle count={antiPatterns.length - 2} expanded={expandAntiPatterns} onToggle={() => setExpandAntiPatterns(v => !v)} />
-              </CardContent>
-            </Card>
-          )}
+          {/* 5. When Not to Use */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="h-4 w-4 text-red-400" />
+                <h3 className="text-sm font-semibold">When Not to Use</h3>
+              </div>
+              {antiPatterns.length > 0 ? (
+                <>
+                  <ul className="space-y-0.5">
+                    {(expandAntiPatterns ? antiPatterns : antiPatterns.slice(0, 2)).map((item, i) => (
+                      <li key={i} className="text-sm text-muted-foreground leading-snug">{item}</li>
+                    ))}
+                  </ul>
+                  <ExpandToggle count={antiPatterns.length - 2} expanded={expandAntiPatterns} onToggle={() => setExpandAntiPatterns(v => !v)} />
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground/50">Not defined</p>
+              )}
+            </CardContent>
+          </Card>
 
-          {/* Steps: first 3 visible */}
-          {steps.length > 0 && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Footprints className="h-4 w-4 text-cyan-400" />
-                  <h3 className="text-sm font-semibold">Execution Steps</h3>
-                </div>
-                <ol className="space-y-1">
-                  {(expandSteps ? steps : steps.slice(0, 3)).map((step, i) => (
-                    <li key={step.id || i} className="text-sm text-muted-foreground flex items-start gap-2">
-                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-cyan-600/20 text-cyan-400 text-[10px] font-bold shrink-0 mt-0.5">
-                        {i + 1}
-                      </span>
-                      <span>{step.name}</span>
-                    </li>
-                  ))}
-                </ol>
-                <ExpandToggle count={steps.length - 3} expanded={expandSteps} onToggle={() => setExpandSteps(v => !v)} />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Discovery topics (specialist playbooks) */}
-          {discoveryTopics.length > 0 && (
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <ListChecks className="h-4 w-4 text-teal-400" />
-                  <h3 className="text-sm font-semibold">Discovery Areas</h3>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {discoveryTopics.map((topic) => (
-                    <Badge key={topic} variant="outline" className="text-xs font-normal">
-                      {topic}
-                    </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* 6. Execution Steps or Discovery Areas */}
+          <Card>
+            <CardContent className="p-4">
+              {steps.length > 0 ? (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Footprints className="h-4 w-4 text-cyan-400" />
+                    <h3 className="text-sm font-semibold">Execution Steps</h3>
+                  </div>
+                  <ol className="space-y-1">
+                    {(expandSteps ? steps : steps.slice(0, 3)).map((step, i) => (
+                      <li key={step.id || i} className="text-sm text-muted-foreground flex items-start gap-2">
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-cyan-600/20 text-cyan-400 text-[10px] font-bold shrink-0 mt-0.5">
+                          {i + 1}
+                        </span>
+                        <span>{step.name}</span>
+                      </li>
+                    ))}
+                  </ol>
+                  <ExpandToggle count={steps.length - 3} expanded={expandSteps} onToggle={() => setExpandSteps(v => !v)} />
+                </>
+              ) : discoveryTopics.length > 0 ? (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <ListChecks className="h-4 w-4 text-teal-400" />
+                    <h3 className="text-sm font-semibold">Discovery Areas</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {discoveryTopics.map((topic) => (
+                      <Badge key={topic} variant="outline" className="text-xs font-normal">
+                        {topic}
+                      </Badge>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Footprints className="h-4 w-4 text-cyan-400" />
+                    <h3 className="text-sm font-semibold">Execution Steps</h3>
+                  </div>
+                  <p className="text-sm text-muted-foreground/50">Not defined</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      )}
     </div>
   );
 }
@@ -629,8 +677,6 @@ function PlaybookViewerContent() {
         objective={objective}
         owner={owner}
         specialty={specialty}
-        team={team}
-        file={file}
       />
 
       <Card>
@@ -644,6 +690,9 @@ function PlaybookViewerContent() {
               and all step-by-step instructions agents follow during execution.
             </HelpPopover>
           </CardTitle>
+          <p className="text-xs text-muted-foreground/60">
+            {team} / {file}
+          </p>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border overflow-hidden">

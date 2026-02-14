@@ -55,7 +55,7 @@ Canvas rendering uses a format-dispatch pattern: each canvas section declares it
 | Separate canvas and dashboard systems | Independent development, clear boundaries | Duplicated patterns, no shared mental model for "reports" | Creates artificial separation for the same data flow pattern |
 | Single monolithic report service | One service, one router | Mixes node-level and portfolio-level concerns, harder to test | Violates SRP; service would grow too large |
 | Client-side rendering from raw YAML | No backend assembly needed | Frontend becomes tightly coupled to YAML structure, no data transformation layer | Breaks the structured-data-first principle from DDR-002 |
-| Embedded analytics tool (Metabase, Grafana) | Rich visualization out of the box | External dependency, YAML-based data does not fit SQL/time-series models | Over-engineering for structured YAML data |
+| Embedded analytics tool (Metabase, Vizara) | Rich visualization out of the box | External dependency, YAML-based data does not fit SQL/time-series models | Over-engineering for structured YAML data |
 
 ## Consequences
 

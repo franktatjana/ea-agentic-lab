@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import {
   Bot,
   Network,
@@ -8,6 +9,7 @@ import {
   ArrowRight,
   ChevronRight,
 } from "lucide-react";
+import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -65,40 +67,45 @@ const HANDOFF_FLOWS: HandoffFlow[] = [
   },
 ];
 
-const NAV_CARDS: { href: string; icon: LucideIcon; title: string; count: number; description: string; color: string; bg: string; border: string }[] = [
-  {
-    href: "/agents/profiles",
-    icon: Bot,
-    title: "Agent Profiles",
-    count: 27,
-    description: "Browse all agents by functional area. Each profile defines the agent's purpose, playbook ownership, triggers, and escalation rules.",
-    color: "text-amber-400",
-    bg: "bg-amber-600/10",
-    border: "border-amber-600/20 hover:border-amber-500/40",
-  },
-  {
-    href: "/orchestration",
-    icon: Network,
-    title: "Orchestration",
-    count: 4,
-    description: "Parse, analyze, and validate multi-agent process definitions. Detect conflicts between agents, identify handoff gaps, and map playbook involvement.",
-    color: "text-cyan-400",
-    bg: "bg-cyan-600/10",
-    border: "border-cyan-600/20 hover:border-cyan-500/40",
-  },
-  {
-    href: "/playbooks",
-    icon: BookOpen,
-    title: "Playbooks",
-    count: 61,
-    description: "Reusable execution units owned by agents. Each playbook encodes best practices, frameworks, and specialist knowledge for a specific task.",
-    color: "text-green-400",
-    bg: "bg-green-600/10",
-    border: "border-green-600/20 hover:border-green-500/40",
-  },
-];
-
 export default function AgentsHubPage() {
+  const { data: playbooks } = useQuery({
+    queryKey: ["playbooks"],
+    queryFn: () => api.listPlaybooks(),
+  });
+
+  const NAV_CARDS: { href: string; icon: LucideIcon; title: string; count: number | string; description: string; color: string; bg: string; border: string }[] = [
+    {
+      href: "/agents/profiles",
+      icon: Bot,
+      title: "Agent Profiles",
+      count: 30,
+      description: "Browse all agents by functional area. Each profile defines the agent's purpose, playbook ownership, triggers, and escalation rules.",
+      color: "text-amber-400",
+      bg: "bg-amber-600/10",
+      border: "border-amber-600/20 hover:border-amber-500/40",
+    },
+    {
+      href: "/orchestration",
+      icon: Network,
+      title: "Orchestration",
+      count: 4,
+      description: "Parse, analyze, and validate multi-agent process definitions. Detect conflicts between agents, identify handoff gaps, and map playbook involvement.",
+      color: "text-cyan-400",
+      bg: "bg-cyan-600/10",
+      border: "border-cyan-600/20 hover:border-cyan-500/40",
+    },
+    {
+      href: "/playbooks",
+      icon: BookOpen,
+      title: "Playbooks",
+      count: playbooks?.length ?? "–",
+      description: "Reusable execution units owned by agents. Each playbook encodes best practices, frameworks, and specialist knowledge for a specific task.",
+      color: "text-green-400",
+      bg: "bg-green-600/10",
+      border: "border-green-600/20 hover:border-green-500/40",
+    },
+  ];
+
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
@@ -112,7 +119,7 @@ export default function AgentsHubPage() {
           </HelpPopover>
         </div>
         <p className="text-muted-foreground mt-1">
-          27 agents across 9 functional areas. Each agent owns specific playbooks and collaborates through defined handoff chains.
+          30 agents across 9 functional areas. Each agent owns specific playbooks and collaborates through defined handoff chains.
         </p>
       </div>
 

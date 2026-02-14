@@ -75,7 +75,7 @@ Thomas outlined these must-haves:
 - Tableau is incumbent but relationship is weakening (cost frustration)
 - Power BI retained only because of M365 bundle
 - No active competitive evaluations (we are first)
-- Thomas mentioned he's aware of Databricks and Snowflake but hasn't engaged them
+- Thomas mentioned he's aware of DataForge and FrostByte but hasn't engaged them
 
 ## Decision
 

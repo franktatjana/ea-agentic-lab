@@ -154,7 +154,7 @@ external_learning:
         relevance: ["observability"]
         extraction: "specification_changes"
         frequency: "monthly"
-        url: "https://opentelemetry.io/docs/"
+        url: "https://opensignal.example.io/docs/"
 
       - source: "OWASP"
         relevance: ["security"]

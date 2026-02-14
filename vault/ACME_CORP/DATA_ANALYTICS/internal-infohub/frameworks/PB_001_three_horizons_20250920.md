@@ -60,7 +60,7 @@
 |------|---------|----------|------------|
 | Single champion | H1 | High | Multi-thread engagement |
 | Migration complexity | H1 | Medium | Phased migration plan |
-| Data engineering competition | H2 | High | Databricks/Snowflake threat |
+| Data engineering competition | H2 | High | DataForge/FrostByte threat |
 | ML maturity | H3 | Medium | Product roadmap alignment |
 
 **Note (Post-Mortem):** The H1 "single champion" risk materialized and was fatal to the deal.

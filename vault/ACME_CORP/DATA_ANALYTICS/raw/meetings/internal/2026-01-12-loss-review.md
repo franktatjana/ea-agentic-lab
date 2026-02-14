@@ -28,7 +28,7 @@ tags:
 
 ## Summary
 
-Formal loss review for the ACME Data Analytics Consolidation opportunity ($420K ARR). Deal lost to Databricks following champion departure (Thomas Richter) and appointment of new CDO (Anna Bergmann) with strong Databricks preference. This meeting documents lessons learned and process improvements.
+Formal loss review for the ACME Data Analytics Consolidation opportunity ($420K ARR). Deal lost to DataForge following champion departure (Thomas Richter) and appointment of new CDO (Anna Bergmann) with strong DataForge preference. This meeting documents lessons learned and process improvements.
 
 ## Deal Timeline
 
@@ -75,7 +75,7 @@ Robert: "This is the core lesson. Multi-threading isn't optional on $400K+ deals
    - Maria: "Technically we won. Commercially we lost."
 
 4. **Competitor entered through relationship, not market**
-   - Databricks didn't pitch ACME; Anna brought them in
+   - DataForge didn't pitch ACME; Anna brought them in
    - Traditional competitive intelligence couldn't detect this
    - James: "We need to monitor for leadership changes, not just competitive activity"
 
@@ -107,9 +107,9 @@ Robert mandated these changes:
 
 ## Impact on ACME Account
 
-James: "The analytics loss doesn't affect our security or observability business. Anna explicitly confirmed the separation. But we need to be aware that the ACME data team now uses Databricks, which could create future competitive pressure if Databricks expands into observability."
+James: "The analytics loss doesn't affect our security or observability business. Anna explicitly confirmed the separation. But we need to be aware that the ACME data team now uses DataForge, which could create future competitive pressure if DataForge expands into observability."
 
-Robert: "Agreed. Flag Databricks expansion as a watch item on the ACME account."
+Robert: "Agreed. Flag DataForge expansion as a watch item on the ACME account."
 
 ## Knowledge Contribution
 
@@ -123,7 +123,7 @@ This loss review generates the following knowledge items for the global vault:
 
 - [ ] James: Update account playbook with multi-threading requirement
 - [ ] Alex: Create champion departure response playbook
-- [ ] Alex: Update ACME account plan, flag Databricks watch item
+- [ ] Alex: Update ACME account plan, flag DataForge watch item
 - [ ] Robert: Distribute process improvements to EMEA sales team
 - [ ] Maria: Archive POC materials and technical documentation
 - [ ] James: Contribute lessons to global knowledge vault

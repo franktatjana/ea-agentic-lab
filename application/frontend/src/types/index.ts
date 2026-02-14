@@ -171,6 +171,7 @@ export interface DocContent {
 
 export interface PlaybookInput {
   artifact?: string;
+  description?: string;
   use?: string;
 }
 
@@ -276,6 +277,7 @@ export interface Playbook {
   intended_agent_role?: string;
   secondary_agents?: string[];
   playbook_mode?: string;
+  playbook_category?: string;
   status?: string;
   primary_objective?: string;
   when_not_to_use?: string[];
@@ -286,6 +288,11 @@ export interface Playbook {
     conditional?: string[];
   };
   required_inputs?: {
+    mandatory?: Array<PlaybookInput | string>;
+    optional?: Array<PlaybookInput | string>;
+    minimum_data_threshold?: string[];
+  };
+  validation_inputs?: {
     mandatory?: Array<PlaybookInput | string>;
     optional?: Array<PlaybookInput | string>;
     minimum_data_threshold?: string[];

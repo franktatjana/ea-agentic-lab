@@ -67,7 +67,7 @@ Trading platform uses non-standard field names. Need to create custom ingest pip
 - **Impact**: Medium - delays full data coverage
 
 ### Issue 2: Alert Notification Integration
-ACME uses PagerDuty for alerting. Need to configure connector.
+ACME uses AlertPulse for alerting. Need to configure connector.
 - **Owner**: Jennifer (ACME side)
 - **ETA**: Jan 26
 - **Impact**: Low - doesn't block core testing

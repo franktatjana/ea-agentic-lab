@@ -35,7 +35,7 @@
     |
 2025-12-18  POC review - technically successful (85% criteria met)
     |
-2026-01-10  *** DEAL LOST - Databricks selected ***
+2026-01-10  *** DEAL LOST - DataForge selected ***
     |
 2026-01-12  Internal loss review
 ```
@@ -47,13 +47,13 @@
 ### 2026-01-10 | Final Decision Call - DEAL LOST
 **Type:** External - Customer Meeting
 **Attendees:** Anna Bergmann (CDO), Dr. Sarah Chen, Alex Thompson, James Park
-**Outcome:** LOST - Databricks selected
+**Outcome:** LOST - DataForge selected
 
 **Summary:**
-- Anna Bergmann communicated final decision to select Databricks
-- Budget reallocated to Databricks Lakehouse Platform
+- Anna Bergmann communicated final decision to select DataForge
+- Budget reallocated to DataForge Lakehouse Platform
 - She acknowledged our POC results were strong
-- Decision was based on her familiarity and trust in Databricks
+- Decision was based on her familiarity and trust in DataForge
 
 **Key Quote:**
 Anna Bergmann: *"Your platform is impressive, but I need to move fast and I'm going with what I know."*
@@ -70,12 +70,12 @@ Anna Bergmann: *"Your platform is impressive, but I need to move fast and I'm go
 **Summary:**
 - POC results presented: 85% of success criteria met
 - Lars Becker and Dr. Chen acknowledged strong technical performance
-- Anna Bergmann asked pointed questions about Databricks comparison
+- Anna Bergmann asked pointed questions about DataForge comparison
 - No commitment to proceed, requested "additional evaluation"
 
 **Key Moments:**
 1. Lars Becker: *"The self-service experience is genuinely better than anything we have today."*
-2. Anna Bergmann: *"How does this compare to Databricks on the data engineering side?"*
+2. Anna Bergmann: *"How does this compare to DataForge on the data engineering side?"*
 3. Anna Bergmann: *"I need time to evaluate all options. I'm new and want to make the right call."*
 
 **Linked Artifact:** [meetings/external/2025-12-18-poc-review.md](../meetings/external/2025-12-18-poc-review.md)
@@ -85,18 +85,18 @@ Anna Bergmann: *"Your platform is impressive, but I need to move fast and I'm go
 ### 2025-12-15 | Introduction Meeting with Anna Bergmann
 **Type:** External - Customer Meeting
 **Attendees:** Anna Bergmann (CDO), Alex Thompson, James Park
-**Outcome:** Concerning, Databricks bias detected
+**Outcome:** Concerning, DataForge bias detected
 
 **Summary:**
 - First meeting with newly appointed CDO
 - Anna was professional but clearly had a pre-formed view
-- Multiple references to Databricks capabilities
+- Multiple references to DataForge capabilities
 - Limited interest in our POC progress
 
 **Key Quote:**
-Anna Bergmann: *"I've used Databricks at my previous company for three years. I know what it can do and I trust it."*
+Anna Bergmann: *"I've used DataForge at my previous company for three years. I know what it can do and I trust it."*
 
-**Risk Identified:** Strong incumbent bias toward Databricks from prior experience
+**Risk Identified:** Strong incumbent bias toward DataForge from prior experience
 
 ---
 
@@ -206,13 +206,13 @@ Thomas Richter: *"We're drowning in tools. My team spends more time switching be
 
 **Primary Factor:** Single-threaded champion dependency
 
-Thomas Richter was our only executive champion. When he departed, we had no backup relationship at the decision-making level. The new CDO brought a strong pre-existing relationship with Databricks.
+Thomas Richter was our only executive champion. When he departed, we had no backup relationship at the decision-making level. The new CDO brought a strong pre-existing relationship with DataForge.
 
 **Contributing Factors:**
 1. No multi-threading above Thomas (CTO relationship was through Dr. Chen, not direct)
 2. Late engagement with Anna Bergmann (3 weeks after appointment)
 3. POC results, while strong, were not decisive enough to overcome relationship bias
-4. Databricks had 3-year relationship advantage through Anna's previous role
+4. DataForge had 3-year relationship advantage through Anna's previous role
 
 **What Would Have Changed the Outcome:**
 - Building a direct CTO (Marcus Weber) relationship for analytics

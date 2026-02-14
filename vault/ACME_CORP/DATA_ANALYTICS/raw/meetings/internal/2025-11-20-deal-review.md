@@ -60,7 +60,7 @@ Alex: "Lars is supportive but he's a team lead, not an executive. His influence 
 
 ## Competitive Intelligence
 
-No competitive activity detected. No Databricks or Snowflake engagement at ACME for analytics.
+No competitive activity detected. No DataForge or FrostByte engagement at ACME for analytics.
 
 Alex: "We're still the only game in town. No competitive pressure."
 

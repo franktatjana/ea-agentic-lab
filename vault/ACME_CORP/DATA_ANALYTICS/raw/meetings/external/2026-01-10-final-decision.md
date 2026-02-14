@@ -29,25 +29,25 @@ tags:
 
 ## Summary
 
-Anna Bergmann communicated ACME's decision to select Databricks Lakehouse Platform for their analytics consolidation initiative. The deal is officially lost. Anna was respectful and acknowledged our POC results, but her decision was firm. The primary factor was her familiarity and trust in Databricks from her previous role, combined with pressure to deliver quickly in her new CDO position.
+Anna Bergmann communicated ACME's decision to select DataForge Lakehouse Platform for their analytics consolidation initiative. The deal is officially lost. Anna was respectful and acknowledged our POC results, but her decision was firm. The primary factor was her familiarity and trust in DataForge from her previous role, combined with pressure to deliver quickly in her new CDO position.
 
 ## Decision Communication
 
 Anna opened the meeting directly:
 
-"I want to be upfront. We've decided to go with Databricks for our analytics consolidation. I know your POC delivered strong results, and I want to acknowledge that. Your platform is impressive, but I need to move fast and I'm going with what I know."
+"I want to be upfront. We've decided to go with DataForge for our analytics consolidation. I know your POC delivered strong results, and I want to acknowledge that. Your platform is impressive, but I need to move fast and I'm going with what I know."
 
 ## Reasons Given
 
 Anna provided these reasons:
-1. **Familiarity**: "I've built entire data platforms on Databricks. I know its capabilities and limitations."
-2. **Data Engineering**: "Databricks gives us Spark-native data engineering, which is critical for our ML roadmap."
-3. **Speed to Value**: "With my Databricks experience, we can be operational in 8 weeks instead of 16."
-4. **Lakehouse Architecture**: "I want to build a proper Lakehouse. Databricks is purpose-built for that."
+1. **Familiarity**: "I've built entire data platforms on DataForge. I know its capabilities and limitations."
+2. **Data Engineering**: "DataForge gives us Spark-native data engineering, which is critical for our ML roadmap."
+3. **Speed to Value**: "With my DataForge experience, we can be operational in 8 weeks instead of 16."
+4. **Lakehouse Architecture**: "I want to build a proper Lakehouse. DataForge is purpose-built for that."
 
 ## Our Response
 
-James Park asked: "Is there anything we could do to change your mind? We believe our unified platform, combined with the existing observability relationship, offers unique value that Databricks cannot match."
+James Park asked: "Is there anything we could do to change your mind? We believe our unified platform, combined with the existing observability relationship, offers unique value that DataForge cannot match."
 
 Anna: "I appreciate that, and the observability integration is interesting. But for analytics specifically, I've made my decision. I hope this doesn't affect our observability partnership, which I understand is working well."
 
@@ -69,7 +69,7 @@ Anna: "I appreciate that. No hard feelings. Business is business."
 
 **Why we lost:**
 1. Champion departure (Thomas Richter) removed our internal advocate
-2. New CDO had pre-existing Databricks relationship (3 years)
+2. New CDO had pre-existing DataForge relationship (3 years)
 3. POC results, while strong, couldn't overcome familiarity bias
 4. Time pressure in new role made CDO risk-averse
 5. Single-threaded engagement meant no backup path
@@ -99,5 +99,5 @@ Anna: "I appreciate that. No hard feelings. Business is business."
 
 - **Observability**: Unaffected, strong partnership continues
 - **Security Consolidation**: Active deal, separate decision makers
-- **Analytics**: Lost for now, revisit in 12-18 months if Databricks underdelivers
+- **Analytics**: Lost for now, revisit in 12-18 months if DataForge underdelivers
 - **Overall Account Health**: Absorb the loss, protect and grow other nodes

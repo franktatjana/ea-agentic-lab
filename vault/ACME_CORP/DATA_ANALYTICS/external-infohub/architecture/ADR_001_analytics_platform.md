@@ -56,4 +56,4 @@ Data Sources              Platform                   Users
 
 ## Status Update
 
-**2026-01-10:** This ADR is superseded. The customer selected Databricks Lakehouse Platform under new CDO Anna Bergmann. The technical architecture was validated during POC but the deal was lost due to stakeholder change.
+**2026-01-10:** This ADR is superseded. The customer selected DataForge Lakehouse Platform under new CDO Anna Bergmann. The technical architecture was validated during POC but the deal was lost due to stakeholder change.

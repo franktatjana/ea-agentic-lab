@@ -20,12 +20,9 @@ import {
   BarChart3,
   Package,
   Swords,
-  Bot,
-  BookOpen,
-  Frame,
-  Repeat,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { HomeStats } from "@/components/home-stats";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -64,18 +61,24 @@ const PILLARS = [
     title: "People + Agents",
     description:
       "Specialists, AEs, SAs, and CAs paired with AI agents, each with role-specific, customizable playbooks. Every team member gets an agent team configured for their accounts, domains, and engagement patterns.",
+    color: "border-amber-600/20 bg-amber-600/10",
+    iconColor: "text-amber-400",
   },
   {
     icon: LayoutTemplate,
     title: "Customers + Blueprints",
     description:
       "Customers classified into archetypes. Each gets a blueprint filled with strategic and operational playbooks. Classification drives automation: the right blueprint, right playbooks, right evaluation criteria.",
+    color: "border-purple-600/20 bg-purple-600/10",
+    iconColor: "text-purple-400",
   },
   {
     icon: Database,
     title: "Knowledge + Artifacts",
     description:
       "Tribal knowledge digitized and compounding over time: best practices, evaluation criteria, lessons from every engagement. Artifacts are the customer-facing proof: canvases, assessments, and deliverables with full provenance.",
+    color: "border-teal-600/20 bg-teal-600/10",
+    iconColor: "text-teal-400",
   },
 ];
 
@@ -196,16 +199,10 @@ const DIFFERENTIATORS = [
   },
 ];
 
-const STATS = [
-  { icon: Bot, value: "31", label: "AI Agents" },
-  { icon: BookOpen, value: "72", label: "Playbooks" },
-  { icon: Frame, value: "8", label: "Canvas Types" },
-  { icon: Repeat, value: "6-Step", label: "Lifecycle" },
-];
 
 export default function LandingPage() {
   return (
-    <div className="max-w-5xl mx-auto space-y-16 pb-16">
+    <div className="max-w-6xl mx-auto space-y-6 pb-16">
       {/* Hero */}
       <section className="pt-8 space-y-4">
         <Badge variant="secondary" className="text-xs">
@@ -254,12 +251,12 @@ export default function LandingPage() {
           someone's head. When an SA leaves, their account knowledge leaves with
           them.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {PROBLEMS.map((p) => (
-            <Card key={p.title}>
+            <Card key={p.title} className="border-red-600/20 bg-red-600/5">
               <CardContent className="p-4 flex gap-4">
-                <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0">
-                  <p.icon className="h-5 w-5 text-destructive" />
+                <div className="w-10 h-10 rounded-lg bg-red-600/10 flex items-center justify-center shrink-0">
+                  <p.icon className="h-5 w-5 text-red-400" />
                 </div>
                 <div>
                   <p className="font-semibold text-sm">{p.title}</p>
@@ -283,17 +280,15 @@ export default function LandingPage() {
           amplified by agents, customers understood through blueprints, and
           knowledge preserved as reusable artifacts.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {PILLARS.map((p) => (
-            <Card key={p.title} className="border-primary/20">
-              <CardHeader className="pb-2">
-                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mb-2">
-                  <p.icon className="h-5 w-5 text-primary" />
+            <Card key={p.title} className={`h-full ${p.color}`}>
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <p.icon className={`h-5 w-5 ${p.iconColor}`} />
+                  <span className="font-semibold">{p.title}</span>
                 </div>
-                <CardTitle className="text-base">{p.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">{p.description}</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">{p.description}</p>
               </CardContent>
             </Card>
           ))}
@@ -310,7 +305,7 @@ export default function LandingPage() {
           through learning. Agents operate within human-defined constraints:
           they have agency within their scope, but humans make decisions.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {LIFECYCLE.map((s) => (
             <Card key={s.step}>
               <CardContent className="p-4 flex gap-4">
@@ -339,17 +334,7 @@ export default function LandingPage() {
       {/* Key Numbers */}
       <section className="space-y-4">
         <h2 className="text-2xl font-bold">At a Glance</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {STATS.map((s) => (
-            <Card key={s.label}>
-              <CardContent className="p-4 text-center">
-                <s.icon className="h-6 w-6 mx-auto text-primary mb-2" />
-                <p className="text-2xl font-bold">{s.value}</p>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <HomeStats />
       </section>
 
       <Separator />
@@ -362,7 +347,7 @@ export default function LandingPage() {
           Agents augment each persona with the right playbooks, frameworks, and
           governance for their specific responsibilities.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {PERSONAS.map((p) => (
             <div
               key={p.role}
@@ -390,7 +375,7 @@ export default function LandingPage() {
           from the ground up as an active governance system where agents
           continuously enforce structure.
         </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {DIFFERENTIATORS.map((d) => (
             <Card key={d.title}>
               <CardContent className="p-4">

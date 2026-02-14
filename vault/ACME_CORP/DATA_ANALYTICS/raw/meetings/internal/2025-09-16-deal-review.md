@@ -48,7 +48,7 @@ Internal deal review following yesterday's discovery call. Opportunity looks sol
 
 James outlined the approach:
 
-1. **Speed** - We're first; move fast before Databricks/Snowflake enters
+1. **Speed** - We're first; move fast before DataForge/FrostByte enters
 2. **Unified Platform** - Leverage existing observability relationship
 3. **TCO** - 35% savings is compelling
 4. **Champion** - Thomas is strong, but single-threaded risk
@@ -66,7 +66,7 @@ Alex: "I'll work on it through Dr. Chen, but it's lower priority than security r
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
 | Single champion dependency | Medium | Critical | Multi-thread (deprioritized) |
-| Databricks/Snowflake entry | Medium | High | Speed, differentiation |
+| DataForge/FrostByte entry | Medium | High | Speed, differentiation |
 | Tableau migration complexity | Medium | Medium | Phased approach |
 | User adoption resistance | Low | Medium | POC user testing |
 

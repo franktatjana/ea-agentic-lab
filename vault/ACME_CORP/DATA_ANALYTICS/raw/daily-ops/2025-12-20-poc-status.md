@@ -14,7 +14,7 @@ tags:
 
 ## Situation Assessment
 
-Just finished the POC review meeting with Anna Bergmann 2 days ago. The technical results were strong (85% criteria met), but the room felt different without Thomas. Anna was polite but clearly comparing everything to Databricks.
+Just finished the POC review meeting with Anna Bergmann 2 days ago. The technical results were strong (85% criteria met), but the room felt different without Thomas. Anna was polite but clearly comparing everything to DataForge.
 
 ## Key Observations
 
@@ -24,7 +24,7 @@ Just finished the POC review meeting with Anna Bergmann 2 days ago. The technica
 
 3. **Dr. Chen's limited help**: Sarah was supportive in the meeting but told me privately that analytics is "Anna's call" and she won't override a peer's domain decision. We can't count on Dr. Chen to rescue this.
 
-4. **Databricks already in motion**: I checked LinkedIn and Anna connected with a Databricks AE last week. She's not just evaluating, she's already engaging them.
+4. **DataForge already in motion**: I checked LinkedIn and Anna connected with a DataForge AE last week. She's not just evaluating, she's already engaging them.
 
 ## Honest Assessment
 
@@ -35,6 +35,6 @@ Our best shot is the CTO escalation. If Marcus Weber insists on a fair evaluatio
 ## Next Steps
 
 - Push James to get the CTO meeting for analytics
-- Prepare the Databricks comparison document (be honest about strengths and weaknesses)
+- Prepare the DataForge comparison document (be honest about strengths and weaknesses)
 - Keep Lars engaged as a potential future ally
 - Accept that we may need to play the long game and revisit in 12-18 months

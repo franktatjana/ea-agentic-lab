@@ -32,7 +32,7 @@ tags:
 
 ## Summary
 
-POC review meeting with new CDO Anna Bergmann (replacing Thomas Richter who departed Nov 28). The POC delivered strong results, 85% of success criteria met. However, Anna's questions consistently benchmarked against Databricks, and she did not commit to proceed. This is the first meeting where competitive dynamics shifted significantly.
+POC review meeting with new CDO Anna Bergmann (replacing Thomas Richter who departed Nov 28). The POC delivered strong results, 85% of success criteria met. However, Anna's questions consistently benchmarked against DataForge, and she did not commit to proceed. This is the first meeting where competitive dynamics shifted significantly.
 
 ## POC Results Presented
 
@@ -63,7 +63,7 @@ Maria presented the results:
 
 **Anna Bergmann** (non-committal):
 Key questions from Anna:
-1. "How does this compare to Databricks on the data engineering side?"
+1. "How does this compare to DataForge on the data engineering side?"
 2. "What about Delta Lake and Lakehouse architecture?"
 3. "Can you show me ML/AI capabilities similar to MLflow?"
 4. "What's the Spark compatibility story?"
@@ -72,17 +72,17 @@ Anna's closing statement: "I need time to evaluate all options. I'm new and want
 
 ## Competitive Dynamics
 
-Anna's questions revealed deep Databricks knowledge and preference:
-- Every technical question was framed as a Databricks comparison
-- She specifically asked about Lakehouse architecture (Databricks terminology)
-- She referenced MLflow (Databricks-native tool) as a requirement
+Anna's questions revealed deep DataForge knowledge and preference:
+- Every technical question was framed as a DataForge comparison
+- She specifically asked about Lakehouse architecture (DataForge terminology)
+- She referenced MLflow (DataForge-native tool) as a requirement
 - She did not ask about our strengths (self-service, unified platform)
 
-Alex assessment: Anna has already formed her view. She's evaluating our POC results against her prior Databricks experience, and the framing is unfavorable for us.
+Alex assessment: Anna has already formed her view. She's evaluating our POC results against her prior DataForge experience, and the framing is unfavorable for us.
 
 ## Actions
 
-- [ ] Maria: Prepare Databricks comparison document addressing Anna's questions
+- [ ] Maria: Prepare DataForge comparison document addressing Anna's questions
 - [ ] Alex: Schedule follow-up with Anna to address competitive concerns
 - [ ] James: Executive engagement attempt with CTO for analytics support
 - [ ] Alex: Prepare rescue strategy for deal review
@@ -91,8 +91,8 @@ Alex assessment: Anna has already formed her view. She's evaluating our POC resu
 
 - **Deal risk elevated to CRITICAL**: New CDO has strong competitor preference
 - POC technical success is necessary but likely not sufficient
-- Timeline advantage: we are evaluated, Databricks is not (yet)
-- Relationship disadvantage: Anna has 3-year Databricks history
+- Timeline advantage: we are evaluated, DataForge is not (yet)
+- Relationship disadvantage: Anna has 3-year DataForge history
 
 ## Next Steps
 
