@@ -231,8 +231,8 @@ This document provides human context. The YAML file is what agents and system co
 
 | Signal ID | Name | Producer | Key Consumers |
 |-----------|------|----------|---------------|
-| SIG_ART_001 | `artifact_created` | Any Agent | Knowledge Curator |
-| SIG_ART_002 | `artifact_updated` | Any Agent | Knowledge Curator |
+| SIG_ART_001 | `artifact_created` | Any Agent | InfoHub Curator |
+| SIG_ART_002 | `artifact_updated` | Any Agent | InfoHub Curator |
 | SIG_ART_003 | `meeting_processed` | Meeting Notes Agent | Action Tracker, Risk Radar, Decision Registrar, VoC |
 | SIG_ART_004 | `rfp_received` | Document Ingestion | SA Agent, AE Agent, CI Agent |
 
@@ -264,7 +264,7 @@ This document provides human context. The YAML file is what agents and system co
 
 | Signal ID | Name | Producer | Key Consumers |
 |-----------|------|----------|---------------|
-| SIG_GOV_001 | `decision_logged` | Decision Registrar | Knowledge Curator |
+| SIG_GOV_001 | `decision_logged` | Decision Registrar | InfoHub Curator |
 | SIG_GOV_002 | `escalation_triggered` | Governance Agent | Notification Service, Audit Logger |
 | SIG_GOV_003 | `escalation_resolved` | Governance Agent | Original Requester, Audit Logger |
 
@@ -433,7 +433,7 @@ Which agents subscribe to which signals:
 | **PM Agent** | SIG_TECH_002 |
 | **Risk Radar Agent** | SIG_ART_003, SIG_STK_002, SIG_HLT_*, SIG_MNA_001, SIG_MNA_002 |
 | **Governance Agent** | SIG_LC_002, SIG_HLT_001, SIG_HLT_003, SIG_HLT_004 |
-| **Knowledge Curator** | SIG_ART_001, SIG_ART_002, SIG_GOV_001 |
+| **InfoHub Curator** | SIG_ART_001, SIG_ART_002, SIG_GOV_001 |
 | **Nudger Agent** | SIG_LC_002, SIG_HLT_003, SIG_HLT_004 |
 | **Action Tracker** | SIG_ART_003 |
 | **Decision Registrar** | SIG_ART_003 |

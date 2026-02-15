@@ -56,7 +56,7 @@ The agent activates when decision language is detected or when decisions are sub
 |---------|-----------------|-----------|
 | Conflicting decisions detected | Senior Manager Agent | Two decisions contradict each other, unresolved after 48 hours |
 | Decision statistics available | Reporter Agent | Periodic decision metrics |
-| Decision records created | Knowledge Curator Agent | New records for InfoHub linking |
+| Decision records created | InfoHub Curator Agent | New records for InfoHub linking |
 
 ### Inbound (others -> this agent)
 

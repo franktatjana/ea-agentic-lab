@@ -296,10 +296,10 @@ checklist_learning_hooks:
     - trigger learning update if threshold met
 ```
 
-### Knowledge Curator Integration
+### InfoHub Curator Integration
 
 ```yaml
-# Knowledge Curator Agent responsibilities
+# InfoHub Curator Agent responsibilities
 curator_tasks:
   external_monitoring:
     - monitor configured external sources

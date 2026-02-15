@@ -80,7 +80,7 @@ External InfoHub content should be kept current throughout the engagement and up
 
 ### Freshness Monitoring
 
-The Knowledge Curator agent monitors content freshness automatically. Content older than 90 days without updates is flagged for review. The SA or CA is notified and must either update the content or confirm it remains accurate.
+The InfoHub Curator agent monitors content freshness automatically. Content older than 90 days without updates is flagged for review. The SA or CA is notified and must either update the content or confirm it remains accurate.
 
 ## Deprecation and Archival
 
@@ -110,7 +110,7 @@ When an engagement transitions from pre-sales to post-sales, or when it closes e
 
 ## Quality Checklist
 
-Use this checklist for periodic quality audits of the External InfoHub. The Knowledge Curator agent runs automated checks, but manual review catches nuances that automation misses.
+Use this checklist for periodic quality audits of the External InfoHub. The InfoHub Curator agent runs automated checks, but manual review catches nuances that automation misses.
 
 - [ ] `engagement_overview.md` accurately reflects the current engagement state
 - [ ] `account_team.yaml` has current contacts and escalation path

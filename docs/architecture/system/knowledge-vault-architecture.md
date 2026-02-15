@@ -152,7 +152,13 @@ Permanent. Grows with every engagement. Feeds back into blueprints, playbooks, a
 
 ### Ownership
 
-Human-curated. Agents can propose items, but humans review and approve before knowledge enters the vault.
+Dual contributor model: humans and agents both contribute knowledge items. The **Knowledge Vault Curator** agent governs Vault 3, validating proposals, enforcing schema compliance, and managing the confidence lifecycle. Humans retain final approval authority; nothing enters the vault without human review.
+
+### Knowledge Vault Curator
+
+The Knowledge Vault Curator is the dedicated governance agent for Vault 3. While the InfoHub Curator governs Vaults 1 and 2 (artifact lifecycle, semantic integrity, staleness detection), the Knowledge Vault Curator focuses exclusively on institutional knowledge quality. Its responsibilities include validating agent-proposed knowledge items in `.proposals/` for schema compliance, anonymization completeness, and relevance metadata accuracy, managing the confidence progression from `proposed` to `reviewed` to `validated`, detecting duplicate or conflicting knowledge items across domains, and flagging knowledge items that lack sufficient engagement evidence.
+
+See [DDR-015: Curator Agent Specialization](../../decisions/DDR_015_curator_agent_specialization.md) for the decision rationale behind splitting InfoHub and Knowledge Vault governance.
 
 ### Directory Structure
 
@@ -274,7 +280,7 @@ The three-vault model enforces security through structural separation, not metad
 
 ### Content Misclassification Mitigation
 
-Playbook `vault_routing` metadata enforces correct placement. The Knowledge Curator agent validates naming conventions and detects orphaned or misplaced artifacts. PB_971 (gap scan) validates that all required artifacts exist in the correct vault for the engagement's blueprint.
+Playbook `vault_routing` metadata enforces correct placement. The InfoHub Curator agent validates naming conventions and detects orphaned or misplaced artifacts in Vaults 1 and 2. PB_971 (gap scan) validates that all required artifacts exist in the correct vault for the engagement's blueprint.
 
 ## Naming Conventions
 

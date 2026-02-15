@@ -127,7 +127,8 @@ flowchart LR
         NU[Nudger Agent]
         REP[Reporter Agent]
         PC[Playbook Curator]
-        KC[Knowledge Curator]
+        IHC[InfoHub Curator]
+        KVC[Knowledge Vault Curator]
     end
 
     subgraph OUTPUT["InfoHub"]
@@ -144,14 +145,14 @@ flowchart LR
     SLACK --> DR
     DECISION --> RR
     ACTION --> TS
-    ARTIFACT --> KC
+    ARTIFACT --> IHC
 
     %% Governance chain
     MN -->|actions| TS
     MN -->|decisions| DR
     MN -->|risks| RR
     MN -->|blockers| NU
-    MN -->|artifact_created| KC
+    MN -->|artifact_created| IHC
 
     TS -->|validated actions| ACTIONS_OUT
     TS -->|invalid| NU
@@ -170,9 +171,12 @@ flowchart LR
 
     PC -->|violations| SM
 
-    KC -->|semantic_conflict| SM
-    KC -->|deprecation| GOV_OUT
-    KC -->|staleness| GOV_OUT
+    IHC -->|semantic_conflict| SM
+    IHC -->|deprecation| GOV_OUT
+    IHC -->|staleness| GOV_OUT
+
+    KVC -->|proposal_validated| GOV_OUT
+    KVC -->|quality_issue| SM
 ```
 
 ---
@@ -429,9 +433,10 @@ flowchart TD
 | Decision made | Decision Registrar | RR | SM if conflict |
 | Risk identified | Risk Radar | - | SM if CRITICAL |
 | Overdue action | Nudger Agent | - | SM if >5 days |
-| Artifact created | Knowledge Curator | Owning agent | SM if conflict |
-| Semantic conflict | Knowledge Curator | Owning agents | SM if unresolved |
-| Stale artifact | Knowledge Curator | Owning agent | - |
+| Artifact created (Vaults 1&2) | InfoHub Curator | Owning agent | SM if conflict |
+| Semantic conflict | InfoHub Curator | Owning agents | SM if unresolved |
+| Stale artifact (Vaults 1&2) | InfoHub Curator | Owning agent | - |
+| Knowledge proposal (Vault 3) | Knowledge Vault Curator | Proposing agent | SM if quality issue |
 
 ---
 

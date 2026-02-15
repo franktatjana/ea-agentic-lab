@@ -227,7 +227,7 @@ signals:
 
     producer: "Any Agent"
     consumers:
-      - agent: "Knowledge Curator"
+      - agent: "InfoHub Curator"
         action: "Validate and index artifact"
       - agent: "Dependent Agents"
         action: "Process if subscribed to artifact type"
@@ -277,7 +277,7 @@ signals:
 
     producer: "Any Agent"
     consumers:
-      - agent: "Knowledge Curator"
+      - agent: "InfoHub Curator"
         action: "Re-validate and update index"
       - agent: "Dependent Agents"
         action: "Re-process if dependent on this artifact"
@@ -883,7 +883,7 @@ signals:
         action: "Mark action as completed in tracker with human-confirmed evidence"
       - agent: "Nudger Agent"
         action: "Cancel all pending reminders for this action"
-      - agent: "Knowledge Curator"
+      - agent: "InfoHub Curator"
         action: "Start 30-day deprecation timer"
 
     payload:
@@ -968,7 +968,7 @@ signals:
 
     producer: "Decision Registrar"
     consumers:
-      - agent: "Knowledge Curator"
+      - agent: "InfoHub Curator"
         action: "Index decision for retrieval"
       - agent: "Dependent Agents"
         action: "Act on decision if relevant"
@@ -1235,6 +1235,181 @@ signals:
       resolved_by: "human:jane_smith"
       resolved_at: "2026-02-10T16:45:00Z"
       time_to_resolve_hours: 2.25
+
+  # ============================================================================
+  # KNOWLEDGE VAULT GOVERNANCE SIGNALS
+  # ============================================================================
+
+  - signal_id: "SIG_GOV_006"
+    name: "knowledge_proposal_received"
+    category: "governance"
+    version: 1
+    description: "A new knowledge item has been proposed to the Global Knowledge Vault"
+
+    producer: "Any Agent"
+    consumers:
+      - agent: "Knowledge Vault Curator"
+        action: "Validate proposal for anonymization, deduplication, schema, and tagging"
+
+    payload:
+      required:
+        - field: "proposal_id"
+          type: "string"
+        - field: "proposal_path"
+          type: "string"
+          description: "Path in .proposals/ directory"
+        - field: "proposed_by"
+          type: "string"
+        - field: "proposed_at"
+          type: "datetime"
+        - field: "knowledge_type"
+          type: "enum"
+          values: ["best_practice", "lesson_learned", "pattern", "template", "reference"]
+      optional:
+        - field: "source_realm"
+          type: "string"
+        - field: "source_node"
+          type: "string"
+        - field: "domain"
+          type: "string"
+        - field: "archetype"
+          type: "string"
+
+    emitted_when: "Agent writes a new knowledge proposal to vault/knowledge/.proposals/"
+
+    anti_patterns:
+      - "Do not emit for items written directly to vault by humans (those bypass proposal queue)"
+      - "Do not emit for updates to existing proposals"
+
+  - signal_id: "SIG_GOV_007"
+    name: "knowledge_proposal_validated"
+    category: "governance"
+    version: 1
+    description: "Knowledge Vault Curator has validated a proposal and prepared it for human review"
+
+    producer: "Knowledge Vault Curator"
+    consumers:
+      - agent: "Notification Service"
+        action: "Notify human reviewers that a proposal is ready"
+      - agent: "Nudger Agent"
+        action: "Track review SLA"
+
+    payload:
+      required:
+        - field: "proposal_id"
+          type: "string"
+        - field: "validation_status"
+          type: "enum"
+          values: ["ready_for_review", "needs_rework", "duplicate_detected", "anonymization_failed"]
+        - field: "validated_at"
+          type: "datetime"
+      optional:
+        - field: "duplicate_of"
+          type: "string"
+          description: "ID of existing item if duplicate detected"
+        - field: "validation_notes"
+          type: "string"
+        - field: "anonymization_issues"
+          type: "array"
+
+    emitted_when: "Knowledge Vault Curator completes validation of a proposal"
+
+  - signal_id: "SIG_GOV_008"
+    name: "knowledge_gap_detected"
+    category: "governance"
+    version: 1
+    description: "A playbook execution context lacks relevant knowledge items in the vault"
+
+    producer: "Knowledge Vault Curator"
+    consumers:
+      - agent: "Playbook Curator"
+        action: "Factor into playbook health reporting"
+      - agent: "Reporter Agent"
+        action: "Include in knowledge vault health report"
+
+    payload:
+      required:
+        - field: "domain"
+          type: "string"
+        - field: "archetype"
+          type: "string"
+        - field: "phase"
+          type: "string"
+        - field: "gap_type"
+          type: "enum"
+          values: ["no_items", "low_confidence_only", "stale_items_only"]
+        - field: "detected_at"
+          type: "datetime"
+      optional:
+        - field: "playbook_id"
+          type: "string"
+        - field: "occurrences"
+          type: "integer"
+          description: "Number of executions that hit this gap"
+
+    emitted_when: "Playbook execution completes with no matching knowledge items for its context"
+
+  - signal_id: "SIG_GOV_009"
+    name: "knowledge_item_obsolete"
+    category: "governance"
+    version: 1
+    description: "A knowledge vault item has been flagged as potentially obsolete"
+
+    producer: "Knowledge Vault Curator"
+    consumers:
+      - agent: "Notification Service"
+        action: "Notify human curators for review"
+
+    payload:
+      required:
+        - field: "item_id"
+          type: "string"
+        - field: "item_path"
+          type: "string"
+        - field: "reason"
+          type: "enum"
+          values: ["contradicted_by_recent", "not_consumed_12_months", "domain_superseded", "manual_flag"]
+        - field: "flagged_at"
+          type: "datetime"
+      optional:
+        - field: "contradicting_evidence"
+          type: "string"
+        - field: "last_consumed_at"
+          type: "datetime"
+
+    emitted_when: "Weekly vault health check identifies items meeting obsolescence criteria"
+
+  - signal_id: "SIG_GOV_010"
+    name: "engagement_learnings_ready"
+    category: "governance"
+    version: 1
+    description: "An engagement is closing and key artifacts are available for knowledge extraction"
+
+    producer: "InfoHub Curator"
+    consumers:
+      - agent: "Knowledge Vault Curator"
+        action: "Ensure engagement artifacts are processed for potential knowledge extraction"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "artifact_summary"
+          type: "object"
+          description: "Count and types of artifacts in the closing engagement"
+        - field: "emitted_at"
+          type: "datetime"
+      optional:
+        - field: "key_artifacts"
+          type: "array"
+          description: "Paths to high-value artifacts for extraction priority"
+        - field: "engagement_outcome"
+          type: "enum"
+          values: ["won", "lost", "on_hold", "cancelled"]
+
+    emitted_when: "Node status changes to completed and InfoHub Curator identifies extractable content"
 
   # ============================================================================
   # PLAYBOOK SIGNALS
@@ -1899,3 +2074,15 @@ signal_flows:
       - "SIG_HLT_005"  # action_completion_detected (match found)
       - "SIG_HLT_006"  # action_completion_confirmed (human confirms suggestion)
       - "SIG_HLT_007"  # action_completion_reverted (human reverts auto-complete)
+
+  knowledge_vault_governance:
+    description: "Flow from engagement close through knowledge extraction to vault curation"
+    signals:
+      - "SIG_LC_002"   # node_status_changed (to completed)
+      - "SIG_GOV_010"  # engagement_learnings_ready (InfoHub Curator)
+      - "SIG_GOV_006"  # knowledge_proposal_received (any agent)
+      - "SIG_GOV_007"  # knowledge_proposal_validated (Knowledge Vault Curator)
+      - "SIG_GOV_004"  # approval_requested (human review)
+      - "SIG_GOV_005"  # approval_resolved (human approves/rejects)
+      - "SIG_GOV_008"  # knowledge_gap_detected (coverage analysis)
+      - "SIG_GOV_009"  # knowledge_item_obsolete (obsolescence detection)

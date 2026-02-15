@@ -10,7 +10,7 @@ order: 1
 
 ## Overview
 
-The EA Agentic Lab implements a multi-agent governance system for strategic account management. Agents are organized into functional categories: **Leadership** (2), **Sales** (4), **Architecture** (3), **Deal Execution** (3), and **Delivery** (3) agents that exercise judgment, plus **Governance Agents** (8) that enforce process.
+The EA Agentic Lab implements a multi-agent governance system for strategic account management. Agents are organized into functional categories: **Leadership** (2), **Sales** (4), **Architecture** (3), **Deal Execution** (3), and **Delivery** (3) agents that exercise judgment, plus **Governance Agents** (9) that enforce process.
 
 All agents operate at **Node level** within the Realm/Node hierarchy. See [core-entities.md](../system/core-entities.md) for entity definitions.
 
@@ -25,9 +25,9 @@ All agents operate at **Node level** within the Realm/Node hierarchy. See [core-
 | Architecture Agents | 3 | Solution design, customer architecture, domain expertise |
 | Deal Execution Agents | 3 | RFP orchestration, POC validation, security clearance |
 | Delivery Agents | 3 | Implementation handoff, services, support |
-| Governance Agents | 8 | Enforce process, maintain artifacts, reduce entropy |
+| Governance Agents | 9 | Enforce process, maintain artifacts, reduce entropy |
 | Orchestration Agent | 1 | Meta-layer process management |
-| **Total** | **24** | |
+| **Total** | **25** | |
 
 ```mermaid
 flowchart TB
@@ -164,7 +164,7 @@ Bridge what was sold with what gets implemented.
 
 ---
 
-## Governance Agents (8)
+## Governance Agents (9)
 
 Enforce process, maintain artifacts, reduce entropy.
 
@@ -177,7 +177,8 @@ Enforce process, maintain artifacts, reduce entropy.
 | Reporter Agent | Weekly digest generation | Schedule (Friday 5pm) |
 | Risk Radar Agent | Risk detection and classification | Events + schedule |
 | Playbook Curator Agent | Playbook validation, structure governance | on_change |
-| Knowledge Curator Agent | Semantic integrity, artifact lifecycle | artifact_created/updated |
+| InfoHub Curator Agent | Semantic integrity, artifact lifecycle (Vaults 1 & 2) | artifact_created/updated |
+| Knowledge Vault Curator Agent | Knowledge item governance, proposal validation (Vault 3) | knowledge_proposal/updated |
 
 ### Governance Agent Flow
 

@@ -50,6 +50,6 @@ See [agent-profiles/index.md](agent-profiles/index.md) for the full index.
 | [Deal Execution](agent-profiles/deal-execution/) | RFP, POC, InfoSec | Bid management, proof of concept, security |
 | [Delivery](agent-profiles/delivery/) | Delivery, PS, Support | Implementation, services, support ops |
 | [Intelligence](agent-profiles/intelligence/) | Tech Signal Scanner, Analyzer | External signal scanning, technology maps |
-| [Governance](agent-profiles/governance/) | Meeting Notes, Task Shepherd, Decision Registrar, Risk Radar, Nudger, Reporter, Playbook Curator, Knowledge Curator | Process enforcement, quality gates |
+| [Governance](agent-profiles/governance/) | Meeting Notes, Task Shepherd, Decision Registrar, Risk Radar, Nudger, Reporter, Playbook Curator, InfoHub Curator, Knowledge Vault Curator | Process enforcement, quality gates |
 | [Specialists](agent-profiles/specialists/) | Security, Observability, Search | Domain-specific deep expertise |
 | [Meta](agent-profiles/meta/) | Orchestration, Retrospective | System coordination, lessons learned |

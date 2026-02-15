@@ -75,7 +75,8 @@
 | **Nudger** | Daily 9am/2pm | Reminders, escalations | Max 1/action/day |
 | **Reporter** | Friday 5pm | Weekly digest | 10 lines max |
 | **Playbook Curator** | playbook_modified | Validation results | No CRITICAL violations |
-| **Knowledge Curator** | artifact_created/updated | Deprecation, conflicts | No semantic conflicts |
+| **InfoHub Curator** | artifact_created/updated | Deprecation, conflicts | No semantic conflicts |
+| **Knowledge Vault Curator** | proposal_received, playbook_completed | Validation, usage index, gap reports | Anonymization pass, no duplicates |
 
 ---
 

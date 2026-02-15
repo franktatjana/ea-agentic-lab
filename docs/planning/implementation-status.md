@@ -83,7 +83,8 @@ All agents have YAML configuration, personality specifications with anti-halluci
 | Reporter Agent | Weekly digest generation | Configured |
 | Risk Radar Agent | Risk detection and classification | Configured |
 | Playbook Curator Agent | Playbook validation and governance | Configured |
-| Knowledge Curator Agent | Semantic integrity, artifact lifecycle | Configured |
+| InfoHub Curator Agent | Semantic integrity, InfoHub artifact lifecycle | Configured |
+| Knowledge Vault Curator Agent | Vault 3 governance, proposal validation, usage tracking | Configured |
 
 **Specialized Agents:**
 

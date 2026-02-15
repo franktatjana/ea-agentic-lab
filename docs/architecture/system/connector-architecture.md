@@ -674,7 +674,7 @@ All connector events map to existing signals in the signal catalog. No new signa
 | Operating cadence written | `SIG_ART_002` | artifact_updated | Nudger Agent |
 | Risk detected in Slack thread | `SIG_HLT_001` | risk_identified | Risk Radar Agent |
 | Stale email thread detected | `SIG_HLT_001` | risk_identified | Nudger Agent |
-| Document imported | `SIG_ART_001` | artifact_created | Knowledge Curator |
+| Document imported | `SIG_ART_001` | artifact_created | InfoHub Curator |
 | Node ready for activation | `SIG_GOV_004` | approval_requested | Notification Service, Nudger Agent |
 | Human approves/rejects Node | `SIG_GOV_005` | approval_resolved | Orchestration Agent |
 
@@ -694,7 +694,7 @@ Each agent interacts with connector data through InfoHub, not through the connec
 | **VE Agent** | `node_profile.yaml` (commercial), `value/` | ROI/TCO quantification |
 | **CI Agent** | `node_profile.yaml` (competitive) | Competitive positioning |
 | **Task Shepherd Agent** | Actions extracted from Slack/email | Action validation and enrichment |
-| **Knowledge Curator** | Documents index, imported artifacts | Semantic integrity, staleness checks |
+| **InfoHub Curator** | Documents index, imported artifacts | Semantic integrity, staleness checks |
 
 ---
 

@@ -38,7 +38,8 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 | Persona | Role | Needs |
 |---------|------|-------|
 | **Platform Admin** | System configuration | Agent tuning, playbook curation, threshold management |
-| **Knowledge Curator** | Content governance | Artifact quality, semantic integrity, gap detection |
+| **InfoHub Curator** | InfoHub governance | InfoHub artifact quality, semantic integrity, lifecycle |
+| **Knowledge Vault Curator** | Knowledge Vault governance | Anonymization, proposal validation, knowledge-playbook alignment |
 
 ---
 

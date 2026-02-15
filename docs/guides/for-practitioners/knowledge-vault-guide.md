@@ -198,6 +198,23 @@ All structured artifacts (risks, decisions, actions) have unique IDs. Search for
 
 Each vault directory has a designated owner agent. To find a specific type of content, look in the directory owned by the relevant agent. See the ownership tables in the [External InfoHub Reference](../../reference/external-infohub-reference.md) and [Internal InfoHub Reference](../../reference/internal-infohub-reference.md).
 
+## Global Knowledge Vault Curation
+
+The Global Knowledge Vault (`vault/knowledge/`) uses a dual contributor model: both humans and agents contribute knowledge items. The **Knowledge Vault Curator** agent governs this vault, validating proposals and enforcing quality standards.
+
+### How Items Enter the Vault
+
+Two ingestion paths, both requiring human approval:
+
+1. **Manual entry**: Practitioners add items directly through the Knowledge Vault UI (`/knowledge`), providing structured YAML frontmatter and markdown content
+2. **Agent proposals**: Agents identify reusable patterns during engagements and emit `knowledge_proposal` signals. Proposed items land in `.proposals/` where the Knowledge Vault Curator validates schema compliance, anonymization completeness, and relevance metadata. Humans then review and approve via the UI
+
+### Knowledge Vault Curator Responsibilities
+
+The Knowledge Vault Curator is the dedicated governance agent for Vault 3. It handles proposal validation (schema, anonymization, relevance), confidence lifecycle management (`proposed` to `reviewed` to `validated`), duplicate and conflict detection across domains, and staleness monitoring of existing knowledge items.
+
+This is distinct from the **InfoHub Curator**, which governs Vaults 1 and 2 (artifact lifecycle, semantic integrity, naming conventions). See [DDR-015: Curator Agent Specialization](../../decisions/DDR_015_curator_agent_specialization.md) for the decision rationale.
+
 ## Archival Rules
 
 Content does not stay in the vault forever. These rules govern when artifacts are reviewed, deprecated, or archived.

@@ -60,7 +60,7 @@ The agent reacts to playbook lifecycle events and produces periodic usage report
 | CRITICAL violation | Senior Manager Agent | Validation cannot complete or conflicting authorities detected |
 | Retirement recommendation | Senior Manager Agent | Playbook meets retirement criteria, needs governance approval |
 | Usage analytics | Reporter Agent | Weekly playbook execution statistics |
-| Blueprint inconsistency | Knowledge Curator Agent | Blueprint references invalid or deprecated playbook |
+| Blueprint inconsistency | InfoHub Curator Agent | Blueprint references invalid or deprecated playbook |
 
 ### Inbound (others -> this agent)
 
@@ -68,7 +68,7 @@ The agent reacts to playbook lifecycle events and produces periodic usage report
 |--------------|----------|-----------------|
 | SA Agent | New playbook submission | Validate against governance rules |
 | Orchestration Agent | Playbook modification | Re-validate structure and compliance |
-| Knowledge Curator Agent | Staleness flag on playbook | Review for deprecation or update |
+| InfoHub Curator Agent | Staleness flag on playbook | Review for deprecation or update |
 
 ## Escalation Rules
 

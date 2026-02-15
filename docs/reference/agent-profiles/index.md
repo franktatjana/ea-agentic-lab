@@ -85,7 +85,8 @@ Governance agents enforce process and maintain artifacts. They operate automatic
 | [Nudger](governance/nudger-agent.md) | Daily 9am/2pm, overdue actions | Max 1 reminder per action per day |
 | [Reporter](governance/reporter-agent.md) | Friday 5pm weekly | Fits in 10 lines, all claims linked to source |
 | [Playbook Curator](governance/playbook-curator-agent.md) | `playbook_modified` | No CRITICAL violations |
-| [Knowledge Curator](governance/knowledge-curator-agent.md) | `artifact_created/updated` | No semantic conflicts |
+| [InfoHub Curator](governance/infohub-curator-agent.md) | `artifact_created/updated` | No semantic conflicts |
+| [Knowledge Vault Curator](governance/knowledge-vault-curator-agent.md) | `knowledge_proposal_received` | Anonymization verified, no duplicates |
 
 ## Intelligence Agents (2)
 

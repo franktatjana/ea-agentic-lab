@@ -57,7 +57,7 @@ The agent runs on scheduled cadences and can be invoked manually for ad-hoc repo
 | Trigger | Receiving Agent | Condition |
 |---------|-----------------|-----------|
 | Critical risk surfaced | Senior Manager Agent | Risk severity HIGH or CRITICAL in report |
-| Stale data detected | Knowledge Curator Agent | Source data older than 24 hours |
+| Stale data detected | InfoHub Curator Agent | Source data older than 24 hours |
 | Action completion stats | Nudger Agent | Follow-through metrics for escalation |
 
 ### Inbound (others -> this agent)

@@ -84,17 +84,17 @@ Risks, actions, and decisions must meet minimum field requirements or the Task S
 
 ### Staleness Monitoring
 
-The Knowledge Curator and Nudger agents monitor content freshness. When content exceeds its staleness threshold, the owning agent or practitioner is notified.
+The InfoHub Curator and Nudger agents monitor content freshness. When content exceeds its staleness threshold, the owning agent or practitioner is notified.
 
 | Content Type | Stale After | Monitoring Agent |
 |-------------|------------|-----------------|
 | Risk register | 7 days without update | Risk Radar, Nudger |
-| Health scores | 7 days | Knowledge Curator |
+| Health scores | 7 days | InfoHub Curator |
 | Action tracker | 7 days unchanged | Nudger |
-| Competitive intel | 60 days | Knowledge Curator |
-| Framework outputs | 90 days | Knowledge Curator |
-| Agent scratchpads | 30 days post-close | Knowledge Curator |
-| Stakeholder profiles | 30 days | Knowledge Curator |
+| Competitive intel | 60 days | InfoHub Curator |
+| Framework outputs | 90 days | InfoHub Curator |
+| Agent scratchpads | 30 days post-close | InfoHub Curator |
+| Stakeholder profiles | 30 days | InfoHub Curator |
 
 ## Engagement Close Process
 

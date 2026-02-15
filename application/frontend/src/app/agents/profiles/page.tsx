@@ -104,6 +104,7 @@ const AGENT_CATEGORIES: AgentCategory[] = [
     agents: [
       { name: "Tech Signal Scanner", id: "tech_signal_scanner_agent", purpose: "Scan job postings for technology signals", docPath: "reference/agent-profiles/intelligence/tech-signal-scanner-agent.md", mode: "autonomous" },
       { name: "Tech Signal Analyzer", id: "tech_signal_analyzer_agent", purpose: "Generate technology signal maps from scan data", docPath: "reference/agent-profiles/intelligence/tech-signal-analyzer-agent.md", mode: "autonomous" },
+      { name: "Market News Analysis (MNA)", id: "mna_agent", purpose: "Monitor company, industry, and solution-domain news intelligence", docPath: "reference/agent-profiles/intelligence/mna-agent.md", mode: "autonomous" },
     ],
   },
   {
@@ -119,7 +120,9 @@ const AGENT_CATEGORIES: AgentCategory[] = [
       { name: "Nudger", id: "nudger_agent", purpose: "Remind owners of overdue actions", docPath: "reference/agent-profiles/governance/nudger-agent.md", mode: "autonomous" },
       { name: "Reporter", id: "reporter_agent", purpose: "Weekly status summary generation", docPath: "reference/agent-profiles/governance/reporter-agent.md", mode: "autonomous" },
       { name: "Playbook Curator", id: "playbook_curator_agent", purpose: "Validate playbook modifications", docPath: "reference/agent-profiles/governance/playbook-curator-agent.md", mode: "autonomous" },
-      { name: "Knowledge Curator", id: "knowledge_curator_agent", purpose: "Prevent semantic conflicts in artifacts", docPath: "reference/agent-profiles/governance/knowledge-curator-agent.md", mode: "autonomous" },
+      { name: "InfoHub Curator", id: "infohub_curator_agent", purpose: "Maintain InfoHub semantic integrity and artifact lifecycle", docPath: "reference/agent-profiles/governance/infohub-curator-agent.md", mode: "autonomous" },
+      { name: "Knowledge Vault Curator", id: "knowledge_vault_curator_agent", purpose: "Facilitate institutional knowledge management in Global Knowledge Vault", docPath: "reference/agent-profiles/governance/knowledge-vault-curator-agent.md", mode: "autonomous" },
+      { name: "Signal Matcher", id: "signal_matcher_agent", purpose: "Infer action completion from seller activity signals", docPath: "reference/agent-profiles/governance/signal-matcher-agent.md", mode: "autonomous" },
     ],
   },
   {

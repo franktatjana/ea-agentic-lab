@@ -69,7 +69,8 @@ Enforce process, maintain artifacts, and reduce entropy.
 | `governance/` | Reporter Agent | Weekly digest generation |
 | `governance/` | Risk Radar Agent | Risk detection and classification |
 | `governance/` | Playbook Curator Agent | Playbook validation and governance |
-| `governance/` | Knowledge Curator Agent | Semantic integrity, artifact lifecycle |
+| `governance/` | InfoHub Curator Agent | InfoHub semantic integrity, artifact lifecycle |
+| `governance/` | Knowledge Vault Curator Agent | Vault 3 governance, proposal validation, usage tracking |
 
 ### Intelligence Agents
 

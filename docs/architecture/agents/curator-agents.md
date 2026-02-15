@@ -11,12 +11,13 @@ order: 5
 
 ## Overview
 
-Two curator agents govern different domains:
+Three curator agents govern different domains:
 
 | Curator | Domain | Governs |
 |---------|--------|---------|
 | **Playbook Curator** | Playbook System | Structure, completeness, correctness |
-| **Knowledge Curator** | Knowledge Artifacts | Semantic integrity, lifecycle |
+| **InfoHub Curator** | InfoHub Artifacts (Vaults 1 & 2) | Semantic integrity, lifecycle |
+| **Knowledge Vault Curator** | Global Knowledge Vault (Vault 3) | Anonymization, proposal validation, knowledge-playbook alignment |
 
 ---
 
@@ -49,13 +50,14 @@ Two curator agents govern different domains:
 
 - Does not execute playbooks
 - Does not modify playbook content (only flags issues)
-- Does not manage knowledge artifacts (that's Knowledge Curator)
+- Does not manage InfoHub artifacts (that's InfoHub Curator)
+- Does not manage the Global Knowledge Vault (that's Knowledge Vault Curator)
 
 ---
 
-## Knowledge Curator
+## InfoHub Curator
 
-**Mission:** Govern semantic integrity and lifecycle of knowledge artifacts
+**Mission:** Govern semantic integrity and lifecycle of InfoHub artifacts (Vaults 1 & 2)
 
 ### Responsibilities
 
@@ -106,15 +108,16 @@ Two curator agents govern different domains:
 
 | Artifact Type | Owner (Creates) | Curator (Validates) | Deprecator (Retires) |
 |---------------|-----------------|---------------------|----------------------|
-| Meeting Notes | Meeting Notes Agent | Knowledge Curator | Knowledge Curator |
-| Decisions | Decision Registrar | Knowledge Curator | Decision Registrar + Knowledge Curator |
-| Risks | Risk Radar Agent | Knowledge Curator | Risk Radar Agent |
-| Actions | Task Shepherd Agent | Knowledge Curator | Task Shepherd Agent |
-| Architecture Docs | SA Agent | Knowledge Curator | SA Agent + Knowledge Curator |
-| Competitive Intel | CI Agent | Knowledge Curator | CI Agent + Knowledge Curator |
-| Value Artifacts | VE Agent | Knowledge Curator | VE Agent |
-| Security Docs | InfoSec Agent | Knowledge Curator | InfoSec Agent |
-| Commercial Data | AE Agent | Knowledge Curator | AE Agent |
+| Meeting Notes | Meeting Notes Agent | InfoHub Curator | InfoHub Curator |
+| Decisions | Decision Registrar | InfoHub Curator | Decision Registrar + InfoHub Curator |
+| Risks | Risk Radar Agent | InfoHub Curator | Risk Radar Agent |
+| Actions | Task Shepherd Agent | InfoHub Curator | Task Shepherd Agent |
+| Architecture Docs | SA Agent | InfoHub Curator | SA Agent + InfoHub Curator |
+| Competitive Intel | CI Agent | InfoHub Curator | CI Agent + InfoHub Curator |
+| Value Artifacts | VE Agent | InfoHub Curator | VE Agent |
+| Security Docs | InfoSec Agent | InfoHub Curator | InfoSec Agent |
+| Commercial Data | AE Agent | InfoHub Curator | AE Agent |
+| Knowledge Items | Agents + Humans | Knowledge Vault Curator | Knowledge Vault Curator (human approval) |
 | Playbooks | Orchestration Agent | Playbook Curator | Playbook Curator |
 | Processes | Orchestration Agent | Playbook Curator | Orchestration Agent |
 
@@ -180,18 +183,18 @@ signal:
     - "Task Shepherd Agent"
     - "Decision Registrar"
     - "Risk Radar Agent"
-    - "Knowledge Curator"
+    - "InfoHub Curator"
 ```
 
 ### Signal Types
 
 | Signal Type | Source | Subscribers | Purpose |
 |-------------|--------|-------------|---------|
-| `artifact_created` | Any agent | Knowledge Curator, relevant agents | New artifact available |
-| `artifact_updated` | Any agent | Knowledge Curator | Artifact modified |
-| `artifact_deprecated` | Knowledge Curator | All agents | Artifact no longer valid |
-| `semantic_conflict` | Knowledge Curator | Owning agents | Contradiction detected |
-| `staleness_detected` | Knowledge Curator | Owning agent | Artifact needs refresh |
+| `artifact_created` | Any agent | InfoHub Curator, relevant agents | New artifact available |
+| `artifact_updated` | Any agent | InfoHub Curator | Artifact modified |
+| `artifact_deprecated` | InfoHub Curator | All agents | Artifact no longer valid |
+| `semantic_conflict` | InfoHub Curator | Owning agents | Contradiction detected |
+| `staleness_detected` | InfoHub Curator | Owning agent | Artifact needs refresh |
 | `decision_made` | Decision Registrar | Risk Radar, SA Agent | Decision logged |
 | `risk_identified` | Risk Radar | Senior Manager (if critical) | Risk surfaced |
 | `action_created` | Task Shepherd | Nudger Agent | Action needs tracking |
@@ -224,7 +227,7 @@ Meeting Notes Agent
     │        extracts risks
     │        emits: risk_identified (if any)
     │
-    └──► Knowledge Curator
+    └──► InfoHub Curator
              receives signal
              validates semantic integrity
              emits: semantic_conflict (if found)
@@ -243,7 +246,7 @@ Meeting Notes Agent
 └───────┼────────────┼────────────┼────────────┼─────────────┘
         │            │            │            │
    ┌────┴────┐  ┌────┴────┐  ┌────┴────┐  ┌────┴────┐
-   │Knowledge│  │Risk     │  │Senior   │  │Senior   │
+   │InfoHub  │  │Risk     │  │Senior   │  │Senior   │
    │Curator  │  │Radar    │  │Manager  │  │Manager  │
    └─────────┘  └─────────┘  └─────────┘  └─────────┘
 ```
@@ -263,17 +266,81 @@ Each signal is immutable once emitted.
 
 ---
 
+## Knowledge Vault Curator
+
+**Mission:** Facilitate institutional knowledge management in the Global Knowledge Vault (Vault 3)
+
+### Responsibilities
+
+| Responsibility | Description |
+|----------------|-------------|
+| **Proposal Validation** | Validate proposals for schema, anonymization, deduplication, tagging |
+| **Anonymization Enforcement** | Ensure no customer-identifiable data in Vault 3 (non-negotiable) |
+| **Semantic Integrity** | Detect contradictions across vault items |
+| **Knowledge Lifecycle** | Manage confidence progression (proposed -> reviewed -> validated) |
+| **Usage Tracking** | Track which items are consumed during playbook execution |
+| **Gap Analysis** | Identify domains/archetypes lacking knowledge coverage |
+| **Obsolescence Detection** | Flag items not consumed in 12 months or contradicted |
+
+### Scope
+
+**Reads from:**
+```
+vault/knowledge/
+├── operations/           ✓ Read
+├── content/              ✓ Read
+├── external/             ✓ Read
+├── assets/               ✓ Read
+└── .proposals/           ✓ Read + validate
+```
+
+**CAN write:**
+- Proposal validation metadata
+- Vault health reports
+- Usage index
+- Knowledge gap reports
+- Obsolescence flags
+
+### Does NOT Do
+
+- Create knowledge content (agents and humans author)
+- Approve or reject proposals (humans decide)
+- Govern InfoHub artifacts (InfoHub Curator's domain)
+- Execute playbooks or inject knowledge at runtime
+
+### Contributors to the Knowledge Vault
+
+The Knowledge Vault has two contributor types. The Knowledge Vault Curator is not a contributor, it is a facilitator.
+
+| Contributor | How | Approval |
+|-------------|-----|----------|
+| **Humans** | Direct entry via Knowledge Vault UI | Immediate (human is the authority) |
+| **Agents** | Proposals via `.proposals/` queue | Requires human approval after curator validation |
+
+### Outputs
+
+| Output | Path | Description |
+|--------|------|-------------|
+| Vault Health | `governance/vault_health.yaml` | Overall vault health metrics |
+| Proposal Validations | `governance/proposal_validations.yaml` | Validation outcomes log |
+| Usage Index | `governance/vault_usage_index.yaml` | Knowledge-to-playbook consumption mapping |
+| Knowledge Gaps | `governance/knowledge_gaps.yaml` | Domains lacking coverage |
+| Obsolescence Report | `governance/obsolescence_report.yaml` | Items flagged for retirement |
+
+---
+
 ## Curator Comparison
 
-| Aspect | Playbook Curator | Knowledge Curator |
-|--------|------------------|-------------------|
-| **Domain** | Playbook system | Knowledge artifacts |
-| **Reads** | `playbooks/`, `blueprints/` | `{realm}/{node}/external-infohub/`, `{realm}/{node}/internal-infohub/` |
-| **Writes** | Validation reports, TODOs | Deprecation tags, conflicts |
-| **Validates** | Structure, thresholds, boundaries | Semantics, lifecycle, consistency |
-| **Creates** | Never (flags issues) | Deprecation records |
-| **Modifies** | Never | Lifecycle state only |
-| **Triggers** | `playbook_modified`, `on_change` | `artifact_created`, `artifact_updated` |
+| Aspect | Playbook Curator | InfoHub Curator | Knowledge Vault Curator |
+|--------|------------------|-----------------|-------------------------|
+| **Domain** | Playbook system | InfoHub artifacts (Vaults 1 & 2) | Global Knowledge Vault (Vault 3) |
+| **Reads** | `playbooks/`, `blueprints/` | `{realm}/{node}/external-infohub/`, `{realm}/{node}/internal-infohub/` | `vault/knowledge/`, `vault/knowledge/.proposals/` |
+| **Writes** | Validation reports, TODOs | Deprecation tags, conflicts | Validation metadata, usage index, gap reports |
+| **Validates** | Structure, thresholds, boundaries | Semantics, lifecycle, consistency | Anonymization, tagging, deduplication, usage |
+| **Creates** | Never (flags issues) | Deprecation records | Validation and health reports |
+| **Modifies** | Never | Lifecycle state only | Proposal status only |
+| **Triggers** | `playbook_modified`, `on_change` | `artifact_created`, `artifact_updated` | `knowledge_proposal_received`, `playbook_completed` |
+| **Ownership** | Agent governs | Agent governs | Humans own, agent facilitates |
 
 ---
 
@@ -303,7 +370,7 @@ If violation → Human notified, must fix
 Agent creates artifact
         │
         ▼
-Knowledge Curator
+InfoHub Curator
         │ checks semantic integrity
         │ checks for contradictions with existing
         │
@@ -326,11 +393,12 @@ Knowledge Curator
 | Agent | Category | Purpose |
 |-------|----------|---------|
 | Playbook Curator | Governance | Playbook completeness, correctness, alignment |
-| Knowledge Curator | Governance | Semantic integrity, artifact lifecycle |
+| InfoHub Curator | Governance | Semantic integrity, InfoHub artifact lifecycle (Vaults 1 & 2) |
+| Knowledge Vault Curator | Governance | Anonymization, proposal validation, knowledge-playbook alignment (Vault 3) |
 
 **Communication:** Signal-based, not shared records.
 
-**Governance count:** Now 8 (was 7, added Knowledge Curator)
+**Governance count:** Now 9 (was 8, added Knowledge Vault Curator; renamed Knowledge Curator to InfoHub Curator per DDR-015)
 
 ---
 

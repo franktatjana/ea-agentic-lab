@@ -30,7 +30,7 @@ This document defines the complete responsibility matrix for all agents, includi
 | **Deal Execution** | RFP orchestration, POC validation, security clearance | 3 |
 | **Delivery** | Implementation handoff, services, support | 3 |
 | **Intelligence** | Gather and analyze external data | 3 |
-| **Governance** | Reduce entropy, maintain quality | 8 |
+| **Governance** | Reduce entropy, maintain quality | 9 |
 | **Orchestration** | Meta-layer process management | 1 |
 
 ---
@@ -548,7 +548,7 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 
 ---
 
-## Governance Agents (8)
+## Governance Agents (9)
 
 [image: Governance Processing Chain - Meeting Notes triggering parallel processing by Task Shepherd, Decision Registrar, and Risk Radar]
 
@@ -672,13 +672,14 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 **Does NOT:**
 - Execute playbooks
 - Modify playbook content (only flags issues)
-- Manage knowledge artifacts (that's Knowledge Curator)
+- Manage InfoHub artifacts (that's InfoHub Curator)
+- Manage the Global Knowledge Vault (that's Knowledge Vault Curator)
 
 ---
 
-### 8. Knowledge Curator Agent
+### 8. InfoHub Curator Agent
 
-**Mission:** Govern semantic integrity and lifecycle of knowledge artifacts
+**Mission:** Govern semantic integrity and lifecycle of InfoHub artifacts (Vaults 1 & 2)
 
 | Trigger | `artifact_created`, `artifact_updated`, scheduled staleness checks |
 |---------|-------|
@@ -898,7 +899,8 @@ message:
 | Risk Radar | 2 defined | 3 defined | ✓ Complete |
 | Reporter | 1 defined | N/A | ✓ Complete |
 | Playbook Curator | 1 defined | 1 defined | ✓ Complete |
-| Knowledge Curator | 3 defined | N/A | ✓ Complete |
+| InfoHub Curator | 4 defined | N/A | ✓ Complete |
+| Knowledge Vault Curator | 4 defined | 3 defined | ✓ Complete |
 | Orchestration | 1 defined | 1 defined | ✓ Complete |
 | Tech Signal Scanner | 1 defined | N/A | ✓ Complete |
 | Tech Signal Analyzer | 3 defined | 1 defined | ✓ Complete |

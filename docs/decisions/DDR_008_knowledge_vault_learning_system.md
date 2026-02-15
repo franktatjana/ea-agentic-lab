@@ -77,6 +77,7 @@ The **static layer** (agent personality + playbooks) stays stable and human-cont
 
 - [DDR-001: Three-Vault Knowledge Architecture](DDR_001_three_vault_knowledge_architecture.md): Established the vault structure this decision brings to life
 - [DDR-003: Domain Specialist Agents](DDR_003_domain_specialist_agents.md): Specialist agents are primary consumers of domain-specific knowledge items
+- [DDR-015: Curator Agent Specialization](DDR_015_curator_agent_specialization.md): Introduced dedicated Knowledge Vault Curator agent to govern Vault 3
 
 ## Status History
 
