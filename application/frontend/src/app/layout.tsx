@@ -15,7 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "EA Agentic Lab",
+  title: {
+    template: "%s | EA Agentic Lab",
+    default: "EA Agentic Lab",
+  },
   description: "Enterprise Architecture Agentic Lab",
 };
 

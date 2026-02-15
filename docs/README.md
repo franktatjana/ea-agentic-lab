@@ -17,6 +17,7 @@ docs/
 ├── reference/                 # Look it up
 ├── decisions/                 # Why was this decided?
 ├── planning/                  # Where are we?
+│   └── audit/                 #   How does it hold up?
 ├── HANDBOOK.md                # One-page orientation for new team members
 ├── DOCUMENTATION_PRINCIPLES.md # Writing standards for this project
 └── llms.txt                   # LLM-readable project summary
@@ -154,6 +155,18 @@ Every significant choice, whether domain-level or technical, is documented as a 
 | [ADR-005: Documentation Browser](decisions/ADR_005_documentation_browser.md) | Architecture | ACCEPTED |
 
 See [decisions/README.md](decisions/README.md) for the decision documentation framework (DDR vs ADR).
+
+---
+
+## Audit
+
+Design audits evaluate the system against established agent design principles, industry patterns, and lessons learned from the [agent-lab](https://github.com/tatjanafrank/agent-lab) knowledge base. Each audit is timestamped and produces prioritized findings with actionable CTAs.
+
+| Audit | Date | Scope |
+|-------|------|-------|
+| [Agent Design Audit](planning/audit/2025-02-14-agent-design-audit.md) | 2025-02-14 | Agent identity, routing, interfaces, handoffs, context engineering, prompts, testing |
+
+**Knowledge base:** Audit criteria are drawn from the [Agent Systems Handbook](https://github.com/tatjanafrank/agent-lab/blob/main/docs/handbook.md), [Lessons Learned](https://github.com/tatjanafrank/agent-lab/blob/main/docs/lessons-learned.md), and [Bookmarks](https://github.com/tatjanafrank/agent-lab/blob/main/docs/bookmarks.md) in the agent-lab repository.
 
 ---
 

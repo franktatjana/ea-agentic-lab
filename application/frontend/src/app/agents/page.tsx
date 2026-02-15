@@ -78,7 +78,7 @@ export default function AgentsHubPage() {
       href: "/agents/profiles",
       icon: Bot,
       title: "Agent Profiles",
-      count: 30,
+      count: 33,
       description: "Browse all agents by functional area. Each profile defines the agent's purpose, playbook ownership, triggers, and escalation rules.",
       color: "text-amber-400",
       bg: "bg-amber-600/10",
@@ -119,7 +119,7 @@ export default function AgentsHubPage() {
           </HelpPopover>
         </div>
         <p className="text-muted-foreground mt-1">
-          30 agents across 9 functional areas. Each agent owns specific playbooks and collaborates through defined handoff chains.
+          33 agents across 9 functional areas. Each agent owns specific playbooks and collaborates through defined handoff chains.
         </p>
       </div>
 

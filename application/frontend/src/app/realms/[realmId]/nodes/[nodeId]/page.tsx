@@ -4270,21 +4270,6 @@ function ExternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
         Customer-shareable content managed by SA, AE, VE, and Delivery agents.
       </div>
 
-      {overview && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Overview
-              <Badge variant="outline" className="text-xs ml-auto">SA Agent</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <VaultMarkdown content={overview} />
-          </CardContent>
-        </Card>
-      )}
-
       {/* Account Team */}
       {accountTeam.length > 0 && (
         <Card>
@@ -4454,6 +4439,21 @@ function ExternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
                 </div>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {overview && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Overview
+              <Badge variant="outline" className="text-xs ml-auto">SA Agent</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <VaultMarkdown content={overview} />
           </CardContent>
         </Card>
       )}

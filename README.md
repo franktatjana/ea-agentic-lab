@@ -43,13 +43,13 @@ A structured governance system with three layers:
 
 ### 3. Three-Vault Knowledge Architecture
 
-Structured storage organized by Realm (company) and Node (initiative), with each Node containing three purpose-built vaults:
+Knowledge is separated into three vaults, each with distinct audience, access rules, and lifecycle:
 
-- **External InfoHub** - Customer-facing knowledge: architecture decisions, journey maps, stakeholder maps, opportunities
-- **Internal InfoHub** - Team-facing knowledge: risk registers, action trackers, competitive context, frameworks, governance
-- **Raw Vault** - Unprocessed inputs: meeting notes, field notes, daily ops logs
+- **Customer InfoHub** (per account, shareable) - Solution architecture, ADRs, POC plans, learning paths. Content the customer keeps beyond the engagement.
+- **Internal Account Hub** (per account, vendor-only) - Competitive intelligence, risk assessments, stakeholder mapping, deal reviews, meeting notes, daily ops. Raw inputs from meetings and field notes feed into this hub as foundation for structured analysis.
+- **Global Knowledge Vault** (cross-account, anonymized) - Best practices, winning patterns, evolved evaluation criteria, lessons learned. Grows with every engagement through anonymized contribution from account-level knowledge.
 
-Each vault is machine-readable YAML, enabling agents to validate, gap-scan, and cross-reference data automatically.
+Knowledge flows in one direction: engagements produce account-level knowledge, and account-level knowledge feeds (after anonymization) into the global vault. Each vault is machine-readable YAML, enabling agents to validate, gap-scan, and cross-reference data automatically.
 
 ---
 
@@ -61,7 +61,7 @@ Three design choices separate this system from traditional account management to
 
 **Personalizable AI agent teams.** The 31 agents are not a monolithic system. Each Account Executive gets their own agent team configured for their accounts, domains, and engagement patterns. One AE running three security deals and a search expansion gets a team weighted toward security and search specialists with competitive displacement playbooks loaded. Another AE managing strategic renewals gets retention-focused agents with health monitoring and champion mapping. The agent team adapts to how each person works, not the other way around.
 
-**Customer-facing knowledge as a deliverable.** When the system works on a customer engagement, it does not just track internal notes. It creates a structured knowledge vault for that customer, organized by initiative across three vaults (external-infohub, internal-infohub, raw), with every artifact, decision, risk, and action item captured with full provenance. This means the engagement itself produces a curated knowledge repository that can be shared with the customer, handed off to a new team member, or audited years later. Knowledge sharing is not a side effect, it is the primary output.
+**Customer-facing knowledge as a deliverable.** When the system works on a customer engagement, it does not just track internal notes. It creates a structured Customer InfoHub for that customer, organized by initiative, with every architecture decision, POC plan, and learning path captured with full provenance. This means the engagement itself produces a curated knowledge repository that can be shared with the customer, handed off to a new team member, or audited years later. Knowledge sharing is not a side effect, it is the primary output.
 
 **Proactive governance, not passive dashboards.** Traditional tools show you a dashboard and wait for you to check it. This system's governance agents continuously scan for gaps, flag overdue actions, detect stale artifacts, and nudge before problems become visible. The difference is between a smoke detector and a fire report.
 

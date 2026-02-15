@@ -1,6 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Github, Linkedin, Scale, Info, FlaskConical } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+
+export const metadata: Metadata = { title: "About" };
 
 const LINKS = [
   {

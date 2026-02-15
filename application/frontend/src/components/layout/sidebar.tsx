@@ -16,6 +16,7 @@ import {
   Building2,
   Bot,
   BookOpen,
+  BookMarked,
   User,
   Sun,
   Moon,
@@ -219,6 +220,15 @@ export function Sidebar() {
           <FileText className="h-4 w-4 text-green-400" />
           Documentation
         </Link>
+        <a
+          href="https://ea-agentic-lab-stories.onrender.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+        >
+          <BookMarked className="h-4 w-4 text-pink-400" />
+          Stories
+        </a>
         <Link
           href="/about"
           className={cn(
