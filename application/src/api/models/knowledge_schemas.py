@@ -1,6 +1,6 @@
 """Pydantic models for Knowledge Vault API"""
 
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -81,3 +81,17 @@ class KnowledgeStats(BaseModel):
     by_confidence: dict[str, int] = {}
     by_type: dict[str, int] = {}
     pending_proposals: int = 0
+
+
+class KnowledgeActivity(BaseModel):
+    total_items: int = 0
+    by_confidence: dict[str, int] = {}
+    by_category: dict[str, int] = {}
+    by_domain: dict[str, int] = {}
+    by_type: dict[str, int] = {}
+    by_source_type: dict[str, int] = {}
+    domain_coverage: list[dict[str, Any]] = []
+    pending_proposals: int = 0
+    rejected_proposals: int = 0
+    recent_items: list[dict[str, Any]] = []
+    vault_maturity: str = "seeding"

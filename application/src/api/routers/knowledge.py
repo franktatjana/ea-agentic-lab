@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..models.knowledge_schemas import (
+    KnowledgeActivity,
     KnowledgeItem,
     KnowledgeItemCreate,
     KnowledgeItemUpdate,
@@ -46,6 +47,14 @@ async def get_stats(
 ):
     """Get knowledge vault summary statistics"""
     return svc.get_stats()
+
+
+@router.get("/knowledge/activity", response_model=KnowledgeActivity)
+async def get_knowledge_activity(
+    svc: KnowledgeService = Depends(get_knowledge_service),
+):
+    """Get rich activity analytics for the knowledge sharing dashboard"""
+    return svc.get_activity()
 
 
 @router.get("/knowledge/relevant", response_model=list[KnowledgeItem])

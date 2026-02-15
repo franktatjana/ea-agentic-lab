@@ -108,6 +108,9 @@ Git history captures file-level changes. The Status History section captures *wh
 | [DDR-008](DDR_008_knowledge_vault_learning_system.md) | Knowledge Vault Learning System | ACCEPTED |
 | [DDR-009](DDR_009_stakeholder_stance_classification.md) | Stakeholder Stance Classification | ACCEPTED |
 | [DDR-010](DDR_010_reports_and_canvas_rendering.md) | Reports System with Canvas Rendering | ACCEPTED |
+| [DDR-011](DDR_011_report_generation_pipeline.md) | Report Generation Pipeline | ACCEPTED |
+| [DDR-012](DDR_012_playbook_metadata_standardization.md) | Playbook Metadata Standardization | ACCEPTED |
+| [DDR-013](DDR_013_knowledge_capture_strategy.md) | Knowledge Capture Strategy | PROPOSED |
 
 ### Architecture Decision Records
 

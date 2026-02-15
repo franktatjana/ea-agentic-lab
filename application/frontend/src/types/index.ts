@@ -229,6 +229,36 @@ export interface KnowledgeStats {
   pending_proposals: number;
 }
 
+export interface DomainCoverage {
+  domain: string;
+  count: number;
+  categories: Record<string, number>;
+}
+
+export interface RecentKnowledgeItem {
+  id: string;
+  title: string;
+  domain: string;
+  type: string;
+  confidence: string;
+  category: string;
+  created: string;
+}
+
+export interface KnowledgeActivity {
+  total_items: number;
+  by_confidence: Record<string, number>;
+  by_category: Record<string, number>;
+  by_domain: Record<string, number>;
+  by_type: Record<string, number>;
+  by_source_type: Record<string, number>;
+  domain_coverage: DomainCoverage[];
+  pending_proposals: number;
+  rejected_proposals: number;
+  recent_items: RecentKnowledgeItem[];
+  vault_maturity: string;
+}
+
 export interface PlaybookSteckbrief {
   playbook_id?: string;
   name?: string;

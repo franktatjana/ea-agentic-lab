@@ -11,6 +11,7 @@ import yaml
 
 from ..config import get_settings
 from ..models.knowledge_schemas import (
+    KnowledgeActivity,
     KnowledgeItem,
     KnowledgeItemCreate,
     KnowledgeItemUpdate,
@@ -359,6 +360,71 @@ class KnowledgeService:
             by_confidence=by_confidence,
             by_type=by_type,
             pending_proposals=len([p for p in proposals if p.proposal_status == "pending"]),
+        )
+
+    def get_activity(self) -> KnowledgeActivity:
+        """Get rich activity analytics for the knowledge dashboard."""
+        items = self.list_items()
+        proposals = self.list_proposals()
+
+        by_confidence = dict(Counter(i.confidence for i in items))
+        by_category = dict(Counter(i.category for i in items))
+        by_domain = dict(Counter(i.domain for i in items))
+        by_type = dict(Counter(i.type for i in items))
+        by_source_type = dict(Counter(i.source.type for i in items))
+
+        known_domains = ["security", "observability", "search", "platform", "general"]
+        domain_coverage = []
+        for domain in known_domains:
+            domain_items = [i for i in items if i.domain == domain]
+            categories = dict(Counter(i.category for i in domain_items))
+            domain_coverage.append({
+                "domain": domain,
+                "count": len(domain_items),
+                "categories": categories,
+            })
+
+        pending = len([p for p in proposals if p.proposal_status == "pending"])
+        rejected = len([p for p in proposals if p.proposal_status == "rejected"])
+
+        sorted_items = sorted(items, key=lambda i: i.created, reverse=True)
+        recent_items = [
+            {
+                "id": i.id,
+                "title": i.title,
+                "domain": i.domain,
+                "type": i.type,
+                "confidence": i.confidence,
+                "category": i.category,
+                "created": i.created,
+            }
+            for i in sorted_items[:10]
+        ]
+
+        total = len(items)
+        reviewed_or_validated = by_confidence.get("reviewed", 0) + by_confidence.get("validated", 0)
+        ratio = reviewed_or_validated / total if total > 0 else 0
+        if total >= 100 and ratio > 0.5:
+            maturity = "mature"
+        elif total >= 30 and ratio > 0.3:
+            maturity = "maturing"
+        elif total >= 10:
+            maturity = "growing"
+        else:
+            maturity = "seeding"
+
+        return KnowledgeActivity(
+            total_items=total,
+            by_confidence=by_confidence,
+            by_category=by_category,
+            by_domain=by_domain,
+            by_type=by_type,
+            by_source_type=by_source_type,
+            domain_coverage=domain_coverage,
+            pending_proposals=pending,
+            rejected_proposals=rejected,
+            recent_items=recent_items,
+            vault_maturity=maturity,
         )
 
     # ── Proposals ────────────────────────────────────────────────────────

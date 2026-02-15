@@ -196,6 +196,9 @@ export const api = {
   getKnowledgeStats: () =>
     fetchApi<import("@/types").KnowledgeStats>("/knowledge/stats"),
 
+  getKnowledgeActivity: () =>
+    fetchApi<import("@/types").KnowledgeActivity>("/knowledge/activity"),
+
   createKnowledgeItem: (data: Record<string, unknown>) =>
     fetchApi<import("@/types").KnowledgeItem>("/knowledge", {
       method: "POST",

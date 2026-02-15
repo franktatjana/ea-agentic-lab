@@ -10,6 +10,8 @@ from datetime import datetime
 import yaml
 from pathlib import Path
 
+from ...api.services.knowledge_service import get_knowledge_service
+
 
 @dataclass
 class AgentConfig:
@@ -134,6 +136,46 @@ class BaseAgent(ABC):
             'executions': len(self.execution_history),
             'last_run': self.execution_history[-1]['timestamp'] if self.execution_history else None
         }
+
+    def get_knowledge(
+        self,
+        domain: str,
+        archetype: str = "all",
+        phase: str = "all",
+        max_items: int = 10,
+    ) -> List[Dict[str, Any]]:
+        """Pull relevant knowledge items from the Global Knowledge Vault.
+
+        Uses the agent's role for relevance scoring. Agents that run outside
+        playbook execution (signal extraction, raw input processing) use this
+        for direct vault access.
+
+        Returns list of dicts with id, title, type, content, confidence, tags.
+        """
+        try:
+            svc = get_knowledge_service()
+            items = svc.get_relevant_knowledge(
+                domain=domain,
+                archetype=archetype,
+                phase=phase,
+                agent_role=self.agent_id,
+                max_items=max_items,
+            )
+            return [
+                {
+                    "id": item.id,
+                    "title": item.title,
+                    "type": item.type,
+                    "category": item.category,
+                    "domain": item.domain,
+                    "content": item.content,
+                    "confidence": item.confidence,
+                    "tags": item.tags,
+                }
+                for item in items
+            ]
+        except Exception:
+            return []
 
 
 def load_agent_config(config_path: Path) -> AgentConfig:

@@ -24,6 +24,7 @@ import {
   Bot,
   Workflow,
   Info,
+  BarChart3,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Input } from "@/components/ui/input";
@@ -42,7 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { MetricCard } from "@/components/metric-card";
 import { HelpPopover } from "@/components/help-popover";
-import type { KnowledgeItem, KnowledgeProposal } from "@/types";
+import type { KnowledgeItem, KnowledgeProposal, KnowledgeActivity } from "@/types";
 
 const CATEGORY_ICONS: Record<string, typeof BookOpen> = {
   operations: Settings2,
@@ -594,6 +595,234 @@ function CreateForm({ onCreated }: { onCreated: () => void }) {
   );
 }
 
+const MATURITY_CONFIG: Record<string, { label: string; color: string }> = {
+  seeding: { label: "Seeding", color: "text-yellow-400" },
+  growing: { label: "Growing", color: "text-blue-400" },
+  maturing: { label: "Maturing", color: "text-purple-400" },
+  mature: { label: "Mature", color: "text-green-400" },
+};
+
+const DOMAIN_COLORS: Record<string, string> = {
+  security: "bg-red-500/70",
+  observability: "bg-blue-500/70",
+  search: "bg-amber-500/70",
+  platform: "bg-emerald-500/70",
+  general: "bg-slate-400/70",
+};
+
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  engagement: "Engagement",
+  expert: "Expert",
+  research: "Research",
+  analyst_report: "Analyst Report",
+};
+
+function DistributionBar({
+  data,
+  colorMap,
+  labelMap,
+  total,
+}: {
+  data: Record<string, number>;
+  colorMap: Record<string, string>;
+  labelMap?: Record<string, string>;
+  total: number;
+}) {
+  const entries = Object.entries(data).filter(([, v]) => v > 0);
+  if (total === 0) {
+    return <div className="h-6 rounded bg-muted/30 flex items-center justify-center text-[10px] text-muted-foreground">No data</div>;
+  }
+  return (
+    <div className="space-y-1.5">
+      <div className="flex h-6 rounded overflow-hidden">
+        {entries.map(([key, count]) => (
+          <div
+            key={key}
+            className={`${colorMap[key] || "bg-muted"} transition-all`}
+            style={{ width: `${(count / total) * 100}%` }}
+            title={`${labelMap?.[key] || formatLabel(key)}: ${count}`}
+          />
+        ))}
+      </div>
+      <div className="flex items-center gap-3 flex-wrap">
+        {entries.map(([key, count]) => (
+          <div key={key} className="flex items-center gap-1.5 text-[11px]">
+            <span className={`h-2 w-2 rounded-full ${colorMap[key] || "bg-muted"}`} />
+            <span className="text-muted-foreground">{labelMap?.[key] || formatLabel(key)}</span>
+            <span className="font-medium">{count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ActivityDashboard({
+  activity,
+  onSelectItem,
+  items,
+}: {
+  activity: KnowledgeActivity | undefined;
+  onSelectItem: (item: KnowledgeItem) => void;
+  items: KnowledgeItem[];
+}) {
+  if (!activity) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <p className="text-muted-foreground">Loading activity data...</p>
+      </div>
+    );
+  }
+
+  const maturity = MATURITY_CONFIG[activity.vault_maturity] || MATURITY_CONFIG.seeding;
+  const maxDomainCount = Math.max(...activity.domain_coverage.map((d) => d.count), 1);
+
+  return (
+    <div className="space-y-6">
+      {/* Metrics row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <MetricCard
+          label="Vault Maturity"
+          value={maturity.label}
+          className={maturity.color}
+        />
+        <MetricCard label="Total Items" value={activity.total_items} />
+        <MetricCard label="Curation Queue" value={activity.pending_proposals} />
+        <MetricCard label="Rejected" value={activity.rejected_proposals} />
+      </div>
+
+      {/* Domain Coverage */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Domain Coverage</CardTitle>
+          <CardDescription className="text-xs">
+            Knowledge items per domain. Gaps indicate areas where field experience has not yet been captured.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {activity.domain_coverage.map((dc) => (
+            <div key={dc.domain} className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium">{formatLabel(dc.domain)}</span>
+                <span className="text-muted-foreground">{dc.count} item{dc.count !== 1 ? "s" : ""}</span>
+              </div>
+              {dc.count > 0 ? (
+                <div className="flex h-5 rounded overflow-hidden bg-muted/20">
+                  <div
+                    className={`${DOMAIN_COLORS[dc.domain] || "bg-muted"} transition-all rounded`}
+                    style={{ width: `${(dc.count / maxDomainCount) * 100}%`, minWidth: "8px" }}
+                  />
+                </div>
+              ) : (
+                <div className="h-5 rounded bg-muted/10 flex items-center px-2">
+                  <span className="text-[10px] text-muted-foreground/60">No items yet</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Confidence Maturity */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Confidence Maturity</CardTitle>
+          <CardDescription className="text-xs">
+            Distribution across confidence levels. A healthy vault has most items at reviewed or validated.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DistributionBar
+            data={activity.by_confidence}
+            colorMap={{
+              proposed: "bg-yellow-500/70",
+              reviewed: "bg-blue-500/70",
+              validated: "bg-green-500/70",
+            }}
+            total={activity.total_items}
+          />
+        </CardContent>
+      </Card>
+
+      {/* Distributions row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">By Category</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DistributionBar
+              data={activity.by_category}
+              colorMap={{
+                operations: "bg-blue-500/70",
+                content: "bg-purple-500/70",
+                external: "bg-amber-500/70",
+                asset: "bg-emerald-500/70",
+              }}
+              total={activity.total_items}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">By Source Channel</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DistributionBar
+              data={activity.by_source_type}
+              colorMap={{
+                engagement: "bg-cyan-500/70",
+                expert: "bg-indigo-500/70",
+                research: "bg-pink-500/70",
+                analyst_report: "bg-orange-500/70",
+              }}
+              labelMap={SOURCE_TYPE_LABELS}
+              total={activity.total_items}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Items */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium">Recent Items</CardTitle>
+          <CardDescription className="text-xs">
+            Last items added to the vault.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {activity.recent_items.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">No items in the vault yet.</p>
+          ) : (
+            <div className="space-y-1">
+              {activity.recent_items.map((ri) => {
+                const fullItem = items.find((i) => i.id === ri.id);
+                return (
+                  <div
+                    key={ri.id}
+                    className="flex items-center gap-3 rounded-md px-2.5 py-2 hover:bg-muted/50 transition-colors cursor-pointer text-sm"
+                    onClick={() => fullItem && onSelectItem(fullItem)}
+                  >
+                    <span className="font-medium truncate flex-1 min-w-0">{ri.title}</span>
+                    <Badge variant="outline" className={`text-[10px] shrink-0 ${CATEGORY_COLORS[ri.category] || ""}`}>
+                      {formatLabel(ri.category)}
+                    </Badge>
+                    <Badge variant="outline" className={`text-[10px] shrink-0 ${CONFIDENCE_COLORS[ri.confidence] || ""}`}>
+                      {formatLabel(ri.confidence)}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground shrink-0">{ri.created}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function KnowledgeVaultPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -616,6 +845,12 @@ export default function KnowledgeVaultPage() {
   const { data: proposals } = useQuery({
     queryKey: ["knowledge-proposals"],
     queryFn: () => api.listProposals(),
+  });
+
+  const { data: activity } = useQuery({
+    queryKey: ["knowledge-activity"],
+    queryFn: () => api.getKnowledgeActivity(),
+    enabled: activeTab === "activity",
   });
 
   const approveMutation = useMutation({
@@ -789,6 +1024,10 @@ export default function KnowledgeVaultPage() {
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="activity" className="gap-1.5">
+            <BarChart3 className="h-3.5 w-3.5" />
+            Activity
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="browse" className="space-y-4 mt-4">
@@ -950,6 +1189,10 @@ export default function KnowledgeVaultPage() {
               ))}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="activity" className="space-y-6 mt-4">
+          <ActivityDashboard activity={activity} onSelectItem={setSelectedItem} items={items || []} />
         </TabsContent>
       </Tabs>
     </div>
