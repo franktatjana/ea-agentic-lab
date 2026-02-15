@@ -128,6 +128,27 @@ Content in the Internal InfoHub prioritizes accuracy and actionability over poli
 - **Provenance links**: link back to the raw input, meeting note, or playbook that generated the content
 - **Consistent naming**: follow kebab-case for file names, playbook outputs use `PB_{number}_{name}_YYYYMMDD` format, scratchpads use `scratchpad_{agent}_{date}_{topic}` format
 
+## Section Order
+
+When rendering the Internal InfoHub, sections appear in the order below. This order is a design decision: engagement health leads because it provides immediate operational context, followed by risks and actions that require attention, then deeper analysis sections. Any UI, export, or API that renders this data must preserve this ordering.
+
+Every section is conditional. It renders only when data exists for that source directory.
+
+| Order | Section | Source Directory / File | Owner Agent |
+|-------|---------|------------------------|-------------|
+| 1 | Engagement Health | `governance/health_score.yaml` | Governance Agents |
+| 2 | Risk Register | `risks/risk_register.yaml` | Risk Radar |
+| 3 | Action Tracker | `actions/action_tracker.yaml` | Task Shepherd, Nudger |
+| 4 | Decision Tracking | `decisions/decision_log.yaml` | Decision Registrar |
+| 5 | Internal Stakeholder Profiles | `stakeholders/*.yaml` | AE Agent |
+| 6 | Competitive Intelligence | `competitive/competitive_context.yaml` | CI Agent |
+| 7 | Framework Analysis | `frameworks/*.md` | Strategic Playbooks |
+| 8 | Market Intelligence | `market_intelligence/news_digest.yaml` | Intelligence Agents |
+| 9 | Operating Cadence | `governance/operating_cadence.yaml` | Governance Agents |
+| 10 | Agent Scratchpads | `agent_work/*.yaml` | All Agents |
+
+**Design rationale:** The order follows an operational triage pattern. Health score gives the team an instant pulse check. Risks and actions surface what needs attention now. Decisions and stakeholders provide context for those actions. Competitive, frameworks, and market intelligence support strategic thinking. Cadence and scratchpads are reference material accessed less frequently.
+
 ## Governance Rules
 
 These rules protect sensitive content and ensure the Internal InfoHub remains a reliable operational workspace throughout the engagement.

@@ -418,6 +418,110 @@ node:
 
 ---
 
+## Node Page Presentation Contract
+
+The node detail page is the primary workspace for a single engagement. It organizes content into tabs and uses color-coded classifications to communicate node characteristics at a glance. These presentation decisions are design contracts, not implementation details. Any UI, export, or API that renders a node must preserve these semantics.
+
+### Tab Structure
+
+The node detail page uses a tabbed layout. The tab order reflects operational priority: the overview provides immediate context, followed by the two InfoHub views (external for customer-facing, internal for vendor-only), then progressively deeper analysis tabs.
+
+| Order | Tab ID | Label | Icon | Content Source |
+|-------|--------|-------|------|---------------|
+| 1 | `overview` | Overview | — | Aggregated summary from node profile and InfoHub data |
+| 2 | `external-infohub` | Customer InfoHub | Globe (blue) | `{realm}/{node}/external-infohub/` |
+| 3 | `internal-infohub` | Internal InfoHub | Lock (rose) | `{realm}/{node}/internal-infohub/` |
+| 4 | `blueprint` | Blueprint | — | Blueprint configuration for this node |
+| 5 | `health` | Health | — | `internal-infohub/governance/health_score.yaml` |
+| 6 | `risks-actions` | Risks & Actions | — | `internal-infohub/risks/` and `internal-infohub/actions/` |
+| 7 | `stakeholders` | Stakeholders | — | `internal-infohub/stakeholders/*.yaml` |
+| 8 | `signals` | Signals | — | Market intelligence and news digests |
+| 9 | `journey` | Journey | — | `internal-infohub/journey/` |
+| 10 | `scenario` | Scenario | BookOpen (violet) | Scenario planning workspace |
+
+**Design rationale:** Overview is the default landing tab because operators need immediate situational awareness. Customer InfoHub comes before Internal InfoHub because customer-facing context should be reviewed before internal analysis. Health, Risks, and Stakeholders group the operational monitoring tabs together.
+
+### Classification Color Semantics
+
+Nodes carry three classification dimensions, each rendered as a color-coded badge in the node header. The color assignments create visual distinctiveness across classification types, so operators can scan node attributes without reading labels.
+
+#### Archetype Colors
+
+Archetypes describe the engagement pattern. Each archetype maps to a distinct color family.
+
+| Archetype | Color | Semantic |
+|-----------|-------|----------|
+| `competitive_displacement` | Red | High-stakes, replace incumbent |
+| `greenfield_adoption` | Emerald | Net-new opportunity, low friction |
+| `platform_consolidation` | Violet | Merge multiple tools into one |
+| `compliance_driven` | Amber | Regulatory or mandate-driven |
+| `technical_evaluation` | Cyan | POC or technical assessment |
+| `retention_renewal` | Orange | Existing customer, renewal at risk |
+| `expansion` | Blue | Grow footprint in existing account |
+| `strategic_account` | Pink | Long-term strategic relationship |
+
+#### Domain Colors
+
+Domains describe the technology area. The domain palette is intentionally distinct from archetype colors to avoid confusion.
+
+| Domain | Color |
+|--------|-------|
+| `security` | Rose |
+| `search` | Sky |
+| `observability` | Teal |
+| `platform` | Indigo |
+
+#### Track Colors
+
+Tracks describe the commercial engagement path.
+
+| Track | Color |
+|-------|-------|
+| `poc` | Slate |
+| `economy` | Zinc |
+| `premium` | Yellow |
+| `fast_track` | Fuchsia |
+
+### Health Score Presentation
+
+Health scores use a three-tier threshold model with consistent color mapping across all views (Overview tab, Health tab, sidebar indicators). The thresholds are intentionally simple to enable rapid triage.
+
+| Threshold | Label | Color | Meaning |
+|-----------|-------|-------|---------|
+| Score >= 80 | Healthy | Green | On track, no intervention needed |
+| Score 60-79 | At-Risk | Yellow | Needs attention, monitor closely |
+| Score < 60 | Critical | Red | Immediate intervention required |
+
+Health is a composite score built from five weighted components. The components and their display labels are standardized.
+
+| Component Key | Display Label |
+|--------------|---------------|
+| `product_adoption` | Product Adoption |
+| `engagement` | Engagement |
+| `relationship` | Relationship |
+| `commercial` | Commercial |
+| `risk_profile` | Risk Profile |
+
+Each component displays its score, weight (as percentage), and trend direction (improving, stable, declining).
+
+### Sidebar Navigation Structure
+
+The sidebar defines the application's top-level navigation. The order groups related capabilities: home and blueprints for orientation, agents and canvas for configuration, then dynamic realm/node trees for operational work.
+
+| Order | Path | Label | Icon Color |
+|-------|------|-------|------------|
+| 1 | `/` | Home | Blue |
+| 2 | `/blueprints` | Blueprints | Purple |
+| 3 | `/agents` | Agents | Amber |
+| 4 | `/canvas` | Canvas Library | Cyan |
+| 5 | `/dashboard` | Dashboard (dynamic) | — |
+| 6 | `/realms/{realmId}` | Realm tree (dynamic) | — |
+| 7 | `/knowledge` | Knowledge Vault | — |
+| 8 | `/docs` | Documentation | — |
+| 9 | `/about` | About | — |
+
+---
+
 ## Migration Checklist
 
 - [x] Update `examples/` to `examples/{realm}/{node}/`

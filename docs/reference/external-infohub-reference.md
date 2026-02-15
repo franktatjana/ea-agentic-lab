@@ -95,6 +95,29 @@ Content in the External InfoHub represents the vendor to the customer. Every art
 - **No vendor-internal references**: do not link to internal-infohub paths, agent scratchpads, or internal meeting notes
 - **Consistent naming**: follow kebab-case for file names, `YYYY-MM-DD` prefixes for dated artifacts
 
+## Section Order
+
+When rendering the External InfoHub, sections appear in the order below. This order is a design decision, not an implementation detail: account team and timeline are always first because the customer's first questions are "who do I contact?" and "what happens next?" Any UI, export, or API that renders this data must preserve this ordering.
+
+Every section is conditional. It renders only when data exists for that source file.
+
+| Order | Section | Source File | Required | Owner Agent |
+|-------|---------|-------------|----------|-------------|
+| 1 | Your Account Team | `account_team.yaml` | Yes | AE Agent |
+| 2 | Engagement Timeline | `engagement_timeline.yaml` | Yes | AE Agent, CA Agent |
+| 3 | Overview | `engagement_overview.md` | No | AE Agent |
+| 4 | Success Criteria | `success_criteria.yaml` | No | SA Agent, POC Agent |
+| 5 | Business & Technical Context | `context/node_overview.yaml` | No | RFP Agent |
+| 6 | Engagement History | `context/engagement_history.md` | No | Delivery Agent |
+| 7 | Architecture Decision Records | `architecture/*.md` | No | SA Agent |
+| 8 | Decision Tracking | `decisions/decision_log.yaml` | No | Decision Registrar |
+| 9 | Touchpoint Log | `journey/touchpoint_log.yaml` | No | AE Agent |
+| 10 | Customer Stakeholder Map | `context/stakeholder_map.yaml` | No | AE Agent |
+| 11 | Value Tracker | `value/value_tracker.yaml` | No | VE Agent |
+| 12 | Opportunities & POC | `opportunities/*.yaml` | No | AE Agent |
+
+**Design rationale:** Sections 1-2 answer the customer's immediate needs (who and when). Section 3 provides narrative context. Sections 4-7 cover the technical substance. Sections 8-12 are operational tracking that accumulates over the engagement lifecycle.
+
 ## Governance Rules
 
 - **Shared screen test**: before adding content, ask "would I project this during a customer meeting?" If no, it belongs in the Internal InfoHub
