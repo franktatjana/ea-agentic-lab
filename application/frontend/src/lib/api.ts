@@ -274,4 +274,20 @@ export const api = {
 
   getCanvas: (realmId: string, nodeId: string, canvasId: string) =>
     fetchApi<import("@/types").CanvasData>(`/nodes/${realmId}/${nodeId}/canvas/${canvasId}`),
+
+  // Intelligence
+  getCompanyIntelligence: (realmId: string) =>
+    fetchApi<Record<string, unknown>>(`/realms/${realmId}/intelligence/company-profile`),
+
+  getOrganigram: (realmId: string) =>
+    fetchApi<Record<string, unknown>>(`/realms/${realmId}/intelligence/organigram`),
+
+  getOpportunities: (realmId: string) =>
+    fetchApi<Record<string, unknown>>(`/realms/${realmId}/intelligence/opportunities`),
+
+  getIndustryIntelligence: (realmId: string) =>
+    fetchApi<Record<string, unknown>>(`/realms/${realmId}/intelligence/industry`),
+
+  getVendorLandscape: (realmId: string) =>
+    fetchApi<Record<string, unknown>>(`/realms/${realmId}/intelligence/vendors`),
 };

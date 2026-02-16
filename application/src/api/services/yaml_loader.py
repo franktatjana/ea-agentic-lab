@@ -546,6 +546,39 @@ class YAMLLoader:
         return self._load_yaml(path)
 
     # ==========================================================================
+    # INTELLIGENCE
+    # ==========================================================================
+
+    def get_company_intelligence(self, realm_id: str) -> Optional[dict]:
+        """Get agent-generated company profile from account intelligence"""
+        path = self._resolve_realm_dir(realm_id) / "intelligence" / "account_intelligence" / "company_profile.yaml"
+        return self._load_yaml(path)
+
+    def get_organigram(self, realm_id: str) -> Optional[dict]:
+        """Get organizational hierarchy from account intelligence"""
+        path = self._resolve_realm_dir(realm_id) / "intelligence" / "account_intelligence" / "organigram.yaml"
+        return self._load_yaml(path)
+
+    def get_opportunity_map(self, realm_id: str) -> Optional[dict]:
+        """Get opportunity map from account intelligence"""
+        path = self._resolve_realm_dir(realm_id) / "intelligence" / "account_intelligence" / "opportunity_map.yaml"
+        return self._load_yaml(path)
+
+    def get_industry_intelligence(self, realm_id: str) -> dict:
+        """Get combined industry intelligence (profile, trends, regulatory)"""
+        base = self._resolve_realm_dir(realm_id) / "intelligence" / "industry_intelligence"
+        return {
+            "industry_profile": self._load_yaml(base / "industry_profile.yaml"),
+            "trend_analysis": self._load_yaml(base / "trend_analysis.yaml"),
+            "regulatory_landscape": self._load_yaml(base / "regulatory_landscape.yaml"),
+        }
+
+    def get_vendor_landscape(self, realm_id: str) -> Optional[dict]:
+        """Get vendor landscape from technology scout"""
+        path = self._resolve_realm_dir(realm_id) / "intelligence" / "technology_scout" / "vendor_landscape.yaml"
+        return self._load_yaml(path)
+
+    # ==========================================================================
     # USER PROFILES
     # ==========================================================================
 
