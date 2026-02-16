@@ -223,7 +223,7 @@ class TestSignalPlaybookWiring:
             "SIG_ART_003",   # meeting_processed
             "SIG_COM_002",   # deal_closed
             "SIG_HLT_001",   # risk_identified
-            "SIG_TECH_001",  # tech_signal_map_updated
+            "SIG_TECH_001",  # technology_scout_updated
         ]
         for sig_id in key_signals:
             sig_name = all_signals[sig_id]["name"]
@@ -644,9 +644,9 @@ class TestSignalFlowCompleteness:
         flow = signal_flows["risk_lifecycle"]
         assert "SIG_HLT_001" in flow["signals"]
 
-    def test_tech_signal_map_flow(self, signal_flows, all_signals):
-        assert "tech_signal_map_update" in signal_flows
-        flow = signal_flows["tech_signal_map_update"]
+    def test_technology_scout_flow(self, signal_flows, all_signals):
+        assert "technology_scout_update" in signal_flows
+        flow = signal_flows["technology_scout_update"]
         assert "SIG_TECH_004" in flow["signals"]
         assert "SIG_TECH_001" in flow["signals"]
 

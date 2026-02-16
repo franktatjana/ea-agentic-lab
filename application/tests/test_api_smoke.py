@@ -328,7 +328,7 @@ class TestProfile:
 # ===========================================================================
 
 class TestTechRadar:
-    """Tech Signal Map endpoints.
+    """Technology Scout endpoints.
 
     Note: Tech radar endpoints currently return 500 when radar data is missing
     instead of 404. This is a known service bug tracked for fix.
@@ -337,7 +337,7 @@ class TestTechRadar:
 
     lenient = TestClient(app, raise_server_exceptions=False)
 
-    def test_get_tech_signal_map(self):
+    def test_get_technology_scout(self):
         r = self.lenient.get(f"{PREFIX}/realms/{REALM}/tech-signal-map")
         assert r.status_code in (200, 404, 500)
         if r.status_code == 500:

@@ -169,7 +169,7 @@ Micro-playbooks for routine, event-driven operations.
 | OP_ESC_001 | Escalate Blocked Action | action_blocked | Nudger Agent |
 | OP_HLT_001 | Health Score Alert | health_threshold | CA Agent |
 | OP_MTG_001 | Process Meeting Notes | meeting_notes_available | Meeting Notes Agent |
-| OP_TECH_001 | Process Tech Signal Map Update | tech_signal_detected | Tech Signal Agent |
+| OP_TECH_001 | Process Technology Scout Update | tech_signal_detected | Tech Signal Agent |
 
 ---
 

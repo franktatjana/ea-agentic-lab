@@ -103,7 +103,7 @@ A Realm represents a customer or account. Create one when you begin working with
 vault/NEW_CUSTOMER/
 ├── realm_profile.yaml
 └── intelligence/
-    ├── tech_signal_map/
+    ├── technology_scout/
     └── market_news/
 ```
 

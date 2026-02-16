@@ -24,7 +24,7 @@ Build a two-agent intelligence pipeline that scans job postings to extract techn
 | Tech Signal Scanner | Scan job postings from LinkedIn, Indeed, and career pages | Weekly (Sundays 2am), manual | Raw scan data with extracted technologies, roles, and posting metadata |
 | Tech Signal Analyzer | Analyze scan results to generate technology signal maps | Weekly (Mondays 6am), on scan complete | Structured signal map with adoption trends, skills gaps, and competitive indicators |
 
-**Output:** Technology signal maps stored at `vault/{REALM}/intelligence/tech_signal_map/`. These maps feed into realm profiles and inform engagement strategy.
+**Output:** Technology signal maps stored at `vault/{REALM}/intelligence/technology_scout/`. These maps feed into realm profiles and inform engagement strategy.
 
 **Signal types extracted:**
 - Technology stack adoption (languages, frameworks, platforms, tools)
@@ -70,3 +70,4 @@ Build a two-agent intelligence pipeline that scans job postings to extract techn
 |---|---|---|
 | 2026-02-06 | ACCEPTED | Two-agent intelligence pipeline established at project inception |
 | 2026-02-11 | Documented | Retroactive documentation of domain decision |
+| 2026-02-16 | EXTENDED | Expanded into Intelligence Cluster: added Account Intelligence Agent (aci_agent), Industry Intelligence Agent (ii_agent), vendor landscape analysis (PB_TSCT_002), shared source registry, and 8 new signals (SIG_ACI_001-003, SIG_TSCT_001-002, SIG_II_001-003). Team renamed from tech_signal_map to technology_scout. |

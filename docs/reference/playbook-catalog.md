@@ -335,6 +335,40 @@ Strategic position analysis for account strategy.
 
 ---
 
+## Intelligence Playbooks
+
+Intelligence playbooks drive the research and analysis cycle that feeds account teams with structured data about companies, industries, and technology landscapes. These playbooks are owned by the intelligence cluster agents and produce artifacts stored in the realm-level intelligence directory.
+
+### Account Intelligence
+
+| Playbook | Path | Purpose | Trigger |
+|----------|------|---------|---------|
+| **PB_ACI_001** Initial Account Research | `playbooks/account_intelligence/` | Full company profile, organigram, and opportunity map from public sources | `realm_created`, manual request |
+| **PB_ACI_002** Org Mapping | `playbooks/account_intelligence/` | Deep organizational hierarchy extraction and decision chain analysis | After initial research, leadership changes |
+| **PB_ACI_003** Periodic Refresh | `playbooks/account_intelligence/` | Monthly delta refresh of company profile and opportunity map | Monthly schedule |
+
+**Outputs:** `company_profile.yaml`, `organigram.yaml`, `opportunity_map.yaml` stored at `{realm}/intelligence/account_intelligence/`
+
+### Technology Scout
+
+| Playbook | Path | Purpose | Trigger |
+|----------|------|---------|---------|
+| **PB_TSCT_001** Tech Landscape Scan | `playbooks/technology_scout/` | Weekly scan of job postings, tech blogs, vendor announcements | Weekly schedule, manual |
+| **PB_TSCT_002** Vendor Analysis | `playbooks/technology_scout/` | Vendor/supplier landscape analysis and displacement opportunity detection | After scan completion, quarterly |
+
+**Outputs:** `current_map.yaml`, `vendor_landscape.yaml` stored at `{realm}/intelligence/technology_scout/`
+
+### Industry Intelligence
+
+| Playbook | Path | Purpose | Trigger |
+|----------|------|---------|---------|
+| **PB_II_001** Industry Deep Dive | `playbooks/industry_intelligence/` | Comprehensive sector analysis covering structure, trends, and regulatory environment | `realm_created`, manual request |
+| **PB_II_002** Trend Analysis | `playbooks/industry_intelligence/` | Weekly monitoring of emerging trends and regulatory changes | Weekly schedule, `SIG_MNA_001` |
+
+**Outputs:** `industry_profile.yaml`, `trend_analysis.yaml`, `regulatory_landscape.yaml` stored at `{realm}/intelligence/industry_intelligence/`
+
+---
+
 ## Playbook Integration
 
 ### With Signals
@@ -346,7 +380,10 @@ Playbooks automatically trigger based on signal events:
 | `SIG_HLT_001` (Health Alert) | Health Triage |
 | `SIG_LC_003` (Renewal Mode) | Renewal Protection |
 | `SIG_COM_002` (Deal Closed) | Retrospective, Handoff |
-| `SIG_TECH_001` (Tech Signal Map) | Stage Adoption refresh |
+| `SIG_TECH_001` (Technology Scout) | Stage Adoption refresh |
+| `SIG_MNA_002` (High Impact News) | PB_ACI_001 Account Research |
+| `SIG_ACI_003` (New Opportunity) | Account Planning, Expansion Planning |
+| `SIG_II_003` (Regulatory Change) | Risk Intervention |
 
 ### With Agents
 
@@ -357,6 +394,9 @@ Playbooks automatically trigger based on signal events:
 | **AE Agent** | Account Planning, Expansion Planning |
 | **VE Agent** | Value Workshop, Executive Review |
 | **Governance Agent** | Health Triage, Risk Intervention |
+| **ACI Agent** | Initial Account Research, Org Mapping, Periodic Refresh |
+| **II Agent** | Industry Deep Dive, Trend Analysis |
+| **Tech Signal Agents** | Tech Landscape Scan, Vendor Analysis |
 
 ### With InfoHub
 

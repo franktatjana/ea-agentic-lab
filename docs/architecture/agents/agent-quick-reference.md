@@ -61,6 +61,8 @@
 | **Tech Signal Scanner** | Technology detection | Job postings, hiring signals | Tech Signal Analyzer |
 | **Tech Signal Analyzer** | Technology trends | Radar generation, ring changes | SA (strategic shift) |
 | **MNA** | Market news intelligence | Company, industry, solution news | AE (high-impact), CI (competitive) |
+| **ACI** | Account intelligence | Company research, organigrams, opportunities | AE, CI, II, SA |
+| **II** | Industry intelligence | Industry analysis, trends, regulatory | AE, CI, ACI, SA |
 
 ---
 
@@ -187,8 +189,10 @@ Nudger → SM (overdue > 5 days)
 {realm}/
 ├── realm_profile.yaml           ← Account-level strategic data
 ├── intelligence/
-│   ├── tech_signal_map/         ← Tech Signal Agents (technology radar)
-│   └── market_news/             ← MNA Agent (realm-level news digests)
+│   ├── technology_scout/         ← Tech Signal Agents (technology radar)
+│   ├── market_news/             ← MNA Agent (realm-level news digests)
+│   ├── account_intelligence/    ← ACI Agent (organigram.yaml, company_profile.yaml, opportunity_map.yaml)
+│   └── industry_intelligence/   ← II Agent (industry_profile.yaml, trend_analysis.yaml, regulatory_landscape.yaml)
 │
 └── {node}/
 ├── meetings/                    ← Meeting Notes Agent (raw inputs)

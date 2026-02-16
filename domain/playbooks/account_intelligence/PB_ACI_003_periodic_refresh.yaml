@@ -1,0 +1,80 @@
+# PLAYBOOK: Periodic Account Intelligence Refresh
+# Framework operationalization for AI agents
+# Owner: Account Intelligence Agent (aci_agent)
+
+playbook_id: "PB_ACI_003"
+framework_name: "Periodic Account Intelligence Refresh"
+framework_source: "Intelligence Cluster - Account Intelligence"
+playbook_mode: "ANALYTICAL"
+playbook_category: "monitoring_maintenance"
+intended_agent_role: "Account Intelligence Agent (aci_agent)"
+secondary_agents: ["MNA Agent (news trigger)"]
+
+primary_objective: "Periodically refresh account intelligence by detecting changes in company structure, strategy, and leadership since the last research cycle"
+
+when_not_to_use:
+  - "No initial research exists (run PB_ACI_001 first)"
+  - "Triggered less than 7 days after last refresh (avoid over-scanning)"
+
+trigger_conditions:
+  automatic:
+    - event: "schedule"
+      condition: "monthly_refresh"
+      description: "Monthly scheduled refresh cycle"
+    - event: "SIG_MNA_002"
+      signal_filter: "category in ['leadership_change', 'merger_acquisition', 'strategy_shift']"
+      description: "High-impact news triggers immediate refresh"
+  manual:
+    - "Pre-QBR intelligence refresh"
+    - "Account team requests updated intelligence"
+
+validation_inputs:
+  mandatory:
+    - artifact: "{realm}/intelligence/account_intelligence/company_profile.yaml"
+      description: "Previous company profile to compare against"
+  optional:
+    - artifact: "{realm}/intelligence/account_intelligence/organigram.yaml"
+      use: "Previous organigram to detect leadership changes"
+    - artifact: "{realm}/intelligence/market_news/realm_digest.yaml"
+      use: "Recent news for targeted refresh areas"
+
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/intelligence/account_intelligence/company_profile.yaml"
+    format: "yaml"
+    sections:
+      - updated company_profile sections
+      - refresh_metadata
+
+  secondary_artifacts:
+    - path: "{realm}/intelligence/account_intelligence/organigram.yaml"
+      description: "Updated organigram if leadership changes detected"
+    - path: "{realm}/intelligence/account_intelligence/opportunity_map.yaml"
+      description: "Updated opportunities if strategy changes detected"
+    - path: "{realm}/intelligence/account_intelligence/refresh_history/{date}_refresh.yaml"
+      description: "Archived delta report for audit trail"
+
+  notifications:
+    - recipient: "AE Agent"
+      condition: "leadership_changes_count > 0 OR new_opportunities_count > 0"
+      message: "Account intelligence refresh found {changes_count} changes for {realm_name}."
+
+integrates_with:
+  - playbook: "PB_ACI_002_org_mapping"
+    integration: "Triggers org mapping if leadership changes detected"
+    provides: "Leadership change signals"
+  - playbook: "PB_602_account_planning"
+    integration: "Fresh intelligence for annual account planning"
+    provides: "Updated company profile and opportunity map"
+
+estimated_execution_time: "10-15 minutes"
+frequency: "Monthly (or on high-impact news signal)"
+human_review_required: false
+approval_workflow:
+  - reviewer: "Account Executive"
+    approval_gate: "review_if_new_opportunities"
+    condition: "new_opportunities_count > 0"
+
+last_updated: "2026-02-16"
+version: "1.0"
+status: "production_ready"

@@ -216,8 +216,8 @@ react_pattern: |
   Observation: {context}
 
   Thought: I see potential competitors mentioned. Let me check the tech signal map for displacement signals.
-  Action: read_artifact(artifact_path="{realm}/intelligence/tech_signal_map/current_map.yaml")
-  Observation: {tech_signal_map}
+  Action: read_artifact(artifact_path="{realm}/intelligence/technology_scout/current_map.yaml")
+  Observation: {technology_scout}
 
   Thought: LegacySIEM is in the Hold ring with declining mentions. This indicates displacement opportunity.
   Action: query_risks(category_filter=["competitive"], realm_id="{realm}")

@@ -1,0 +1,181 @@
+# PLAYBOOK: Initial Account Research
+# Framework operationalization for AI agents
+# Owner: Account Intelligence Agent (aci_agent)
+
+playbook_id: "PB_ACI_001"
+framework_name: "Initial Account Research"
+framework_source: "Intelligence Cluster - Account Intelligence"
+playbook_mode: "GENERATIVE"
+playbook_category: "discovery_investigation"
+intended_agent_role: "Account Intelligence Agent (aci_agent)"
+secondary_agents: ["MNA Agent (news context)", "Industry Intelligence Agent (industry context)"]
+
+primary_objective: "Conduct comprehensive initial research on a new realm company from public sources, producing a detailed company profile, organigram, and initial opportunity map"
+
+when_not_to_use:
+  - "Realm already has a populated company_profile.yaml (use PB_ACI_003 for refresh instead)"
+  - "Only a quick lookup is needed (use manual research task instead)"
+  - "Company is private with minimal public information available"
+
+trigger_conditions:
+  automatic:
+    - event: "realm_created"
+      description: "New realm created, needs initial intelligence population"
+    - event: "SIG_MNA_002"
+      signal_filter: "category == 'new_realm_company'"
+      description: "MNA agent identified a new company needs full research"
+  manual:
+    - "Account team requests initial research for new account"
+    - "Account executive onboards a new strategic account"
+
+validation_inputs:
+  mandatory:
+    - artifact: "{realm}/realm_profile.yaml"
+      description: "Must have company name and industry at minimum"
+  optional:
+    - artifact: "{realm}/intelligence/market_news/realm_digest.yaml"
+      use: "Recent news context for the company"
+    - artifact: "{realm}/intelligence/source_registry.yaml"
+      use: "Check for already-registered sources to avoid duplication"
+  minimum_data_threshold:
+    - "Company name must be present in realm_profile"
+    - "Industry classification should be present (can be inferred if missing)"
+
+key_questions:
+  company_structure:
+    - "What are the company's main business lines and revenue segments?"
+    - "How is the company organized at the executive level?"
+    - "What is the company's geographic footprint?"
+  strategy:
+    - "What are the company's stated strategic priorities?"
+    - "What digital transformation or IT modernization initiatives are underway?"
+    - "Has the company been involved in recent M&A activity?"
+  engagement_potential:
+    - "Which business lines and departments are most relevant to our offerings?"
+    - "Where are the decision chains for IT, security, and operations?"
+    - "What opportunities exist that are not yet covered by active engagements?"
+
+decision_logic:
+  rules:
+    - id: "public_company_deep_dive"
+      condition: "$.company_profile.company_overview.public_private == 'public'"
+      severity: "LOW"
+      output_type: "research_approach"
+      decision:
+        title: "Public company deep research"
+        context: "Public companies have extensive disclosure requirements"
+        recommendation: "Include SEC filings, earnings calls, and investor presentations"
+        actions:
+          - "Search SEC EDGAR for 10-K, 10-Q, proxy statements"
+          - "Extract segment reporting from latest annual report"
+          - "Review earnings call transcripts for strategy signals"
+
+    - id: "private_company_limited"
+      condition: "$.company_profile.company_overview.public_private == 'private'"
+      severity: "MEDIUM"
+      output_type: "research_approach"
+      decision:
+        title: "Private company limited research"
+        context: "Private companies have limited mandatory disclosure"
+        recommendation: "Focus on press releases, LinkedIn, and company website"
+        actions:
+          - "Prioritize company website and LinkedIn for org structure"
+          - "Search press releases for funding rounds, partnerships"
+          - "Flag low confidence on financial data"
+
+    - id: "large_enterprise_org_depth"
+      condition: "$.company_profile.company_overview.employees > 10000"
+      severity: "LOW"
+      output_type: "organigram_depth"
+      decision:
+        title: "Deep organigram for large enterprise"
+        context: "Large enterprises have complex organizational structures"
+        recommendation: "Map at least 3 levels deep per business line"
+        actions:
+          - "Identify business line heads"
+          - "Map department heads within each business line"
+          - "Build decision chains for key domains"
+
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/intelligence/account_intelligence/company_profile.yaml"
+    format: "yaml"
+    sections:
+      - company_overview
+      - business_lines
+      - strategic_initiatives
+      - financial_summary
+      - research_metadata
+    schema:
+      company_overview:
+        - field: "string"
+      business_lines:
+        - field: "array"
+      strategic_initiatives:
+        - field: "array"
+
+  secondary_artifacts:
+    - path: "{realm}/intelligence/account_intelligence/organigram.yaml"
+      description: "Initial organizational hierarchy"
+    - path: "{realm}/intelligence/account_intelligence/opportunity_map.yaml"
+      description: "Initial opportunity identification"
+
+  notifications:
+    - recipient: "AE Agent"
+      condition: "always"
+      message: "Initial account intelligence available for {realm_name}. Review company profile and opportunities."
+    - recipient: "Industry Intelligence Agent"
+      condition: "always"
+      message: "Account research complete for {realm_name} in {industry}. Industry deep-dive may be triggered."
+
+stop_conditions:
+  escalate_to_human:
+    - condition: "no_public_information_found"
+      reason: "Cannot find sufficient public information for this company"
+      action: "Request account team to provide company website and key contacts"
+    - condition: "conflicting_information"
+      reason: "Multiple sources provide contradictory information"
+      action: "Flag discrepancies for human review"
+  insufficient_data:
+    - "Company name not found in public sources"
+    - "No annual report or financial data available"
+  ambiguity_signals:
+    - "Multiple companies with similar names"
+    - "Recent merger makes organizational structure unclear"
+
+validation_checks:
+  pre_execution:
+    - "Realm profile exists with company name"
+    - "Source registry is accessible"
+  post_execution:
+    - "Company profile has business description"
+    - "At least one business line identified"
+    - "Organigram has CEO or top leadership"
+    - "All sources registered in source registry"
+  output_quality:
+    - "No fabricated data (all claims have sources)"
+    - "Confidence levels assigned to organigram entries"
+    - "Opportunities reference specific business lines"
+
+integrates_with:
+  - playbook: "PB_ACI_002_org_mapping"
+    integration: "Triggers detailed org mapping after initial research"
+    provides: "Initial leadership list and business line structure"
+  - playbook: "PB_602_account_planning"
+    integration: "Provides company intelligence for account planning"
+    provides: "Company profile, organigram, opportunity map"
+  - playbook: "PB_II_001_industry_deep_dive"
+    integration: "Industry context enriches company research"
+    provides: "Industry classification triggers industry deep-dive"
+
+estimated_execution_time: "15-30 minutes"
+frequency: "Once per realm (then PB_ACI_003 for refresh)"
+human_review_required: true
+approval_workflow:
+  - reviewer: "Account Executive"
+    approval_gate: "review_company_profile"
+    condition: "Always review initial research before sharing"
+
+last_updated: "2026-02-16"
+version: "1.0"
+status: "production_ready"

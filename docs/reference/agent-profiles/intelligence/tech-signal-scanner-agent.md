@@ -2,26 +2,26 @@
 title: "Tech Signal Scanner Agent"
 description: "Scans job postings from realm-associated companies to extract technology intelligence data"
 category: "reference"
-keywords: ["tech_signal_scanner_agent", "tech_signal_map", "agent", "profile"]
+keywords: ["tech_signal_scanner_agent", "technology_scout", "agent", "profile"]
 last_updated: "2026-02-10"
 ---
 
 # Tech Signal Scanner Agent
 
-The Tech Signal Scanner is the data-gathering half of the Tech Signal Map pipeline. It systematically scans job postings from companies associated with a realm, extracting technology mentions, requirement levels, and seniority signals. The resulting scan data feeds directly into the Tech Signal Analyzer for ring assignment, trend detection, and competitive analysis. Together, these two agents produce a decision-support artifact that flows into playbooks, governance, and account team workflows.
+The Tech Signal Scanner is the data-gathering half of the Technology Scout pipeline. It systematically scans job postings from companies associated with a realm, extracting technology mentions, requirement levels, and seniority signals. The resulting scan data feeds directly into the Tech Signal Analyzer for ring assignment, trend detection, and competitive analysis. Together, these two agents produce a decision-support artifact that flows into playbooks, governance, and account team workflows.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
 | Agent ID | `tech_signal_scanner_agent` |
-| Team | `tech_signal_map` |
+| Team | `technology_scout` |
 | Category | Intelligence |
 | Purpose | Scan job postings to gather technology intelligence for realm companies |
 
 ## Core Functions
 
-The Scanner performs a multi-stage pipeline from data fetching through extraction. Each stage applies configurable rules from the central `tech_signal_map_config.yaml` to ensure consistency across scans and realms.
+The Scanner performs a multi-stage pipeline from data fetching through extraction. Each stage applies configurable rules from the central `technology_scout_config.yaml` to ensure consistency across scans and realms.
 
 - Fetch job postings from LinkedIn Jobs, Indeed, and company career pages
 - Normalize and preprocess job descriptions (HTML removal, whitespace, section extraction)
@@ -70,7 +70,7 @@ The Scanner activates on a combination of scheduled and event-driven triggers. T
 | Source | Context | Expected Action |
 |--------|---------|-----------------|
 | Realm profile | Company names and domains | Use as search parameters for job fetching |
-| Tech Signal Map config | Technology patterns, requirement patterns, competitor keywords | Apply during extraction and classification |
+| Technology Scout config | Technology patterns, requirement patterns, competitor keywords | Apply during extraction and classification |
 
 ## Escalation Rules
 
@@ -91,5 +91,5 @@ The Scanner handles errors through built-in retry and fallback logic rather than
 
 ## Source Files
 
-- Agent config: `domain/agents/tech_signal_map/agents/tech_signal_scanner_agent.yaml`
-- Config reference: `domain/agents/tech_signal_map/config/tech_signal_map_config.yaml`
+- Agent config: `domain/agents/technology_scout/agents/tech_signal_scanner_agent.yaml`
+- Config reference: `domain/agents/technology_scout/config/technology_scout_config.yaml`

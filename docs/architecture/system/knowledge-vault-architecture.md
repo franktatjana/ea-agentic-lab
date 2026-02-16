@@ -22,7 +22,7 @@ vault/
 ├── {REALM}/                          # Customer/account container
 │   ├── realm_profile.yaml            # Account-level strategic data
 │   ├── intelligence/                 # Realm-level intelligence (cross-node)
-│   │   ├── tech_signal_map/          # Technology radar from job posting analysis
+│   │   ├── technology_scout/          # Technology radar from job posting analysis
 │   │   └── market_news/              # MNA Agent realm-level news digests
 │   │
 │   └── {NODE}/                       # Individual initiative/opportunity

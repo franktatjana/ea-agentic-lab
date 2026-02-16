@@ -29,7 +29,7 @@ This document defines the complete responsibility matrix for all agents, includi
 | **Architecture** | Solution design, customer architecture, domain expertise | 3 |
 | **Deal Execution** | RFP orchestration, POC validation, security clearance | 3 |
 | **Delivery** | Implementation handoff, services, support | 3 |
-| **Intelligence** | Gather and analyze external data | 3 |
+| **Intelligence** | Gather and analyze external data | 5 |
 | **Governance** | Reduce entropy, maintain quality | 9 |
 | **Orchestration** | Meta-layer process management | 1 |
 
@@ -750,7 +750,7 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 
 ---
 
-## Intelligence Agents (3)
+## Intelligence Agents (5)
 
 ### 1. Tech Signal Scanner Agent
 
@@ -759,7 +759,7 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 | Attribute | Value |
 |-----------|-------|
 | **Primary Scope** | Job posting scanning, technology extraction |
-| **Output Path** | `{realm}/intelligence/tech_signal_map/` |
+| **Output Path** | `{realm}/intelligence/technology_scout/` |
 | **Decision Authority** | Technology classification, ring assignment |
 
 **Responsibilities:**
@@ -783,7 +783,7 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 | Attribute | Value |
 |-----------|-------|
 | **Primary Scope** | Technology trend analysis, radar generation |
-| **Output Path** | `{realm}/intelligence/tech_signal_map/` |
+| **Output Path** | `{realm}/intelligence/technology_scout/` |
 | **Decision Authority** | Ring placement, trend classification |
 
 **Responsibilities:**
@@ -836,6 +836,119 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 |--------------|----------|-----------------|
 | Orchestration Agent | `SIG_LC_001` (node_created) | Initialize node news monitoring |
 | CI Agent | Competitive context | Refine competitor keyword scanning |
+
+---
+
+### 4. ACI Agent (Account Intelligence)
+
+**Mission:** Research companies from public sources, build organigrams, identify business strategy and opportunities
+
+| Attribute | Value |
+|-----------|-------|
+| **Team** | account_intelligence |
+| **Primary Scope** | Company research, organigram management, opportunity identification, business line analysis |
+| **Output Path** | `{realm}/intelligence/account_intelligence/` |
+| **Decision Authority** | Company profile classification, opportunity scoring |
+
+**Responsibilities:**
+
+- Research companies from public sources and build comprehensive profiles
+- Build and maintain organigrams for target accounts
+- Identify business strategy, key initiatives, and transformation programs
+- Detect opportunities aligned with account context and offerings
+- Analyze business lines and organizational structure
+
+**Triggers:**
+
+| Trigger | Condition |
+|---------|-----------|
+| `realm_created` | New realm initialized |
+| `manual_research_requested` | User requests account research |
+| `SIG_MNA_002` | High-impact news detected for account |
+
+**Outputs:** `company_profile.yaml`, `organigram.yaml`, `opportunity_map.yaml`
+
+**Signals Emitted:**
+
+| Signal | Name | Condition |
+|--------|------|-----------|
+| `SIG_ACI_001` | account_intelligence_updated | Company profile refreshed |
+| `SIG_ACI_002` | organigram_updated | Organigram changes detected |
+| `SIG_ACI_003` | new_opportunity_identified | New opportunity mapped |
+
+**Handover Triggers:**
+
+| Trigger | Receiving Agent | Condition |
+|---------|-----------------|-----------|
+| Commercial opportunity detected | AE Agent | Opportunity aligned with active deal |
+| Competitive signal in profile | CI Agent | Competitor presence in account |
+| Industry context needed | II Agent | Account requires sector analysis |
+| Technical opportunity identified | SA Agent | Architecture or solution opportunity |
+
+**Receives From:**
+
+| Source Agent | Artifact | Action Required |
+|--------------|----------|-----------------|
+| MNA Agent | `SIG_MNA_002` (high-impact news) | Update company profile |
+| Orchestration Agent | `realm_created` | Initialize account research |
+
+---
+
+### 5. II Agent (Industry Intelligence)
+
+**Mission:** Analyze industry strategy, market trends, sector dynamics, regulatory landscape, benchmarks
+
+| Attribute | Value |
+|-----------|-------|
+| **Team** | industry_intelligence |
+| **Primary Scope** | Industry analysis, regulatory monitoring, sector benchmarking, trend detection |
+| **Output Path** | `{realm}/intelligence/industry_intelligence/` |
+| **Decision Authority** | Industry classification, trend severity, regulatory impact assessment |
+
+**Responsibilities:**
+
+- Analyze industry strategy and sector dynamics for target accounts
+- Monitor regulatory landscape and compliance changes
+- Perform sector benchmarking against industry peers
+- Detect emerging trends and market shifts relevant to engagements
+- Generate industry profiles with competitive positioning context
+
+**Triggers:**
+
+| Trigger | Condition |
+|---------|-----------|
+| `realm_created` | New realm initialized |
+| `SIG_MNA_001` | Market news digest published |
+| `SIG_MNA_002` | High-impact news detected |
+| Weekly schedule | Scheduled weekly industry refresh |
+
+**Outputs:** `industry_profile.yaml`, `trend_analysis.yaml`, `regulatory_landscape.yaml`
+
+**Signals Emitted:**
+
+| Signal | Name | Condition |
+|--------|------|-----------|
+| `SIG_II_001` | industry_intelligence_updated | Industry profile refreshed |
+| `SIG_II_002` | industry_trend_detected | Significant trend identified |
+| `SIG_II_003` | regulatory_change_detected | Regulatory change impacting account |
+
+**Handover Triggers:**
+
+| Trigger | Receiving Agent | Condition |
+|---------|-----------------|-----------|
+| Commercial implication detected | AE Agent | Industry shift affects deal strategy |
+| Competitive landscape change | CI Agent | Industry movement impacts competition |
+| Account context enrichment | ACI Agent | Industry data enriches account profile |
+| Technical trend identified | SA Agent | Technology trend in sector |
+| Risk-bearing regulatory change | Risk Radar Agent | Regulation impacts deal or delivery |
+
+**Receives From:**
+
+| Source Agent | Artifact | Action Required |
+|--------------|----------|-----------------|
+| MNA Agent | `SIG_MNA_001`, `SIG_MNA_002` | Incorporate news into industry analysis |
+| Orchestration Agent | `realm_created` | Initialize industry research |
+| ACI Agent | Account context | Align industry analysis to account |
 
 ---
 
@@ -905,6 +1018,8 @@ message:
 | Tech Signal Scanner | 1 defined | N/A | ✓ Complete |
 | Tech Signal Analyzer | 3 defined | 1 defined | ✓ Complete |
 | MNA Agent | 4 defined | 2 defined | ✓ Complete |
+| ACI Agent | 4 defined | 2 defined | ✓ Complete |
+| II Agent | 5 defined | 3 defined | ✓ Complete |
 
 ---
 

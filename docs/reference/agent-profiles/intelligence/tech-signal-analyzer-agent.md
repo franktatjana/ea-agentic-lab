@@ -2,20 +2,20 @@
 title: "Tech Signal Analyzer Agent"
 description: "Analyzes job scan data to generate and maintain technology signal maps for realms"
 category: "reference"
-keywords: ["tech_signal_analyzer_agent", "tech_signal_map", "agent", "profile"]
+keywords: ["tech_signal_analyzer_agent", "technology_scout", "agent", "profile"]
 last_updated: "2026-02-10"
 ---
 
 # Tech Signal Analyzer Agent
 
-The Tech Signal Analyzer is the intelligence-generation half of the Tech Signal Map pipeline. It takes raw scan data from the Tech Signal Scanner and transforms it into a structured signal map: assigning technologies to rings (Adopt, Trial, Assess, Hold) and quadrants (Techniques, Tools, Platforms, Languages & Frameworks), calculating trends, detecting new technologies, and identifying competitive displacement opportunities. The resulting map is a decision-support artifact consumed by account teams, playbooks, and governance workflows across the system.
+The Tech Signal Analyzer is the intelligence-generation half of the Technology Scout pipeline. It takes raw scan data from the Tech Signal Scanner and transforms it into a structured signal map: assigning technologies to rings (Adopt, Trial, Assess, Hold) and quadrants (Techniques, Tools, Platforms, Languages & Frameworks), calculating trends, detecting new technologies, and identifying competitive displacement opportunities. The resulting map is a decision-support artifact consumed by account teams, playbooks, and governance workflows across the system.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
 | Agent ID | `tech_signal_analyzer_agent` |
-| Team | `tech_signal_map` |
+| Team | `technology_scout` |
 | Category | Intelligence |
 | Purpose | Analyze job posting data to generate and update technology signal maps for realms |
 
@@ -62,9 +62,9 @@ The Analyzer activates primarily when scan data becomes available, supplemented 
 
 | Receiving Agent | Signal | Context |
 |-----------------|--------|---------|
-| SA Agent | `SIG_TECH_001` (tech_signal_map_updated), `SIG_TECH_002` (new_technology_detected) | Updated map for architecture decisions |
-| CI Agent | `SIG_TECH_001` (tech_signal_map_updated), `SIG_TECH_003` (technology_trending) | Competitive intelligence, trending technologies |
-| AE Agent | `SIG_TECH_001` (tech_signal_map_updated) | Account-level technology landscape |
+| SA Agent | `SIG_TECH_001` (technology_scout_updated), `SIG_TECH_002` (new_technology_detected) | Updated map for architecture decisions |
+| CI Agent | `SIG_TECH_001` (technology_scout_updated), `SIG_TECH_003` (technology_trending) | Competitive intelligence, trending technologies |
+| AE Agent | `SIG_TECH_001` (technology_scout_updated) | Account-level technology landscape |
 | PM Agent | `SIG_TECH_002` (new_technology_detected) | New technology for roadmap consideration |
 
 ### Inbound
@@ -93,5 +93,5 @@ The Analyzer does not escalate in the traditional sense. Instead, it emits signa
 
 ## Source Files
 
-- Agent config: `domain/agents/tech_signal_map/agents/tech_signal_analyzer_agent.yaml`
-- Config reference: `domain/agents/tech_signal_map/config/tech_signal_map_config.yaml`
+- Agent config: `domain/agents/technology_scout/agents/tech_signal_analyzer_agent.yaml`
+- Config reference: `domain/agents/technology_scout/config/technology_scout_config.yaml`

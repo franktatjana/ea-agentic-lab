@@ -1,8 +1,8 @@
 """
-Tech Signal Map API Router
+Technology Scout API Router
 Endpoints for technology intelligence based on job posting data
 
-The Tech Signal Map is a decision-support artifact embedded into playbooks,
+The Technology Scout is a decision-support artifact embedded into playbooks,
 governance, and agent workflows. Inspired by multiple industry models including
 technology radars, but adapted for decision governance and agent-based operations.
 """
@@ -55,7 +55,7 @@ async def get_tech_radar(
     if not radar:
         raise HTTPException(
             status_code=404,
-            detail=f"Tech Signal Map not found for realm {realm_id}"
+            detail=f"Technology Scout not found for realm {realm_id}"
         )
 
     return TechRadarResponse(
@@ -83,7 +83,7 @@ async def list_technologies(
     if not radar:
         raise HTTPException(
             status_code=404,
-            detail=f"Tech Signal Map not found for realm {realm_id}"
+            detail=f"Technology Scout not found for realm {realm_id}"
         )
 
     technologies = radar.technologies
@@ -129,7 +129,7 @@ async def export_tech_radar(
     if not radar:
         raise HTTPException(
             status_code=404,
-            detail=f"Tech Signal Map not found for realm {realm_id}"
+            detail=f"Technology Scout not found for realm {realm_id}"
         )
 
     entries = service.export_standard_format(radar, format)
@@ -158,13 +158,13 @@ async def download_tech_radar(
     if not radar:
         raise HTTPException(
             status_code=404,
-            detail=f"Tech Signal Map not found for realm {realm_id}"
+            detail=f"Technology Scout not found for realm {realm_id}"
         )
 
     content = service.generate_export_file(radar, format)
 
     media_type = "text/csv" if format == "csv" else "application/json"
-    filename = f"{realm_id.lower()}_tech_signal_map.{format}"
+    filename = f"{realm_id.lower()}_technology_scout.{format}"
 
     return StreamingResponse(
         io.StringIO(content),
@@ -348,7 +348,7 @@ async def get_competitive_insights(
     if not radar:
         raise HTTPException(
             status_code=404,
-            detail=f"Tech Signal Map not found for realm {realm_id}"
+            detail=f"Technology Scout not found for realm {realm_id}"
         )
 
     # Extract competitor technologies
@@ -397,7 +397,7 @@ async def get_radar_highlights(
     if not radar:
         raise HTTPException(
             status_code=404,
-            detail=f"Tech Signal Map not found for realm {realm_id}"
+            detail=f"Technology Scout not found for realm {realm_id}"
         )
 
     return {

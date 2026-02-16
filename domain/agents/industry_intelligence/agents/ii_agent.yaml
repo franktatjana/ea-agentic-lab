@@ -1,0 +1,224 @@
+# Industry Intelligence Agent Configuration
+# Purpose: Analyze industry strategy, market trends, sector dynamics, and regulatory landscape
+
+agent_id: "ii_agent"
+team: "industry_intelligence"
+category: "intelligence_analysis"
+purpose: "Analyze industry strategy, market trends, sector dynamics, regulatory landscape, and benchmarks for realm companies"
+
+core_functions:
+  - "Research industry structure, key players, and market dynamics"
+  - "Track regulatory landscape and compliance requirements"
+  - "Identify industry benchmarks and best practices"
+  - "Monitor sector-level trends that affect customer strategy"
+  - "Produce industry deep-dive reports for realm context"
+  - "Register all sources in shared source registry for cluster-wide reuse"
+
+mechanics:
+  - "Industry analysis from analyst reports, market sizing data, competitive landscapes"
+  - "Regulatory monitoring from government publications and industry body announcements"
+  - "Trend detection from industry publications, conference agendas, and analyst forecasts"
+  - "Benchmark extraction from industry surveys and public financial data"
+  - "Source deduplication via shared source registry before fetching"
+  - "Cross-realm pattern detection when multiple realms share an industry"
+
+trigger:
+  events:
+    - "manual_analysis_requested"
+    - "realm_created"
+    - signal_id: "SIG_MNA_001"
+      filter: "contains_industry_trends == true"
+    - signal_id: "SIG_MNA_002"
+      filter: "category in ['regulatory', 'industry_shift', 'market_consolidation']"
+  schedule:
+    - cron: "0 4 1 * *"        # Monthly deep analysis on 1st
+    - cron: "0 4 * * 1"        # Weekly trend scan on Mondays
+
+inputs:
+  sources:
+    - type: "industry_reports"
+      description: "Industry analyst report summaries (Gartner, Forrester, IDC)"
+      requires_auth: true
+    - type: "regulatory_bodies"
+      description: "Government and regulatory body publications"
+      requires_auth: false
+    - type: "industry_associations"
+      description: "Trade associations, industry forums, standards bodies"
+      requires_auth: false
+    - type: "financial_data"
+      description: "Industry financial benchmarks, market sizing, public company comparisons"
+      requires_auth: false
+    - type: "conference_agendas"
+      description: "Industry conference programs and keynote summaries"
+      requires_auth: false
+  realm_data:
+    - "{realm}/realm_profile.yaml"
+    - "{realm}/intelligence/source_registry.yaml"
+  intelligence_data:
+    - "{realm}/intelligence/market_news/realm_digest.yaml"
+    - "{realm}/intelligence/account_intelligence/company_profile.yaml"
+
+parameters:
+  analysis_depth:
+    default: "standard"
+    values: ["light", "standard", "deep"]
+    description: "Depth of industry analysis (light=overview, standard=+benchmarks, deep=+regulatory)"
+  trend_lookback_months:
+    default: 6
+    min: 1
+    max: 24
+    description: "Months of trend history to analyze"
+  regulatory_scan_regions:
+    default: ["US", "EU"]
+    description: "Regulatory jurisdictions to monitor"
+  source_freshness_days:
+    default: 30
+    description: "Reuse sources from registry if accessed within this many days"
+
+processing:
+  industry_analysis:
+    - id: "map_industry_structure"
+      description: "Identify industry segments, market size, growth rate, key players"
+      sources: ["industry_reports", "financial_data"]
+    - id: "analyze_competitive_dynamics"
+      description: "Porter's Five Forces-style analysis of industry competitive landscape"
+      sources: ["industry_reports", "industry_associations"]
+    - id: "extract_benchmarks"
+      description: "Identify industry KPIs, IT spending ratios, digital maturity benchmarks"
+      sources: ["industry_reports", "financial_data"]
+
+  regulatory_monitoring:
+    - id: "scan_regulatory_changes"
+      description: "Track new and proposed regulations affecting the industry"
+      sources: ["regulatory_bodies"]
+    - id: "assess_compliance_impact"
+      description: "Evaluate how regulatory changes affect customer operations and vendor opportunities"
+      context: ["realm_profile.industry", "node_profiles"]
+
+  trend_detection:
+    - id: "identify_macro_trends"
+      description: "Detect industry-level trends (consolidation, transformation, disruption)"
+      sources: ["industry_reports", "conference_agendas", "industry_associations"]
+    - id: "classify_trend_maturity"
+      description: "Classify trends as emerging, accelerating, mature, or declining"
+      method: "llm_analysis"
+    - id: "assess_vendor_relevance"
+      description: "Evaluate how each trend creates opportunities or threats for vendor engagement"
+      context: ["vendor_offerings", "active_nodes"]
+
+outputs:
+  artifacts:
+    - type: "industry_profile"
+      path: "{realm}/intelligence/industry_intelligence/industry_profile.yaml"
+      format: "yaml"
+      update_frequency: "monthly"
+      description: "Comprehensive industry analysis including structure, players, benchmarks"
+    - type: "trend_analysis"
+      path: "{realm}/intelligence/industry_intelligence/trend_analysis.yaml"
+      format: "yaml"
+      update_frequency: "weekly"
+      description: "Active industry trends with maturity classification and vendor relevance"
+    - type: "regulatory_landscape"
+      path: "{realm}/intelligence/industry_intelligence/regulatory_landscape.yaml"
+      format: "yaml"
+      update_frequency: "monthly"
+      description: "Regulatory environment, compliance requirements, and upcoming changes"
+    - type: "source_registry_entries"
+      path: "{realm}/intelligence/source_registry.yaml"
+      format: "yaml_append"
+      description: "Registers all sources used during research"
+
+  signals:
+    - signal_id: "SIG_II_001"
+      name: "industry_intelligence_updated"
+      emitted_when: "Industry profile or trend analysis is refreshed"
+      payload:
+        - realm_id
+        - industry
+        - updated_at
+        - sections_updated
+
+    - signal_id: "SIG_II_002"
+      name: "industry_trend_detected"
+      emitted_when: "Significant industry trend identified or trend maturity changes"
+      payload:
+        - realm_id
+        - trend_name
+        - trend_category
+        - impact_assessment
+        - source
+        - confidence
+        - detected_at
+
+    - signal_id: "SIG_II_003"
+      name: "regulatory_change_detected"
+      emitted_when: "Regulatory change affecting customer's industry is detected"
+      payload:
+        - realm_id
+        - regulation_name
+        - regulatory_body
+        - effective_date
+        - compliance_deadline
+        - impact_on_engagement
+        - affected_nodes
+        - source
+        - detected_at
+
+error_handling:
+  source_unavailable:
+    action: "log_and_continue"
+    fallback: "skip_source"
+  rate_limit_exceeded:
+    action: "backoff_and_retry"
+    max_retries: 3
+    backoff_minutes: [5, 15, 60]
+  insufficient_industry_data:
+    action: "mark_low_confidence"
+    description: "Proceed with available data, flag gaps in coverage"
+
+quality_gates:
+  - "industry_profile has market_size and key_players"
+  - "at_least_three_trends_identified"
+  - "regulatory_landscape covers primary jurisdictions"
+  - "all_entries_have_source_reference"
+  - "trend_classifications_are_justified"
+
+integrations:
+  reads_from:
+    - "realm_profile"
+    - "source_registry"
+    - "market_news_digest"
+    - "account_intelligence_company_profile"
+  writes_to:
+    - "industry_profile"
+    - "trend_analysis"
+    - "regulatory_landscape"
+    - "source_registry"
+  notifies:
+    - "ae_agent"          # Industry context for account strategy
+    - "ci_agent"          # Industry competitive dynamics
+    - "aci_agent"         # Industry context informs company research
+    - "sa_agent"          # Technology trends and regulatory requirements
+    - "risk_radar_agent"  # Regulatory changes create risks
+
+playbooks:
+  owned:
+    - "PB_II_001"  # Industry Deep-Dive
+    - "PB_II_002"  # Trend Analysis
+  contributes_to:
+    - "PB_202"   # PESTLE Analysis - political, economic, regulatory input
+    - "PB_701"   # Five Forces - industry dynamics input
+    - "PB_201"   # SWOT Analysis - external opportunities and threats
+    - "PB_602"   # Account Planning - industry context
+
+personality_file: "teams/industry_intelligence/personalities/ii_personality.yaml"
+prompts_dir: "teams/industry_intelligence/prompts"
+
+metrics:
+  - "industry_profiles_generated"
+  - "trends_identified"
+  - "regulatory_changes_detected"
+  - "sources_registered"
+  - "analysis_duration_seconds"
+  - "cross_realm_patterns_found"
+  - "source_reuse_rate"

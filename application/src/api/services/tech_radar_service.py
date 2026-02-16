@@ -1,8 +1,8 @@
 """
-Tech Signal Map Service
+Technology Scout Service
 Business logic for tech signal map operations
 
-The Tech Signal Map is a decision-support artifact embedded into playbooks,
+The Technology Scout is a decision-support artifact embedded into playbooks,
 governance, and agent workflows. Inspired by multiple industry models including
 technology radars, but adapted for decision governance and agent-based operations.
 """
@@ -55,17 +55,17 @@ class TechRadarService:
         self.classifier = classifier or get_technology_classifier()
         self._active_scans: dict[str, JobScanResult] = {}
 
-    def _get_tech_signal_map_path(self, realm_id: str) -> Path:
+    def _get_technology_scout_path(self, realm_id: str) -> Path:
         """Get path to tech signal map directory for a realm"""
-        return self.infohub_path / realm_id / "intelligence" / "tech_signal_map"
+        return self.infohub_path / realm_id / "intelligence" / "technology_scout"
 
     def _get_current_map_path(self, realm_id: str) -> Path:
         """Get path to current signal map file"""
-        return self._get_tech_signal_map_path(realm_id) / "current_map.yaml"
+        return self._get_technology_scout_path(realm_id) / "current_map.yaml"
 
     def _get_history_path(self, realm_id: str) -> Path:
         """Get path to signal map history directory"""
-        return self._get_tech_signal_map_path(realm_id) / "map_history"
+        return self._get_technology_scout_path(realm_id) / "map_history"
 
     def realm_exists(self, realm_id: str) -> bool:
         """Check if a realm exists"""

@@ -446,7 +446,7 @@ class TestCoverageAnalysis:
             "partners", "support", "product_managers",  # Documented gaps (no playbooks yet)
             "management", "infohub",                     # Empty, ready for future
             "governance", "leadership", "infosec",       # Governance agents use operational playbooks
-            "market_news_analysis", "tech_signal_map",   # Intelligence agents use operational playbooks
+            "market_news_analysis", "technology_scout",   # Intelligence agents use operational playbooks
             "retrospective", "professional_services",    # Share playbooks with AE/SA teams
             "rfp",                                       # Covered by rfp_response/ folder
             "poc",                                       # Covered by proof_of_concept/ folder

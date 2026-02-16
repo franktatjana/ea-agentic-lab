@@ -49,8 +49,11 @@ This document provides human context. The YAML file is what agents and system co
 │  SIG_HLT_*     Health           Risks, health scores, overdue items         │
 │  SIG_GOV_*     Governance       Decisions, escalations                      │
 │  SIG_PB_*      Playbook         Execution start, completion, steps          │
-│  SIG_TECH_*    Tech Signal Map  Technology trends, job scans, insights      │
+│  SIG_TECH_*    Technology Scout  Technology trends, job scans, insights      │
 │  SIG_MNA_*     Market News      Company, industry, solution-domain news    │
+│  SIG_ACI_*     Account Intel    Account research, orgcharts, opportunities │
+│  SIG_TSCT_*    Tech Scout Ext   Vendor landscapes, technology adoption     │
+│  SIG_II_*      Industry Intel   Industry trends, regulatory changes        │
 │  SIG_CUSTOM_*  Custom           User-defined (requires validation)          │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -276,16 +279,16 @@ This document provides human context. The YAML file is what agents and system co
 | SIG_PB_002 | `playbook_completed` | Playbook Engine | Orchestration Agent, Dependent Processes |
 | SIG_PB_003 | `playbook_step_completed` | Playbook Engine | Orchestration Agent |
 
-### Tech Signal Map Signals (SIG_TECH_*)
+### Technology Scout Signals (SIG_TECH_*)
 
 | Signal ID | Name | Producer | Key Consumers |
 |-----------|------|----------|---------------|
-| SIG_TECH_001 | `tech_signal_map_updated` | Tech Signal Analyzer Agent | SA Agent, CI Agent, AE Agent |
+| SIG_TECH_001 | `technology_scout_updated` | Tech Signal Analyzer Agent | SA Agent, CI Agent, AE Agent |
 | SIG_TECH_002 | `new_technology_detected` | Tech Signal Analyzer Agent | SA Agent, PM Agent |
 | SIG_TECH_003 | `technology_trending` | Tech Signal Analyzer Agent | SA Agent, CI Agent |
 | SIG_TECH_004 | `job_scan_completed` | Tech Signal Scanner Agent | Tech Signal Analyzer Agent |
 
-For detailed Tech Signal Map documentation, see: [Tech Signal Map Architecture](tech-signal-map.md)
+For detailed Technology Scout documentation, see: [Technology Scout Architecture](tech-signal-map.md)
 
 ### Market News Analysis Signals (SIG_MNA_*)
 
@@ -294,6 +297,29 @@ For detailed Tech Signal Map documentation, see: [Tech Signal Map Architecture](
 | SIG_MNA_001 | `market_news_digest_updated` | Market News Analysis Agent | AE Agent, SA Agent, Risk Radar |
 | SIG_MNA_002 | `high_impact_news_detected` | Market News Analysis Agent | AE Agent, Risk Radar, Orchestration Agent |
 | SIG_MNA_003 | `competitive_news_detected` | Market News Analysis Agent | CI Agent, SA Agent, AE Agent |
+
+### Account Intelligence Signals (SIG_ACI_*)
+
+| Signal ID | Name | Producer | Key Consumers |
+|-----------|------|----------|---------------|
+| SIG_ACI_001 | `account_intelligence_updated` | ACI Agent | AE Agent, CI Agent, II Agent, SA Agent |
+| SIG_ACI_002 | `organigram_updated` | ACI Agent | AE Agent, SA Agent |
+| SIG_ACI_003 | `new_opportunity_identified` | ACI Agent | AE Agent, SA Agent |
+
+### Technology Scout Extended Signals (SIG_TSCT_*)
+
+| Signal ID | Name | Producer | Key Consumers |
+|-----------|------|----------|---------------|
+| SIG_TSCT_001 | `vendor_landscape_updated` | Tech Signal Analyzer Agent | CI Agent, SA Agent, AE Agent |
+| SIG_TSCT_002 | `technology_adoption_signal` | Tech Signal Analyzer Agent | SA Agent, CI Agent, ACI Agent |
+
+### Industry Intelligence Signals (SIG_II_*)
+
+| Signal ID | Name | Producer | Key Consumers |
+|-----------|------|----------|---------------|
+| SIG_II_001 | `industry_intelligence_updated` | II Agent | AE Agent, CI Agent, ACI Agent, SA Agent |
+| SIG_II_002 | `industry_trend_detected` | II Agent | AE Agent, CI Agent, SA Agent |
+| SIG_II_003 | `regulatory_change_detected` | II Agent | AE Agent, SA Agent, Risk Radar Agent |
 
 ---
 
@@ -426,12 +452,12 @@ Which agents subscribe to which signals:
 | Agent | Subscribes To |
 |-------|---------------|
 | **Orchestration Agent** | SIG_LC_*, SIG_PB_* |
-| **AE Agent** | SIG_COM_*, SIG_STK_001, SIG_HLT_001, SIG_TECH_001, SIG_MNA_001, SIG_MNA_002 |
-| **SA Agent** | SIG_ART_004, SIG_COM_001, SIG_COM_003, SIG_TECH_001, SIG_TECH_002, SIG_TECH_003, SIG_MNA_001, SIG_MNA_003 |
+| **AE Agent** | SIG_COM_*, SIG_STK_001, SIG_HLT_001, SIG_TECH_001, SIG_MNA_001, SIG_MNA_002, SIG_ACI_001, SIG_ACI_002, SIG_ACI_003, SIG_TSCT_001, SIG_II_001, SIG_II_002, SIG_II_003 |
+| **SA Agent** | SIG_ART_004, SIG_COM_001, SIG_COM_003, SIG_TECH_001, SIG_TECH_002, SIG_TECH_003, SIG_MNA_001, SIG_MNA_003, SIG_ACI_001, SIG_ACI_002, SIG_ACI_003, SIG_TSCT_001, SIG_TSCT_002, SIG_II_001, SIG_II_002 |
 | **CA Agent** | SIG_LC_003, SIG_COM_002, SIG_HLT_003 |
-| **CI Agent** | SIG_COM_003, SIG_TECH_001, SIG_TECH_003, SIG_MNA_003 |
+| **CI Agent** | SIG_COM_003, SIG_TECH_001, SIG_TECH_003, SIG_MNA_003, SIG_ACI_001, SIG_TSCT_001, SIG_TSCT_002, SIG_II_001, SIG_II_002 |
 | **PM Agent** | SIG_TECH_002 |
-| **Risk Radar Agent** | SIG_ART_003, SIG_STK_002, SIG_HLT_*, SIG_MNA_001, SIG_MNA_002 |
+| **Risk Radar Agent** | SIG_ART_003, SIG_STK_002, SIG_HLT_*, SIG_MNA_001, SIG_MNA_002, SIG_II_003 |
 | **Governance Agent** | SIG_LC_002, SIG_HLT_001, SIG_HLT_003, SIG_HLT_004 |
 | **InfoHub Curator** | SIG_ART_001, SIG_ART_002, SIG_GOV_001 |
 | **Nudger Agent** | SIG_LC_002, SIG_HLT_003, SIG_HLT_004 |
@@ -444,6 +470,8 @@ Which agents subscribe to which signals:
 | **Audit Logger** | SIG_GOV_002, SIG_GOV_003, SIG_PB_001, SIG_PB_002 |
 | **Tech Signal Analyzer Agent** | SIG_TECH_004 |
 | **Market News Analysis Agent** | SIG_LC_001, SIG_MNA_001 |
+| **ACI Agent** | SIG_ACI_*, SIG_TSCT_002, SIG_II_001 |
+| **II Agent** | SIG_II_*, SIG_ACI_001 |
 
 ---
 

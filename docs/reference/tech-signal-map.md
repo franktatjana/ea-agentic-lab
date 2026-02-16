@@ -1,4 +1,4 @@
-# Tech Signal Map
+# Technology Scout
 
 **Version:** 1.0
 **Date:** 2026-01-21
@@ -8,7 +8,7 @@
 
 ## Overview
 
-The **Tech Signal Map** is a decision-support artifact embedded into playbooks, governance, and agent workflows. It provides **technology intelligence** for each realm by analyzing job postings from associated companies.
+The **Technology Scout** is a decision-support artifact embedded into playbooks, governance, and agent workflows. It provides **technology intelligence** for each realm by analyzing job postings from associated companies.
 
 > *Inspired by multiple industry models, including technology radars, but adapted for decision governance and agent-based operations.*
 
@@ -36,7 +36,7 @@ The **Tech Signal Map** is a decision-support artifact embedded into playbooks, 
   │  Tech Signal    │────────────────────────│   InfoHub           │
   │  Analyzer Agent │   Writes signal map    │   {realm}/          │
   └────────┬────────┘                        │   intelligence/     │
-           │                                 │   tech_signal_map/  │
+           │                                 │   technology_scout/  │
            │ SIG_TECH_001/002/003            │   • current_map     │
            ▼                                 │   • map_history/    │
                                              └─────────────────────┘
@@ -56,11 +56,11 @@ The **Tech Signal Map** is a decision-support artifact embedded into playbooks, 
 
 ## Signal Reference
 
-### Tech Signal Map Signals (SIG_TECH_*)
+### Technology Scout Signals (SIG_TECH_*)
 
 | Signal ID | Name | Producer | Key Consumers |
 |-----------|------|----------|---------------|
-| SIG_TECH_001 | `tech_signal_map_updated` | Tech Signal Analyzer Agent | SA, AE, CI Agents |
+| SIG_TECH_001 | `technology_scout_updated` | Tech Signal Analyzer Agent | SA, AE, CI Agents |
 | SIG_TECH_002 | `new_technology_detected` | Tech Signal Analyzer Agent | SA, PM Agents |
 | SIG_TECH_003 | `technology_trending` | Tech Signal Analyzer Agent | SA, CI Agents |
 | SIG_TECH_004 | `job_scan_completed` | Tech Signal Scanner Agent | Analyzer Agent |
@@ -212,9 +212,9 @@ Competitor tools are automatically flagged:
 
 ## Integration with Playbooks
 
-The Tech Signal Map is a decision-support artifact designed to integrate seamlessly with governance playbooks and agent workflows.
+The Technology Scout is a decision-support artifact designed to integrate seamlessly with governance playbooks and agent workflows.
 
-### Playbooks That Consume Tech Signal Map
+### Playbooks That Consume Technology Scout
 
 | Playbook | Integration Point |
 |----------|-------------------|
@@ -223,6 +223,17 @@ The Tech Signal Map is a decision-support artifact designed to integrate seamles
 | **MEDDPICC** | Economic buyer technology priorities |
 | **Value Engineering** | Quantify value based on tech investments |
 | **Tech Trend Response** | Triggered by competitor tech signals |
+
+### Extended Intelligence Signals (SIG_TSCT_*)
+
+The Technology Scout also emits extended signals for vendor landscape and adoption analysis:
+
+| Signal ID | Name | Producer | Key Consumers |
+|-----------|------|----------|---------------|
+| SIG_TSCT_001 | `vendor_landscape_updated` | Tech Signal Analyzer Agent | CI, SA, AE Agents |
+| SIG_TSCT_002 | `technology_adoption_signal` | Tech Signal Analyzer Agent | SA, CI, ACI Agents |
+
+These signals complement the core SIG_TECH_* signals and feed into the broader Intelligence Cluster (Account Intelligence, Industry Intelligence).
 
 ### Signal Subscriptions
 
@@ -237,6 +248,11 @@ subscriptions:
   - signal: "SIG_TECH_003"
     condition: "trend_direction == 'down' AND is_competitor"
     action: "Identify displacement opportunity"
+  - signal: "SIG_TSCT_001"
+    action: "Review vendor landscape changes for competitive positioning"
+  - signal: "SIG_TSCT_002"
+    condition: "adoption_strength_change OR new_vendor"
+    action: "Evaluate technology adoption signal for account strategy"
 ```
 
 ---
@@ -277,7 +293,7 @@ LegacySIEM,Hold,Tools,FALSE,Legacy SIEM being phased out
 
 ### Technology Patterns
 
-Defined in `config/tech_signal_map_config.yaml`:
+Defined in `config/technology_scout_config.yaml`:
 
 ```yaml
 technology_patterns:
@@ -344,11 +360,11 @@ ring_rules:
 
 ## Related Documentation
 
-- [config/tech_signal_map_config.yaml](../../domain/catalogs/tech_signal_map_config.yaml) - Technology taxonomy
+- [config/technology_scout_config.yaml](../../domain/catalogs/technology_scout_config.yaml) - Technology taxonomy
 - [config/signal_catalog.yaml](../../domain/catalogs/signal_catalog.yaml) - Signal definitions
-- [agents/tech_signal_map/](../../domain/agents/tech_signal_map/agents/) - Agent configurations
+- [agents/technology_scout/](../../domain/agents/technology_scout/agents/) - Agent configurations
 - [Signal Catalog](signal-catalog.md) - All system signals
 
 ---
 
-**This document is the canonical reference for the Tech Signal Map system.**
+**This document is the canonical reference for the Technology Scout system.**

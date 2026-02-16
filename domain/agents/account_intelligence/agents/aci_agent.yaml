@@ -1,0 +1,234 @@
+# Account Intelligence Agent Configuration
+# Purpose: Research companies from public sources, build organigrams, identify opportunities
+
+agent_id: "aci_agent"
+team: "account_intelligence"
+category: "intelligence_analysis"
+purpose: "Research companies from public sources, build organigrams, map business strategy, and identify new opportunities"
+
+core_functions:
+  - "Research company structure, business lines, and strategy from public sources"
+  - "Build and maintain organigram (org hierarchy organized by business lines)"
+  - "Summarize current business relationship and identify expansion potential"
+  - "Track company strategy evolution from annual reports and press releases"
+  - "Identify new business opportunities aligned with company strategic initiatives"
+  - "Register all sources in shared source registry for cluster-wide reuse"
+
+mechanics:
+  - "Deep-dive research from annual reports, investor pages, press releases, SEC filings"
+  - "Org hierarchy extraction from LinkedIn company pages, leadership directories"
+  - "Business line analysis from earnings reports and segment disclosures"
+  - "Opportunity identification by mapping company strategy to vendor capabilities"
+  - "Source deduplication via shared source registry before fetching"
+  - "Delta detection between refresh cycles to surface meaningful changes"
+
+trigger:
+  events:
+    - "manual_research_requested"
+    - "realm_created"
+    - signal_id: "SIG_MNA_002"
+      filter: "category in ['leadership_change', 'merger_acquisition', 'strategy_shift']"
+  schedule:
+    - cron: "0 3 1 * *"        # Monthly full refresh on 1st
+
+inputs:
+  sources:
+    - type: "annual_reports"
+      description: "Company annual reports, 10-K filings, investor presentations"
+      requires_auth: false
+    - type: "press_releases"
+      description: "Company press release pages and PR wires"
+      requires_auth: false
+    - type: "linkedin_company"
+      description: "LinkedIn company pages, leadership profiles, org structure"
+      requires_auth: true
+      rate_limit: 50
+    - type: "company_website"
+      description: "Company about pages, leadership directory, investor relations"
+      requires_auth: false
+    - type: "sec_filings"
+      description: "SEC EDGAR filings for public companies (10-K, 10-Q, proxy)"
+      requires_auth: false
+  realm_data:
+    - "{realm}/realm_profile.yaml"
+    - "{realm}/intelligence/source_registry.yaml"
+  intelligence_data:
+    - "{realm}/intelligence/market_news/realm_digest.yaml"
+
+parameters:
+  research_depth:
+    default: "standard"
+    values: ["light", "standard", "deep"]
+    description: "Depth of initial research (light=website only, standard=+filings, deep=+LinkedIn)"
+  refresh_lookback_days:
+    default: 30
+    min: 7
+    max: 90
+    description: "Days of changes to consider during periodic refresh"
+  organigram_confidence_threshold:
+    default: 0.6
+    min: 0.0
+    max: 1.0
+    description: "Minimum confidence to include a person in the organigram"
+  source_freshness_days:
+    default: 30
+    description: "Reuse sources from registry if accessed within this many days"
+
+processing:
+  company_research:
+    - id: "gather_company_basics"
+      description: "Extract company overview, business description, HQ, employees, revenue"
+      sources: ["company_website", "annual_reports", "sec_filings"]
+    - id: "analyze_business_lines"
+      description: "Identify revenue segments, business lines, geographic breakdown"
+      sources: ["annual_reports", "sec_filings"]
+    - id: "extract_strategy"
+      description: "Identify strategic initiatives, digital transformation, M&A activity"
+      sources: ["annual_reports", "press_releases"]
+
+  organigram_building:
+    - id: "identify_leadership"
+      description: "Extract C-suite and VP-level leadership from public sources"
+      sources: ["company_website", "linkedin_company", "press_releases"]
+    - id: "map_business_line_heads"
+      description: "Map leaders to business lines and departments"
+      sources: ["linkedin_company", "annual_reports"]
+    - id: "build_decision_chains"
+      description: "Identify decision-making chains for IT, security, operations"
+      sources: ["linkedin_company"]
+
+  opportunity_identification:
+    - id: "map_strategy_to_capabilities"
+      description: "Match company strategic initiatives to vendor product capabilities"
+      inputs: ["company_strategy", "vendor_offerings"]
+    - id: "identify_whitespace"
+      description: "Find business lines and departments not yet engaged"
+      inputs: ["organigram", "existing_nodes"]
+
+outputs:
+  artifacts:
+    - type: "company_profile"
+      path: "{realm}/intelligence/account_intelligence/company_profile.yaml"
+      format: "yaml"
+      update_frequency: "monthly"
+      description: "Detailed company research beyond realm_profile basics"
+    - type: "organigram"
+      path: "{realm}/intelligence/account_intelligence/organigram.yaml"
+      format: "yaml"
+      update_frequency: "monthly"
+      description: "Organizational hierarchy by business lines with engagement status"
+    - type: "opportunity_map"
+      path: "{realm}/intelligence/account_intelligence/opportunity_map.yaml"
+      format: "yaml"
+      update_frequency: "monthly"
+      description: "Identified opportunities mapped to business lines and vendor capabilities"
+    - type: "realm_profile_enrichment"
+      path: "{realm}/realm_profile.yaml"
+      section: "company_profile"
+      format: "yaml_merge"
+      description: "Enriches existing company_profile section with deeper research"
+    - type: "source_registry_entries"
+      path: "{realm}/intelligence/source_registry.yaml"
+      format: "yaml_append"
+      description: "Registers all sources used during research"
+
+  signals:
+    - signal_id: "SIG_ACI_001"
+      name: "account_intelligence_updated"
+      emitted_when: "Company profile, organigram, or opportunity map is refreshed"
+      payload:
+        - realm_id
+        - updated_at
+        - sections_updated
+        - new_initiatives_count
+        - leadership_changes_count
+        - sources_used
+
+    - signal_id: "SIG_ACI_002"
+      name: "organigram_updated"
+      emitted_when: "Organigram structure has changed (new leaders, reorg, acquisition integration)"
+      payload:
+        - realm_id
+        - change_type
+        - affected_business_lines
+        - updated_at
+
+    - signal_id: "SIG_ACI_003"
+      name: "new_opportunity_identified"
+      emitted_when: "New business opportunity identified from company research"
+      payload:
+        - realm_id
+        - opportunity_name
+        - opportunity_type
+        - estimated_potential
+        - source
+        - detected_at
+
+error_handling:
+  source_unavailable:
+    action: "log_and_continue"
+    fallback: "skip_source"
+  rate_limit_exceeded:
+    action: "backoff_and_retry"
+    max_retries: 3
+    backoff_minutes: [5, 15, 60]
+  insufficient_public_data:
+    action: "mark_low_confidence"
+    description: "Proceed with available data, flag sections with low confidence"
+
+quality_gates:
+  - "company_profile has business_description"
+  - "at_least_one_business_line_identified"
+  - "ceo_or_top_leadership_identified"
+  - "all_organigram_entries_have_source"
+  - "opportunity_map_references_business_lines"
+
+integrations:
+  reads_from:
+    - "realm_profile"
+    - "source_registry"
+    - "market_news_digest"
+    - "node_profiles"
+  writes_to:
+    - "company_profile"
+    - "organigram"
+    - "opportunity_map"
+    - "source_registry"
+    - "realm_profile.company_profile"
+  notifies:
+    - "ae_agent"          # Commercial strategy, opportunity evaluation
+    - "ci_agent"          # Competitive context from company research
+    - "ii_agent"          # Industry context from company disclosures
+    - "sa_agent"          # Technical engagement planning
+
+skills:
+  owned:
+    - skill_id: "SK_ACI_001"
+      path: "skills/company_research.yaml"
+    - skill_id: "SK_ACI_002"
+      path: "skills/organigram_building.yaml"
+    - skill_id: "SK_ACI_003"
+      path: "skills/opportunity_identification.yaml"
+
+playbooks:
+  owned:
+    - "PB_ACI_001"  # Initial Account Research
+    - "PB_ACI_002"  # Org Mapping
+    - "PB_ACI_003"  # Periodic Refresh
+  contributes_to:
+    - "PB_602"   # Account Planning - company intelligence input
+    - "PB_201"   # SWOT Analysis - company strengths/weaknesses
+    - "PB_203"   # Stakeholder Mapping - organigram feeds stakeholder analysis
+
+personality_file: "teams/account_intelligence/personalities/aci_personality.yaml"
+prompts_dir: "teams/account_intelligence/prompts"
+
+metrics:
+  - "research_cycles_completed"
+  - "sources_registered"
+  - "organigram_entries_count"
+  - "opportunities_identified"
+  - "leadership_changes_detected"
+  - "business_lines_mapped"
+  - "refresh_duration_seconds"
+  - "source_reuse_rate"
