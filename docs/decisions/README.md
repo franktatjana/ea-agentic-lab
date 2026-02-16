@@ -111,6 +111,9 @@ Git history captures file-level changes. The Status History section captures *wh
 | [DDR-011](DDR_011_report_generation_pipeline.md) | Report Generation Pipeline | ACCEPTED |
 | [DDR-012](DDR_012_playbook_metadata_standardization.md) | Playbook Metadata Standardization | ACCEPTED |
 | [DDR-013](DDR_013_knowledge_capture_strategy.md) | Knowledge Capture Strategy | PROPOSED |
+| [DDR-014](DDR_014_knowledge_to_playbook_feedback.md) | Knowledge-to-Playbook Feedback | ACCEPTED |
+| [DDR-015](DDR_015_curator_agent_specialization.md) | Curator Agent Specialization | PROPOSED |
+| [DDR-016](DDR_016_skill_architecture.md) | Skill Architecture | ACCEPTED |
 
 ### Architecture Decision Records
 

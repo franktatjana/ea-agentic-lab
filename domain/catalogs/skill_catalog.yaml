@@ -1,0 +1,190 @@
+# ==============================================================================
+# SKILL CATALOG
+# ==============================================================================
+# Version: 1.0
+# Date: 2026-02-16
+# Status: Canonical Reference
+#
+# Skills are named, composable workflows that sit between atomic prompts
+# (tasks.yaml) and abstract capabilities (playbooks). Each skill is owned
+# by an agent and lives in that agent's team directory.
+#
+# Skills live in: domain/agents/{team}/skills/
+# Template: domain/agents/_templates/skill_template.yaml
+# Architecture decision: DDR-016
+# For human documentation, see: docs/reference/skill-catalog.md
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# SCHEMA VERSION
+# ------------------------------------------------------------------------------
+schema_version: "1.0"
+last_updated: "2026-02-16"
+total_skills: 7
+
+# ------------------------------------------------------------------------------
+# SKILL CATEGORIES
+# ------------------------------------------------------------------------------
+categories:
+  intelligence_gathering:
+    description: "Skills for researching and collecting information from external sources"
+    prefix: "SK_ACI"
+
+  intelligence_analysis:
+    description: "Skills for analyzing collected intelligence and identifying opportunities"
+    prefix: "SK_ACI"
+
+  meeting_processing:
+    description: "Skills for extracting structured data from meetings"
+    prefix: "SK_GOV"
+
+  decision_management:
+    description: "Skills for capturing, registering, and tracking decisions"
+    prefixes: ["SK_GOV", "SK_SA"]
+
+  technical_assessment:
+    description: "Skills for technical discovery and architecture evaluation"
+    prefix: "SK_SA"
+
+# ------------------------------------------------------------------------------
+# SKILL DEFINITIONS
+# ------------------------------------------------------------------------------
+skills:
+
+  # ============================================================================
+  # ACCOUNT INTELLIGENCE SKILLS
+  # ============================================================================
+
+  - skill_id: "SK_ACI_001"
+    name: "Company Research"
+    owner: "aci_agent"
+    team: "account_intelligence"
+    category: "intelligence_gathering"
+    path: "agents/account_intelligence/skills/company_research.yaml"
+    description: "Research a company from public sources to build a comprehensive profile"
+    consumers:
+      - agent: "ae_agent"
+        usage: "Account strategy and commercial planning"
+      - agent: "sa_agent"
+        usage: "Technical engagement preparation"
+      - agent: "ci_agent"
+        usage: "Competitive context from company research"
+
+  - skill_id: "SK_ACI_002"
+    name: "Organigram Building"
+    owner: "aci_agent"
+    team: "account_intelligence"
+    category: "intelligence_gathering"
+    path: "agents/account_intelligence/skills/organigram_building.yaml"
+    description: "Build organizational hierarchy with leadership mapping and decision chains"
+    depends_on: ["SK_ACI_001"]
+    consumers:
+      - agent: "ae_agent"
+        usage: "Stakeholder engagement planning"
+      - agent: "sa_agent"
+        usage: "Technical stakeholder identification"
+
+  - skill_id: "SK_ACI_003"
+    name: "Opportunity Identification"
+    owner: "aci_agent"
+    team: "account_intelligence"
+    category: "intelligence_analysis"
+    path: "agents/account_intelligence/skills/opportunity_identification.yaml"
+    description: "Map company strategy to vendor capabilities and find whitespace"
+    depends_on: ["SK_ACI_001", "SK_ACI_002"]
+    consumers:
+      - agent: "ae_agent"
+        usage: "Pipeline development and deal identification"
+      - agent: "ve_agent"
+        usage: "Value quantification for identified opportunities"
+
+  # ============================================================================
+  # GOVERNANCE SKILLS
+  # ============================================================================
+
+  - skill_id: "SK_GOV_001"
+    name: "Process Meeting Notes"
+    owner: "meeting_notes_agent"
+    team: "governance"
+    category: "meeting_processing"
+    path: "agents/governance/skills/process_meeting.yaml"
+    description: "Extract decisions, actions, risks from meetings into structured output"
+    consumers:
+      - agent: "decision_registrar_agent"
+        usage: "Feed extracted decisions into decision log"
+      - agent: "task_shepherd_agent"
+        usage: "Feed extracted actions into action tracker"
+      - agent: "risk_radar_agent"
+        usage: "Feed extracted risks into risk register"
+
+  - skill_id: "SK_GOV_002"
+    name: "Extract Decisions"
+    owner: "decision_registrar_agent"
+    team: "governance"
+    category: "decision_management"
+    path: "agents/governance/skills/extract_decisions.yaml"
+    description: "Extract, validate, and register decisions from any source"
+    imported_by: ["SK_SA_002"]
+    consumers:
+      - agent: "sa_agent"
+        usage: "Technical decision framing via SK_SA_002"
+      - agent: "reporter_agent"
+        usage: "Weekly decision digest"
+
+  # ============================================================================
+  # SOLUTION ARCHITECT SKILLS
+  # ============================================================================
+
+  - skill_id: "SK_SA_001"
+    name: "Technical Discovery"
+    owner: "sa_agent"
+    team: "solution_architects"
+    category: "technical_assessment"
+    path: "agents/solution_architects/skills/technical_discovery.yaml"
+    description: "Structured technical discovery: outcomes, current state, requirements, synthesis"
+    consumers:
+      - agent: "ae_agent"
+        usage: "Discovery insights for deal strategy"
+      - agent: "specialist_agent"
+        usage: "Specialist engagement when discovery reveals deep-dive needs"
+
+  - skill_id: "SK_SA_002"
+    name: "Decision Capture"
+    owner: "sa_agent"
+    team: "solution_architects"
+    category: "decision_management"
+    path: "agents/solution_architects/skills/decision_capture.yaml"
+    description: "Capture technical decisions, assess architecture impact, generate ADRs"
+    imports: ["SK_GOV_002"]
+    consumers:
+      - agent: "meeting_notes_agent"
+        usage: "Technical decision context for meeting notes"
+      - agent: "ca_agent"
+        usage: "Architecture decisions affecting customer deployments"
+
+# ------------------------------------------------------------------------------
+# SKILL FLOWS
+# ------------------------------------------------------------------------------
+# Named sequences showing how skills compose across agents
+
+skill_flows:
+
+  intelligence_to_strategy:
+    description: "Intelligence gathering feeds account strategy"
+    sequence:
+      - "SK_ACI_001"  # Company Research
+      - "SK_ACI_002"  # Organigram Building
+      - "SK_ACI_003"  # Opportunity Identification
+    feeds_playbooks:
+      - "PB_ACI_001"  # Initial Account Research
+      - "PB_ACI_002"  # Org Mapping
+      - "PB_602"      # Account Planning
+
+  meeting_to_decisions:
+    description: "Meeting processing to decision capture and registration"
+    sequence:
+      - "SK_GOV_001"  # Process Meeting Notes
+      - "SK_GOV_002"  # Extract Decisions
+      - "SK_SA_002"   # Decision Capture (adds technical framing)
+    feeds_playbooks:
+      - "OP_MTG_001"  # Meeting Operations

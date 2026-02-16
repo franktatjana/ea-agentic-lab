@@ -72,13 +72,17 @@ Enforce process, maintain artifacts, and reduce entropy.
 | `governance/` | InfoHub Curator Agent | InfoHub semantic integrity, artifact lifecycle |
 | `governance/` | Knowledge Vault Curator Agent | Vault 3 governance, proposal validation, usage tracking |
 
-### Intelligence Agents
+### Intelligence Agents (6)
+
+The intelligence cluster provides comprehensive account, industry, and technology intelligence from public sources. These agents share a source registry to avoid duplicate research.
 
 | Team Directory | Agent | Purpose |
 |----------------|-------|---------|
-| `tech_signal_map/` | Tech Signal Scanner Agent | Job posting scanning and technology detection |
-| `tech_signal_map/` | Tech Signal Analyzer Agent | Technology trend analysis and radar generation |
-| `market_news_analysis/` | MNA Agent | Company, industry, and solution-domain news intelligence |
+| `account_intelligence/` | ACI Agent | Company research, organigram, business line analysis, opportunity identification |
+| `industry_intelligence/` | II Agent | Industry strategy, market trends, regulatory landscape, sector benchmarks |
+| `technology_scout/` | Tech Signal Scanner Agent | Job posting scanning, tech blog monitoring, vendor announcement detection |
+| `technology_scout/` | Tech Signal Analyzer Agent | Technology trend analysis, vendor landscape, radar generation |
+| `market_news_analysis/` | MNA Agent | Lightweight news monitoring, feeds signals to intelligence cluster |
 
 ### Specialized Agents
 
@@ -96,10 +100,59 @@ teams/{team_name}/
 │   └── {agent}_agent.yaml      # Agent configuration
 ├── personalities/
 │   └── {agent}_personality.yaml # Personality and behavior spec
-└── prompts/
-    ├── tasks.yaml              # Task-specific prompts (CAF format)
-    └── context_template.md     # Context injection template
+├── prompts/
+│   ├── tasks.yaml              # Task-specific prompts (CAF format)
+│   └── context_template.md     # Context injection template
+└── skills/                      # Named, composable workflows (optional)
+    └── {skill_name}.yaml        # Skill definition
 ```
+
+## Skills
+
+Skills are named, composable workflows that sit between atomic prompts (tasks.yaml) and abstract capabilities (playbooks). A skill formalizes what an agent can do with defined inputs, outputs, quality criteria, and guardrails. Skills enable cross-agent composition: one agent can import another agent's skill to build on its output.
+
+Skills are scoped to agent directories following the bounded-context principle. The skill catalog (`domain/catalogs/skill_catalog.yaml`) indexes all skills for cross-agent discovery, following the same pattern as the signal catalog. Architecture decision: DDR-016.
+
+### Skill ID Convention
+
+`SK_{TEAM_PREFIX}_{NNN}` where the prefix matches the team abbreviation:
+
+| Prefix | Team |
+|--------|------|
+| `SK_ACI` | Account Intelligence |
+| `SK_GOV` | Governance |
+| `SK_SA` | Solution Architects |
+| `SK_II` | Industry Intelligence |
+| `SK_TSCT` | Technology Scout |
+
+### Implemented Skills
+
+| Skill ID | Name | Owner | Category |
+|----------|------|-------|----------|
+| SK_ACI_001 | Company Research | aci_agent | intelligence_gathering |
+| SK_ACI_002 | Organigram Building | aci_agent | intelligence_gathering |
+| SK_ACI_003 | Opportunity Identification | aci_agent | intelligence_analysis |
+| SK_GOV_001 | Process Meeting Notes | meeting_notes_agent | meeting_processing |
+| SK_GOV_002 | Extract Decisions | decision_registrar_agent | decision_management |
+| SK_SA_001 | Technical Discovery | sa_agent | technical_assessment |
+| SK_SA_002 | Decision Capture | sa_agent | decision_management |
+
+### Three-Layer Capability Hierarchy
+
+```text
+Prompts (tasks.yaml)  →  Atomic CAF prompts, single-turn
+        ↓
+Skills (skills/)      →  Multi-step workflows, composable across agents
+        ↓
+Playbooks (playbooks/) →  Orchestrated processes, trigger-driven
+```
+
+### Adding a New Skill
+
+1. Create `{skill_name}.yaml` in `domain/agents/{team}/skills/` using `_templates/skill_template.yaml`
+2. Add `skills.owned` entry to the agent's config YAML
+3. Register the skill in `domain/catalogs/skill_catalog.yaml`
+4. If the skill imports from another agent, add `imports` to the skill file and `skills.imports` to the agent config
 
 ## Agent Configuration
 
@@ -192,7 +245,9 @@ The following teams have comprehensive task prompts implemented:
 | `delivery/` | implementation, handoff | 10+ |
 | `partners/` | partner_engagement, joint_planning | 10+ |
 | `competitive_intelligence/` | competitive_analysis, battlecards | 10+ |
-| `tech_signal_map/` | job_scanning, technology_analysis, radar_generation | 8+ |
+| `account_intelligence/` | company_research, organigram, opportunities | 6+ |
+| `industry_intelligence/` | industry_analysis, regulatory, trends | 6+ |
+| `technology_scout/` | scanning, analysis, vendor_landscape, digest | 10+ |
 | `market_news_analysis/` | realm_news, node_news, digests, impact_assessment | 10+ |
 | `product_managers/` | roadmap_alignment, feature_requests | 10+ |
 

@@ -28,6 +28,7 @@ cd ea-agentic-lab
 mkdir -p domain/agents/{team_name}/agents
 mkdir -p domain/agents/{team_name}/personalities
 mkdir -p domain/agents/{team_name}/prompts
+mkdir -p domain/agents/{team_name}/skills       # Optional: for composable workflows
 ```
 
 Example for a "Partner" agent:
@@ -35,6 +36,7 @@ Example for a "Partner" agent:
 mkdir -p domain/agents/partners/agents
 mkdir -p domain/agents/partners/personalities
 mkdir -p domain/agents/partners/prompts
+mkdir -p domain/agents/partners/skills           # Optional
 ```
 
 ### Step 2: Create Agent Configuration
@@ -509,6 +511,17 @@ agents:
     implementation: application/src/agents/partners/partner_agent_impl.py
 ```
 
+### Step 9: Add Skills (Optional)
+
+If your agent has composable, multi-step workflows, create skill files in the `skills/` directory. Use `domain/agents/_templates/skill_template.yaml` as the starting template.
+
+1. Create `domain/agents/{team}/skills/{skill_name}.yaml` following the template
+2. Add `skills.owned` entries to the agent config YAML
+3. Register each skill in `domain/catalogs/skill_catalog.yaml`
+4. If importing skills from other agents, add `skills.imports` to the agent config
+
+See [Skill Catalog Reference](../../reference/skill-catalog.md) for the full schema and conventions.
+
 ## Validation Checklist
 
 - [ ] Agent config YAML is valid
@@ -519,9 +532,11 @@ agents:
 - [ ] Implementation inherits from BaseAgent
 - [ ] Tests cover core functionality
 - [ ] Agent is registered in catalog
+- [ ] If agent owns skills, each skill is registered in skill_catalog.yaml
 
 ## Related Documentation
 
 - [Agent Architecture](../../architecture/agents/agent-architecture.md)
 - [Agent Responsibilities](../../architecture/agents/agent-responsibilities.md)
 - [Base Agent Framework](../../architecture/system/core-entities.md)
+- [Skill Catalog](../../reference/skill-catalog.md)

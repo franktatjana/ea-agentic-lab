@@ -20,6 +20,7 @@ Lookup tables that enumerate all instances of a concept. Each catalog is the sin
 | [blueprint-catalog.md](blueprint-catalog.md) | Blueprint composition: archetypes, engagement tracks, domains, and which playbooks they assemble |
 | [signal-catalog.md](signal-catalog.md) | Signal taxonomy: immutable events that flow between agents, with schemas and routing rules |
 | [tech-signal-map.md](tech-signal-map.md) | Technology intelligence patterns: adoption signals, skills gaps, competitive indicators per realm |
+| [skill-catalog.md](skill-catalog.md) | Named, composable skill workflows owned by agents, indexed for cross-agent discovery |
 
 ## InfoHub Structural Specs
 

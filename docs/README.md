@@ -128,6 +128,7 @@ Static lookup materials: catalogs, quick-reference cards, and terminology. These
 | [agent-quick-reference.md](architecture/agents/agent-quick-reference.md) | Quick reference for all 24 agents |
 | [playbook-catalog.md](reference/playbook-catalog.md) | Catalog of all playbooks |
 | [signal-catalog.md](reference/signal-catalog.md) | Signal definitions and routing |
+| [skill-catalog.md](reference/skill-catalog.md) | Skill definitions: composable workflows, cross-agent imports |
 | [framework-catalog.md](reference/framework-catalog.md) | Strategic frameworks (SWOT, BCG, etc.) |
 | [tech-signal-map.md](reference/tech-signal-map.md) | Technology signal intelligence |
 | [TERMINOLOGY_MODEL.md](reference/TERMINOLOGY_MODEL.md) | Project terminology and definitions |
@@ -148,6 +149,7 @@ Every significant choice, whether domain-level or technical, is documented as a 
 | [DDR-002: Canvas Framework](decisions/DDR_002_canvas_framework.md) | Domain | ACCEPTED |
 | [DDR-003: Domain Specialist Agent Pattern](decisions/DDR_003_domain_specialist_agents.md) | Domain | ACCEPTED |
 | [DDR-004: Technology Signal Intelligence](decisions/DDR_004_tech_signal_intelligence.md) | Domain | ACCEPTED |
+| [DDR-016: Skill Architecture](decisions/DDR_016_skill_architecture.md) | Domain | ACCEPTED |
 | [ADR-001: Streamlit Playbook Viewer](decisions/ADR_001_streamlit_playbook_viewer.md) | Architecture | SUPERSEDED |
 | [ADR-002: Next.js Web Application](decisions/ADR_002_nextjs_web_application.md) | Architecture | ACCEPTED |
 | [ADR-003: Multi-UI Architecture Strategy](decisions/ADR_003_multi_ui_architecture.md) | Architecture | ACCEPTED |

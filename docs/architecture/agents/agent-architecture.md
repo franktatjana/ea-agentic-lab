@@ -409,7 +409,12 @@ ea-agentic-lab/
 │   │       └── playbook_curator_agent.yaml
 │   │
 │   ├── solution_architects/                 # Strategic agents
-│   │   └── agents/sa_agent.yaml
+│   │   ├── agents/sa_agent.yaml
+│   │   ├── personalities/sa_personality.yaml
+│   │   ├── prompts/tasks.yaml
+│   │   └── skills/                          # Composable workflows (optional)
+│   │       ├── technical_discovery.yaml
+│   │       └── decision_capture.yaml
 │   ├── account_executives/
 │   │   └── agents/ae_agent.yaml
 │   ├── customer_architects/
@@ -458,6 +463,7 @@ Both categories execute at **Node level only**.
 5. **Human-in-the-Loop** - Escalations, not full autonomy
 6. **Separation of Concerns** - Functional agents (Leadership, Sales, Architecture, Deal Execution, Delivery) vs Governance agents
 7. **Single Decision Authority** - Each decision type has one authoritative playbook
+8. **Three-Layer Capability Model** - Prompts (tasks.yaml) are atomic, skills (skills/) are composable multi-step workflows, playbooks (playbooks/) are orchestrated processes (DDR-016)
 
 ---
 
@@ -494,6 +500,7 @@ Both categories execute at **Node level only**.
 - [Core Entities](../system/core-entities.md) - Blueprint, Realm, Node definitions
 - [Playbook Specification](../playbooks/playbook-execution-specification.md) - Strategic playbooks
 - [Operational Playbook Spec](../playbooks/operational-playbook-spec.md) - Tactical playbooks
+- [Skill Catalog](../../reference/skill-catalog.md) - Composable skill workflows between prompts and playbooks
 
 ---
 
