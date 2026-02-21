@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HelpPopover } from "@/components/help-popover";
-import { EmptyState } from "./shared";
+import { EmptyState, TabHeader } from "./shared";
 
 function InitiativeCard({ item, source }: { item: Record<string, unknown>; source?: string }) {
   const statusColors: Record<string, string> = {
@@ -75,6 +75,7 @@ export function StrategyTab({ realmId, profile }: { realmId: string; profile: Re
 
   return (
     <div className="space-y-6">
+      <TabHeader pageSection="strategy" />
       {companyInitiatives.length > 0 && (
         <Card>
           <CardHeader className="pb-3">

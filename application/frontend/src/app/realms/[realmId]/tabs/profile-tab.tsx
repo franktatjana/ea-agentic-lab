@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HelpPopover } from "@/components/help-popover";
-import { ProfileField } from "./shared";
+import { ProfileField, TabHeader } from "./shared";
 
 export function ProfileTab({ profile }: { profile: Record<string, unknown> }) {
   const company = (profile.company_info || profile.company_profile || profile) as Record<string, unknown>;
@@ -18,6 +18,8 @@ export function ProfileTab({ profile }: { profile: Record<string, unknown> }) {
   const relationship = profile.relationship as Record<string, unknown> | undefined;
 
   return (
+    <div className="space-y-4">
+      <TabHeader pageSection="profile" />
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <Card>
         <CardHeader className="pb-3">
@@ -64,6 +66,7 @@ export function ProfileTab({ profile }: { profile: Record<string, unknown> }) {
           </CardContent>
         </Card>
       )}
+    </div>
     </div>
   );
 }

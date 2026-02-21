@@ -412,6 +412,49 @@ export interface DashboardSummary {
   nodes: DashboardNode[];
 }
 
+// Data Source Panel
+export interface DataSourcePlaybook {
+  playbook_id: string;
+  name: string;
+  objective: string;
+  frequency: string;
+  category: string;
+  trigger_conditions: {
+    automatic?: Array<Record<string, unknown> | string>;
+    manual?: string[];
+  };
+  inputs: Array<Record<string, string> | string>;
+  outputs: Record<string, unknown>;
+  validation_checks: {
+    pre_execution?: string[];
+    post_execution?: string[];
+    output_quality?: string[];
+  };
+}
+
+export interface DataSourceAgent {
+  agent_id: string;
+  purpose: string;
+  team: string;
+  core_functions: string[];
+}
+
+export interface DataSourceEntry {
+  playbook_id?: string;
+  agent_id?: string;
+  source_type?: string;
+  description?: string;
+  section_label?: string;
+  playbook?: DataSourcePlaybook;
+  agent?: DataSourceAgent;
+}
+
+export interface DataSourceResponse {
+  section: string;
+  label: string;
+  sources: DataSourceEntry[];
+}
+
 // Canvas catalog
 export interface CanvasCatalogItem {
   canvas_id: string;

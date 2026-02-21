@@ -4,6 +4,7 @@ import { Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HelpPopover } from "@/components/help-popover";
+import { TabHeader } from "./shared";
 
 export function CompetitiveTab({ profile }: { profile: Record<string, unknown> }) {
   const competitive = (profile.competitive || profile.competitive_landscape) as Record<string, unknown> | undefined;
@@ -12,6 +13,7 @@ export function CompetitiveTab({ profile }: { profile: Record<string, unknown> }
 
   return (
     <div className="space-y-6">
+      <TabHeader pageSection="competitive" />
       {competitors && Array.isArray(competitors) && competitors.length > 0 && (
         <Card>
           <CardHeader className="pb-3">

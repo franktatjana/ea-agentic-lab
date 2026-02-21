@@ -290,4 +290,8 @@ export const api = {
 
   getVendorLandscape: (realmId: string) =>
     fetchApi<Record<string, unknown>>(`/realms/${realmId}/intelligence/vendors`),
+
+  // Data Sources
+  getDataSources: (pageSection: string) =>
+    fetchApi<import("@/types").DataSourceResponse>(`/data-sources/${pageSection}`),
 };

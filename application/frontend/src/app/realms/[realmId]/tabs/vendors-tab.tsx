@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HelpPopover } from "@/components/help-popover";
-import { EmptyState } from "./shared";
+import { EmptyState, TabHeader } from "./shared";
 
 const strengthColors: Record<string, string> = {
   strong: "text-green-400 border-green-400/30",
@@ -37,6 +37,7 @@ export function VendorsTab({ realmId }: { realmId: string }) {
 
   return (
     <div className="space-y-6">
+      <TabHeader pageSection="vendors" />
       {categories.length > 0 && (
         <>
           <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">

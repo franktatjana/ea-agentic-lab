@@ -30,6 +30,7 @@ import { OrganigramTab } from "./tabs/organigram-tab";
 import { VendorsTab } from "./tabs/vendors-tab";
 import { CompetitiveTab } from "./tabs/competitive-tab";
 import { GrowthTab } from "./tabs/growth-tab";
+import { DataSourceProvider, DataSourcePanel } from "@/components/data-source-panel";
 import type { NodeSummary } from "@/types";
 
 function NodeCard({
@@ -121,6 +122,7 @@ export default function RealmDetailPage() {
   const overdueActions = nodes?.reduce((sum, n) => sum + (n.overdue_actions || 0), 0) || 0;
 
   return (
+    <DataSourceProvider>
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-start gap-4">
         <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -250,5 +252,7 @@ export default function RealmDetailPage() {
 
       <CreateNodeDialog realmId={realmId} open={createOpen} onOpenChange={setCreateOpen} />
     </div>
+    <DataSourcePanel />
+    </DataSourceProvider>
   );
 }

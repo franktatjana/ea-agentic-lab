@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { DataSourceTrigger } from "@/components/data-source-panel";
 
 export function ProfileField({
   label,
@@ -39,6 +40,14 @@ export function ProfileField({
         <p className="text-xs text-muted-foreground">{label}</p>
         {renderValue()}
       </div>
+    </div>
+  );
+}
+
+export function TabHeader({ pageSection }: { pageSection: string }) {
+  return (
+    <div className="flex items-center justify-end mb-2">
+      <DataSourceTrigger pageSection={pageSection} />
     </div>
   );
 }

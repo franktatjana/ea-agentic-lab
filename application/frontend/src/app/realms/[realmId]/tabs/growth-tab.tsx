@@ -3,6 +3,7 @@
 import { TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HelpPopover } from "@/components/help-popover";
+import { TabHeader } from "./shared";
 
 export function GrowthTab({ profile }: { profile: Record<string, unknown> }) {
   const growth = (profile.growth || profile.account_growth || profile.growth_strategy) as Record<string, unknown> | undefined;
@@ -29,6 +30,7 @@ export function GrowthTab({ profile }: { profile: Record<string, unknown> }) {
 
   return (
     <div className="space-y-6">
+      <TabHeader pageSection="growth" />
       {objectives && Array.isArray(objectives) && objectives.length > 0 && (
         <Card>
           <CardHeader className="pb-3">

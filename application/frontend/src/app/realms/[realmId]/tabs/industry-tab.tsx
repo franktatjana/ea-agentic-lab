@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HelpPopover } from "@/components/help-popover";
-import { ProfileField, EmptyState } from "./shared";
+import { ProfileField, EmptyState, TabHeader } from "./shared";
 
 export function IndustryTab({ realmId }: { realmId: string }) {
   const { data, isLoading } = useQuery({
@@ -41,6 +41,7 @@ export function IndustryTab({ realmId }: { realmId: string }) {
 
   return (
     <div className="space-y-6">
+      <TabHeader pageSection="industry" />
       {Object.keys(overview).length > 0 && (
         <Card>
           <CardHeader className="pb-3">

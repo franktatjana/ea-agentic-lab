@@ -4,7 +4,7 @@ import { Calendar, CheckCircle2, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HelpPopover } from "@/components/help-popover";
-import { ProfileField, EmptyState } from "./shared";
+import { ProfileField, EmptyState, TabHeader } from "./shared";
 
 export function ActivitiesTab({ profile }: { profile: Record<string, unknown> }) {
   const governance = (profile.governance || {}) as Record<string, unknown>;
@@ -26,6 +26,7 @@ export function ActivitiesTab({ profile }: { profile: Record<string, unknown> })
 
   return (
     <div className="space-y-6">
+      <TabHeader pageSection="activities" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {Object.keys(cadence).length > 0 && (
           <Card>

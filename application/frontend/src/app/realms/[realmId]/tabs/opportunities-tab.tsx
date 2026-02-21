@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HelpPopover } from "@/components/help-popover";
-import { EmptyState } from "./shared";
+import { EmptyState, TabHeader } from "./shared";
 
 export function OpportunitiesTab({ realmId }: { realmId: string }) {
   const { data, isLoading } = useQuery({
@@ -34,6 +34,7 @@ export function OpportunitiesTab({ realmId }: { realmId: string }) {
 
   return (
     <div className="space-y-6">
+      <TabHeader pageSection="opportunities" />
       {Object.keys(summary).length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {!!summary.total_opportunities && (

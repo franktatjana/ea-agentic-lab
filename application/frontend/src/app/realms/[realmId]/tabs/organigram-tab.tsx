@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HelpPopover } from "@/components/help-popover";
-import { EmptyState } from "./shared";
+import { EmptyState, TabHeader } from "./shared";
 
 function PersonBadge({ name, title }: { name: string; title?: string }) {
   return (
@@ -51,6 +51,7 @@ export function OrganigramTab({ realmId }: { realmId: string }) {
 
   return (
     <div className="space-y-6">
+      <TabHeader pageSection="organigram" />
       {Object.keys(ceo).length > 0 && (
         <Card>
           <CardContent className="p-4 flex items-center gap-3">

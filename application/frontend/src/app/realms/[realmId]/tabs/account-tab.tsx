@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HelpPopover } from "@/components/help-popover";
-import { ProfileField, EmptyState } from "./shared";
+import { ProfileField, EmptyState, TabHeader } from "./shared";
 
 export function AccountTab({ realmId }: { realmId: string }) {
   const { data, isLoading } = useQuery({
@@ -25,6 +25,7 @@ export function AccountTab({ realmId }: { realmId: string }) {
 
   return (
     <div className="space-y-6">
+      <TabHeader pageSection="account" />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader className="pb-3">
