@@ -114,6 +114,7 @@ Git history captures file-level changes. The Status History section captures *wh
 | [DDR-014](DDR_014_knowledge_to_playbook_feedback.md) | Knowledge-to-Playbook Feedback | ACCEPTED |
 | [DDR-015](DDR_015_curator_agent_specialization.md) | Curator Agent Specialization | PROPOSED |
 | [DDR-016](DDR_016_skill_architecture.md) | Skill Architecture | ACCEPTED |
+| [DDR-017](DDR_017_support_agent_dissolution.md) | Support Agent Dissolution into Signals and CA Skill | ACCEPTED |
 
 ### Architecture Decision Records
 
