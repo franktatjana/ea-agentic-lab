@@ -263,7 +263,11 @@ ea-agentic-lab/
 - Operating model with RACI assignments across all teams
 - Documentation restructured by reader intent
 
-### Not yet built (runtime layer)
+### Runtime layer (separate project)
+
+The runtime will be a separate project that consumes ea-agentic-lab as a playbook library. This repo stays as the domain specification and browsing tool. The `application/` directory serves as a librarian and demo for exploring the domain model, not as the production runtime.
+
+**Runtime scope (separate repo, TBD):**
 
 - Playbook execution engine (load YAML, run steps, generate outputs)
 - Agent runtime (LLM integration, tool calling, signal processing)
@@ -272,7 +276,8 @@ ea-agentic-lab/
 - Multi-agent orchestration (cross-agent workflows)
 - Report generation pipeline (LLM-synthesized reports from vault data, see DDR-010 future scope)
 - Canvas export (PDF/slide generation from rendered canvases)
-- iOS app connected to backend
+
+**Terminology consideration:** The buyer/deployer of the system is the "Owner" (a software vendor managing enterprise accounts). The `{vendor}` placeholder in playbooks represents the Owner. Nodes are the Owner's customers. Formal glossary to be added when the runtime project is created.
 
 ### Data ownership gaps
 
