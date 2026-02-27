@@ -4,7 +4,7 @@ This directory contains the agent definitions for all agents in the EA Agentic L
 
 ## Agent Categories
 
-[image: Agent Tiers - 28 agents organized in strategic, governance, and specialist layers]
+[image: Agent Tiers - 27 agents organized in strategic, governance, and specialist layers]
 
 ### Leadership Agents (2)
 

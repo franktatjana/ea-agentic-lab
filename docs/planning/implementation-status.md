@@ -135,7 +135,7 @@ The three-vault model separates knowledge by audience and sensitivity (see [DDR-
 | Internal Account Hub | Per account | Vendor-only | Competitive intel, deal reviews, pricing, risk assessments |
 | Global Knowledge Vault | Cross-account | Vendor-only, anonymized | Best practices, winning patterns, tribal knowledge |
 
-All 99 playbooks now include `vault_routing` metadata specifying primary vault, rationale, and secondary outputs.
+All 106 playbooks now include `vault_routing` metadata specifying primary vault, rationale, and secondary outputs.
 
 ### 5. Application
 
