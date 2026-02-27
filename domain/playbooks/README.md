@@ -140,6 +140,26 @@ Implementation and technical delivery playbooks.
 | PB_CS_101 | Security Stage Adoption | Adoption Framework | R: Delivery, A: CA |
 | PB_902 | Tech Trend Response | Trend Analysis | R: Delivery, A: SA |
 
+### Product Managers (`product_managers/`)
+
+Product roadmap alignment and feature gap analysis playbooks.
+
+| ID | Name | Framework | RACI |
+|----|------|-----------|------|
+| PB_PM_001 | Feature Gap Analysis | Product Gap Assessment | R: PM, A: PM Director |
+| PB_PM_002 | Roadmap Alignment | Dependency Mapping | R: PM, A: PM Director |
+| PB_PM_003 | Feature Request Pattern | Cross-Account Aggregation | R: PM, A: PM Director |
+
+### Partners (`partners/`)
+
+Partner engagement and coordination playbooks.
+
+| ID | Name | Framework | RACI |
+|----|------|-----------|------|
+| PB_PTR_001 | Partner Engagement Health | Partner Assessment | R: Partner, A: Partner Mgr |
+| PB_PTR_002 | Partner Dependency Tracking | Dependency Management | R: Partner, A: Partner Mgr |
+| PB_PTR_003 | Joint Account Planning | Joint Planning | R: Partner, A: Partner Mgr |
+
 ### Admins (`admins/`)
 
 System utilities and governance playbooks.
@@ -179,6 +199,7 @@ Micro-playbooks for routine, event-driven operations.
 | OP_ESC_001 | Escalate Blocked Action | action_blocked | Nudger Agent |
 | OP_HLT_001 | Health Score Alert | health_threshold | CA Agent |
 | OP_MTG_001 | Process Meeting Notes | meeting_notes_available | Meeting Notes Agent |
+| OP_COM_001 | Update Commercial Fields | deal_stage_change, stale_data | AE Agent |
 | OP_TECH_001 | Process Technology Scout Update | tech_signal_detected | Tech Signal Agent |
 
 ---
@@ -371,13 +392,12 @@ Override priority (highest wins):
 
 The following agent roles currently have no dedicated playbooks. These gaps should be addressed to ensure every active agent role has at least one playbook.
 
-| Agent Role | Gap | Priority |
-|-----------|-----|----------|
-| Product Manager Agent | No playbooks for product-oriented workflows | Medium |
-| Partner Agent | No playbooks for partner engagement or channel workflows | Medium |
+All agent roles now have dedicated playbooks. No remaining gaps.
 
 **Resolved gaps:**
 
+- ~~Product Manager Agent~~: resolved with PB_PM_001-003 (2026-02-27)
+- ~~Partner Agent~~: resolved with PB_PTR_001-003 (2026-02-27)
 - ~~Delivery Agent~~: resolved with PB_DEL_001-004 (2026-02-27)
 - ~~Support Agent~~: dissolved (2026-02). Support intelligence handled via SIG_SUP_* signals consumed by CA Agent's SK_CA_001 skill. PB_187-190 (Blueprint C06) authored and owned by CA Agent (signal consumer) and PS Agent (DSE coordination).
 
@@ -396,6 +416,7 @@ The following agent roles currently have no dedicated playbooks. These gaps shou
 
 | Version | Date | Changes | Author |
 |---------|------|---------| -------|
+| 2.3 | 2026-02-27 | Added PB_PM_001-003 (PM Agent), PB_PTR_001-003 (Partner Agent), OP_COM_001, RACI on all playbooks, all agent gaps resolved | Tatjana Frank |
 | 2.2 | 2026-02-27 | Added PB_187-190 (C06), PB_DEL_001-004 (Delivery), vault_routing on all playbooks, Delivery gap resolved | Tatjana Frank |
 | 2.1 | 2026-02-11 | Added specialists catalog, documented agent role coverage gaps | Tatjana Frank |
 | 2.0 | 2026-02-03 | Reorganized by team ownership, added RACI | |

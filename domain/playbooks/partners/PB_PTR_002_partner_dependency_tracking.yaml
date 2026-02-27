@@ -1,0 +1,520 @@
+# PLAYBOOK: Partner Dependency Tracking
+# Framework operationalization for AI agents
+# Tracks dependencies between account delivery and partner activities
+
+# ==============================================================================
+# PLAYBOOK STECKBRIEF
+# ==============================================================================
+steckbrief:
+  playbook_id: "PB_PTR_002"
+  name: "Partner Dependency Tracking"
+  category: "partners"
+  mode: "OPERATIONAL"
+  version: "1.0"
+  status: "production_ready"
+
+  one_liner: "Track dependencies between account delivery and partner activities, flag at-risk dependencies, and route mitigations to produce a dependency status report"
+  framework_origin: "Dependency Management & Critical Path Analysis"
+
+  owner_agent: "Partner Agent (partner_agent)"
+  supporting_agents: ["Delivery Agent (delivery timeline)", "SA Agent (technical dependencies)", "AE Agent (commercial dependencies)"]
+
+  triggers_summary:
+    - "New partner dependency registered in account"
+    - "Dependency deadline approaching within 14 days"
+    - "Partner signals delay or blocker on a tracked dependency"
+
+  anti_patterns:
+    - "No active partner dependencies in account (nothing to track)"
+    - "Dependencies are customer-internal with no partner involvement"
+    - "Partner engagement health assessment needed (use PB_PTR_001 instead)"
+    - "Dependency is a one-time handoff already completed"
+
+  key_inputs:
+    - "Account delivery plan with partner dependency map"
+    - "Partner deliverable tracker with deadlines"
+    - "Partner communication logs referencing dependency status"
+
+  key_outputs:
+    - artifact: "Dependency Status Report"
+      format: "yaml"
+    - artifact: "At-Risk Dependency Alerts"
+      format: "yaml"
+    - artifact: "Mitigation Action Items"
+      format: "yaml"
+
+  key_decisions:
+    - "All dependencies on track: continue monitoring at current cadence"
+    - "Dependency at risk: activate mitigation plan, increase monitoring frequency"
+    - "Dependency blocked: escalate to Partner Manager, trigger contingency planning"
+    - "Critical path dependency missed: delivery timeline re-planning required"
+
+  complexity: "MEDIUM"
+  estimated_inputs: 7
+  estimated_rules: 6
+
+  source_file: "domain/playbooks/partners/PB_PTR_002_partner_dependency_tracking.yaml"
+  last_updated: "2026-02-27"
+
+# ==============================================================================
+# VAULT ROUTING
+# ==============================================================================
+vault_routing:
+  primary_vault: "Internal Account Hub"
+  rationale: "Partner alignment and dependency tracking is vendor-internal coordination. Partners receive joint planning outputs but not internal health assessments."
+  secondary_outputs:
+    - vault: "Customer InfoHub"
+      artifact: "Joint account plan deliverables (shared with partner and customer)"
+    - vault: "Global Knowledge Vault"
+      artifact: "Anonymized partner engagement patterns"
+
+# ==============================================================================
+# RACI
+# ==============================================================================
+raci:
+  responsible:
+    role: "partner_agent"
+    agent: "partner_agent"
+    description: "Tracks dependency status, flags risks, routes mitigations"
+
+  accountable:
+    role: "partner_manager"
+    human_required: true
+    description: "Reviews dependency status, approves escalation and contingency plans"
+    approval_actions:
+      - "approve"
+      - "request_revision"
+      - "escalate"
+
+  consulted:
+    - role: "delivery_agent"
+      on_steps: ["delivery_timeline_impact", "critical_path_analysis"]
+    - role: "sa_agent"
+      on_steps: ["technical_dependency_validation", "workaround_assessment"]
+
+  informed:
+    - role: "ae_agent"
+      notify_on: ["critical_dependency_at_risk", "delivery_timeline_impact"]
+    - role: "ca_agent"
+      notify_on: ["customer_facing_dependency_delayed"]
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+playbook_id: "PB_PTR_002"
+framework_name: "Partner Dependency Tracking"
+framework_source: "Dependency Management & Critical Path Analysis"
+playbook_mode: "OPERATIONAL"
+playbook_category: "delivery_execution"
+intended_agent_role: "Partner Agent (partner_agent)"
+secondary_agents: ["Delivery Agent (delivery timeline)", "SA Agent (technical dependencies)", "AE Agent (commercial dependencies)"]
+
+primary_objective: "Continuously track dependencies between account delivery and partner activities, flag at-risk dependencies before they impact delivery, track mitigation status, and route resolution actions to appropriate owners"
+
+when_not_to_use:
+  - "No active partner dependencies in account (nothing to track)"
+  - "Dependencies are customer-internal with no partner involvement"
+  - "Partner engagement health assessment is the primary need (use PB_PTR_001)"
+  - "Joint planning session is needed to establish dependencies (use PB_PTR_003)"
+  - "Dependency is a one-time handoff already completed"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - event: "dependency_registered"
+      description: "New partner dependency added to account dependency tracker"
+      condition: "$.dependency.type == 'partner' AND $.dependency.status == 'new'"
+
+    - event: "dependency_deadline_approaching"
+      description: "Partner dependency due date within 14 days"
+      condition: "$.dependency.days_until_due <= 14 AND $.dependency.status != 'completed'"
+
+    - event: "dependency_overdue"
+      description: "Partner dependency past its due date"
+      condition: "$.dependency.days_overdue > 0 AND $.dependency.status != 'completed'"
+
+    - event: "partner_status_update"
+      description: "Partner provides status update on a tracked dependency"
+      condition: "$.partner.update_received == true AND $.partner.update_references_dependency == true"
+
+    - event: "delivery_milestone_approaching"
+      description: "Delivery milestone that depends on partner output is approaching"
+      condition: "$.milestone.days_until_due <= 21 AND $.milestone.has_partner_dependency == true"
+
+  manual:
+    - "Account team requests dependency status review"
+    - "Partner Manager requests dependency audit before partner business review"
+    - "Delivery Agent flags dependency concern during implementation"
+
+  conditional:
+    - condition: "$.dependencies.at_risk.count >= 2"
+      description: "Multiple partner dependencies flagged as at-risk simultaneously"
+
+    - condition: "$.dependency.on_critical_path == true AND $.dependency.status == 'at_risk'"
+      description: "Critical path dependency is at risk"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "{realm}/{node}/internal-infohub/partners/dependency_tracker.yaml"
+      description: "Partner dependency register with items, owners, deadlines, and status"
+    - artifact: "{realm}/{node}/internal-infohub/delivery/project_plan.yaml"
+      description: "Delivery plan showing where partner dependencies fall in timeline"
+    - artifact: "Partner status updates (communication logs, meeting notes)"
+      description: "Latest partner communications referencing dependency progress"
+
+  optional:
+    - artifact: "{realm}/{node}/internal-infohub/partners/health_scorecard_{partner_id}.yaml"
+      use: "Partner health context to inform dependency risk assessment"
+    - artifact: "{realm}/{node}/internal-infohub/risks/*.md"
+      use: "Existing risks that may relate to partner dependencies"
+    - artifact: "{realm}/{node}/external-infohub/delivery/project_plan.md"
+      use: "Customer-facing timeline for impact assessment"
+    - artifact: "Partner resource allocation plan"
+      use: "Partner staffing and capacity for dependency delivery"
+
+  minimum_data_threshold:
+    - "At least one active partner dependency registered"
+    - "Dependency has a defined owner, deadline, and acceptance criteria"
+    - "Delivery timeline available showing dependency placement"
+
+# ==============================================================================
+# KEY QUESTIONS
+# ==============================================================================
+key_questions:
+  dependency_status:
+    - "What is the current status of each partner dependency?"
+    - "Which dependencies are on track, at risk, or blocked?"
+    - "Have any dependencies been completed since last review?"
+    - "Are there new dependencies that have not been registered?"
+
+  risk_assessment:
+    - "Which dependencies are on the critical path of delivery?"
+    - "What is the impact if a specific dependency is delayed by 1 week? 2 weeks? 1 month?"
+    - "Does the partner have the resources and capability to deliver on time?"
+    - "Are there external factors (partner reorg, resource constraints) threatening delivery?"
+    - "Has the partner flagged any blockers or concerns?"
+
+  mitigation_planning:
+    - "What workarounds exist if a dependency is delayed?"
+    - "Can the delivery plan be resequenced to absorb a delay?"
+    - "Is there an alternative source for the dependency (different partner, in-house)?"
+    - "What is the cost and timeline for each mitigation option?"
+    - "Who needs to approve the mitigation plan?"
+
+  impact_analysis:
+    - "Which delivery milestones are affected by at-risk dependencies?"
+    - "What is the customer impact if delivery is delayed?"
+    - "Are there contractual penalties or SLA implications?"
+    - "Does the delay cascade to other dependencies or workstreams?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    - id: "all_dependencies_on_track"
+      condition: "all_dependencies_status == 'on_track'"
+      severity: "LOW"
+      output_type: "Decision"
+      decision:
+        title: "All partner dependencies on track for {node}"
+        context: "No dependencies at risk or overdue"
+        recommendation: "Continue monitoring at current cadence"
+        actions:
+          - "Update dependency status report"
+          - "Confirm next check-in dates with partner"
+          - "Verify upcoming dependency deadlines are acknowledged by partner"
+
+    - id: "dependency_at_risk_non_critical"
+      condition: "dependency_status == 'at_risk' AND on_critical_path == false"
+      severity: "MEDIUM"
+      output_type: "Initiative + Action Items"
+      decision:
+        title: "Non-critical partner dependency at risk: {dependency_name}"
+        context: "Dependency showing signs of delay but not on critical delivery path"
+        recommendation: "Activate mitigation, increase monitoring to weekly"
+        actions:
+          - "Contact partner for detailed status and expected resolution date"
+          - "Assess delivery plan flexibility to absorb potential delay"
+          - "Identify workaround or resequencing options"
+          - "Increase monitoring to weekly status checks"
+          - "Document risk in dependency tracker with mitigation plan"
+
+    - id: "dependency_at_risk_critical_path"
+      condition: "dependency_status == 'at_risk' AND on_critical_path == true"
+      severity: "HIGH"
+      output_type: "Risk + Escalation"
+      decision:
+        title: "Critical path dependency at risk: {dependency_name}"
+        context: "Dependency on critical delivery path showing signs of delay"
+        recommendation: "Immediate escalation and contingency planning"
+        actions:
+          - "Escalate to Partner Manager and Delivery Manager"
+          - "Schedule emergency call with partner to understand root cause"
+          - "Activate contingency plan or develop one if none exists"
+          - "Assess customer-facing timeline impact"
+          - "Prepare communication to account team on potential delivery delay"
+          - "Notify AE Agent of potential customer impact"
+        urgency: "HIGH"
+      creates:
+        - object_type: "Risk"
+          category: "delivery"
+          severity: "HIGH"
+
+    - id: "dependency_blocked"
+      condition: "dependency_status == 'blocked'"
+      severity: "HIGH"
+      output_type: "Risk + Escalation"
+      decision:
+        title: "Partner dependency blocked: {dependency_name}"
+        context: "Dependency cannot progress without resolution of blocker"
+        recommendation: "Escalate blocker resolution, activate contingency"
+        actions:
+          - "Document blocker details: what, why, who can resolve"
+          - "Escalate to Partner Manager with resolution timeline request"
+          - "Assess if blocker can be resolved vendor-side"
+          - "Activate contingency plan if blocker resolution timeline exceeds tolerance"
+          - "Update delivery timeline with realistic delay estimate"
+        urgency: "IMMEDIATE"
+      creates:
+        - object_type: "Risk"
+          category: "delivery"
+          severity: "HIGH"
+
+    - id: "dependency_overdue"
+      condition: "dependency_days_overdue > 0"
+      severity: "HIGH"
+      output_type: "Risk + Action Items"
+      decision:
+        title: "Partner dependency overdue by {days} days: {dependency_name}"
+        context: "Dependency has passed its deadline without completion"
+        recommendation: "Demand resolution timeline, escalate if no response within 48 hours"
+        actions:
+          - "Contact partner for immediate status and new committed delivery date"
+          - "Assess actual delivery impact and cascade effects"
+          - "Update delivery plan with revised dates"
+          - "Communicate revised timeline to affected stakeholders"
+          - "Document in partner health record (feeds PB_PTR_001)"
+      creates:
+        - object_type: "Risk"
+          category: "delivery"
+          severity: "HIGH"
+
+    - id: "multiple_dependencies_at_risk"
+      condition: "at_risk_dependencies_count >= 3"
+      severity: "HIGH"
+      output_type: "Risk + Escalation"
+      decision:
+        title: "Systemic partner dependency risk in {node}: {count} dependencies at risk"
+        context: "Multiple partner dependencies at risk suggests systemic partner delivery issue"
+        recommendation: "Escalate to Partner Manager for strategic review"
+        actions:
+          - "Aggregate all at-risk dependencies into a single risk brief"
+          - "Schedule partner management-level review meeting"
+          - "Assess whether partner has capacity or capability issues"
+          - "Evaluate need for additional partner resources or partner replacement"
+          - "Prepare contingency plan for all at-risk items"
+          - "Trigger PB_PTR_001 health assessment if not recently completed"
+        urgency: "HIGH"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/{node}/internal-infohub/partners/dependency_status_{partner_id}_{YYYY-MM-DD}.yaml"
+    format: "yaml"
+    sections:
+      - executive_summary
+      - dependency_register
+      - risk_assessment
+      - mitigation_plans
+      - timeline_impact
+      - recommendations
+
+    schema:
+      executive_summary:
+        - partner_name: "string"
+        - account: "string"
+        - report_date: "date"
+        - total_dependencies: "integer"
+        - on_track: "integer"
+        - at_risk: "integer"
+        - blocked: "integer"
+        - overdue: "integer"
+        - completed: "integer"
+        - overall_status: "enum[GREEN|YELLOW|RED]"
+
+      dependency_register:
+        - dependency_id: "string"
+          title: "string"
+          description: "string"
+          owner_partner: "string"
+          owner_vendor: "string"
+          due_date: "date"
+          status: "enum[ON_TRACK|AT_RISK|BLOCKED|OVERDUE|COMPLETED]"
+          on_critical_path: "boolean"
+          blocking_milestone: "string|null"
+          last_update: "date"
+          notes: "string"
+
+      risk_assessment:
+        - dependency_id: "string"
+          risk_level: "enum[HIGH|MEDIUM|LOW]"
+          likelihood_of_delay: "enum[HIGH|MEDIUM|LOW]"
+          impact_if_delayed: "string"
+          cascade_effects: "array[string]"
+          days_of_buffer: "integer"
+
+      mitigation_plans:
+        - dependency_id: "string"
+          mitigation_type: "enum[WORKAROUND|RESEQUENCE|ALTERNATIVE_SOURCE|ESCALATION]"
+          description: "string"
+          owner: "string"
+          activation_trigger: "string"
+          estimated_cost: "string"
+          estimated_timeline: "string"
+
+      timeline_impact:
+        - milestone: "string"
+          original_date: "date"
+          revised_date: "date|null"
+          impact_reason: "string"
+          customer_facing: "boolean"
+
+      recommendations:
+        - priority: "enum[HIGH|MEDIUM|LOW]"
+          action: "string"
+          owner: "string"
+          deadline: "date"
+
+  action_items:
+    path: "{realm}/{node}/internal-infohub/actions/"
+    create_for_each: "At-risk or blocked dependency requiring action"
+
+  risk_objects:
+    path: "{realm}/{node}/internal-infohub/risks/"
+    create_if:
+      - "Critical path dependency at risk or blocked"
+      - "Multiple dependencies at risk simultaneously"
+      - "Dependency overdue with customer-facing impact"
+    template: "Risk with mitigation plan"
+
+  notifications:
+    - recipient: "Partner Manager"
+      condition: "always"
+      message: "Dependency status report for {partner_name} in {node}: {on_track} on track, {at_risk} at risk, {blocked} blocked"
+
+    - recipient: "Delivery Agent"
+      condition: "at_risk_count > 0 OR blocked_count > 0"
+      message: "Partner dependency risk in {node}: {at_risk + blocked} dependencies need attention. Delivery timeline impact assessment needed."
+
+    - recipient: "AE Agent"
+      condition: "customer_facing_impact == true"
+      message: "Partner dependency delay may affect customer-facing timeline for {node}. Review account plan impact."
+
+    - recipient: "SA Agent"
+      condition: "technical_dependency_at_risk == true"
+      message: "Technical partner dependency at risk in {node}. Technical workaround assessment may be needed."
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "critical_path_dependency_blocked_no_contingency"
+      reason: "Critical path blocked with no known workaround, delivery timeline at risk"
+      action: "Escalate to Delivery Manager and Partner Manager for joint resolution"
+
+    - condition: "partner_unresponsive_on_overdue_dependency"
+      reason: "Partner not responding to status requests on overdue dependency"
+      action: "Escalate to partner management through executive channels"
+
+    - condition: "dependency_delay_triggers_contractual_penalty"
+      reason: "Dependency delay may cause SLA breach or contractual penalty"
+      action: "Escalate to Account Executive and legal for contract review"
+
+  insufficient_data:
+    - "No dependency tracker available for the account"
+    - "Delivery plan not available to assess critical path"
+    - "No partner communication to validate dependency status"
+
+  ambiguity_signals:
+    - "Partner reports 'on track' but evidence suggests otherwise"
+    - "Dependency ownership unclear between vendor and partner"
+    - "Multiple conflicting timelines for the same dependency"
+
+  human_judgment_required:
+    - "Selecting between mitigation options with different cost and timeline tradeoffs"
+    - "Deciding whether to invoke contingency plan or wait for partner resolution"
+    - "Assessing whether systemic partner issues warrant partner replacement discussion"
+    - "Communicating delay to customer: timing, framing, remediation offer"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "At least one active partner dependency registered"
+    - "Dependency tracker has owner, deadline, and status for each item"
+    - "Delivery timeline available for critical path assessment"
+
+  post_execution:
+    - "All active dependencies have current status"
+    - "At-risk and blocked dependencies have mitigation plans"
+    - "Critical path impact assessed for all non-green dependencies"
+    - "Action items assigned with owners and deadlines"
+    - "Stakeholders notified of relevant status changes"
+
+  output_quality:
+    - "Status assessments backed by evidence (partner communication, deliverable review)"
+    - "Mitigation plans are actionable with clear activation triggers"
+    - "Timeline impact analysis uses realistic estimates, not optimistic assumptions"
+    - "Recommendations prioritized by delivery impact, not alphabetically"
+
+# ==============================================================================
+# INTEGRATION WITH OTHER PLAYBOOKS
+# ==============================================================================
+integrates_with:
+  - playbook: "PB_PTR_001_partner_engagement_health"
+    integration: "Dependency performance feeds partner health assessment"
+    provides: "Commitment fulfillment data from dependency tracking"
+
+  - playbook: "PB_PTR_003_joint_account_planning"
+    integration: "Joint planning sessions establish and review dependencies"
+    provides: "Current dependency status for joint planning context"
+
+  - playbook: "PB_DEL_001_implementation_kickoff"
+    integration: "Implementation kickoff identifies initial partner dependencies"
+    provides: "Dependency register baseline from kickoff"
+
+  - playbook: "PB_602_account_planning"
+    integration: "Account plan identifies partner responsibilities that become dependencies"
+    provides: "Dependency status updates for account plan partner section"
+
+  - playbook: "OP_RSK_001_register_new_risk"
+    integration: "At-risk dependencies generate risk objects"
+    provides: "Dependency risk details for risk register"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "10-20 minutes (agent scan + analysis) + 5-10 minutes (human review)"
+frequency: "Weekly (active dependencies) + triggered by events"
+human_review_required: true
+approval_workflow:
+  - reviewer: "Partner Manager"
+    approval_gate: "Validate dependency status accuracy and approve mitigation plans"
+  - reviewer: "Delivery Manager"
+    condition: "critical_path_dependency_at_risk == true"
+    approval_gate: "Approve delivery timeline revision and contingency activation"
+
+last_updated: "2026-02-27"
+version: "1.0"
+status: "production_ready"
+notes: "Operational playbook for continuous partner dependency monitoring. Works in conjunction with PB_PTR_001 for health assessment and PB_PTR_003 for joint planning."

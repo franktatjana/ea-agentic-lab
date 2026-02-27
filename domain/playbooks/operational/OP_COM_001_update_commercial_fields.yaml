@@ -1,0 +1,278 @@
+# Operational Playbook: Update Commercial Fields
+# Keeps node_profile.yaml commercial fields current from CRM/pipeline data
+
+playbook_id: "OP_COM_001"
+version: "1.0"
+last_updated: "2026-02-27"
+category: "operational"
+playbook_mode: "PROCEDURAL"
+status: "production_ready"
+notes: "Closes the data ownership gap where commercial fields in node_profile.yaml had no agent writer. AE Agent now owns these fields end-to-end."
+
+metadata:
+  name: "Update Commercial Fields"
+  description: "Keep node_profile.yaml commercial fields (opportunity_arr, probability, stage, next_milestone) current by syncing from CRM data, deal updates, and pipeline changes"
+  owner_agent: "ae_agent"
+  participating_agents:
+    - "ca_agent"
+    - "dashboard_service"
+
+vault_routing:
+  primary_vault: "Internal Account Hub"
+  rationale: "Commercial field updates are vendor-internal pipeline data"
+  secondary_outputs: []
+
+# Trigger Definition
+trigger:
+  type: "event|schedule|manual|conditional"
+  automatic:
+    - source: "crm_integration"
+      condition: "EVENT_TYPE == 'deal_stage_changed'"
+    - source: "pipeline_service"
+      condition: "EVENT_TYPE == 'pipeline_snapshot_updated'"
+    - source: "crm_integration"
+      condition: "EVENT_TYPE == 'opportunity_created' OR EVENT_TYPE == 'opportunity_closed'"
+    - source: "scheduler"
+      condition: "SCHEDULE == 'quarterly_pipeline_refresh'"
+  manual:
+    - source: "ae_agent"
+      condition: "AE requests commercial field update"
+  conditional:
+    - condition: "NOW() - $.node_profile.commercial.last_updated > 30 days"
+      description: "Stale data check, fires when commercial fields untouched for 30+ days"
+
+# Preconditions
+preconditions:
+  - condition: "EXISTS $.node_profile.commercial"
+    error_message: "node_profile.yaml must have a commercial section"
+  - condition: "EXISTS $.crm.opportunity_record OR EXISTS $.trigger.manual"
+    error_message: "CRM opportunity record or manual trigger required"
+  - condition: "EXISTS $.config.deal_stage_definitions"
+    error_message: "Deal stage definitions must be configured"
+
+# Inputs
+inputs:
+  - name: "crm_opportunity"
+    source: "$.crm.opportunity_record"
+    description: "CRM/pipeline data including ARR, stage, probability"
+  - name: "current_profile"
+    source: "$.node_profile.commercial"
+    description: "Current node_profile.yaml commercial field values"
+  - name: "stage_definitions"
+    source: "$.config.deal_stage_definitions"
+    description: "Valid deal stages and their expected probability ranges"
+
+# Steps
+steps:
+  - step_id: "snapshot_current_values"
+    name: "Snapshot current commercial field values"
+    agent: "ae_agent"
+    action: "read"
+    inputs:
+      - name: "node_profile"
+        source: "$.node_profile.commercial"
+    outputs:
+      - name: "previous_values"
+        type: "artifact"
+        destination: "$.snapshot.previous"
+    on_failure: "stop"
+
+  - step_id: "fetch_crm_data"
+    name: "Fetch latest CRM/pipeline data"
+    agent: "ae_agent"
+    action: "read"
+    inputs:
+      - name: "opportunity_id"
+        source: "$.node_profile.commercial.opportunity_id"
+      - name: "crm_source"
+        source: "$.crm.opportunity_record"
+    outputs:
+      - name: "latest_crm"
+        type: "artifact"
+        destination: "$.crm.latest"
+    on_failure: "stop"
+
+  - step_id: "compute_deltas"
+    name: "Compare current values against CRM data"
+    agent: "ae_agent"
+    action: "analyze"
+    inputs:
+      - name: "previous"
+        source: "$.snapshot.previous"
+      - name: "latest"
+        source: "$.crm.latest"
+    outputs:
+      - name: "deltas"
+        type: "artifact"
+        destination: "$.computed.deltas"
+    on_failure: "stop"
+
+  - step_id: "apply_decision_logic"
+    name: "Evaluate decision rules on deltas"
+    agent: "ae_agent"
+    action: "analyze"
+    inputs:
+      - name: "deltas"
+        source: "$.computed.deltas"
+      - name: "stage_definitions"
+        source: "$.config.deal_stage_definitions"
+    outputs:
+      - name: "update_plan"
+        type: "decision"
+        destination: "$.computed.update_plan"
+    decision_logic:
+      - rule: "arr_significant_change"
+        condition: "ABS($.crm.latest.opportunity_arr - $.snapshot.previous.opportunity_arr) / $.snapshot.previous.opportunity_arr > 0.10"
+        action: "update field + notify Sales Leadership"
+        severity: "high"
+      - rule: "stage_regression"
+        condition: "STAGE_ORDER($.crm.latest.stage) < STAGE_ORDER($.snapshot.previous.stage)"
+        action: "create risk object + update field"
+        severity: "high"
+      - rule: "stale_milestone"
+        condition: "$.snapshot.previous.next_milestone_date < NOW() AND $.crm.latest.stage == $.snapshot.previous.stage"
+        action: "flag as stale, create stale_data_alert"
+        severity: "medium"
+      - rule: "probability_stage_inconsistency"
+        condition: "$.crm.latest.probability < 20 AND STAGE_ORDER($.crm.latest.stage) > STAGE_ORDER('discovery')"
+        action: "flag inconsistency for AE review"
+        severity: "medium"
+    on_failure: "stop"
+
+  - step_id: "write_updated_fields"
+    name: "Write updated values to node_profile.yaml"
+    agent: "ae_agent"
+    action: "write"
+    inputs:
+      - name: "update_plan"
+        source: "$.computed.update_plan"
+      - name: "latest_crm"
+        source: "$.crm.latest"
+    outputs:
+      - name: "updated_profile"
+        type: "artifact"
+        format: "yaml"
+        destination: "{realm}/{node}/node_profile.yaml#commercial"
+    fields_updated:
+      - "opportunity_arr"
+      - "probability"
+      - "stage"
+      - "next_milestone"
+      - "next_milestone_date"
+      - "last_updated"
+    on_failure: "stop"
+
+  - step_id: "write_audit_log"
+    name: "Log what changed, why, and source"
+    agent: "ae_agent"
+    action: "write"
+    inputs:
+      - name: "previous"
+        source: "$.snapshot.previous"
+      - name: "updated"
+        source: "$.computed.update_plan"
+      - name: "trigger_source"
+        source: "$.trigger"
+    outputs:
+      - name: "audit_entry"
+        type: "artifact"
+        format: "yaml"
+        destination: "{realm}/{node}/internal-account-hub/audit/commercial_field_updates.yaml"
+    on_failure: "skip"
+
+  - step_id: "create_risk_if_regression"
+    name: "Create risk object for stage regressions"
+    agent: "ae_agent"
+    action: "notify"
+    condition: "$.computed.update_plan.has_regression == true"
+    inputs:
+      - name: "regression_details"
+        source: "$.computed.update_plan.regression"
+    outputs:
+      - name: "risk_signal"
+        type: "notification"
+        destination: "playbook_queue"
+    triggers:
+      - condition: "$.computed.update_plan.has_regression == true"
+        playbook: "OP_RSK_001_register_new_risk"
+    on_failure: "skip"
+
+  - step_id: "notify_consulted_agents"
+    name: "Notify CA Agent and dashboard of changes"
+    agent: "ae_agent"
+    action: "notify"
+    inputs:
+      - name: "deltas"
+        source: "$.computed.deltas"
+      - name: "update_plan"
+        source: "$.computed.update_plan"
+    outputs:
+      - name: "notifications"
+        type: "notification"
+        destination: "agent_queue"
+    notifications:
+      - target: "ca_agent"
+        condition: "$.computed.update_plan.stage_changed == true"
+        message: "Commercial stage changed, review health score implications"
+      - target: "dashboard_service"
+        condition: "$.computed.deltas.any_change == true"
+        message: "Commercial fields updated, refresh dashboard data"
+    on_failure: "skip"
+
+# RACI
+raci:
+  responsible: "ae_agent"
+  accountable:
+    agent: "sales_leadership"
+    human_required: true
+  consulted:
+    - agent: "ca_agent"
+      reason: "Health implications of stage changes"
+  informed:
+    - agent: "dashboard_service"
+      reason: "Consumes updated commercial fields for display"
+
+# Outputs
+outputs:
+  - output_id: "updated_commercial_fields"
+    type: "artifact"
+    format: "yaml"
+    destination: "{realm}/{node}/node_profile.yaml#commercial"
+  - output_id: "audit_log_entry"
+    type: "artifact"
+    format: "yaml"
+    destination: "{realm}/{node}/internal-account-hub/audit/"
+  - output_id: "stale_data_alerts"
+    type: "notification"
+    destination: "agent_queue"
+  - output_id: "risk_objects"
+    type: "notification"
+    destination: "playbook_queue"
+
+# Escalation
+escalation:
+  condition: |
+    $.computed.update_plan.has_regression == true OR
+    $.computed.update_plan.arr_change_pct > 0.10 OR
+    $.computed.update_plan.has_inconsistency == true
+  target: "sales_leadership"
+  human_required: true
+  message_template: |
+    COMMERCIAL FIELD UPDATE: {$.node_profile.node_name}
+    Trigger: {$.trigger.source}
+
+    Changes:
+    - ARR: {$.snapshot.previous.opportunity_arr} -> {$.crm.latest.opportunity_arr}
+    - Stage: {$.snapshot.previous.stage} -> {$.crm.latest.stage}
+    - Probability: {$.snapshot.previous.probability} -> {$.crm.latest.probability}
+
+    Flags: {$.computed.update_plan.flags}
+    Review recommended due to: {$.escalation.reason}
+
+# Completion
+completion:
+  success_criteria: "EXISTS $.outputs.updated_commercial_fields AND EXISTS $.outputs.audit_log_entry"
+  artifacts_required:
+    - "{realm}/{node}/node_profile.yaml#commercial"
+    - "{realm}/{node}/internal-account-hub/audit/"
+  notification: "ae_agent"

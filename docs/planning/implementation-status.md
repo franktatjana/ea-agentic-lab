@@ -1,7 +1,7 @@
 # EA Agentic Lab - Implementation Status
 
 **Last Updated:** 2026-02-27
-**Status:** Domain model defined, 99 playbooks authored, 27 agents configured, web application functional with dashboard, canvas rendering, and node management
+**Status:** Domain model defined, 106 playbooks authored, 27 agents configured, web application functional with dashboard, canvas rendering, and node management
 
 ---
 
@@ -19,14 +19,14 @@ The domain layer (`domain/`) contains all business logic definitions: agents, pl
 
 | Component | Count | Location | Status |
 |-----------|-------|----------|--------|
-| Playbook YAMLs | 99 | `domain/playbooks/{team}/` | Authored |
+| Playbook YAMLs | 106 | `domain/playbooks/{team}/` | Authored |
 | Agent configs | 27 | `domain/agents/{team}/agents/` | Configured |
 | Personality specs | 27 | `domain/agents/{team}/personalities/` | Configured |
 | Skill definitions | 8 | `domain/agents/{team}/skills/` | Authored |
 | Task prompt files | 17 | `domain/agents/{team}/prompts/tasks.yaml` | Authored |
 | Templates | 8 | `domain/playbooks/templates/` | Authored |
 | Canvas specs | 8 | `domain/playbooks/canvas/specs/` | Authored |
-| Operational playbooks | 6 | `domain/playbooks/operational/` | Authored |
+| Operational playbooks | 7 | `domain/playbooks/operational/` | Authored |
 | Catalogs | 5 | `domain/catalogs/` | Authored |
 
 ### 2. Agents (27 configured)
@@ -255,7 +255,7 @@ ea-agentic-lab/
 
 ### Built (domain layer)
 
-- 99 playbook definitions covering strategy, technical, customer success, specialist, operational, delivery, and admin workflows
+- 106 playbook definitions covering strategy, technical, customer success, specialist, operational, delivery, product management, partner, and admin workflows
 - 27 agent configurations with personality specs, anti-hallucination controls, and 200+ task prompts
 - Three-vault knowledge architecture with vault routing on all playbooks
 - Decision documentation framework (DDR + ADR)
@@ -278,16 +278,16 @@ ea-agentic-lab/
 
 Identified during dashboard implementation (documented in DDR-010 Open Questions):
 
-- **Commercial fields in node_profile.yaml have no agent owner.** `opportunity_arr`, `probability`, `stage`, `next_milestone` are read by the dashboard but no agent or playbook writes to them. The AE agent owns pipeline intelligence but writes to risk_register and action_tracker, not node_profile. Proposed: new `OP_COM_001` playbook or extend OP_MTG_001.
+- ~~**Commercial fields in node_profile.yaml have no agent owner.**~~ Resolved: OP_COM_001 (Update Commercial Fields) gives AE Agent ownership of `opportunity_arr`, `probability`, `stage`, `next_milestone` with decision logic for regressions and staleness.
 - **Canvas re-rendering has no trigger loop.** Canvas specs define `triggers.on_update` conditions but nothing evaluates them. Canvases render fresh data on demand (acceptable for now), but stale exports would not reflect recent changes. Proposed: extend PB_ADM_002 (Canvas Gap Analysis) with staleness detection.
 - **Reporter agent and dashboard service duplicate aggregation logic.** Both read the same vault sources and compute similar aggregates. Proposed: when reporter gets runtime, have it consume the dashboard API endpoint.
 
 ### Consistency tasks
 
-- ~~Add `vault_routing` metadata to existing playbooks~~ (done, all 99 playbooks have it)
-- Add `raci` section to playbooks missing it
-- Validate all playbook YAMLs against implicit schema conventions
-- Remove legacy files (`domain/agents/solution_architects/agents/_agent.yaml`, `_agent_personality.yaml`)
+- ~~Add `vault_routing` metadata to existing playbooks~~ (done, all playbooks have it)
+- ~~Add `raci` section to playbooks missing it~~ (done, all playbooks have it)
+- ~~Validate all playbook YAMLs against implicit schema conventions~~ (done, all 106 pass yaml.safe_load)
+- ~~Remove legacy files (`domain/agents/solution_architects/agents/_agent.yaml`, `_agent_personality.yaml`)~~ (done, already removed)
 
 ---
 
@@ -310,3 +310,4 @@ Identified during dashboard implementation (documented in DDR-010 Open Questions
 | 2026-02-27 | QBR playbooks (PB_603, PB_174), Support Agent dissolved into SIG_SUP_* signals + CA Agent skill SK_CA_001 |
 | 2026-02-27 | vault_routing added to all 99 playbooks, PB_187-190 (C06 support/DSE) authored, PB_DEL_001-004 (Delivery Agent) authored, Delivery Agent gap resolved |
 | 2026-02-27 | QBR playbooks enhanced to v2.0 (Taipan Consulting, Mural QBR Methodology): quarter-long prep cadence, interactive agendas, coaching questions, pipeline review techniques, stakeholder tailoring, customer wins framework |
+| 2026-02-27 | RACI added to all playbooks, PM Agent playbooks (PB_PM_001-003), Partner Agent playbooks (PB_PTR_001-003), OP_COM_001 (commercial field ownership), all consistency tasks resolved |
