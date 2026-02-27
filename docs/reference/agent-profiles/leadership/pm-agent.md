@@ -37,7 +37,13 @@ The PM Agent does not commit to feature delivery dates, promise unreleased featu
 
 ## Playbooks Owned
 
-The PM Agent does not own dedicated numbered playbooks. It serves as the product intelligence layer that informs playbooks owned by other agents, particularly PB_301 (Value Engineering) and PB_201 (SWOT) where product capability gaps directly affect strategic positioning.
+| ID | Name | Purpose |
+|----|------|---------|
+| PB_PM_001 | Feature Gap Analysis | Analyze gap between customer requirements and current product capabilities, classify feasibility (FEASIBLE/LIMITED/NOT_PLANNED), recommend workarounds |
+| PB_PM_002 | Roadmap Alignment | Periodic review of customer roadmap dependencies, map customer timelines to product delivery dates, flag timing risks |
+| PB_PM_003 | Feature Request Pattern | Aggregate feature requests across accounts to identify high-frequency patterns, competitive gaps, and strategic themes for product prioritization |
+
+The PM Agent also serves as the product intelligence layer that informs playbooks owned by other agents, particularly PB_301 (Value Engineering) and PB_201 (SWOT) where product capability gaps directly affect strategic positioning.
 
 ## Triggers
 

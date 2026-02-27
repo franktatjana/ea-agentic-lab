@@ -36,7 +36,13 @@ The Partner Agent does not manage partner relationships directly, make partner c
 
 ## Playbooks Owned
 
-The Partner Agent does not own dedicated numbered playbooks. It operates within the partner ecosystem tracking framework defined in its agent configuration, feeding dependency intelligence into account plans and risk registers.
+| ID | Name | Purpose |
+|----|------|---------|
+| PB_PTR_001 | Partner Engagement Health | Periodic assessment of partner engagement health, evaluating commitments, communication, alignment, and delivery with GREEN/YELLOW/RED scorecard |
+| PB_PTR_002 | Partner Dependency Tracking | Track dependencies between account delivery and partner activities, flag at-risk dependencies, route mitigations |
+| PB_PTR_003 | Joint Account Planning | Structure joint planning sessions between vendor and partner for shared accounts, align goals, divide responsibilities |
+
+The Partner Agent also feeds dependency intelligence into account plans and risk registers owned by other agents.
 
 ## Triggers
 

@@ -106,6 +106,14 @@
 | **PB_512** | **MoSCoW Method** | Dai Clegg | Requirement prioritization | Must, Should, Could, Won't |
 | **PB_513** | **Value vs. Effort Matrix** | Agile | Backlog prioritization | Quick wins, Major projects, Fill-ins, Time sinks |
 
+#### PM Implementation Playbooks
+
+| ID | Framework | Source | When to Use | Output |
+|----|-----------|--------|-------------|--------|
+| **PB_PM_001** | **Feature Gap Analysis** | Product Management | Feature request received | Gap classification + workaround options |
+| **PB_PM_002** | **Roadmap Alignment** | Product Management | Roadmap dependency check | Feasibility statement + timeline risk |
+| **PB_PM_003** | **Feature Request Pattern** | Product Management | Quarterly pattern analysis | Top recurring requests by segment |
+
 ---
 
 ### 4. Specialist Agent Frameworks
@@ -170,6 +178,14 @@
 | **PB_901** | **Partner Ecosystem Map** | Accenture | Partnership landscape | Partner categories + roles |
 | **PB_902** | **Alliance Maturity Model** | Vantage Partners | Partnership health | Maturity assessment + roadmap |
 | **PB_903** | **Co-opetition Framework** | Brandenburger/Nalebuff | Competitive cooperation | Value net analysis |
+
+#### Partner Implementation Playbooks
+
+| ID | Framework | Source | When to Use | Output |
+|----|-----------|--------|-------------|--------|
+| **PB_PTR_001** | **Partner Engagement Health** | Partner Management | Health assessment needed | Health scorecard (GREEN/YELLOW/RED) |
+| **PB_PTR_002** | **Partner Dependency Tracking** | Partner Management | Alignment check required | Dependency status + risk flags |
+| **PB_PTR_003** | **Joint Account Planning** | Partner Management | Joint planning coordination | Aligned partner + account plan |
 
 ---
 
