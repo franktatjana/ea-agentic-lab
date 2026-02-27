@@ -309,5 +309,5 @@ Identified during dashboard implementation (documented in DDR-010 Open Questions
 | 2026-02-13 | Canvas rendering pipeline (5 assemblers, format-dispatch renderer), portfolio dashboard with aggregated metrics, DDR-010 accepted |
 | 2026-02-27 | QBR playbooks (PB_603, PB_174), Support Agent dissolved into SIG_SUP_* signals + CA Agent skill SK_CA_001 |
 | 2026-02-27 | vault_routing added to all 99 playbooks, PB_187-190 (C06 support/DSE) authored, PB_DEL_001-004 (Delivery Agent) authored, Delivery Agent gap resolved |
-| 2026-02-27 | QBR playbooks enhanced to v2.0 (Taipan Consulting, Mural QBR Methodology): quarter-long prep cadence, interactive agendas, coaching questions, pipeline review techniques, stakeholder tailoring, customer wins framework |
+| 2026-02-27 | QBR playbooks enhanced to v2.0: quarter-long prep cadence, interactive agendas, coaching questions, pipeline review techniques, stakeholder tailoring, customer wins framework |
 | 2026-02-27 | RACI added to all playbooks, PM Agent playbooks (PB_PM_001-003), Partner Agent playbooks (PB_PTR_001-003), OP_COM_001 (commercial field ownership), all consistency tasks resolved |
