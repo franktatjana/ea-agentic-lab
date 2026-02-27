@@ -28,7 +28,7 @@ This document defines the complete responsibility matrix for all agents, includi
 | **Sales** | Commercial strategy, competitive intel, value, partners | 4 |
 | **Architecture** | Solution design, customer architecture, domain expertise | 3 |
 | **Deal Execution** | RFP orchestration, POC validation, security clearance | 3 |
-| **Delivery** | Implementation handoff, services, support | 3 |
+| **Delivery** | Implementation handoff, services | 2 |
 | **Intelligence** | Gather and analyze external data | 5 |
 | **Governance** | Reduce entropy, maintain quality | 9 |
 | **Orchestration** | Meta-layer process management | 1 |
@@ -43,9 +43,9 @@ See [curator-agents.md](curator-agents.md) for signal specification.
 
 ---
 
-## Functional Agents (15)
+## Functional Agents (14)
 
-Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture (3), Deal Execution (3), and Delivery (3). See the [Agent Categories](#agent-categories) table above for the full breakdown. Each agent is documented below with its scope, handover triggers, and escalation paths.
+Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture (3), Deal Execution (3), and Delivery (2). See the [Agent Categories](#agent-categories) table above for the full breakdown. Each agent is documented below with its scope, handover triggers, and escalation paths.
 
 ### 1. AE Agent (Account Executive)
 
@@ -141,6 +141,7 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 - Detect design shifts and integration risks
 - Sync architecture context between customer and platform
 - Monitor customer technology adoption patterns
+- Triage support intelligence signals via SK_CA_001 (support team bridge)
 
 **Handover Triggers:**
 
@@ -149,14 +150,15 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 | Design mismatch critical | SA Agent | Platform design doesn't fit customer |
 | Integration risk HIGH | SA Agent | Integration blocker detected |
 | Customer health drop | Senior Manager | Health score < 50 |
-| Support pattern detected | Support Agent | Repeated support issues |
+| Support architecture issue | SA Agent | SIG_SUP_002 classified as architecture gap |
+| Support relationship risk | AE Agent | SIG_SUP_003 classified as relationship risk |
 
 **Receives From:**
 
 | Source Agent | Artifact | Action Required |
 |--------------|----------|-----------------|
 | SA Agent | Platform architecture | Map to customer env |
-| Support Agent | Support tickets | Identify patterns |
+| Support Team | SIG_SUP_* signals | Triage via SK_CA_001 |
 | Delivery Agent | Implementation status | Track adoption |
 
 ---
@@ -407,7 +409,6 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 | Contract signed | PS Agent | Implementation planning |
 | Implementation risk HIGH | Senior Manager | Escalation |
 | Go-live complete | CA Agent | Transition to adoption |
-| Support needed | Support Agent | Technical support required |
 
 **Receives From:**
 
@@ -434,7 +435,7 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 | Phase | Activities | Handover To |
 |-------|------------|-------------|
 | Pre-Sales (B10) | Scoping, SOW, resource planning | Delivery Agent |
-| Post-Sales (C05) | Implementation, training, support | Support Agent |
+| Post-Sales (C05) | Implementation, training, handoff | CA Agent |
 
 **Handover Triggers:**
 
@@ -443,38 +444,11 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 | SOW signed | Delivery Agent | Implementation start |
 | Technical escalation | SA Agent | Architecture issue |
 | Training complete | CA Agent | Adoption tracking |
-| Implementation complete | Support Agent | Transition to support |
+| Implementation complete | CA Agent | Transition to post-sales |
 
 ---
 
-### 12. Support Agent
-
-**Mission:** Support operations coordination with account strategy
-
-| Attribute | Value |
-|-----------|-------|
-| **Primary Scope** | Support ticket patterns, escalations |
-| **InfoHub Path** | `{realm}/{node}/internal-infohub/governance/support/` |
-| **Decision Authority** | Support escalation routing |
-
-**Responsibilities:**
-- Identify escalation patterns
-- Coordinate DSE with account team
-- Bridge support ops with account strategy
-- Surface systemic issues
-
-**Handover Triggers:**
-
-| Trigger | Receiving Agent | Condition |
-|---------|-----------------|-----------|
-| Pattern detected | CA Agent | Systemic issue identified |
-| Architecture issue | SA Agent | Design-related tickets |
-| Customer frustration | AE Agent | Relationship risk |
-| Critical escalation | Senior Manager | Critical/Sev1 ongoing |
-
----
-
-### 13. Partner Agent
+### 12. Partner Agent
 
 **Mission:** Partner ecosystem coordination
 
@@ -495,7 +469,7 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 
 ---
 
-### 14. PM Agent (Product Manager)
+### 13. PM Agent (Product Manager)
 
 **Mission:** Product roadmap alignment with customer needs
 
@@ -523,7 +497,7 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 
 ---
 
-### 15. Specialist Agent
+### 14. Specialist Agent
 
 **Mission:** Domain expertise coordination
 
@@ -992,16 +966,15 @@ message:
 |-------|-------------------|-------------------|--------|
 | AE Agent | 7 defined | 4 defined | ✓ Complete |
 | SA Agent | 6 defined | 4 defined | ✓ Complete |
-| CA Agent | 4 defined | 3 defined | ✓ Complete |
+| CA Agent | 5 defined | 3 defined | ✓ Complete |
 | CI Agent | 4 defined | 3 defined | ✓ Complete |
 | VE Agent | 5 defined | 3 defined | ✓ Complete |
 | Senior Manager | N/A (receives) | 7 defined | ✓ Complete |
 | RFP Agent | 6 defined | 3 defined | ✓ Complete |
 | POC Agent | 6 defined | 4 defined | ✓ Complete |
 | InfoSec Agent | 4 defined | 2 defined | ✓ Complete |
-| Delivery Agent | 4 defined | 3 defined | ✓ Complete |
+| Delivery Agent | 3 defined | 3 defined | ✓ Complete |
 | PS Agent | 4 defined | 2 defined | ✓ Complete |
-| Support Agent | 4 defined | 2 defined | ✓ Complete |
 | Partner Agent | 4 defined | 2 defined | ✓ Complete |
 | PM Agent | 3 defined | 3 defined | ✓ Complete |
 | Specialist Agent | 3 defined | 1 defined | ✓ Complete |

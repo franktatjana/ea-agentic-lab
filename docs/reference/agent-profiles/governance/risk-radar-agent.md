@@ -65,7 +65,7 @@ The agent activates on events, scheduled scans, and keyword detection across dat
 | Source Agent | Artifact | Action Required |
 |--------------|----------|-----------------|
 | Meeting Notes Agent | Risks mentioned in meetings | Classify severity and assign owner |
-| Support Agent | Support-identified risks | Add to risk register |
+| CA Agent (SK_CA_001) | Support-originated risks | Add to risk register |
 | Delivery Agent | Delivery risks | Classify and track |
 
 ## Escalation Rules

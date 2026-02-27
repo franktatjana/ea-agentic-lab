@@ -100,10 +100,11 @@ A reactive process triggered by an external event. Speed matters because competi
 ### PROC-2024-038: Quarterly Business Review Prep
 
 **Trigger**: Scheduled, quarterly.
-**Owner**: AE Agent.
+**Owner**: AE Agent (PB_603), CA Agent (PB_174).
 **Status**: Draft (not yet active).
+**Playbooks**: PB_603 (internal sales QBR), PB_174 (customer-facing QBR).
 
-A preparation workflow for customer-facing QBR meetings. Currently in draft status, meaning the process definition exists but has not been validated through the conflict detection pipeline.
+A preparation workflow for QBR meetings. Covers both internal sales review (pipeline health, forecast accuracy, competitive patterns) and customer-facing review (adoption, value realization, success plan refresh). Currently in draft status, meaning the process definition exists but has not been validated through the conflict detection pipeline.
 
 ## The Orchestration Pipeline
 

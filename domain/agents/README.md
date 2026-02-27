@@ -54,7 +54,6 @@ Bridge what was sold with what gets implemented.
 |----------------|-------|---------|
 | `delivery/` | Delivery Agent | Implementation delivery coordination |
 | `professional_services/` | PS Agent | Professional Services pre/post sales |
-| `support/` | Support Agent | Support/DSE coordination |
 
 ### Governance Agents (8)
 

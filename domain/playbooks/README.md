@@ -75,6 +75,7 @@ Sales qualification, planning, and review playbooks.
 |----|------|-----------|------|
 | PB_601 | Retrospective | Win/Loss Analysis | R: AE, A: Sales Mgmt |
 | PB_602 | Account Planning | Account Strategy | R: AE, A: AE |
+| PB_603 | Sales QBR | Sales Performance Review | R: AE, A: Sales Mgmt |
 | PB_801 | MEDDPICC | Sales Qualification | R: AE, A: AE |
 
 ### Customer Architects (`customer_architects/`)
@@ -83,9 +84,13 @@ Customer health, success, and journey management.
 
 | ID | Name | Framework | RACI |
 |----|------|-----------|------|
+| PB_174 | Customer QBR | Customer Business Review | R: CA, A: CA Lead |
 | PB_401 | Customer Health Score | Health Metrics | R: CA, A: CA Lead |
 | PB_402 | Customer Success Plan | CSP | R: CA, A: CA |
 | PB_403 | Customer Journey VoC | Journey Mapping | R: CA, A: CA |
+| PB_187 | Track Support Case | Support-to-Account Intelligence | R: CA, A: CA Lead |
+| PB_188 | Escalate Support Issue | Escalation Management | R: CA, A: CA Lead |
+| PB_190 | Review Support Health | Support Health Analysis | R: CA, A: CA Lead |
 | PB_CS_202 | Cadence Calls | Meeting Rhythm | R: CA, A: CA |
 | PB_CS_301 | Health Triage | Risk Response | R: CA, A: CA Lead |
 
@@ -127,6 +132,11 @@ Implementation and technical delivery playbooks.
 
 | ID | Name | Framework | RACI |
 |----|------|-----------|------|
+| PB_DEL_001 | Implementation Kickoff | Implementation Governance | R: Delivery, A: Delivery Mgr |
+| PB_DEL_002 | Go-Live Readiness Assessment | Readiness Validation | R: Delivery, A: Delivery Mgr |
+| PB_DEL_003 | Implementation Risk Review | Delivery Risk Management | R: Delivery, A: Delivery Mgr |
+| PB_DEL_004 | Post-Implementation Review | Lessons Learned | R: Delivery, A: Delivery Mgr |
+| PB_189 | Engage DSE | DSE Coordination | R: PS, A: PS Lead |
 | PB_CS_101 | Security Stage Adoption | Adoption Framework | R: Delivery, A: CA |
 | PB_902 | Tech Trend Response | Trend Analysis | R: Delivery, A: SA |
 
@@ -222,7 +232,7 @@ raci:
 | Strategic Analysis | Strategy Team | Management | SA, AE | Leadership |
 | Technical Qualification | SA | SA Lead | Specialists | AE |
 | Sales Qualification | AE | AE | SA, VE | Sales Mgmt |
-| Customer Health | CA | CA Lead | AE, Support | Management |
+| Customer Health | CA | CA Lead | AE, SA | Management |
 | Competitive Analysis | CI | CI Lead | SA, Product | AE, Marketing |
 | Value Engineering | VE | VE Lead | SA, AE | Management |
 
@@ -359,14 +369,17 @@ Override priority (highest wins):
 
 ## Known Gaps
 
-The following agent roles currently have no dedicated playbooks. Existing delivery-related playbooks (PB_CS_101, PB_902) are attributed to SA and CA agents rather than to a dedicated Delivery agent. These gaps should be addressed to ensure every active agent role has at least one playbook.
+The following agent roles currently have no dedicated playbooks. These gaps should be addressed to ensure every active agent role has at least one playbook.
 
 | Agent Role | Gap | Priority |
 |-----------|-----|----------|
-| Delivery Agent | No dedicated playbooks, delivery work covered by SA/CA playbooks | High |
-| Support Agent | No playbooks for support workflows or escalation handling | High |
 | Product Manager Agent | No playbooks for product-oriented workflows | Medium |
 | Partner Agent | No playbooks for partner engagement or channel workflows | Medium |
+
+**Resolved gaps:**
+
+- ~~Delivery Agent~~: resolved with PB_DEL_001-004 (2026-02-27)
+- ~~Support Agent~~: dissolved (2026-02). Support intelligence handled via SIG_SUP_* signals consumed by CA Agent's SK_CA_001 skill. PB_187-190 (Blueprint C06) authored and owned by CA Agent (signal consumer) and PS Agent (DSE coordination).
 
 ---
 
@@ -383,6 +396,7 @@ The following agent roles currently have no dedicated playbooks. Existing delive
 
 | Version | Date | Changes | Author |
 |---------|------|---------| -------|
+| 2.2 | 2026-02-27 | Added PB_187-190 (C06), PB_DEL_001-004 (Delivery), vault_routing on all playbooks, Delivery gap resolved | Tatjana Frank |
 | 2.1 | 2026-02-11 | Added specialists catalog, documented agent role coverage gaps | Tatjana Frank |
 | 2.0 | 2026-02-03 | Reorganized by team ownership, added RACI | |
 | 1.0 | 2026-01-01 | Initial structure | |

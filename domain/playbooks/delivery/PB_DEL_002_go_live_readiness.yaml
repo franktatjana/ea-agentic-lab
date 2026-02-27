@@ -1,0 +1,551 @@
+# PLAYBOOK: Go-Live Readiness Assessment
+# Framework operationalization for AI agents
+# Validates all prerequisites before production go-live
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+playbook_id: "PB_DEL_002"
+framework_name: "Go-Live Readiness Assessment"
+framework_source: "Implementation Governance Best Practices"
+playbook_mode: "ASSESSMENT"
+playbook_category: "delivery_execution"
+intended_agent_role: "Delivery Agent (delivery_agent)"
+secondary_agents: ["SA Agent (architecture validation)", "CA Agent (adoption readiness)", "PS Agent (services completion)"]
+
+primary_objective: "Systematically validate that all technical, operational, and organizational prerequisites are met before production go-live, producing a go-live decision document with risk assessment and sign-off tracking"
+
+vault_routing:
+  primary_vault: "Customer InfoHub"
+  rationale: "Go-live assessment is a shared artifact requiring mutual sign-off from both vendor and customer. The customer needs visibility into readiness status, open items, and risk acceptance."
+  secondary_outputs:
+    - vault: "Internal Account Hub"
+      artifact: "Internal risk assessment, vendor-side readiness notes, and escalation flags not shared with customer"
+
+when_not_to_use:
+  - "Implementation has not reached final phase (premature assessment)"
+  - "Go-live date not yet defined or agreed"
+  - "Customer has decided to delay go-live indefinitely"
+  - "Project is cancelled or in active descope"
+
+# ==============================================================================
+# RACI
+# ==============================================================================
+raci:
+  responsible:
+    role: "delivery_agent"
+    agent: "delivery_agent"
+    description: "Runs readiness checklist, collects sign-offs, produces go-live decision document"
+
+  accountable:
+    role: "delivery_manager"
+    human_required: true
+    description: "Makes final go-live decision based on assessment results"
+    approval_actions:
+      - "approve_go_live"
+      - "conditional_go_live"
+      - "delay_go_live"
+      - "escalate"
+
+  consulted:
+    - role: "sa_agent"
+      on_steps: ["architecture_validation", "integration_verification", "performance_assessment"]
+    - role: "ca_agent"
+      on_steps: ["adoption_readiness", "training_completion", "support_setup"]
+    - role: "customer_lead"
+      on_steps: ["customer_sign_off", "operational_readiness"]
+
+  informed:
+    - role: "ae_agent"
+      notify_on: ["go_live_decision", "delay_decision"]
+    - role: "senior_manager"
+      notify_on: ["delay_decision", "high_risk_go_live"]
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - event: "SIG_LC_002"
+      signal_filter: "new_status == 'go_live_prep' OR milestone_name == 'go_live_readiness'"
+      description: "Implementation reaches go-live preparation phase"
+
+    - event: "milestone_reached"
+      signal_filter: "milestone_type == 'pre_go_live' OR milestone_type == 'final_phase'"
+      description: "Final implementation milestone completed, triggering readiness check"
+
+  manual:
+    - "Delivery Manager requests go-live readiness assessment"
+    - "Customer requests formal readiness review before cutover"
+    - "SA requests architecture validation before production deployment"
+
+  conditional:
+    - condition: "$.implementation.phase == 'final' AND $.go_live.date - today <= 14"
+      description: "Go-live date within 14 days and in final phase"
+
+    - condition: "$.implementation.milestones_complete >= 0.9 AND $.go_live.assessment_status == null"
+      description: "90% of milestones complete but no readiness assessment started"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "{realm}/{node}/internal-infohub/delivery/implementation_kickoff*.yaml"
+      description: "Original implementation plan with milestones and success criteria"
+    - artifact: "{realm}/{node}/internal-infohub/delivery/risk_register.yaml"
+      description: "Current delivery risk register"
+    - artifact: "{realm}/{node}/external-infohub/architecture/solution_description.md"
+      description: "Solution architecture for validation"
+
+  optional:
+    - artifact: "{realm}/{node}/external-infohub/poc/poc_results.md"
+      use: "POC outcomes to validate against production deployment"
+    - artifact: "{realm}/{node}/external-infohub/success_plan/csp.yaml"
+      use: "Success criteria and customer objectives"
+    - artifact: "{realm}/{node}/internal-infohub/delivery/status_reports/*.md"
+      use: "Recent delivery status for context"
+    - artifact: "Jira/project board export"
+      use: "Open items and backlog status"
+
+  minimum_data_threshold:
+    - "Implementation plan available with defined milestones"
+    - "Go-live date defined and agreed"
+    - "Solution architecture documented"
+
+# ==============================================================================
+# READINESS CHECKLIST
+# ==============================================================================
+readiness_dimensions:
+  infrastructure:
+    weight: 0.20
+    items:
+      - id: "INFRA_001"
+        check: "Production environment provisioned and configured"
+        severity: "BLOCKER"
+        validator: "SA Agent / PS"
+      - id: "INFRA_002"
+        check: "Network connectivity verified (firewall rules, VPN, endpoints)"
+        severity: "BLOCKER"
+        validator: "SA Agent"
+      - id: "INFRA_003"
+        check: "Capacity planning validated for expected load"
+        severity: "HIGH"
+        validator: "SA Agent"
+      - id: "INFRA_004"
+        check: "Monitoring and alerting configured for production"
+        severity: "HIGH"
+        validator: "SA Agent"
+      - id: "INFRA_005"
+        check: "Backup and disaster recovery plan documented and tested"
+        severity: "MEDIUM"
+        validator: "SA Agent / Customer"
+
+  security:
+    weight: 0.20
+    items:
+      - id: "SEC_001"
+        check: "Authentication and authorization configured (SSO, RBAC)"
+        severity: "BLOCKER"
+        validator: "SA Agent / Security Specialist"
+      - id: "SEC_002"
+        check: "Encryption at rest and in transit confirmed"
+        severity: "BLOCKER"
+        validator: "Security Specialist"
+      - id: "SEC_003"
+        check: "Security review or penetration test completed (if required)"
+        severity: "HIGH"
+        validator: "Customer Security Team"
+      - id: "SEC_004"
+        check: "Compliance requirements validated (GDPR, SOC2, HIPAA as applicable)"
+        severity: "HIGH"
+        validator: "SA Agent / Customer Compliance"
+      - id: "SEC_005"
+        check: "API keys and secrets managed through proper vault/secret management"
+        severity: "BLOCKER"
+        validator: "SA Agent"
+
+  data_migration:
+    weight: 0.15
+    items:
+      - id: "DATA_001"
+        check: "Data migration plan documented and approved"
+        severity: "BLOCKER"
+        validator: "SA Agent / PS"
+      - id: "DATA_002"
+        check: "Data validation and reconciliation completed"
+        severity: "BLOCKER"
+        validator: "PS / Customer"
+      - id: "DATA_003"
+        check: "Historical data migration verified (completeness and accuracy)"
+        severity: "HIGH"
+        validator: "Customer"
+      - id: "DATA_004"
+        check: "Data ingestion pipelines tested at production volume"
+        severity: "HIGH"
+        validator: "SA Agent"
+      - id: "DATA_005"
+        check: "Rollback plan for data migration defined"
+        severity: "MEDIUM"
+        validator: "PS / SA Agent"
+
+  integrations:
+    weight: 0.15
+    items:
+      - id: "INT_001"
+        check: "All contracted integrations built and tested"
+        severity: "BLOCKER"
+        validator: "SA Agent / PS"
+      - id: "INT_002"
+        check: "Integration error handling and retry logic validated"
+        severity: "HIGH"
+        validator: "SA Agent"
+      - id: "INT_003"
+        check: "End-to-end data flow validated across all integrations"
+        severity: "BLOCKER"
+        validator: "SA Agent / Customer"
+      - id: "INT_004"
+        check: "Integration monitoring and alerting in place"
+        severity: "MEDIUM"
+        validator: "SA Agent"
+
+  training:
+    weight: 0.10
+    items:
+      - id: "TRN_001"
+        check: "Admin training completed"
+        severity: "BLOCKER"
+        validator: "CA Agent / Training"
+      - id: "TRN_002"
+        check: "End-user training completed or scheduled for go-live week"
+        severity: "HIGH"
+        validator: "CA Agent"
+      - id: "TRN_003"
+        check: "Training materials and documentation provided"
+        severity: "MEDIUM"
+        validator: "CA Agent"
+      - id: "TRN_004"
+        check: "Power users or champions identified and trained"
+        severity: "HIGH"
+        validator: "CA Agent"
+
+  support_setup:
+    weight: 0.10
+    items:
+      - id: "SUP_001"
+        check: "Support channels established (portal, email, chat)"
+        severity: "BLOCKER"
+        validator: "CA Agent / Support"
+      - id: "SUP_002"
+        check: "Escalation matrix documented and shared with customer"
+        severity: "HIGH"
+        validator: "Delivery Agent"
+      - id: "SUP_003"
+        check: "Post go-live support plan defined (hypercare period)"
+        severity: "HIGH"
+        validator: "Delivery Manager"
+      - id: "SUP_004"
+        check: "Known issues list documented with workarounds"
+        severity: "MEDIUM"
+        validator: "SA Agent / PS"
+
+  organizational:
+    weight: 0.10
+    items:
+      - id: "ORG_001"
+        check: "Customer project team confirms operational readiness"
+        severity: "BLOCKER"
+        validator: "Customer Lead"
+      - id: "ORG_002"
+        check: "Change management communication plan executed"
+        severity: "HIGH"
+        validator: "Customer / CA Agent"
+      - id: "ORG_003"
+        check: "Go-live date confirmed with all stakeholders"
+        severity: "BLOCKER"
+        validator: "Delivery Manager / Customer Lead"
+      - id: "ORG_004"
+        check: "Cutover plan documented (sequence, timing, responsibilities)"
+        severity: "HIGH"
+        validator: "Delivery Agent / PS"
+
+# ==============================================================================
+# KEY QUESTIONS
+# ==============================================================================
+key_questions:
+  architecture_validation:
+    - "Does the production deployment match the approved solution architecture?"
+    - "Have all architecture decisions from pre-sales been implemented?"
+    - "Are there deviations from the original design, and are they documented?"
+    - "Has performance testing been conducted at expected production load?"
+
+  data_readiness:
+    - "Is all historical data migrated and validated?"
+    - "Are real-time data pipelines operational and tested?"
+    - "What is the data reconciliation status (gaps, discrepancies)?"
+    - "Is there a rollback plan if data migration issues are discovered post go-live?"
+
+  operational_readiness:
+    - "Has the customer team been trained on daily operations?"
+    - "Is the support model defined (vendor support, internal L1/L2)?"
+    - "Are runbooks or operational procedures documented?"
+    - "What is the hypercare plan for the first 2-4 weeks post go-live?"
+
+  risk_assessment:
+    - "What open risks exist in the delivery risk register?"
+    - "Are there any BLOCKER items not yet resolved?"
+    - "What is the fallback plan if go-live needs to be rolled back?"
+    - "Are there external dependencies that could affect go-live timing?"
+
+  sign_off_readiness:
+    - "Has the SA validated the architecture in production?"
+    - "Has the CA confirmed adoption readiness (training, enablement)?"
+    - "Has the customer project lead confirmed operational readiness?"
+    - "Has the Delivery Manager reviewed and approved the go-live assessment?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    - id: "go_live_approved"
+      condition: "blocker_items_open == 0 AND readiness_score >= 0.85 AND all_sign_offs_collected"
+      severity: "LOW"
+      output_type: "Decision"
+      decision:
+        title: "Go-live approved for {node}"
+        context: "All BLOCKER items resolved, readiness score {score}%, all sign-offs collected"
+        recommendation: "Proceed with production go-live as planned"
+        actions:
+          - "Confirm go-live date and cutover schedule"
+          - "Notify all stakeholders of go-live confirmation"
+          - "Activate hypercare support plan"
+          - "Schedule post go-live health check at day 1, 3, 7, 14"
+
+    - id: "conditional_go_live"
+      condition: "blocker_items_open == 0 AND readiness_score >= 0.70 AND readiness_score < 0.85"
+      severity: "MEDIUM"
+      output_type: "Decision + Risk"
+      decision:
+        title: "Conditional go-live for {node}"
+        context: "No BLOCKER items but readiness below target. Open HIGH items exist."
+        recommendation: "Go-live with conditions and enhanced monitoring"
+        actions:
+          - "Document accepted risks and mitigation plans"
+          - "Extend hypercare period to address open items"
+          - "Schedule daily check-ins for first week post go-live"
+          - "Assign owners to resolve remaining HIGH items within 2 weeks"
+      creates:
+        - object_type: "Risk"
+          category: "delivery"
+          severity: "MEDIUM"
+
+    - id: "go_live_blocked"
+      condition: "blocker_items_open > 0"
+      severity: "HIGH"
+      output_type: "Risk + Action Items"
+      decision:
+        title: "Go-live blocked for {node}"
+        context: "{blocker_count} BLOCKER items unresolved. Cannot proceed to production."
+        recommendation: "Delay go-live until all BLOCKER items are resolved"
+        actions:
+          - "List all BLOCKER items with resolution plans and estimated dates"
+          - "Propose revised go-live date based on blocker resolution timeline"
+          - "Communicate delay to customer with revised plan"
+          - "Escalate if blockers require external intervention"
+        urgency: "IMMEDIATE"
+      creates:
+        - object_type: "Risk"
+          category: "delivery"
+          severity: "HIGH"
+
+    - id: "readiness_critically_low"
+      condition: "readiness_score < 0.70"
+      severity: "HIGH"
+      output_type: "Risk + Initiative"
+      decision:
+        title: "Critical readiness gaps for {node}"
+        context: "Readiness score {score}% significantly below threshold"
+        recommendation: "Major remediation required before go-live consideration"
+        actions:
+          - "Identify top 5 readiness gaps by impact"
+          - "Create intensive remediation plan with daily tracking"
+          - "Escalate to Delivery Manager and Senior Manager"
+          - "Propose realistic revised timeline"
+      creates:
+        - object_type: "Risk"
+          category: "delivery"
+          severity: "HIGH"
+
+    - id: "sign_off_missing"
+      condition: "sign_offs_collected < sign_offs_required AND go_live_date - today <= 7"
+      severity: "HIGH"
+      output_type: "Action Items"
+      decision:
+        title: "Missing sign-offs for {node} go-live"
+        context: "Go-live in <7 days but required sign-offs not collected"
+        recommendation: "Urgently pursue outstanding sign-offs"
+        actions:
+          - "Identify missing sign-offs and escalate to respective owners"
+          - "Schedule emergency sign-off review meeting"
+          - "Prepare sign-off summary for rapid decision"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/{node}/external-infohub/delivery/go_live_readiness_{YYYY-MM-DD}.md"
+    format: "markdown"
+    sections:
+      - executive_summary
+      - readiness_dashboard
+      - dimension_details
+      - open_items
+      - risk_assessment
+      - sign_off_tracker
+      - go_live_decision
+      - cutover_plan
+
+    schema:
+      executive_summary:
+        - go_live_date: "date"
+        - overall_readiness: "percentage"
+        - decision: "enum[APPROVED|CONDITIONAL|BLOCKED|PENDING]"
+        - blocker_count: "integer"
+        - high_count: "integer"
+
+      readiness_dashboard:
+        - dimensions: "array[{name, score, status, blocker_count}]"
+        - overall_score: "percentage"
+
+      sign_off_tracker:
+        - sign_offs: "array[{role, name, status, date, notes}]"
+        - status: "enum[COMPLETE|PENDING|BLOCKED]"
+
+      go_live_decision:
+        - decision: "enum[GO|CONDITIONAL_GO|NO_GO]"
+        - conditions: "array[string] (if conditional)"
+        - accepted_risks: "array[string]"
+        - decision_maker: "string"
+        - decision_date: "date"
+
+  secondary_artifacts:
+    - path: "{realm}/{node}/internal-infohub/delivery/go_live_risk_assessment_{YYYY-MM-DD}.md"
+      description: "Internal-only risk assessment with vendor-side concerns"
+
+  action_items:
+    path: "{realm}/{node}/internal-infohub/actions/"
+    create_for_each: "open BLOCKER and HIGH readiness item"
+
+  notifications:
+    - recipient: "Delivery Manager"
+      condition: "always"
+      message: "Go-live readiness assessment complete for {node}. Decision: {decision}. Review required."
+
+    - recipient: "SA Agent"
+      condition: "architecture_validation_pending"
+      message: "Architecture validation sign-off needed for {node} go-live."
+
+    - recipient: "CA Agent"
+      condition: "adoption_readiness_pending"
+      message: "Adoption readiness sign-off needed for {node} go-live."
+
+    - recipient: "AE Agent"
+      condition: "decision == 'BLOCKED' OR decision == 'CONDITIONAL'"
+      message: "Go-live {decision} for {node}. Customer communication may be needed."
+
+    - recipient: "Senior Manager"
+      condition: "decision == 'BLOCKED' AND go_live_date - today <= 7"
+      message: "URGENT: Go-live blocked for {node} within 7 days of target date."
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "blocker_items_open > 3"
+      reason: "Multiple blockers indicate systemic readiness issues"
+      action: "Delivery Manager and Senior Manager to conduct executive readiness review"
+
+    - condition: "customer_sign_off_refused"
+      reason: "Customer unwilling to sign off, potential scope or satisfaction issue"
+      action: "Escalate to AE and Delivery Manager for customer alignment"
+
+    - condition: "go_live_delayed_twice"
+      reason: "Go-live has been delayed more than once, pattern of unresolved issues"
+      action: "Senior Manager to review project health and intervention strategy"
+
+  insufficient_data:
+    - "Implementation plan not available (cannot assess against baseline)"
+    - "No status reports or Jira data for open items"
+    - "Solution architecture not documented"
+
+  ambiguity_signals:
+    - "Conflicting readiness signals (some dimensions ready, others critically behind)"
+    - "Customer and vendor disagree on readiness status"
+    - "Unclear whether partial deployment qualifies as go-live"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "Implementation is in final phase or go-live prep"
+    - "Go-live date is defined"
+    - "Implementation plan with milestones is available"
+    - "At least 70% of implementation milestones completed"
+
+  post_execution:
+    - "All readiness dimensions have been assessed"
+    - "Every BLOCKER item has resolution plan or accepted risk"
+    - "Sign-off status tracked for all required approvers"
+    - "Go-live decision is clearly stated with rationale"
+    - "Cutover plan documented if decision is GO or CONDITIONAL_GO"
+
+  output_quality:
+    - "Readiness scores are based on checklist evidence, not estimates"
+    - "Open items have assigned owners and target dates"
+    - "Risk assessment distinguishes probability from impact"
+    - "Cutover plan has specific times, sequences, and rollback triggers"
+
+# ==============================================================================
+# INTEGRATION WITH OTHER PLAYBOOKS
+# ==============================================================================
+integrates_with:
+  - playbook: "PB_DEL_001_implementation_kickoff"
+    integration: "Kickoff establishes baseline milestones and success criteria"
+    provides: "Original project plan for readiness comparison"
+
+  - playbook: "PB_DEL_003_implementation_risk_review"
+    integration: "Ongoing risk reviews feed into go-live risk assessment"
+    provides: "Current risk register with severity and mitigation status"
+
+  - playbook: "PB_DEL_004_post_implementation_review"
+    integration: "Go-live triggers post-implementation review scheduling"
+    provides: "Go-live assessment as baseline for retrospective"
+
+  - playbook: "PB_CS_101_security_stage_adoption"
+    integration: "Go-live completion triggers adoption journey initiation"
+    provides: "Foundation stage readiness for security adoption"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "60-120 minutes (assessment + sign-off collection)"
+frequency: "Once per go-live event (may repeat if go-live is delayed and re-assessed)"
+human_review_required: true
+approval_workflow:
+  - reviewer: "Delivery Manager"
+    approval_gate: "Final go-live decision"
+  - reviewer: "SA Agent"
+    condition: "always"
+    approval_gate: "Confirm architecture and technical readiness"
+  - reviewer: "Customer Lead"
+    condition: "always"
+    approval_gate: "Customer operational readiness sign-off"
+
+last_updated: "2026-02-27"
+version: "1.0"
+status: "DRAFT"
+notes: "Dedicated Delivery Agent playbook for structured go-live gating. Ensures no production cutover without validated readiness."

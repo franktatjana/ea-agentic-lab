@@ -310,14 +310,18 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **ID:** `C06_support_dse_engagement`
 
-**Intent:** Define the support engagement model and Designated Support Engineer (DSE) coordination, establishing escalation paths, SLA tracking, and proactive support patterns.
+**Intent:** Bridge support operations with account strategy through signal-based intelligence. The support team operates externally; this blueprint defines how support signals flow into account governance via the CA Agent's Support Intelligence Triage skill (SK_CA_001) and how DSE coordination is managed by the PS Agent.
+
+**Note:** The Support Agent was dissolved (2026-02). Support intelligence is now signal-driven: the support team emits SIG_SUP_* signals, the CA Agent triages them via SK_CA_001, and routes actions to AE/SA/PS as needed.
 
 **Triggers/Signals:**
 
-- `support_case_opened` - New support ticket
-- `escalation_triggered` - Case escalated
-- `dse_assigned` - DSE engagement begins
-- `support_health_declining` - Support metrics deteriorating
+- `SIG_SUP_001` - Support health change (CSAT drop, volume spike)
+- `SIG_SUP_002` - Repeat issue detected (systemic pattern)
+- `SIG_SUP_003` - Escalation triggered (leadership or SLA breach)
+- `SIG_SUP_004` - Critical incident (production down)
+- `SIG_SUP_005` - DSE engagement needed
+- `SIG_SUP_006` - Support pattern insight (quarterly trends)
 
 **Required Assets:**
 
@@ -335,15 +339,15 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Stakeholders:**
 
-- Internal: Support Lead (owner), DSE, CSM, SA (for technical escalations)
-- External: Customer Support Contact, Technical Lead
+- Internal: CA Agent (signal consumer, owner), PS Agent (DSE coordination), SA (technical escalations)
+- External: Support Team (signal producer), Customer Support Contact, Technical Lead
 
 **Checklists:**
 
 - `CHK_SUP_001`: Support profile complete with escalation contacts
-- `CHK_SUP_002`: Critical cases escalated within 1 hour
+- `CHK_SUP_002`: Critical signals (SIG_SUP_004) processed within 1 hour
 - `CHK_SUP_003`: DSE engagement documented with outcomes
-- `CHK_SUP_004`: Support health reviewed monthly
+- `CHK_SUP_004`: Support health reviewed monthly via SIG_SUP_006
 
 ---
 

@@ -70,6 +70,10 @@ categories:
     description: "Industry Intelligence - sector analysis, regulatory landscape, industry benchmarks"
     prefix: "SIG_II"
 
+  support:
+    description: "Support team signals bridging support operations with account strategy"
+    prefix: "SIG_SUP"
+
   custom:
     description: "User-defined signals (require orchestrator validation)"
     prefix: "SIG_CUSTOM"
@@ -2262,6 +2266,320 @@ signals:
           type: "array"
     emitted_when: "New or updated regulation affecting realm company's industry is identified"
 
+  # ============================================================================
+  # SUPPORT SIGNALS
+  # ============================================================================
+  # Producer: support_team (external system / human support staff)
+  # These signals bridge the support function with account strategy.
+  # The support team remains external; these signals carry support intelligence
+  # into the agent system for account-level interpretation by CA Agent.
+
+  - signal_id: "SIG_SUP_001"
+    name: "support_health_change"
+    category: "support"
+    version: 1
+    description: "Support health metrics have shifted, indicating a change in account support posture"
+
+    producer: "support_team"
+    consumers:
+      - agent: "ca_agent"
+        action: "Assess account health impact, update health score"
+      - agent: "ae_agent"
+        action: "Evaluate commercial risk if health declining"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "health_direction"
+          type: "enum"
+          values: ["improving", "stable", "declining"]
+        - field: "csat_score"
+          type: "float"
+          description: "Current CSAT score (1.0-5.0)"
+        - field: "ticket_volume_trend"
+          type: "enum"
+          values: ["decreasing", "stable", "increasing", "spike"]
+      optional:
+        - field: "sla_compliance_pct"
+          type: "float"
+        - field: "period"
+          type: "string"
+          description: "Reporting period (e.g., 2026-Q1)"
+
+    emitted_when: "CSAT drops below 4.0, ticket volume spikes >50% week-over-week, or SLA compliance falls below 95%"
+
+    anti_patterns:
+      - "Do not emit for normal fluctuations within healthy range"
+      - "Do not emit more than once per week for the same account"
+
+    example:
+      realm_id: "realm_acme"
+      node_id: "node_acme_security"
+      health_direction: "declining"
+      csat_score: 3.8
+      ticket_volume_trend: "spike"
+      sla_compliance_pct: 91.2
+      period: "2026-Q1"
+
+  - signal_id: "SIG_SUP_002"
+    name: "repeat_issue_detected"
+    category: "support"
+    version: 1
+    description: "Same root cause appears across multiple tickets, indicating a systemic issue"
+
+    producer: "support_team"
+    consumers:
+      - agent: "ca_agent"
+        action: "Classify as adoption gap or architecture problem, update risk register"
+      - agent: "sa_agent"
+        action: "Evaluate if architecture review is needed"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "issue_category"
+          type: "string"
+          description: "Root cause category (e.g., configuration, integration, performance)"
+        - field: "occurrence_count"
+          type: "integer"
+          description: "Number of times this issue has appeared"
+        - field: "window_days"
+          type: "integer"
+          description: "Time window in days"
+      optional:
+        - field: "affected_component"
+          type: "string"
+        - field: "ticket_ids"
+          type: "array"
+
+    emitted_when: "Same root cause appears in 3+ tickets within 30 days"
+
+    anti_patterns:
+      - "Do not emit for known issues with documented workarounds"
+      - "Do not conflate similar but distinct root causes"
+
+    example:
+      realm_id: "realm_acme"
+      node_id: "node_acme_security"
+      issue_category: "integration"
+      occurrence_count: 4
+      window_days: 21
+      affected_component: "SIEM connector"
+      ticket_ids: ["SUP-1234", "SUP-1267", "SUP-1289", "SUP-1301"]
+
+  - signal_id: "SIG_SUP_003"
+    name: "escalation_triggered"
+    category: "support"
+    version: 1
+    description: "Customer has escalated to leadership or SLA has been breached"
+
+    producer: "support_team"
+    consumers:
+      - agent: "ca_agent"
+        action: "Assess relationship risk, coordinate response"
+      - agent: "ae_agent"
+        action: "Evaluate commercial impact, prepare executive response"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "escalation_type"
+          type: "enum"
+          values: ["customer_leadership", "sla_breach", "executive_complaint"]
+        - field: "severity"
+          type: "enum"
+          values: ["critical", "high"]
+      optional:
+        - field: "ticket_id"
+          type: "string"
+        - field: "customer_contact"
+          type: "string"
+          description: "Title/role of escalating contact"
+        - field: "description"
+          type: "string"
+
+    emitted_when: "Customer escalates to leadership, SLA breached, or executive complaint received"
+
+    anti_patterns:
+      - "Do not emit for internal escalations within support team"
+      - "Never include customer PII in payload"
+
+    example:
+      realm_id: "realm_acme"
+      node_id: "node_acme_security"
+      escalation_type: "sla_breach"
+      severity: "high"
+      ticket_id: "SUP-1345"
+      customer_contact: "VP Engineering"
+
+  - signal_id: "SIG_SUP_004"
+    name: "critical_incident"
+    category: "support"
+    version: 1
+    description: "P1/critical production-down ticket opened for an account"
+
+    producer: "support_team"
+    consumers:
+      - agent: "ca_agent"
+        action: "Track incident, update health signals"
+      - agent: "ae_agent"
+        action: "Prepare stakeholder communication if needed"
+      - agent: "sa_agent"
+        action: "Assess technical root cause implications"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "ticket_id"
+          type: "string"
+        - field: "severity"
+          type: "enum"
+          values: ["critical", "high"]
+        - field: "impact_description"
+          type: "string"
+          description: "Brief description of business impact"
+      optional:
+        - field: "affected_service"
+          type: "string"
+        - field: "started_at"
+          type: "datetime"
+        - field: "workaround_available"
+          type: "boolean"
+
+    emitted_when: "P1/critical production-down ticket opened"
+
+    anti_patterns:
+      - "Do not emit for planned maintenance or known outages"
+
+    example:
+      realm_id: "realm_acme"
+      node_id: "node_acme_security"
+      ticket_id: "SUP-1400"
+      severity: "critical"
+      impact_description: "SIEM ingestion pipeline down, no new events processing"
+      affected_service: "data-ingestion"
+      started_at: "2026-02-15T14:30:00Z"
+      workaround_available: false
+
+  - signal_id: "SIG_SUP_005"
+    name: "dse_engagement_needed"
+    category: "support"
+    version: 1
+    description: "Account needs a Dedicated Support Engineer based on complexity or volume"
+
+    producer: "support_team"
+    consumers:
+      - agent: "ca_agent"
+        action: "Evaluate DSE justification, coordinate with PS Agent"
+      - agent: "ps_agent"
+        action: "Assess DSE resource availability and engagement scope"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "reason"
+          type: "enum"
+          values: ["complex_deployment", "high_volume", "customer_request", "post_incident", "strategic_account"]
+      optional:
+        - field: "monthly_ticket_count"
+          type: "integer"
+        - field: "engagement_duration"
+          type: "string"
+          description: "Proposed duration (e.g., 3_months, ongoing)"
+
+    emitted_when: "Complex deployment, high support volume, customer request, or post-incident repair needs named support resource"
+
+    anti_patterns:
+      - "Do not emit if DSE is already assigned to this account"
+
+    example:
+      realm_id: "realm_acme"
+      node_id: "node_acme_security"
+      reason: "complex_deployment"
+      monthly_ticket_count: 45
+      engagement_duration: "6_months"
+
+  - signal_id: "SIG_SUP_006"
+    name: "support_pattern_insight"
+    category: "support"
+    version: 1
+    description: "Aggregated quarterly support trends ready for account review"
+
+    producer: "support_team"
+    consumers:
+      - agent: "ca_agent"
+        action: "Incorporate into QBR preparation and health assessment"
+
+    payload:
+      required:
+        - field: "realm_id"
+          type: "string"
+        - field: "node_id"
+          type: "string"
+        - field: "period"
+          type: "string"
+          description: "Reporting period (e.g., 2026-Q1)"
+        - field: "total_tickets"
+          type: "integer"
+        - field: "tickets_by_severity"
+          type: "object"
+          description: "Breakdown: {critical: N, high: N, medium: N, low: N}"
+        - field: "top_categories"
+          type: "array"
+          description: "Top 3 issue categories with counts"
+      optional:
+        - field: "mttr_hours"
+          type: "float"
+          description: "Mean time to resolution in hours"
+        - field: "repeat_issue_rate_pct"
+          type: "float"
+        - field: "csat_average"
+          type: "float"
+        - field: "feature_requests"
+          type: "array"
+
+    emitted_when: "Quarterly support trend analysis is completed for an account"
+
+    anti_patterns:
+      - "Do not emit mid-quarter unless explicitly requested"
+      - "Do not include individual ticket details, only aggregated trends"
+
+    example:
+      realm_id: "realm_acme"
+      node_id: "node_acme_security"
+      period: "2026-Q1"
+      total_tickets: 127
+      tickets_by_severity:
+        critical: 2
+        high: 15
+        medium: 68
+        low: 42
+      top_categories:
+        - category: "integration"
+          count: 38
+        - category: "configuration"
+          count: 29
+        - category: "performance"
+          count: 22
+      mttr_hours: 6.2
+      repeat_issue_rate_pct: 8.5
+      csat_average: 4.3
+
 # ------------------------------------------------------------------------------
 # CUSTOM SIGNAL VALIDATION RULES
 # ------------------------------------------------------------------------------
@@ -2382,3 +2700,13 @@ signal_flows:
       - "SIG_GOV_005"  # approval_resolved (human approves/rejects)
       - "SIG_GOV_008"  # knowledge_gap_detected (coverage analysis)
       - "SIG_GOV_009"  # knowledge_item_obsolete (obsolescence detection)
+
+  support_to_account_strategy:
+    description: "Flow from support team signals through CA Agent skill to account-level actions"
+    signals:
+      - "SIG_SUP_001"  # support_health_change -> CA assesses, AE evaluates risk
+      - "SIG_SUP_002"  # repeat_issue_detected -> CA classifies, SA reviews architecture
+      - "SIG_SUP_003"  # escalation_triggered -> CA coordinates, AE manages relationship
+      - "SIG_SUP_004"  # critical_incident -> CA tracks, AE communicates, SA assesses
+      - "SIG_SUP_005"  # dse_engagement_needed -> CA evaluates, PS coordinates
+      - "SIG_SUP_006"  # support_pattern_insight -> CA incorporates into QBR

@@ -116,7 +116,6 @@
 |----|-----------|--------|-------------|--------|
 | **PB_601** | **NIST Cybersecurity Framework** | NIST | Security assessment | Identify, Protect, Detect, Respond, Recover |
 | **PB_602** | **Zero Trust Architecture** | NIST | Security model design | ZTA principles + implementation |
-| **PB_603** | **STRIDE Threat Modeling** | Microsoft | Security threat analysis | Spoofing, Tampering, Repudiation, etc. |
 
 #### Observability
 
@@ -238,6 +237,8 @@ See: [Customer Success Playbooks](../guides/for-practitioners/customer-success-p
 | **PB_105** | **Five Whys Analysis** | Toyota Production System | Root cause needed | Root cause + countermeasures |
 | **PB_601** | **Retrospective** | Agile + Five Whys | Deal won/lost | Learnings + process improvements |
 | **PB_602** | **Account Planning** | Enterprise Sales + Five Whys | Annual planning | Account plan + blockers resolved |
+| **PB_603** | **Sales QBR** | Enterprise Sales Ops | Quarterly sales review | Pipeline health + revenue attainment + forecast accuracy |
+| **PB_174** | **Customer QBR** | Customer Success Best Practice | Quarterly customer review | Adoption progress + value realization + success plan refresh |
 
 ---
 

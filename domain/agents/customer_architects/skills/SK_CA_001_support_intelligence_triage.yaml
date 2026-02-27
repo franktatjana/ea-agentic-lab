@@ -1,0 +1,108 @@
+# SK_CA_001: Support Intelligence Triage
+# Purpose: Process incoming support signals and produce account-level actions
+
+skill_id: "SK_CA_001"
+name: "Support Intelligence Triage"
+description: "Receive support signals, enrich with account context, classify root cause, and route appropriate actions to account team"
+version: 1
+owner: "ca_agent"
+category: "customer_health"
+
+workflow:
+  - step: 1
+    action: "Receive and validate support signal"
+    inputs: ["support_signal"]
+    outputs: ["validated_signal"]
+    logic: |
+      Accept SIG_SUP_001 through SIG_SUP_006.
+      Validate signal has required payload fields.
+      Enrich with realm/node context from InfoHub.
+
+  - step: 2
+    action: "Classify signal against account context"
+    inputs: ["validated_signal", "account_health", "adoption_metrics"]
+    outputs: ["classification"]
+    logic: |
+      Classify the support signal into one or more categories:
+      - adoption_issue: Usage gaps, configuration questions, training needs
+      - architecture_gap: Repeat issues tied to integration or design
+      - relationship_risk: Escalations, CSAT drops, customer frustration
+      - expansion_signal: Feature requests, growth patterns in usage
+      Cross-reference with current health score and adoption status.
+
+  - step: 3
+    action: "Determine action and routing"
+    inputs: ["classification", "account_context"]
+    outputs: ["action_plan"]
+    logic: |
+      Based on classification:
+      - adoption_issue -> CA owns: update adoption blocker list, plan enablement
+      - architecture_gap -> route to SA Agent via signal
+      - relationship_risk -> route to AE Agent, update risk register
+      - expansion_signal -> note in expansion tracker, inform AE
+      For critical_incident (SIG_SUP_004): immediate alert to account team.
+      For escalation_triggered (SIG_SUP_003): coordinate response within 4h.
+
+  - step: 4
+    action: "Update account records"
+    inputs: ["action_plan"]
+    outputs: ["updated_records"]
+    logic: |
+      Write to appropriate InfoHub locations:
+      - Health score adjustment (if support health changed)
+      - Risk register entry (if new risk identified)
+      - QBR support section (if pattern insight received)
+      - Action tracker (if follow-up needed)
+
+inputs:
+  required:
+    - name: "support_signal"
+      type: "signal"
+      description: "Any SIG_SUP_* signal from signal catalog"
+  optional:
+    - name: "account_health"
+      type: "object"
+      description: "Current health score and factors from governance/health_score.yaml"
+    - name: "adoption_metrics"
+      type: "object"
+      description: "Current adoption data from success/adoption_metrics.yaml"
+    - name: "account_context"
+      type: "object"
+      description: "Node profile, engagement track, renewal timeline"
+
+outputs:
+  - name: "action_plan"
+    type: "object"
+    format: "yaml"
+    description: "Classified signal with routed actions: what to do, who owns it, urgency"
+  - name: "updated_records"
+    type: "object"
+    format: "yaml"
+    description: "Updated health score, risk register entries, QBR content"
+
+quality_criteria:
+  - "Every signal produces at least one action or a documented 'no action needed' decision"
+  - "Critical incidents (SIG_SUP_004) processed within 1 hour"
+  - "Escalations (SIG_SUP_003) have response plan within 4 hours"
+  - "Pattern insights (SIG_SUP_006) incorporated into next QBR prep"
+  - "Classifications are specific, not generic"
+
+guardrails:
+  - "Do not resolve support tickets directly, only interpret for account strategy"
+  - "Do not fabricate support metrics, only use data from signal payload"
+  - "Do not downplay critical signals, always route to account team"
+  - "Do not make SLA commitments on behalf of support team"
+  - "Flag when signal data is insufficient for classification"
+
+imports:
+  playbooks:
+    - "PB_174"   # Customer QBR - support section preparation
+    - "PB_401"   # Customer Health Score - support health factor
+
+consumes_signals:
+  - "SIG_SUP_001"  # support_health_change
+  - "SIG_SUP_002"  # repeat_issue_detected
+  - "SIG_SUP_003"  # escalation_triggered
+  - "SIG_SUP_004"  # critical_incident
+  - "SIG_SUP_005"  # dse_engagement_needed
+  - "SIG_SUP_006"  # support_pattern_insight

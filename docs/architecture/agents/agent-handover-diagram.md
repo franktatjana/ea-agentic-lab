@@ -37,7 +37,6 @@ flowchart TB
         DELIVERY[Delivery Agent]
         PS[PS Agent]
         CA[CA Agent]
-        SUPPORT[Support Agent]
         PARTNER[Partner Agent]
     end
 
@@ -82,7 +81,6 @@ flowchart TB
     %% Post-Sales Flows
     DELIVERY -->|Implementation start| PS
     DELIVERY -->|Go-live| CA
-    DELIVERY -->|Support needed| SUPPORT
     DELIVERY -->|HIGH risk| SM
 
     PS -->|SOW signed| DELIVERY
@@ -90,10 +88,6 @@ flowchart TB
 
     CA -->|Architecture issue| SA
     CA -->|Health < 50| SM
-    CA -->|Support pattern| SUPPORT
-
-    SUPPORT -->|Pattern detected| CA
-    SUPPORT -->|Critical/Sev1| SM
 
     PARTNER -->|Referral| AE
     PARTNER -->|Technical issue| SA
@@ -425,8 +419,8 @@ flowchart TD
 | Security questionnaire | InfoSec Agent | - | SM if blocker |
 | Contract signed | Delivery Agent | PS | SM if HIGH risk |
 | Implementation | PS Agent | Delivery | SA if technical |
-| Go-live | CA Agent | Support | SM if health <50 |
-| Support issue | Support Agent | CA, SA | SM if Critical/Sev1 |
+| Go-live | CA Agent | - | SM if health <50 |
+| Support signal | CA Agent (SK_CA_001) | AE, SA | SM if Critical |
 | Partner engagement | Partner Agent | AE, SA | SM if risk |
 | Meeting completed | Meeting Notes | TS, DR, RR | - |
 | Action created | Task Shepherd | Nudger | - |

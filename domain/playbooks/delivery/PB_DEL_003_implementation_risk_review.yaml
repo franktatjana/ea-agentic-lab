@@ -1,0 +1,429 @@
+# PLAYBOOK: Implementation Risk Review
+# Framework operationalization for AI agents
+# Periodic review of implementation risks, blockers, and scope changes
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+playbook_id: "PB_DEL_003"
+framework_name: "Implementation Risk Review"
+framework_source: "Implementation Governance Best Practices"
+playbook_mode: "ASSESSMENT"
+playbook_category: "delivery_execution"
+intended_agent_role: "Delivery Agent (delivery_agent)"
+secondary_agents: ["SA Agent (technical risk assessment)", "PS Agent (services risk assessment)"]
+
+primary_objective: "Conduct periodic review of implementation risks, blockers, and scope changes to maintain delivery health, update the risk register with severity classifications, and escalate HIGH risks to leadership"
+
+vault_routing:
+  primary_vault: "Internal Account Hub"
+  rationale: "Delivery risk tracking, internal severity classifications, and escalation decisions are vendor-internal. The customer should not see the vendor's internal risk assessment methodology or escalation thresholds."
+  secondary_outputs:
+    - vault: "Customer InfoHub"
+      artifact: "Shared delivery status summary excluding internal risk assessments and vendor-side concerns"
+
+when_not_to_use:
+  - "Implementation not yet started (use PB_DEL_001 kickoff first)"
+  - "Implementation completed and in post-go-live phase (use PB_DEL_004 review)"
+  - "Project is on hold with no active work"
+  - "Single minor issue that can be resolved through normal project channels"
+
+# ==============================================================================
+# RACI
+# ==============================================================================
+raci:
+  responsible:
+    role: "delivery_agent"
+    agent: "delivery_agent"
+    description: "Reviews status data, updates risk register, produces health summary"
+
+  accountable:
+    role: "delivery_manager"
+    human_required: true
+    description: "Reviews risk assessments and approves escalation decisions"
+    approval_actions:
+      - "approve"
+      - "override_severity"
+      - "escalate"
+
+  consulted:
+    - role: "sa_agent"
+      on_steps: ["technical_risk_assessment", "architecture_deviation_review"]
+    - role: "ps_agent"
+      on_steps: ["services_risk_assessment", "resource_availability"]
+
+  informed:
+    - role: "ae_agent"
+      notify_on: ["high_risk_identified", "scope_change_detected", "health_summary_published"]
+    - role: "ca_agent"
+      notify_on: ["adoption_risk_identified", "timeline_slippage"]
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - event: "weekly_cadence"
+      description: "Weekly risk review during active implementation"
+      timing: "Every Monday during active implementation phase"
+
+    - event: "SIG_HLT_001"
+      signal_filter: "category == 'delivery' AND severity in ['HIGH', 'CRITICAL']"
+      description: "New HIGH or CRITICAL delivery risk identified"
+
+    - event: "SIG_HLT_002"
+      signal_filter: "category == 'delivery' AND new_severity > previous_severity"
+      description: "Delivery risk severity has increased"
+
+  manual:
+    - "Delivery Manager requests ad-hoc risk review"
+    - "Project team reports new blocker or scope change"
+    - "Customer escalates delivery concern"
+
+  conditional:
+    - condition: "$.implementation.blocked_items > 0"
+      description: "Any blocked items exist in project tracker"
+
+    - condition: "$.implementation.scope_change_requested == true"
+      description: "Scope change request submitted"
+
+    - condition: "$.implementation.milestone_overdue == true"
+      description: "One or more milestones past their target date"
+
+    - condition: "$.delivery.last_risk_review_days > 10 AND $.implementation.status == 'active'"
+      description: "More than 10 days since last risk review during active implementation"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "{realm}/{node}/internal-infohub/delivery/risk_register.yaml"
+      description: "Current delivery risk register"
+    - artifact: "Jira/project board status"
+      description: "Current sprint or iteration status with blocked items"
+
+  optional:
+    - artifact: "{realm}/{node}/internal-infohub/delivery/implementation_kickoff*.yaml"
+      use: "Original project plan for timeline comparison"
+    - artifact: "{realm}/{node}/internal-infohub/delivery/status_reports/*.md"
+      use: "Previous status reports for trend analysis"
+    - artifact: "{realm}/{node}/internal-infohub/risks/*.md"
+      use: "Account-level risks that may affect delivery"
+    - artifact: "Slack/Teams messages with delivery keywords"
+      use: "Informal signals of delivery issues"
+
+  minimum_data_threshold:
+    - "Risk register exists (even if empty)"
+    - "Some form of project status available (Jira, status report, or meeting notes)"
+
+# ==============================================================================
+# KEY QUESTIONS
+# ==============================================================================
+key_questions:
+  blocker_analysis:
+    - "What items are currently blocked and for how long?"
+    - "What is the root cause of each blocker?"
+    - "Who owns resolution of each blocker?"
+    - "What is the estimated resolution date?"
+    - "What is the downstream impact of the blocker on timeline?"
+
+  scope_assessment:
+    - "Have any scope changes been requested or implied since last review?"
+    - "What is the impact of scope changes on timeline and resources?"
+    - "Has the scope change been formally documented and approved?"
+    - "Are scope changes driven by customer request, technical discovery, or vendor recommendation?"
+
+  timeline_health:
+    - "Are milestones on track, at risk, or overdue?"
+    - "What is the current variance between planned and actual timeline?"
+    - "Which milestones are on the critical path?"
+    - "If behind schedule, what is the recovery plan?"
+
+  resource_health:
+    - "Are all required resources (vendor and customer) available?"
+    - "Are there skill gaps impacting delivery velocity?"
+    - "Is customer resource availability causing delays?"
+    - "Are vendor PS or SA resources constrained?"
+
+  risk_register_update:
+    - "Are there new risks to add to the register?"
+    - "Have any existing risks changed in severity or likelihood?"
+    - "Have any risks been mitigated or closed?"
+    - "Are mitigation plans progressing as expected?"
+
+  signal_detection:
+    - "Are there signals of customer dissatisfaction with delivery?"
+    - "Are there signals of internal team fatigue or burnout?"
+    - "Are there political or organizational changes affecting the project?"
+    - "Are there dependency changes in the customer's environment?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    - id: "delivery_healthy"
+      condition: "blocked_items == 0 AND milestones_on_track == true AND high_risks == 0"
+      severity: "LOW"
+      output_type: "Status Update"
+      decision:
+        title: "Delivery health GREEN for {node}"
+        context: "No blockers, milestones on track, no HIGH risks"
+        recommendation: "Continue current cadence, no intervention needed"
+        actions:
+          - "Publish green health summary to account team"
+          - "Update risk register (close resolved risks)"
+          - "Confirm next milestone targets"
+
+    - id: "delivery_at_risk"
+      condition: "blocked_items > 0 OR milestone_overdue == true OR high_risks > 0"
+      severity: "MEDIUM"
+      output_type: "Risk + Action Items"
+      decision:
+        title: "Delivery health YELLOW for {node}"
+        context: "Blockers, overdue milestones, or HIGH risks detected"
+        recommendation: "Targeted intervention on specific issues"
+        actions:
+          - "Document each blocker with root cause and resolution plan"
+          - "Update risk register with new or changed risks"
+          - "Escalate blockers unresolved for >5 business days"
+          - "Propose recovery plan for overdue milestones"
+          - "Increase status cadence to twice-weekly if needed"
+      creates:
+        - object_type: "Risk"
+          category: "delivery"
+          severity: "MEDIUM"
+
+    - id: "delivery_critical"
+      condition: "blocked_items > 3 OR critical_path_blocked == true OR scope_creep_detected == true"
+      severity: "HIGH"
+      output_type: "Risk + Initiative + Escalation"
+      decision:
+        title: "Delivery health RED for {node}"
+        context: "Multiple blockers, critical path impacted, or uncontrolled scope change"
+        recommendation: "Immediate intervention and leadership escalation"
+        actions:
+          - "Escalate to Delivery Manager immediately"
+          - "Schedule emergency project health review"
+          - "Produce detailed impact assessment on timeline and scope"
+          - "Propose corrective actions (resource increase, scope reduction, timeline extension)"
+          - "Escalate to Senior Manager if customer relationship at risk"
+        urgency: "IMMEDIATE"
+      creates:
+        - object_type: "Risk"
+          category: "delivery"
+          severity: "HIGH"
+
+    - id: "scope_change_detected"
+      condition: "scope_change_requested == true OR scope_deviation_detected == true"
+      severity: "MEDIUM"
+      output_type: "Initiative + Action Items"
+      decision:
+        title: "Scope change detected for {node}"
+        context: "Implementation scope has deviated from original plan"
+        recommendation: "Formal scope change assessment and approval"
+        actions:
+          - "Document scope change with business justification"
+          - "Assess impact on timeline, resources, and budget"
+          - "Route to Delivery Manager for approval"
+          - "Update project plan if scope change approved"
+          - "Notify AE if scope change has commercial implications"
+
+    - id: "blocker_persistent"
+      condition: "blocker_age_days > 5 AND blocker_resolution_plan == null"
+      severity: "HIGH"
+      output_type: "Escalation"
+      decision:
+        title: "Persistent blocker for {node} ({blocker_title})"
+        context: "Blocker unresolved for {blocker_age_days} days with no resolution plan"
+        recommendation: "Escalate blocker to next management level"
+        actions:
+          - "Document blocker impact on project timeline"
+          - "Identify decision maker who can unblock"
+          - "Escalate to Delivery Manager with recommended resolution"
+          - "Propose workaround if available"
+
+    - id: "timeline_slippage_significant"
+      condition: "timeline_variance_days > 14 OR timeline_variance_percentage > 0.20"
+      severity: "HIGH"
+      output_type: "Risk + Initiative"
+      decision:
+        title: "Significant timeline slippage for {node}"
+        context: "Implementation {timeline_variance_days} days behind plan ({timeline_variance_percentage}% variance)"
+        recommendation: "Conduct timeline recovery assessment"
+        actions:
+          - "Identify root causes of slippage"
+          - "Evaluate recovery options (resource increase, scope reduction, parallel execution)"
+          - "Present recovery options to Delivery Manager with tradeoffs"
+          - "Communicate revised timeline to customer if approved"
+      creates:
+        - object_type: "Risk"
+          category: "delivery"
+          severity: "HIGH"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/{node}/internal-infohub/delivery/risk_review_{YYYY-MM-DD}.yaml"
+    format: "yaml"
+    sections:
+      - delivery_health_summary
+      - risk_register_updates
+      - blocker_analysis
+      - scope_change_log
+      - timeline_assessment
+      - action_items
+
+    schema:
+      delivery_health_summary:
+        - overall_health: "enum[GREEN|YELLOW|RED]"
+        - review_date: "date"
+        - review_period: "string"
+        - key_findings: "array[string]"
+        - trend: "enum[IMPROVING|STABLE|DECLINING]"
+        - metrics:
+            blocked_items: "integer"
+            milestones_on_track: "integer"
+            milestones_at_risk: "integer"
+            milestones_overdue: "integer"
+            open_risks_high: "integer"
+            open_risks_medium: "integer"
+            scope_changes_pending: "integer"
+
+      risk_register_updates:
+        - new_risks: "array[{title, severity, category, likelihood, impact, mitigation, owner}]"
+        - changed_risks: "array[{risk_id, field_changed, old_value, new_value}]"
+        - closed_risks: "array[{risk_id, resolution}]"
+
+      blocker_analysis:
+        - blockers: "array[{id, title, age_days, root_cause, impact, resolution_plan, owner, estimated_resolution}]"
+
+      scope_change_log:
+        - changes: "array[{description, requested_by, impact_timeline, impact_resources, status, decision}]"
+
+      action_items:
+        - items: "array[{title, owner, due_date, priority, context}]"
+
+  secondary_artifacts:
+    - path: "{realm}/{node}/external-infohub/delivery/status_summary_{YYYY-MM-DD}.md"
+      description: "Customer-facing delivery status summary (excludes internal risk details)"
+
+  risk_objects:
+    path: "{realm}/{node}/internal-infohub/risks/"
+    create_if:
+      - "New HIGH or CRITICAL risk identified"
+      - "Existing risk severity has increased"
+
+  notifications:
+    - recipient: "Delivery Manager"
+      condition: "overall_health in ['YELLOW', 'RED']"
+      message: "Delivery health {overall_health} for {node}. {blocked_count} blockers, {overdue_count} overdue milestones."
+
+    - recipient: "Senior Manager"
+      condition: "overall_health == 'RED'"
+      message: "ESCALATION: Delivery health RED for {node}. Immediate review required."
+
+    - recipient: "AE Agent"
+      condition: "scope_change_detected OR overall_health == 'RED'"
+      message: "Delivery alert for {node}: {alert_type}. Customer communication may be needed."
+
+    - recipient: "SA Agent"
+      condition: "technical_risk_identified"
+      message: "Technical delivery risk for {node}: {risk_title}. SA review requested."
+
+    - recipient: "CA Agent"
+      condition: "timeline_slippage_significant"
+      message: "Implementation timeline slippage for {node}. Adoption planning may need adjustment."
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "delivery_health == 'RED' for 2+ consecutive reviews"
+      reason: "Persistent critical delivery issues indicate systemic problem"
+      action: "Senior Manager and Delivery Manager to conduct project recovery assessment"
+
+    - condition: "customer_escalation_received"
+      reason: "Customer has formally escalated delivery concerns"
+      action: "Delivery Manager to lead customer meeting within 48 hours"
+
+    - condition: "scope_creep_uncontrolled"
+      reason: "Multiple scope changes without formal approval process"
+      action: "Delivery Manager to enforce scope governance with customer"
+
+  insufficient_data:
+    - "No project status data available (Jira, status reports)"
+    - "Risk register not initialized (run PB_DEL_001 first)"
+    - "No baseline project plan to compare against"
+
+  ambiguity_signals:
+    - "Status reports contradict Jira data"
+    - "Team reports green while metrics show yellow"
+    - "Customer and vendor have different views of project status"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "Implementation is active (not on hold or completed)"
+    - "Risk register exists and is accessible"
+    - "Project status data available from at least one source"
+
+  post_execution:
+    - "Health status assessed (GREEN, YELLOW, or RED)"
+    - "Risk register updated (new, changed, or closed risks)"
+    - "All blockers documented with root cause and resolution plan"
+    - "Scope changes logged with impact assessment"
+    - "Action items created with owners and due dates"
+    - "Customer-facing status summary produced (if applicable)"
+
+  output_quality:
+    - "Risk severities are justified with impact and likelihood assessment"
+    - "Blocker resolution plans are specific and actionable"
+    - "Timeline variances are quantified (days, percentage)"
+    - "Trend assessment is based on comparison to previous reviews"
+
+# ==============================================================================
+# INTEGRATION WITH OTHER PLAYBOOKS
+# ==============================================================================
+integrates_with:
+  - playbook: "PB_DEL_001_implementation_kickoff"
+    integration: "Kickoff initializes risk register that this playbook maintains"
+    provides: "Baseline project plan and initial risk register"
+
+  - playbook: "PB_DEL_002_go_live_readiness"
+    integration: "Risk register state feeds into go-live readiness assessment"
+    provides: "Current risk register, delivery health trend"
+
+  - playbook: "PB_105_five_whys_analysis"
+    integration: "Use for root cause analysis of persistent blockers"
+    trigger: "Blocker persists for 10+ business days"
+
+  - playbook: "OP_RSK_001_register_new_risk"
+    integration: "New risks identified during review are registered through operational playbook"
+    provides: "Risk details for formal registration"
+
+  - playbook: "OP_ESC_001_escalate_blocked_action"
+    integration: "Persistent blockers escalated through operational escalation"
+    provides: "Blocker details and impact assessment"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "20-40 minutes per review"
+frequency: "Weekly during active implementation, ad-hoc on signal receipt"
+human_review_required: true
+approval_workflow:
+  - reviewer: "Delivery Manager"
+    condition: "overall_health in ['YELLOW', 'RED']"
+    approval_gate: "Review risk assessment and approve escalation decisions"
+
+last_updated: "2026-02-27"
+version: "1.0"
+status: "DRAFT"
+notes: "Core operational playbook for the Delivery Agent. Maintains continuous visibility into implementation health through structured risk and blocker tracking."

@@ -60,7 +60,7 @@ The PS Agent activates when professional services engagement is needed, either d
 | SOW signed | Delivery Agent | Implementation start |
 | Technical escalation | SA Agent | Architecture issue in delivery |
 | Training complete | CA Agent | Adoption tracking begins |
-| Implementation complete | Support Agent | Transition to support |
+| Implementation complete | CA Agent | Transition to post-sales |
 
 ### Inbound (others -> this agent)
 

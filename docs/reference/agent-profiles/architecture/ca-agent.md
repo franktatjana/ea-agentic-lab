@@ -63,14 +63,15 @@ The CA Agent activates when signals indicate changes in the customer's technical
 | Design mismatch critical | SA Agent | Platform design does not fit customer |
 | Integration risk HIGH | SA Agent | Integration blocker detected |
 | Customer health drop | Senior Manager | Health score below 50 |
-| Support pattern detected | Support Agent | Repeated support issues indicate architecture problem |
+| Support architecture issue | SA Agent | SIG_SUP_002 classified as architecture gap via SK_CA_001 |
+| Support relationship risk | AE Agent | SIG_SUP_003 classified as relationship risk via SK_CA_001 |
 
 ### Inbound (others -> this agent)
 
 | Source Agent | Artifact | Action Required |
 |--------------|----------|-----------------|
 | SA Agent | Platform architecture | Map to customer environment |
-| Support Agent | Support tickets | Identify patterns |
+| Support Team | SIG_SUP_* signals | Triage via SK_CA_001 |
 | Delivery Agent | Implementation status | Track adoption |
 
 ## Escalation Rules
@@ -80,7 +81,7 @@ The CA Agent escalates when architecture mismatches or health signals cross crit
 - Critical design mismatches escalate to SA Agent for alignment
 - Integration risk rated HIGH escalates to SA Agent
 - Customer health score below 50 escalates to Senior Manager
-- Repeated support patterns escalate to Support Agent for root cause
+- Support signals (SIG_SUP_*) are triaged via SK_CA_001 and routed to SA/AE as needed
 
 ## Personality Traits
 

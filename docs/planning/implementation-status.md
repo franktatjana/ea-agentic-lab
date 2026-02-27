@@ -1,7 +1,7 @@
 # EA Agentic Lab - Implementation Status
 
-**Last Updated:** 2026-02-13
-**Status:** Domain model defined, 91 playbooks authored, 28 agents configured, web application functional with dashboard, canvas rendering, and node management
+**Last Updated:** 2026-02-27
+**Status:** Domain model defined, 99 playbooks authored, 27 agents configured, web application functional with dashboard, canvas rendering, and node management
 
 ---
 
@@ -19,16 +19,17 @@ The domain layer (`domain/`) contains all business logic definitions: agents, pl
 
 | Component | Count | Location | Status |
 |-----------|-------|----------|--------|
-| Playbook YAMLs | 91 | `domain/playbooks/{team}/` | Authored |
-| Agent configs | 28 | `domain/agents/{team}/agents/` | Configured |
-| Personality specs | 28 | `domain/agents/{team}/personalities/` | Configured |
+| Playbook YAMLs | 99 | `domain/playbooks/{team}/` | Authored |
+| Agent configs | 27 | `domain/agents/{team}/agents/` | Configured |
+| Personality specs | 27 | `domain/agents/{team}/personalities/` | Configured |
+| Skill definitions | 8 | `domain/agents/{team}/skills/` | Authored |
 | Task prompt files | 17 | `domain/agents/{team}/prompts/tasks.yaml` | Authored |
 | Templates | 8 | `domain/playbooks/templates/` | Authored |
 | Canvas specs | 8 | `domain/playbooks/canvas/specs/` | Authored |
 | Operational playbooks | 6 | `domain/playbooks/operational/` | Authored |
 | Catalogs | 5 | `domain/catalogs/` | Authored |
 
-### 2. Agents (28 configured)
+### 2. Agents (27 configured)
 
 All agents have YAML configuration, personality specifications with anti-hallucination controls, and task prompts (CAF format). None have runtime implementations yet.
 
@@ -64,13 +65,14 @@ All agents have YAML configuration, personality specifications with anti-halluci
 | POC Agent | `poc/` | 20+ |
 | InfoSec Agent | `infosec/` | 10+ |
 
-**Delivery Agents (3):**
+**Delivery Agents (2):**
 
 | Agent | Team | Tasks |
 |-------|------|-------|
 | Delivery Agent | `delivery/` | 10+ |
 | PS Agent | `professional_services/` | 10+ |
-| Support Agent | `support/` | 10+ |
+
+**Note:** The Support Agent was dissolved (2026-02). Its support-to-account bridge function is now handled by SIG_SUP_* signals in the signal catalog, consumed by the CA Agent via skill SK_CA_001 (Support Intelligence Triage). DSE coordination moved to PS Agent.
 
 **Governance Agents (8):**
 
@@ -102,31 +104,26 @@ All agents have YAML configuration, personality specifications with anti-halluci
 | Search | 10 (PB_SRCH_001-010) | Schema design, relevance tuning, RAG system design |
 | Security | 12 (PB_SEC_001-012) | Use case definition, migration planning, competitive battlecard |
 
-### 3. Playbooks (91 authored)
+### 3. Playbooks (99 authored)
 
-Playbooks are organized by team ownership. Each follows a standardized YAML schema with metadata, trigger conditions, required inputs, key questions, decision logic, expected outputs, stop conditions, and validation checks.
+Playbooks are organized by team ownership. Each follows a standardized YAML schema with metadata, vault routing, trigger conditions, required inputs, key questions, decision logic, expected outputs, stop conditions, and validation checks. All playbooks now include `vault_routing` metadata aligned to the three-vault knowledge architecture.
 
 | Team | Count | Key Playbooks |
 |------|-------|---------------|
 | Strategy | 6 | Three Horizons, Ansoff, BCG, SWOT, PESTLE, Stakeholder Mapping |
 | Solution Architects | 6 | TOGAF ADM, Sizing Estimation, Technical Validation, Solution Description, Five Whys, TECHDRIVE |
-| Customer Architects | 8 | Health Score, Success Plan, Journey VoC, Guidelines, Training, Adoption, Cadence Calls, Health Triage |
+| Customer Architects | 11 | Health Score, Success Plan, Journey VoC, Guidelines, Training, Adoption, Cadence Calls, Health Triage, Track Support Case, Escalate Support Issue, Review Support Health |
 | Specialists: Security | 12 | Technical validation, RFx, solution scoping, use cases, migration, POC, battlecard |
 | Specialists: Search | 10 | Validation, RFx, schema design, relevance tuning, vector search, RAG |
 | Specialists: Observability | 10 | Discovery, demo, validation, SLO/SLI, APM, platform architecture |
-| Account Executives | 3 | Retrospective, Account Planning, MEDDPICC |
+| Account Executives | 4 | Retrospective, Account Planning, Sales QBR, MEDDPICC |
 | Operational | 6 | Risk registration, action creation, escalation, health alerts, meeting notes, tech signals |
 | Admins | 4 | Render canvas, canvas gap analysis, validate playbook, blueprint gap scan |
-| Delivery | 2 | Security stage adoption, tech trend response |
+| Delivery | 7 | Implementation Kickoff, Go-Live Readiness, Implementation Risk Review, Post-Implementation Review, Engage DSE, Security Stage Adoption, Tech Trend Response |
 | Competitive Intelligence | 1 | Five Forces |
 | Value Engineering | 1 | Value Engineering |
 | POC | 1 | POC Success Plan |
 | RFP | 1 | RFP Processing |
-
-**Recent additions (2026-02-09):** 6 new playbooks with `vault_routing` metadata aligned to the three-vault knowledge architecture:
-
-- PB_102 Sizing Estimation, PB_103 Technical Validation Checklist, PB_104 Solution Description (SA)
-- PB_404 Customer Guidelines, PB_405 Training Plans, PB_406 Adoption Guidance (CA)
 
 ### 4. Knowledge Architecture
 
@@ -138,7 +135,7 @@ The three-vault model separates knowledge by audience and sensitivity (see [DDR-
 | Internal Account Hub | Per account | Vendor-only | Competitive intel, deal reviews, pricing, risk assessments |
 | Global Knowledge Vault | Cross-account | Vendor-only, anonymized | Best practices, winning patterns, tribal knowledge |
 
-The 6 new playbooks include `vault_routing` metadata. Existing playbooks need this metadata added (tracked as a consistency task).
+All 99 playbooks now include `vault_routing` metadata specifying primary vault, rationale, and secondary outputs.
 
 ### 5. Application
 
@@ -228,7 +225,7 @@ ea-agentic-lab/
 ├── application/                  # Application (Streamlit UI + Swift iOS + Python backend)
 ├── data/                         # Runtime data
 ├── domain/
-│   ├── agents/                   # 28 agents across 18 teams
+│   ├── agents/                   # 27 agents across 17 teams
 │   │   └── {team}/
 │   │       ├── agents/           # Agent config YAML
 │   │       ├── personalities/    # Personality specs
@@ -258,9 +255,9 @@ ea-agentic-lab/
 
 ### Built (domain layer)
 
-- 91 playbook definitions covering strategy, technical, customer success, specialist, operational, and admin workflows
-- 28 agent configurations with personality specs, anti-hallucination controls, and 200+ task prompts
-- Three-vault knowledge architecture with vault routing on new playbooks
+- 99 playbook definitions covering strategy, technical, customer success, specialist, operational, delivery, and admin workflows
+- 27 agent configurations with personality specs, anti-hallucination controls, and 200+ task prompts
+- Three-vault knowledge architecture with vault routing on all playbooks
 - Decision documentation framework (DDR + ADR)
 - 8 canvas specifications for visual artifacts
 - Operating model with RACI assignments across all teams
@@ -271,7 +268,7 @@ ea-agentic-lab/
 - Playbook execution engine (load YAML, run steps, generate outputs)
 - Agent runtime (LLM integration, tool calling, signal processing)
 - Trigger system (event-driven playbook activation)
-- Vault routing enforcement (validate vault_routing metadata across all playbooks)
+- Vault routing enforcement (runtime validation that outputs go to the correct vault)
 - Multi-agent orchestration (cross-agent workflows)
 - Report generation pipeline (LLM-synthesized reports from vault data, see DDR-010 future scope)
 - Canvas export (PDF/slide generation from rendered canvases)
@@ -287,7 +284,7 @@ Identified during dashboard implementation (documented in DDR-010 Open Questions
 
 ### Consistency tasks
 
-- Add `vault_routing` metadata to existing playbooks (only 6 of 91 have it)
+- ~~Add `vault_routing` metadata to existing playbooks~~ (done, all 99 playbooks have it)
 - Add `raci` section to playbooks missing it
 - Validate all playbook YAMLs against implicit schema conventions
 - Remove legacy files (`domain/agents/solution_architects/agents/_agent.yaml`, `_agent_personality.yaml`)
@@ -310,3 +307,5 @@ Identified during dashboard implementation (documented in DDR-010 Open Questions
 | 2026-02-10 | Documentation restructured (architecture/, operating-model/, guides/, decisions/) |
 | 2026-02-12 | Competitive intelligence UI, stakeholder interactivity, realm profile tabs |
 | 2026-02-13 | Canvas rendering pipeline (5 assemblers, format-dispatch renderer), portfolio dashboard with aggregated metrics, DDR-010 accepted |
+| 2026-02-27 | QBR playbooks (PB_603, PB_174), Support Agent dissolved into SIG_SUP_* signals + CA Agent skill SK_CA_001 |
+| 2026-02-27 | vault_routing added to all 99 playbooks, PB_187-190 (C06 support/DSE) authored, PB_DEL_001-004 (Delivery Agent) authored, Delivery Agent gap resolved |

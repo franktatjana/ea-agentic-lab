@@ -89,11 +89,10 @@ const AGENT_CATEGORIES: AgentCategory[] = [
     label: "Delivery",
     icon: Truck,
     color: "text-teal-400",
-    description: "Sales-to-delivery handoff, professional services, support operations.",
+    description: "Sales-to-delivery handoff, professional services.",
     agents: [
       { name: "Delivery", id: "delivery_agent", purpose: "Sales-to-delivery continuity", docPath: "reference/agent-profiles/delivery/delivery-agent.md", mode: "human-paired" },
       { name: "Professional Services (PS)", id: "ps_agent", purpose: "Pre-sales to post-sales delivery bridge", docPath: "reference/agent-profiles/delivery/ps-agent.md", mode: "human-paired" },
-      { name: "Support", id: "support_agent", purpose: "Support operations and account health signals", docPath: "reference/agent-profiles/delivery/support-agent.md", mode: "human-paired" },
     ],
   },
   {

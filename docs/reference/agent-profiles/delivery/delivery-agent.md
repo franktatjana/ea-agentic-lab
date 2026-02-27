@@ -58,7 +58,6 @@ The Delivery Agent activates on implementation lifecycle events that signal prog
 | Contract signed | PS Agent | Implementation planning begins |
 | Implementation risk HIGH | Senior Manager | Escalation required |
 | Go-live complete | CA Agent | Transition to adoption tracking |
-| Support needed | Support Agent | Technical support required |
 
 ### Inbound (others -> this agent)
 

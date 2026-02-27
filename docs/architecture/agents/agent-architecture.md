@@ -58,7 +58,6 @@ flowchart TB
     subgraph Delivery["Delivery"]
         DL[Delivery Agent]
         PS[PS Agent]
-        SUP[Support Agent]
     end
 
     subgraph Governance["Governance Agents"]
@@ -160,7 +159,6 @@ Bridge what was sold with what gets implemented.
 |-------|------|---------|--------|
 | Delivery Agent | delivery | Implementation delivery | Configured |
 | PS Agent | professional_services | Professional Services pre/post sales | Configured |
-| Support Agent | support | Support/DSE coordination | Configured |
 
 ---
 
@@ -248,7 +246,6 @@ flowchart BT
         RFP[RFP Agent]
         IS[InfoSec Agent]
         PS[PS Agent]
-        SUP[Support Agent]
         VE[VE Agent]
     end
 
@@ -485,7 +482,6 @@ Both categories execute at **Node level only**.
 | **Deal Execution** | InfoSec Agent | Security/compliance enablement | Senior Manager |
 | **Delivery** | Delivery Agent | Implementation delivery | Senior Manager |
 | **Delivery** | PS Agent | Professional Services pre/post sales | Senior Manager |
-| **Delivery** | Support Agent | Support/DSE coordination | Senior Manager |
 | **Governance** | Meeting Notes | Decision-grade meeting artifacts | Nudger |
 | **Governance** | Nudger | Follow-up enforcement | Governance Lead |
 | **Governance** | Task Shepherd | Action validation | - |
