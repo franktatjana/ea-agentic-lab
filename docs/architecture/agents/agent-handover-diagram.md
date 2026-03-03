@@ -20,83 +20,80 @@ Visual representation of agent handovers, escalation paths, and information flow
 ## 1. Strategic Agent Handover Flow
 
 ```mermaid
-flowchart TB
-    subgraph PRESALES["Pre-Sales Phase"]
+flowchart LR
+    subgraph QUALIFY["Qualify"]
         AE[AE Agent]
-        RFP[RFP Agent]
-        POC[POC Agent]
         CI[CI Agent]
-        SA[SA Agent]
-        INFOSEC[InfoSec Agent]
-        SPEC[Specialist Agent]
-        PM[PM Agent]
-        VE[VE Agent]
     end
 
-    subgraph POSTSALES["Post-Sales Phase"]
+    subgraph PROPOSE["Propose"]
+        RFP[RFP Agent]
+        SA[SA Agent]
+        INFOSEC[InfoSec Agent]
+    end
+
+    subgraph PROVE["Prove"]
+        POC[POC Agent]
+        VE[VE Agent]
+        SPEC[Specialist Agent]
+        PM[PM Agent]
+    end
+
+    subgraph DELIVER["Deliver"]
         DELIVERY[Delivery Agent]
         PS[PS Agent]
         CA[CA Agent]
         PARTNER[Partner Agent]
     end
 
-    subgraph LEADERSHIP["Leadership"]
+    subgraph ESC["Escalation"]
         SM[Senior Manager]
     end
 
-    %% Pre-Sales Flows
+    %% Qualify → Propose
     AE -->|RFP received| RFP
-    AE -->|POC requested| POC
     AE -->|Technical questions| SA
     AE -->|Competitor detected| CI
     AE -->|Security questionnaire| INFOSEC
-    AE -->|Deal > $500K| SM
 
+    %% Propose → Prove
     RFP -->|Technical sections| SA
-    RFP -->|Security sections| INFOSEC
     RFP -->|Competitive positioning| CI
-    RFP -->|Borderline 45-55| SM
+    RFP -->|Security sections| INFOSEC
     RFP -->|RFP won| POC
-
-    POC -->|Technical design| SA
-    POC -->|Value criteria| VE
-    POC -->|Blocker > 48h| SM
-    POC -->|POC win| AE
-
     SA -->|Domain expertise| SPEC
     SA -->|Security review| INFOSEC
     SA -->|Product gap| PM
-    SA -->|HIGH risk| SM
 
+    %% Prove phase
+    AE -->|POC requested| POC
+    POC -->|Technical design| SA
+    POC -->|Value criteria| VE
     CI -->|Competitor in POC| POC
-    CI -->|Strategic threat| SM
-
     VE -->|POC metrics| POC
-    VE -->|Value failure| SM
+    POC -->|POC win| AE
 
-    %% Pre to Post-Sales Transition
+    %% Transition to Deliver
     AE -->|Contract signed| DELIVERY
     POC -->|POC learnings| DELIVERY
-
-    %% Post-Sales Flows
     DELIVERY -->|Implementation start| PS
     DELIVERY -->|Go-live| CA
-    DELIVERY -->|HIGH risk| SM
-
     PS -->|SOW signed| DELIVERY
     PS -->|Training complete| CA
-
     CA -->|Architecture issue| SA
-    CA -->|Health < 50| SM
-
     PARTNER -->|Referral| AE
     PARTNER -->|Technical issue| SA
-    PARTNER -->|Risk| SM
 
-    %% Escalation returns
-    SM -.->|Decision| AE
-    SM -.->|Decision| SA
-    SM -.->|Decision| POC
+    %% Escalations (dashed)
+    AE -.->|Deal > $500K| SM
+    RFP -.->|Borderline 45-55| SM
+    POC -.->|Blocker > 48h| SM
+    SA -.->|HIGH risk| SM
+    CI -.->|Strategic threat| SM
+    VE -.->|Value failure| SM
+    DELIVERY -.->|HIGH risk| SM
+    CA -.->|Health < 50| SM
+    PARTNER -.->|Risk| SM
 ```
 
 ---
@@ -107,70 +104,71 @@ flowchart TB
 flowchart LR
     subgraph INPUT["Input Sources"]
         MEETING[Meeting]
-        SLACK[Slack/Email]
-        DECISION[Decision Made]
         ACTION[Action Created]
+        DECISION[Decision Made]
         ARTIFACT[Artifact Created]
+        SLACK[Slack/Email]
     end
 
-    subgraph GOVERNANCE["Governance Agents"]
-        MN[Meeting Notes Agent]
-        TS[Task Shepherd Agent]
+    subgraph PROCESS["Processing Agents"]
+        MN[Meeting Notes]
+        TS[Task Shepherd]
         DR[Decision Registrar]
-        RR[Risk Radar Agent]
-        NU[Nudger Agent]
-        REP[Reporter Agent]
-        PC[Playbook Curator]
+        RR[Risk Radar]
+        NU[Nudger]
+    end
+
+    subgraph CURATE["Curation Agents"]
         IHC[InfoHub Curator]
         KVC[Knowledge Vault Curator]
+        PC[Playbook Curator]
+        REP[Reporter]
     end
 
-    subgraph OUTPUT["InfoHub"]
-        MEETINGS_OUT[meetings/]
+    subgraph OUTPUT["InfoHub Storage"]
         ACTIONS_OUT[actions/]
         DECISIONS_OUT[decisions/]
         RISKS_OUT[risks/]
-        REPORTS_OUT[reports/]
         GOV_OUT[governance/]
+        REPORTS_OUT[reports/]
     end
 
-    %% Input flows
+    SM[Senior Manager]
+
+    %% Input → Processing
     MEETING --> MN
-    SLACK --> DR
-    DECISION --> RR
     ACTION --> TS
+    DECISION --> DR
+    SLACK --> DR
     ARTIFACT --> IHC
 
-    %% Governance chain
+    %% Meeting Notes fans out
     MN -->|actions| TS
     MN -->|decisions| DR
     MN -->|risks| RR
     MN -->|blockers| NU
-    MN -->|artifact_created| IHC
+    MN -->|artifacts| IHC
 
-    TS -->|validated actions| ACTIONS_OUT
+    %% Processing → Output
+    TS -->|validated| ACTIONS_OUT
     TS -->|invalid| NU
-
-    DR -->|logged decisions| DECISIONS_OUT
-    DR -->|conflicts| SM[Senior Manager]
-
-    RR -->|risks| RISKS_OUT
-    RR -->|CRITICAL| SM
-
-    NU -->|overdue > 5d| SM
+    DR -->|logged| DECISIONS_OUT
+    RR -->|classified| RISKS_OUT
     NU -->|reminders| ACTIONS_OUT
 
+    %% Curation → Output
+    IHC -->|indexed| GOV_OUT
+    KVC -->|validated| GOV_OUT
     REP -->|weekly digest| REPORTS_OUT
-    REP -->|critical alerts| SM
 
-    PC -->|violations| SM
-
-    IHC -->|semantic_conflict| SM
-    IHC -->|deprecation| GOV_OUT
-    IHC -->|staleness| GOV_OUT
-
-    KVC -->|proposal_validated| GOV_OUT
-    KVC -->|quality_issue| SM
+    %% Escalations (dashed)
+    DR -.->|conflicts| SM
+    RR -.->|CRITICAL| SM
+    NU -.->|overdue > 5d| SM
+    REP -.->|critical alerts| SM
+    PC -.->|violations| SM
+    IHC -.->|semantic conflict| SM
+    KVC -.->|quality issue| SM
 ```
 
 ---
@@ -179,44 +177,47 @@ flowchart LR
 
 ```mermaid
 flowchart BT
-    subgraph LEVEL1["Level 1: Agents"]
-        AE[AE Agent]
-        SA[SA Agent]
-        POC[POC Agent]
-        RFP[RFP Agent]
-        INFOSEC[InfoSec Agent]
-        CA[CA Agent]
-        DELIVERY[Delivery Agent]
-        VE[VE Agent]
+    subgraph L1_STRATEGIC["Level 1: Strategic Agents"]
+        AE[AE]
+        SA[SA]
+        POC[POC]
+        RFP[RFP]
+        INFOSEC[InfoSec]
+        VE[VE]
+    end
+
+    subgraph L1_OPERATIONAL["Level 1: Operational Agents"]
+        CA[CA]
+        DELIVERY[Delivery]
         RR[Risk Radar]
         NU[Nudger]
     end
 
-    subgraph LEVEL2["Level 2: Senior Manager"]
-        SM[Senior Manager Agent]
+    subgraph L2["Level 2: Senior Manager"]
+        SM[Senior Manager]
     end
 
-    subgraph LEVEL3["Level 3: Executive"]
+    subgraph L3["Level 3: Executive"]
         VP[VP / C-Level]
         LEGAL[Legal]
         PRODUCT[Product Leadership]
     end
 
-    %% Escalations to Senior Manager
-    AE -->|Forecast > 15%| SM
-    AE -->|Deal > $500K| SM
-    SA -->|HIGH tech risk| SM
-    POC -->|Scope change| SM
-    POC -->|Blocker > 48h| SM
-    RFP -->|Score 45-55| SM
-    INFOSEC -->|No workaround| SM
-    CA -->|Health < 50| SM
-    DELIVERY -->|HIGH impl risk| SM
-    VE -->|Value failure| SM
-    RR -->|CRITICAL risk| SM
-    NU -->|Overdue > 5d| SM
+    %% Strategic → SM
+    AE -.->|Deal > $500K / Forecast drift| SM
+    SA -.->|HIGH tech risk| SM
+    POC -.->|Blocker > 48h / Scope change| SM
+    RFP -.->|Score 45-55| SM
+    INFOSEC -.->|No workaround| SM
+    VE -.->|Value failure| SM
 
-    %% Senior Manager escalations
+    %% Operational → SM
+    CA -.->|Health < 50| SM
+    DELIVERY -.->|HIGH impl risk| SM
+    RR -.->|CRITICAL risk| SM
+    NU -.->|Overdue > 5d| SM
+
+    %% SM → Executive
     SM -->|Deal > $2M| VP
     SM -->|Contract terms| LEGAL
     SM -->|Strategic feature| PRODUCT

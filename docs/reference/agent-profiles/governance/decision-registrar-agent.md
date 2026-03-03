@@ -1,97 +1,119 @@
 ---
 title: "Decision Registrar Agent"
-description: "Captures and maintains an immutable audit trail of all decisions"
+description: "Digital twin for extract decisions, process meeting notes, decision registrar"
 category: "reference"
-keywords: ["decision_registrar_agent", "governance", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["decision_registrar_agent", "governance", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
+
 
 # Decision Registrar Agent
 
-The Decision Registrar Agent eliminates the question "who decided this?" by maintaining a complete, immutable record of every decision. It captures the what, who, when, and why of decisions, tracks their lifecycle from Proposed through Confirmed to Implemented or Reverted, and ensures no decision exists without proper attribution and context.
+The Decision Registrar Agent is the digital twin of the Decision Registrar role. It operates as a single agent with 3 runbooks covering extract decisions, process meeting notes, and decision registrar. The Decision Registrar Agent logs every decision with its full context, owner, rationale, and lifecycle state. It does not make or evaluate decisions, only record them with archival precision. Once a decision is registered, the original record is never modified: updates create linked new records, and reversals are explicitly tracked.
+
+Its operating principle: immutability is sacred.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| **Agent ID** | `decision_registrar_agent` |
-| **Team** | Governance |
-| **Category** | Entropy Reduction |
-| **Purpose** | Kill "who decided this?" forever |
+| **Agent ID** | `decision-registrar-agent` |
+| **Role** | Decision Registrar (Entropy Reduction) |
+| **Mode** | Human-paired |
+| **Runbooks** | 3 |
+| **Prompts** | 10 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 2 |
 
-## Core Functions
 
-The Decision Registrar detects decision language in artifacts, validates required fields, and maintains a searchable decision log with full audit trail.
+## Runbooks
 
-- Detect decisions using keyword patterns ("decided", "agreed", "approved", "rejected", "committed to", "will proceed with")
-- Log all decisions with full context, rationale, and attribution
-- Maintain an immutable audit trail (original decisions never modified, updates create new linked records)
-- Track decision lifecycle states (Proposed -> Confirmed -> Implemented -> Reverted -> Superseded)
-- Enable decision search and retrieval by date, maker, classification, or realm/node
-- Surface decision patterns and link decisions to resulting actions
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Extract Decisions
+
+Extract, validate, and register decisions from any source (meetings, emails, discussions) into the decision log
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `extract_decisions_analyze` | Analyze input |
+| 2 | `extract_decisions_synthesize` | Synthesize findings |
+| 3 | `extract_decisions_output` | Generate output |
+
+
+### Process Meeting Notes
+
+Extract decisions, actions, risks, and open questions from meeting notes or transcripts into structured, decision-grade output
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `process_meeting_notes_analyze` | Analyze input |
+| 2 | `process_meeting_notes_synthesize` | Synthesize findings |
+| 3 | `process_meeting_notes_output` | Generate output |
+
+
+### Decision Registrar
+
+Add decision to decision log. Then update status of existing decision, then summarize decisions from past week, and finally find decisions related to a topic.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `register_decision` | Add decision to decision log |
+| 2 | `decision_status_update` | Update status of existing decision |
+| 3 | `weekly_decision_digest` | Summarize decisions from past week |
+| 4 | `find_related_decisions` | Find decisions related to a topic |
+
 
 ## Scope Boundaries
 
-This agent records and organizes decisions but never makes or evaluates them. The following responsibilities belong to other agents.
+The agent does not make decisions (handoff to Leadership), evaluate decision quality (handoff to Leadership), recommend decision changes (handoff to Leadership), extract decisions from meetings (Meeting Notes' domain) (handoff to Leadership), report on decision metrics (Reporter's domain) (handoff to Leadership), or modify historical records (handoff to Leadership).
 
-- Does not make decisions or recommend decision changes
-- Does not evaluate decision quality
-- Does not extract decisions from meetings (Meeting Notes Agent's domain)
-- Does not report on decision metrics (Reporter Agent's domain)
-- Does not modify historical records (immutability is sacred)
 
-## Triggers
+## Inbound Handoffs
 
-The agent activates when decision language is detected or when decisions are submitted directly.
+Other agents route relevant signals to this agent for processing.
 
-- `decision_mentioned`, NLP detection of decision keywords in notes or messages
-- `meeting_note_published`, new meeting notes may contain decisions
-- `decision_submitted`, explicit decision submission for registration
+| Source Agent | Trigger |
+|-------------|---------|
+| Meeting Notes Agent | Decisions for registration |
+| Senior Manager Agent | Strategic decisions |
 
-## Handoffs
 
-### Outbound (this agent -> others)
+## Operating Modes
 
-| Trigger | Receiving Agent | Condition |
-|---------|-----------------|-----------|
-| Conflicting decisions detected | Senior Manager Agent | Two decisions contradict each other, unresolved after 48 hours |
-| Decision statistics available | Reporter Agent | Periodic decision metrics |
-| Decision records created | InfoHub Curator Agent | New records for InfoHub linking |
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-### Inbound (others -> this agent)
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-| Source Agent | Artifact | Action Required |
-|--------------|----------|-----------------|
-| Meeting Notes Agent | Extracted decisions | Register with full context |
-| Senior Manager Agent | Strategic decisions | Log with authority level |
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-## Escalation Rules
 
-The Decision Registrar escalates only when the integrity of the decision record is at risk.
+## Knowledge Base
 
-- Conflicting decisions detected: flag both decisions, notify decision owners
-- If conflict unresolved after 48 hours: escalate to Senior Manager Agent
-- Missing required fields on submission: return to source with specific gaps listed
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
 
-## Quality Gates
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `decision-registrar-audit-trail.yaml` | Immutability, Versioning, Timestamps | Decision registrar audit trail |
+| `decision-registrar-registration-rules.yaml` | Required Fields, Optional Fields, Classification | Decision registrar registration rules |
 
-Every decision record must meet these standards before being committed to the decision log.
 
-- Decision has a single owner (decision maker identified)
-- Context and rationale documented (why this choice was made)
-- Affected scope identified (what areas the decision impacts)
-- No duplicate decisions in the log
-- Lifecycle state assigned (Proposed, Confirmed, Implemented, Reverted, or Superseded)
+## Output Artifacts
 
-## Personality Traits
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-| Dimension | Description |
-|-----------|-------------|
-| **Tone** | Archival, precise, neutral |
-| **Values** | Immutability is sacred, complete records over fast records, neutrality in recording |
-| **Priorities** | 1. Decision accuracy, 2. Attribution correctness, 3. Context completeness, 4. Relationship linking |
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Artifacts | `{account}-artifacts.md` | artifacts |
+| Reports | `{account}-reports.md` | reports |
+
 
 ## Source Files
 
-- Agent config: `domain/agents/governance/agents/decision_registrar_agent.yaml`
-- Personality: `domain/agents/governance/personalities/decision_registrar_personality.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/governance/decision-registrar-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/governance/agents/decision_registrar_agent.yaml` | Agent configuration |
+| `domain/agents/governance/personalities/decision_registrar_personality.yaml` | Behavioral specification |
+| `domain/agents/governance/prompts/tasks.yaml` | 10 CAF prompts across 3 domains |

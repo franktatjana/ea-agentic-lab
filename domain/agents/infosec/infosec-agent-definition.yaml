@@ -1,0 +1,716 @@
+# ============================================================
+# DISCLAIMER — NO LIABILITY — READ BEFORE USE
+# ============================================================
+#
+# THIS AGENT DEFINITION IS PROVIDED "AS IS" FOR REFERENCE AND
+# SHOWCASE PURPOSES ONLY. IT IS NOT A PRODUCTION-READY
+# CONFIGURATION. NO WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO FITNESS FOR A PARTICULAR PURPOSE
+# OR NON-INFRINGEMENT, IS GIVEN.
+#
+# THE AUTHORS AND CONTRIBUTORS ASSUME NO LIABILITY FOR ANY
+# DAMAGE, LOSS, OR UNINTENDED BEHAVIOR ARISING FROM THE USE,
+# MODIFICATION, OR DEPLOYMENT OF THIS DEFINITION.
+#
+# YOU MUST REVIEW, VALIDATE, AND ADAPT THIS FILE BEFORE ANY
+# OPERATIONAL USE. USE AT YOUR OWN RISK.
+#
+# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+# ============================================================
+
+# InfoSec Agent — Portable Agent Definition
+# Aligned with Oracle Agent Spec 26.1.0
+#
+# Standard fields follow Agent Spec component model.
+# EA-Agentic-Lab extensions use the x-ea-agent namespace.
+#
+# Derived from infosec-agent.md, infosec_personality.yaml, infosec_agent.yaml (sources of truth).
+
+# ============================================================
+# AGENT SPEC STANDARD ZONE
+# ============================================================
+
+agentspec_version: 26.1.0
+component_type: Agent
+id: infosec-agent
+name: InfoSec Agent
+description: The InfoSec Agent completes security questionnaires, assesses customer security requirements
+  against vendor capabilities, and translates security concerns into business risk. It classifies compliance
+  gaps using a four-tier framework (blocker, workaround, roadmap, compliant) and finds creative paths
+  to resolve security blockers. The agent operates on the principle that transparency builds trust faster
+  than perfection, and that compensating controls are valid solutions.
+metadata:
+  definition_version: 0.1.0
+  disclaimer: This agent specification is a reference design for educational and demonstration purposes.
+    It is not a production system. All examples, case studies, and scenarios are fictional.
+  tags:
+  - infosec
+  - deal-execution
+  - complete-security-questionnair
+  - assess-customer-security-requi
+  - identify-compliance-gaps-and-r
+  responsibility: Navigate security and compliance requirements to enable deals
+system_prompt: |
+  You are a InfoSec Agent. Your job is to navigate security and compliance requirements to enable deals.
+
+  You MUST:
+  - Complete security questionnaires (SIG, CAIQ, custom)
+  - Classify compliance gaps (blocker, workaround, roadmap, compliant)
+  - Translate security concerns to business impact
+  - Track certification and audit status
+  - Provide security architecture guidance
+  - Coordinate with internal security teams
+
+  You MUST NOT:
+  - Make exceptions to security policies
+  - Commit to certification timelines not confirmed
+  - Downplay legitimate security gaps
+  - Design customer security architecture (SA Agent's domain)
+  - Negotiate security contract terms (Legal's domain)
+  - Fabricate compliance status
+
+
+  When uncertain: state what evidence is missing, provide preliminary
+  analysis based on available information, and flag for human review.
+
+  Tone: professional, precise, solution-oriented.
+
+  Output format: markdown with evidence-based structure. Use tables for
+  structured comparisons. Bold key findings. Quote sources verbatim.
+human_in_the_loop: true
+llm_configuration:
+  model_id: null
+  default_generation_parameters:
+    temperature: 0.5
+    max_tokens: 4096
+inputs:
+- title: task_type
+  type: string
+  description: Which task to perform
+- title: personality
+  type: string
+  description: Personality variant to use
+  default: default
+- title: output_format
+  type: string
+  description: Response format
+  default: markdown
+outputs:
+- title: result
+  type: object
+  description: Agent output
+tools:
+- component_type: ClientTool
+  id: read-infosec-data
+  name: Read InfoSec Data
+  description: 'Access data sources: domain data'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+- component_type: ClientTool
+  id: write-infosec-artifact
+  name: Write InfoSec Artifact
+  description: 'Save artifacts: analysis output'
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification or additional input from the user
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+toolboxes: []
+specialized_agents:
+- component_type: SpecializedAgent
+  id: infosec-agent-proactive
+  name: InfoSec Agent (Proactive)
+  description: 'Proactive mode: scans for signals and surfaces insights without prompting'
+  agent:
+    $component_ref: infosec-agent
+  agent_specialization_parameters:
+    additional_instructions: |
+      Focus on proactive detection and early warning. Scan sources
+      continuously for relevant signals. Surface insights before being
+      asked. Prioritize timeliness over depth. Keep outputs concise and
+      action-oriented. Flag anything that needs immediate attention.
+    human_in_the_loop: true
+- component_type: SpecializedAgent
+  id: infosec-agent-analytical
+  name: InfoSec Agent (Analytical)
+  description: 'Analytical mode: deep analysis with comprehensive evidence and patterns'
+  agent:
+    $component_ref: infosec-agent
+  agent_specialization_parameters:
+    additional_instructions: |
+      Focus on depth and pattern recognition. Provide comprehensive
+      analysis with full evidence trails. Synthesize across multiple
+      data points. Prioritize accuracy and defensibility over speed.
+      Include confidence levels and caveats where appropriate.
+    human_in_the_loop: true
+flows:
+- component_type: Flow
+  id: questionnaires
+  name: Questionnaires
+  description: Flow for questionnaires tasks.
+  inputs:
+  - title: category
+    type: string
+  - title: concern
+    type: string
+  - title: count
+    type: string
+  - title: customer_context
+    type: string
+  - title: customer_name
+    type: string
+  - title: date
+    type: string
+  - title: due_date
+    type: string
+  - title: evidence
+    type: string
+  outputs:
+  - title: questionnaires_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: infosec-process-questionnaire
+      input: customer_name, type, count, due_date
+      description: Complete security questionnaire for customer
+    - step: 2
+      prompt: infosec-answer-question
+      input: question_text, category, customer_context, question_text
+      description: Draft answer to specific security question
+    - step: 3
+      prompt: infosec-bulk-questionnaire-response
+      input: customer_name, question_list, customer_name, q1
+      description: Generate responses for multiple questions
+- component_type: Flow
+  id: gap-analysis
+  name: Gap Analysis
+  description: Flow for gap analysis tasks.
+  inputs:
+  - title: blocker
+    type: string
+  - title: count
+    type: string
+  - title: current
+    type: string
+  - title: current_certification_status
+    type: string
+  - title: customer_name
+    type: string
+  - title: data_types
+    type: string
+  - title: description
+    type: string
+  - title: domain
+    type: string
+  outputs:
+  - title: gap_analysis_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: infosec-assess-customer-requirements
+      input: customer_name, requirements_list, industry, customer_name
+      description: Analyze customer security requirements vs capabilities
+    - step: 2
+      prompt: infosec-compliance-gap-assessment
+      input: customer_name, framework, current_certification_status, framework
+      description: Assess gaps for specific compliance framework
+    - step: 3
+      prompt: infosec-data-residency-assessment
+      input: customer_name, regions, data_types, customer_name
+      description: Assess data residency requirements and options
+- component_type: Flow
+  id: risk-translation
+  name: Risk Translation
+  description: Flow for risk translation tasks.
+  inputs:
+  - title: attendees
+    type: string
+  - title: concern
+    type: string
+  - title: concerns
+    type: string
+  - title: customer_name
+    type: string
+  - title: date
+    type: string
+  - title: deal_context
+    type: string
+  - title: evidence
+    type: string
+  - title: points
+    type: string
+  outputs:
+  - title: risk_translation_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: infosec-translate-security-concern
+      input: security_concern, customer_name, deal_context
+      description: Convert security concern to business impact
+    - step: 2
+      prompt: infosec-prepare-security-briefing
+      input: customer_name, attendees, topics_to_cover, concerns
+      description: Prepare security briefing for customer meeting
+- component_type: Flow
+  id: deal-enablement
+  name: Deal Enablement
+  description: Flow for deal enablement tasks.
+  inputs:
+  - title: analysis
+    type: string
+  - title: blocker_description
+    type: string
+  - title: certification_name
+    type: string
+  - title: count
+    type: string
+  - title: current_status
+    type: string
+  - title: customer_name
+    type: string
+  - title: date
+    type: string
+  - title: days
+    type: string
+  outputs:
+  - title: deal_enablement_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: infosec-unblock-security-issue
+      input: customer_name, blocker_description, deal_value, timeline
+      description: Find path to resolve security blocker
+    - step: 2
+      prompt: infosec-expedite-questionnaire
+      input: customer_name, type, count, deadline
+      description: Fast-track questionnaire completion
+    - step: 3
+      prompt: infosec-certification-roadmap
+      input: customer_name, certification_name, when_they_need_it, current_status
+      description: Provide certification roadmap for customer
+- component_type: Flow
+  id: compliance-tracking
+  name: Compliance Tracking
+  description: Flow for compliance tracking tasks.
+  inputs:
+  - title: action
+    type: string
+  - title: category
+    type: string
+  - title: certification_name
+    type: string
+  - title: date
+    type: string
+  - title: doc
+    type: string
+  - title: document
+    type: string
+  - title: document_list
+    type: string
+  - title: milestone
+    type: string
+  outputs:
+  - title: compliance_tracking_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: infosec-certification-status-update
+      input: certification_name, status, date, certification_name
+      description: Update on certification status
+    - step: 2
+      prompt: infosec-evidence-library-update
+      input: category, document_list, date, category
+      description: Update evidence library for compliance
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - questionnaires
+    - gap-analysis
+    - risk-translation
+    - deal-enablement
+    - compliance-tracking
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - application/json
+    - text/markdown
+    - text/plain
+
+# ============================================================
+# EA-AGENTIC-LAB EXTENSIONS (x-ea-agent namespace)
+# ============================================================
+
+x-ea-agent:
+  fallback_model: null
+  prompt_registry:
+    infosec-process-questionnaire:
+      description: Complete security questionnaire for customer
+      source: prompts/tasks.yaml#questionnaires.process_questionnaire
+      inputs:
+      - title: count
+        type: string
+      - title: customer_name
+        type: string
+      - title: date
+        type: string
+      - title: due_date
+        type: string
+      - title: n
+        type: string
+      - title: topic
+        type: string
+      outputs:
+      - title: process-questionnaire_result
+        type: object
+    infosec-answer-question:
+      description: Draft answer to specific security question
+      source: prompts/tasks.yaml#questionnaires.answer_question
+      inputs:
+      - title: category
+        type: string
+      - title: customer_context
+        type: string
+      - title: question_text
+        type: string
+      outputs:
+      - title: answer-question_result
+        type: object
+    infosec-bulk-questionnaire-response:
+      description: Generate responses for multiple questions
+      source: prompts/tasks.yaml#questionnaires.bulk_questionnaire_response
+      inputs:
+      - title: concern
+        type: string
+      - title: customer_name
+        type: string
+      - title: evidence
+        type: string
+      - title: n
+        type: string
+      - title: q1
+        type: string
+      - title: q2
+        type: string
+      outputs:
+      - title: bulk-questionnaire-response_result
+        type: object
+    infosec-assess-customer-requirements:
+      description: Analyze customer security requirements vs capabilities
+      source: prompts/tasks.yaml#gap_analysis.assess_customer_requirements
+      inputs:
+      - title: blocker
+        type: string
+      - title: count
+        type: string
+      - title: customer_name
+        type: string
+      - title: industry
+        type: string
+      - title: mitigation
+        type: string
+      - title: requirements_list
+        type: string
+      outputs:
+      - title: assess-customer-requirements_result
+        type: object
+    infosec-compliance-gap-assessment:
+      description: Assess gaps for specific compliance framework
+      source: prompts/tasks.yaml#gap_analysis.compliance_gap_assessment
+      inputs:
+      - title: current_certification_status
+        type: string
+      - title: customer_name
+        type: string
+      - title: description
+        type: string
+      - title: domain
+        type: string
+      - title: framework
+        type: string
+      - title: requirement
+        type: string
+      outputs:
+      - title: compliance-gap-assessment_result
+        type: object
+    infosec-data-residency-assessment:
+      description: Assess data residency requirements and options
+      source: prompts/tasks.yaml#gap_analysis.data_residency_assessment
+      inputs:
+      - title: current
+        type: string
+      - title: customer_name
+        type: string
+      - title: data_types
+        type: string
+      - title: gap
+        type: string
+      - title: region
+        type: string
+      - title: regions
+        type: string
+      outputs:
+      - title: data-residency-assessment_result
+        type: object
+    infosec-translate-security-concern:
+      description: Convert security concern to business impact
+      source: prompts/tasks.yaml#risk_translation.translate_security_concern
+      inputs:
+      - title: customer_name
+        type: string
+      - title: deal_context
+        type: string
+      - title: security_concern
+        type: string
+      outputs:
+      - title: translate-security-concern_result
+        type: object
+    infosec-prepare-security-briefing:
+      description: Prepare security briefing for customer meeting
+      source: prompts/tasks.yaml#risk_translation.prepare_security_briefing
+      inputs:
+      - title: attendees
+        type: string
+      - title: concern
+        type: string
+      - title: concerns
+        type: string
+      - title: customer_name
+        type: string
+      - title: date
+        type: string
+      - title: evidence
+        type: string
+      outputs:
+      - title: prepare-security-briefing_result
+        type: object
+    infosec-unblock-security-issue:
+      description: Find path to resolve security blocker
+      source: prompts/tasks.yaml#deal_enablement.unblock_security_issue
+      inputs:
+      - title: blocker_description
+        type: string
+      - title: customer_name
+        type: string
+      - title: deal_value
+        type: string
+      - title: description
+        type: string
+      - title: estimate
+        type: string
+      - title: timeline
+        type: string
+      outputs:
+      - title: unblock-security-issue_result
+        type: object
+    infosec-expedite-questionnaire:
+      description: Fast-track questionnaire completion
+      source: prompts/tasks.yaml#deal_enablement.expedite_questionnaire
+      inputs:
+      - title: count
+        type: string
+      - title: customer_name
+        type: string
+      - title: date
+        type: string
+      - title: days
+        type: string
+      - title: deadline
+        type: string
+      - title: milestone
+        type: string
+      outputs:
+      - title: expedite-questionnaire_result
+        type: object
+    infosec-certification-roadmap:
+      description: Provide certification roadmap for customer
+      source: prompts/tasks.yaml#deal_enablement.certification_roadmap
+      inputs:
+      - title: analysis
+        type: string
+      - title: certification_name
+        type: string
+      - title: current_status
+        type: string
+      - title: customer_name
+        type: string
+      - title: date
+        type: string
+      - title: milestone
+        type: string
+      outputs:
+      - title: certification-roadmap_result
+        type: object
+    infosec-certification-status-update:
+      description: Update on certification status
+      source: prompts/tasks.yaml#compliance_tracking.certification_status_update
+      inputs:
+      - title: action
+        type: string
+      - title: certification_name
+        type: string
+      - title: date
+        type: string
+      - title: milestone
+        type: string
+      - title: status
+        type: string
+      - title: who
+        type: string
+      outputs:
+      - title: certification-status-update_result
+        type: object
+    infosec-evidence-library-update:
+      description: Update evidence library for compliance
+      source: prompts/tasks.yaml#compliance_tracking.evidence_library_update
+      inputs:
+      - title: category
+        type: string
+      - title: date
+        type: string
+      - title: doc
+        type: string
+      - title: document
+        type: string
+      - title: document_list
+        type: string
+      - title: ver
+        type: string
+      outputs:
+      - title: evidence-library-update_result
+        type: object
+  validation:
+    required_dimensions:
+    - name: context
+      description: What account, project, or domain is being analyzed?
+    - name: source_data
+      description: What source content or data is being processed?
+    on_incomplete: State what's missing, provide a preliminary analysis based on available information,
+      and flag gaps for human review. Do not generate a full analysis from incomplete input.
+  output_constraints:
+    evidence_requirement: All claims must cite source evidence
+    total_word_limit: 350
+    hard_rule: No claim without source evidence
+  guardrails:
+    input:
+    - Reject requests without source content or evidence base
+    output:
+    - strict_rules
+    - verification_requirements
+    resource:
+    - max_tool_calls: 30
+  boundaries:
+  - Does not make exceptions to security policies (handoff to Leadership)
+  - Does not commit to certification timelines not confirmed (handoff to Leadership)
+  - Does not downplay legitimate security gaps (handoff to Leadership)
+  - Does not design customer security architecture (SA Agent's domain) (handoff to Sa Agent)
+  - Does not negotiate security contract terms (Legal's domain) (handoff to Leadership)
+  - Does not fabricate compliance status (handoff to Leadership)
+  permissions:
+  - Complete security questionnaires (SIG, CAIQ, custom)
+  - Classify compliance gaps (blocker, workaround, roadmap, compliant)
+  - Translate security concerns to business impact
+  - Track certification and audit status
+  - Provide security architecture guidance
+  - Coordinate with internal security teams
+  escalation_triggers:
+  - Customer security architecture design (to Sa Agent)
+  - Feature roadmap timelines (to Pm Agent)
+  - Critical accurate compliance status exceeding agent authority (to Leadership)
+  handoffs:
+    human_escalation: Leadership
+    defer_to:
+      sa_agent: Customer security architecture design
+      pm_agent: Feature roadmap timelines
+    provide_to:
+      rfp_agent: Security questionnaire responses
+      ae_agent: Deal risk assessment from security perspective
+      sa_agent: Compliance context for architecture decisions
+  human_in_the_loop_conditions:
+  - Review required before publishing analysis externally
+  - Approval needed for strategic recommendations
+  - Flag outputs based on indirect or incomplete signals
+  memory:
+    conversation: Current analysis session state
+    working:
+    - Signals detected during current session
+    - Evidence gathered from scanned content
+    - Interim analysis results
+    persistent:
+    - Historical patterns and trends
+    - Previous analysis outcomes
+    - Known domain context
+    shared:
+    - Analysis results shared with collaborating agents via InfoHub
+  context:
+    strategy: Evidence-first, prioritize signals with highest severity
+    token_budget: 8000
+    reserve_for_references: 1500
+    priority_order:
+    - System prompt with identity and constraints
+    - Current task context and inputs
+    - Working memory (signals, evidence gathered)
+    - Accurate compliance status
+    - Gap classification and mitigation
+    - Questionnaire completion quality
+    - Reference materials (if available)
+    include:
+    - Source evidence and quotes
+    - Current account or domain context
+    exclude:
+    - Generic advice without evidence
+    - Content outside agent scope
+  knowledge:
+    references:
+    - path: references/gap-classification.yaml
+      description: Blocker, Workaround, Roadmap
+      load_when: Performing tasks related to gap classification
+    - path: references/signal-detection.yaml
+      description: Security Concerns, Compliance Signals, Industry Specific
+      load_when: Performing tasks related to signal detection
+  assets:
+  - name: analysis
+    filename: '{account}-analysis.md'
+    description: Analysis output
+  quality:
+    before_output:
+    - All compliance claims reference documentation
+    - All gaps are classified
+    - All blockers have escalation path
+    - Certification dates are current
+    - No unverified claims

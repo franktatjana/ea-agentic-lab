@@ -1,0 +1,1254 @@
+# ============================================================
+# DISCLAIMER — NO LIABILITY — READ BEFORE USE
+# ============================================================
+#
+# THIS AGENT DEFINITION IS PROVIDED "AS IS" FOR REFERENCE AND
+# SHOWCASE PURPOSES ONLY. IT IS NOT A PRODUCTION-READY
+# CONFIGURATION. NO WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO FITNESS FOR A PARTICULAR PURPOSE
+# OR NON-INFRINGEMENT, IS GIVEN.
+#
+# THE AUTHORS AND CONTRIBUTORS ASSUME NO LIABILITY FOR ANY
+# DAMAGE, LOSS, OR UNINTENDED BEHAVIOR ARISING FROM THE USE,
+# MODIFICATION, OR DEPLOYMENT OF THIS DEFINITION.
+#
+# YOU MUST REVIEW, VALIDATE, AND ADAPT THIS FILE BEFORE ANY
+# OPERATIONAL USE. USE AT YOUR OWN RISK.
+#
+# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+# ============================================================
+
+# Customer Architect Agent — Portable Agent Definition
+# Aligned with Oracle Agent Spec 26.1.0
+#
+# Standard fields follow Agent Spec component model.
+# EA-Agentic-Lab extensions use the x-ea-agent namespace.
+#
+# Derived from ca-agent.md, ca_personality.yaml, ca_agent.yaml (sources of truth).
+
+# ============================================================
+# AGENT SPEC STANDARD ZONE
+# ============================================================
+
+agentspec_version: 26.1.0
+component_type: Agent
+id: ca-agent
+name: Customer Architect Agent
+description: The CA Agent monitors customer architecture changes, detects integration risks, and ensures
+  consistency between customer and vendor designs. It also serves as the bridge between support operations
+  and account strategy, triaging support signals into actionable account-level insights through its SK_CA_001
+  skill. This dual role combines architecture awareness with customer health ownership.
+metadata:
+  definition_version: 0.1.0
+  disclaimer: This agent specification is a reference design for educational and demonstration purposes.
+    It is not a production system. All examples, case studies, and scenarios are fictional.
+  tags:
+  - customer-architects
+  - architecture
+  - design-shifts
+  - integration-risks
+  - syncs-architecture-context
+  responsibility: Track customer-side architecture changes
+system_prompt: |
+  You are a Customer Architect Agent. Your job is to track customer-side architecture changes.
+
+  You MUST:
+  - Detect changes in customer architecture or design
+  - Flag integration risks from customer-side changes
+  - Track consistency between customer and {vendor} designs
+  - Signal SA when architecture mismatches detected
+
+  You MUST NOT:
+  - Design customer architectures
+  - Make {vendor} architecture decisions (SA Agent's domain)
+  - Assess {vendor}-side technical risks (SA Agent's domain)
+
+  Architecture Changes (patterns): customer redesign, architecture shift, platform migration, infrastructure change, technology swap.
+  Integration Risks (keywords): incompatibility, integration challenge, API mismatch, version conflict, deprecated endpoint.
+  Design Mismatches (indicators): customer expects X but {vendor} designed Y, assumption mismatch, different understanding.
+
+  When uncertain: state what evidence is missing, provide preliminary
+  analysis based on available information, and flag for human review.
+
+  Output format: markdown with evidence-based structure. Use tables for
+  structured comparisons. Bold key findings. Quote sources verbatim.
+human_in_the_loop: true
+llm_configuration:
+  model_id: null
+  default_generation_parameters:
+    temperature: 0.5
+    max_tokens: 4096
+inputs:
+- title: meeting_notes
+  type: string
+  description: Meeting notes
+- title: architecture_documents
+  type: string
+  description: Architecture documents
+- title: design_reviews
+  type: string
+  description: Design reviews
+- title: support_signals__sig_sup
+  type: string
+  description: Support signals (SIG_SUP_*)
+- title: task_type
+  type: string
+  description: Which task to perform
+- title: personality
+  type: string
+  description: Personality variant to use
+  default: default
+- title: output_format
+  type: string
+  description: Response format
+  default: markdown
+outputs:
+- title: arch_design_updates
+  type: object
+  description: Arch design updates
+- title: integration_risk_alerts
+  type: object
+  description: Integration risk alerts
+- title: design_mismatch_reports
+  type: object
+  description: Design mismatch reports
+- title: support_intelligence_actions
+  type: object
+  description: Support intelligence actions
+tools:
+- component_type: ClientTool
+  id: read-ca-data
+  name: Read Customer Data
+  description: 'Access data sources: Meeting notes, Architecture documents, Design reviews'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+- component_type: ClientTool
+  id: write-ca-artifact
+  name: Write Customer Artifact
+  description: 'Save artifacts: Arch design updates, Integration risk alerts, Design mismatch reports'
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification or additional input from the user
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+toolboxes: []
+specialized_agents:
+- component_type: SpecializedAgent
+  id: ca-agent-proactive
+  name: Customer Architect Agent (Proactive)
+  description: 'Proactive mode: scans for signals and surfaces insights without prompting'
+  agent:
+    $component_ref: ca-agent
+  agent_specialization_parameters:
+    additional_instructions: |
+      Focus on proactive detection and early warning. Scan sources
+      continuously for relevant signals. Surface insights before being
+      asked. Prioritize timeliness over depth. Keep outputs concise and
+      action-oriented. Flag anything that needs immediate attention.
+    human_in_the_loop: true
+- component_type: SpecializedAgent
+  id: ca-agent-analytical
+  name: Customer Architect Agent (Analytical)
+  description: 'Analytical mode: deep analysis with comprehensive evidence and patterns'
+  agent:
+    $component_ref: ca-agent
+  agent_specialization_parameters:
+    additional_instructions: |
+      Focus on depth and pattern recognition. Provide comprehensive
+      analysis with full evidence trails. Synthesize across multiple
+      data points. Prioritize accuracy and defensibility over speed.
+      Include confidence levels and caveats where appropriate.
+    human_in_the_loop: true
+flows:
+- component_type: Flow
+  id: support-intelligence-triage
+  name: Support Intelligence Triage
+  description: Receive support signals, enrich with account context, classify root cause, and route appropriate
+    actions to account team
+  inputs:
+  - title: required
+    type: string
+  - title: optional
+    type: string
+  outputs:
+  - name: action_plan
+    type: object
+    format: yaml
+    description: 'Classified signal with routed actions: what to do, who owns it, urgency'
+  - name: updated_records
+    type: object
+    format: yaml
+    description: Updated health score, risk register entries, QBR content
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-support-intelligence-triage-analyze
+      input: context
+      description: Analyze input
+    - step: 2
+      prompt: ca-support-intelligence-triage-synthesize
+      input: analysis
+      description: Synthesize findings
+    - step: 3
+      prompt: ca-support-intelligence-triage-output
+      input: synthesis
+      description: Generate output
+- component_type: Flow
+  id: adoption
+  name: Adoption
+  description: Flow for adoption tasks.
+  inputs:
+  - title: account_name
+    type: string
+  - title: actual_usage
+    type: string
+  - title: business_context
+    type: string
+  - title: current_use_cases
+    type: string
+  - title: expected_usage
+    type: string
+  - title: months_deployed
+    type: string
+  - title: use_cases
+    type: string
+  - title: vendor
+    type: string
+  outputs:
+  - title: adoption_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-adoption-health
+      input: account_name, months_deployed, use_cases
+      description: Assess customer adoption of {vendor} solution
+    - step: 2
+      prompt: ca-adoption-blockers
+      input: account_name, expected_usage, actual_usage, vendor
+      description: Identify what's blocking customer adoption
+    - step: 3
+      prompt: ca-use-case-expansion
+      input: account_name, current_use_cases, business_context
+      description: Identify new use case opportunities
+- component_type: Flow
+  id: customer-architecture
+  name: Customer Architecture
+  description: Flow for customer architecture tasks.
+  inputs:
+  - title: account_name
+    type: string
+  - title: change_description
+    type: string
+  - title: gathered_info
+    type: string
+  - title: integration_list
+    type: string
+  - title: integration_summary
+    type: string
+  - title: vendor
+    type: string
+  outputs:
+  - title: customer_architecture_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-architecture-discovery
+      input: account_name, gathered_info, vendor, vendor
+      description: Discover and document customer architecture
+    - step: 2
+      prompt: ca-change-impact
+      input: account_name, change_description, vendor, integration_summary
+      description: Assess impact of customer architecture change
+    - step: 3
+      prompt: ca-integration-health
+      input: account_name, integration_list
+      description: Assess health of customer-{vendor} integrations
+- component_type: Flow
+  id: value-realization
+  name: Value Realization
+  description: Flow for value realization tasks.
+  inputs:
+  - title: account_name
+    type: string
+  - title: achievement
+    type: string
+  - title: deployment_duration
+    type: string
+  - title: details
+    type: string
+  - title: original_goals
+    type: string
+  - title: review_period
+    type: string
+  - title: use_cases
+    type: string
+  - title: vendor
+    type: string
+  outputs:
+  - title: value_realization_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-value-delivered
+      input: account_name, vendor, use_cases, deployment_duration
+      description: Assess value delivered to customer
+    - step: 2
+      prompt: ca-qbr-preparation
+      input: account_name, review_period
+      description: Prepare value content for QBR
+    - step: 3
+      prompt: ca-success-story
+      input: account_name, achievement, details
+      description: Develop customer success story content
+- component_type: Flow
+  id: customer-health
+  name: Customer Health
+  description: Flow for customer health tasks.
+  inputs:
+  - title: account_name
+    type: string
+  - title: arr
+    type: string
+  - title: available_signals
+    type: string
+  - title: months_until_renewal
+    type: string
+  - title: recent_signals
+    type: string
+  outputs:
+  - title: customer_health_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-health-assessment
+      input: account_name, available_signals
+      description: Comprehensive customer health review
+    - step: 2
+      prompt: ca-early-warning
+      input: account_name, recent_signals
+      description: Identify early warning signs of trouble
+    - step: 3
+      prompt: ca-renewal-readiness
+      input: account_name, months_until_renewal, arr
+      description: Assess readiness for upcoming renewal
+- component_type: Flow
+  id: customer-success-plan
+  name: Customer Success Plan
+  description: Flow for customer success plan tasks.
+  inputs:
+  - title: account_name
+    type: string
+  - title: csp_link
+    type: string
+  - title: current_phase
+    type: string
+  - title: handoff_notes
+    type: string
+  - title: milestone_list
+    type: string
+  - title: opportunities
+    type: string
+  - title: qbr_date
+    type: string
+  - title: quarter
+    type: string
+  outputs:
+  - title: customer_success_plan_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-accept-csp-handoff
+      input: account_name, sa_name, csp_link, handoff_notes
+      description: Receive and validate CSP handoff at deal close
+    - step: 2
+      prompt: ca-update-csp-value
+      input: account_name, csp_link, review_period
+      description: Monthly update of CSP value metrics
+    - step: 3
+      prompt: ca-update-csp-milestones
+      input: account_name, current_phase, milestone_list
+      description: Track and update adoption milestones
+    - step: 4
+      prompt: ca-quarterly-csp-refresh
+      input: account_name, csp_link, quarter
+      description: Comprehensive quarterly CSP review and update
+    - step: 5
+      prompt: ca-csp-qbr-prep
+      input: account_name, csp_link, qbr_date
+      description: Extract QBR content from CSP
+    - step: 6
+      prompt: ca-csp-risk-update
+      input: account_name, risk_list, recent_signals
+      description: Review and update CSP risk section
+    - step: 7
+      prompt: ca-csp-expansion-planning
+      input: account_name, current_phase, csp_link, opportunities
+      description: Plan next adoption phase in CSP
+- component_type: Flow
+  id: customer-journey
+  name: Customer Journey
+  description: Flow for customer journey tasks.
+  inputs:
+  - title: account_name
+    type: string
+  - title: adoption_level
+    type: string
+  - title: csp_link
+    type: string
+  - title: feedback
+    type: string
+  - title: go_live_date
+    type: string
+  - title: journey_map_link
+    type: string
+  - title: milestones
+    type: string
+  - title: months_since_golive
+    type: string
+  outputs:
+  - title: customer_journey_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-accept-journey-handoff
+      input: account_name, sa_name, journey_map_link, csp_link
+      description: Receive and validate journey map at deal close
+    - step: 2
+      prompt: ca-map-onboarding-journey
+      input: account_name, go_live_date, milestones
+      description: Document customer experience during onboarding
+    - step: 3
+      prompt: ca-map-adoption-journey
+      input: account_name, months_since_golive, adoption_level
+      description: Track customer experience during adoption phase
+    - step: 4
+      prompt: ca-analyze-journey-health
+      input: account_name, journey_map_link, signals
+      description: Assess overall customer journey health
+    - step: 5
+      prompt: ca-identify-journey-friction
+      input: account_name, feedback, support_data, usage_signals
+      description: Discover and document friction in customer journey
+- component_type: Flow
+  id: voice-of-customer
+  name: Voice Of Customer
+  description: Flow for voice of customer tasks.
+  inputs:
+  - title: account_name
+    type: string
+  - title: count
+    type: string
+  - title: date
+    type: string
+  - title: feedback_summary
+    type: string
+  - title: interaction_type
+    type: string
+  - title: metrics
+    type: string
+  - title: notes_summary
+    type: string
+  - title: participants
+    type: string
+  outputs:
+  - title: voice_of_customer_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-initiate-voc-tracking
+      input: account_name, tier, stakeholders
+      description: Set up VoC tracking for new customer
+    - step: 2
+      prompt: ca-collect-nps-feedback
+      input: account_name, date, respondent_count, results
+      description: Administer NPS survey and process results
+    - step: 3
+      prompt: ca-collect-csat-feedback
+      input: interaction_type, account_name, date, participants
+      description: Capture satisfaction after key touchpoints
+    - step: 4
+      prompt: ca-capture-qualitative-feedback
+      input: account_name, source_type, date, stakeholder
+      description: Document and categorize qualitative feedback
+    - step: 5
+      prompt: ca-analyze-support-voc
+      input: account_name, time_period, count, summary
+      description: Extract VoC insights from support interactions
+    - step: 6
+      prompt: ca-extract-meeting-voc
+      input: account_name, date, type, notes_summary
+      description: Identify VoC signals from customer meetings
+    - step: 7
+      prompt: ca-voc-trend-analysis
+      input: account_name, time_period, metrics
+      description: Review VoC metrics and identify trends
+    - step: 8
+      prompt: ca-closed-loop-action
+      input: account_name, feedback_summary, stakeholder, sentiment
+      description: Follow up on VoC feedback
+    - step: 9
+      prompt: ca-voc-qbr-content
+      input: account_name, quarter, voc_summary
+      description: Compile VoC insights for quarterly review
+    - step: 10
+      prompt: ca-product-feedback-aggregation
+      input: account_name, time_period, sources
+      description: Compile product-related VoC for PM team
+- component_type: Flow
+  id: support-intelligence
+  name: Support Intelligence
+  description: Flow for support intelligence tasks.
+  inputs:
+  - title: account_name
+    type: string
+  - title: adoption_status
+    type: string
+  - title: engagement_track
+    type: string
+  - title: health_score
+    type: string
+  - title: prior_quarter
+    type: string
+  - title: quarter
+    type: string
+  - title: recent_signals
+    type: string
+  - title: signal_id
+    type: string
+  outputs:
+  - title: support_intelligence_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-triage-support-signal
+      input: account_name, signal_id, signal_name, signal_payload
+      description: Process incoming support signal and classify for account action
+    - step: 2
+      prompt: ca-quarterly-support-review
+      input: account_name, quarter, support_pattern_data, prior_quarter
+      description: Analyze quarterly support patterns for QBR preparation
+    - step: 3
+      prompt: ca-support-health-assessment
+      input: account_name, recent_signals, health_score, engagement_track
+      description: Assess how support health affects overall account health
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - support-intelligence-triage
+    - adoption
+    - customer-architecture
+    - value-realization
+    - customer-health
+    - customer-success-plan
+    - customer-journey
+    - voice-of-customer
+    - support-intelligence
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - application/json
+    - text/markdown
+    - text/plain
+
+# ============================================================
+# EA-AGENTIC-LAB EXTENSIONS (x-ea-agent namespace)
+# ============================================================
+
+x-ea-agent:
+  profile:
+    role_context: >
+      After go-live, the Customer Architect monitors how the solution is
+      actually being used: adoption metrics, architecture health, and expansion
+      opportunities. They bridge the gap between what was sold and what's
+      running in production, feeding insights back for upsell and renewal
+      planning.
+    challenges:
+      - "Adoption tracking is manual and inconsistent across accounts"
+      - "Architecture drift goes undetected until renewal conversations"
+      - "Expansion opportunities are identified reactively, not proactively"
+      - "Lessons learned from implementations don't flow back to pre-sales"
+    administrative_overhead:
+      - "Collecting usage metrics from customer environments manually"
+      - "Compiling health check reports for quarterly business reviews"
+      - "Tracking architecture changes across customer ticket history"
+      - "Writing retrospective documents that nobody reads again"
+    capabilities:
+      - "Architecture health monitoring"
+      - "Adoption tracking and scoring"
+      - "Expansion opportunity identification"
+      - "Technical debt and drift analysis"
+    sub_agents:
+      - name: "Retrospective"
+        purpose: "Captures lessons learned from engagements for institutional knowledge"
+
+  fallback_model: null
+  prompt_registry:
+    ca-adoption-health:
+      description: Assess customer adoption of {vendor} solution
+      source: prompts/tasks.yaml#adoption.adoption_health
+      inputs:
+      - title: account_name
+        type: string
+      - title: months_deployed
+        type: string
+      - title: use_cases
+        type: string
+      outputs:
+      - title: adoption-health_result
+        type: object
+    ca-adoption-blockers:
+      description: Identify what's blocking customer adoption
+      source: prompts/tasks.yaml#adoption.adoption_blockers
+      inputs:
+      - title: account_name
+        type: string
+      - title: actual_usage
+        type: string
+      - title: expected_usage
+        type: string
+      - title: vendor
+        type: string
+      outputs:
+      - title: adoption-blockers_result
+        type: object
+    ca-use-case-expansion:
+      description: Identify new use case opportunities
+      source: prompts/tasks.yaml#adoption.use_case_expansion
+      inputs:
+      - title: account_name
+        type: string
+      - title: business_context
+        type: string
+      - title: current_use_cases
+        type: string
+      outputs:
+      - title: use-case-expansion_result
+        type: object
+    ca-architecture-discovery:
+      description: Discover and document customer architecture
+      source: prompts/tasks.yaml#customer_architecture.architecture_discovery
+      inputs:
+      - title: account_name
+        type: string
+      - title: gathered_info
+        type: string
+      - title: vendor
+        type: string
+      outputs:
+      - title: architecture-discovery_result
+        type: object
+    ca-change-impact:
+      description: Assess impact of customer architecture change
+      source: prompts/tasks.yaml#customer_architecture.change_impact
+      inputs:
+      - title: account_name
+        type: string
+      - title: change_description
+        type: string
+      - title: integration_summary
+        type: string
+      - title: vendor
+        type: string
+      outputs:
+      - title: change-impact_result
+        type: object
+    ca-integration-health:
+      description: Assess health of customer-{vendor} integrations
+      source: prompts/tasks.yaml#customer_architecture.integration_health
+      inputs:
+      - title: account_name
+        type: string
+      - title: integration_list
+        type: string
+      outputs:
+      - title: integration-health_result
+        type: object
+    ca-value-delivered:
+      description: Assess value delivered to customer
+      source: prompts/tasks.yaml#value_realization.value_delivered
+      inputs:
+      - title: account_name
+        type: string
+      - title: deployment_duration
+        type: string
+      - title: original_goals
+        type: string
+      - title: use_cases
+        type: string
+      - title: vendor
+        type: string
+      outputs:
+      - title: value-delivered_result
+        type: object
+    ca-qbr-preparation:
+      description: Prepare value content for QBR
+      source: prompts/tasks.yaml#value_realization.qbr_preparation
+      inputs:
+      - title: account_name
+        type: string
+      - title: review_period
+        type: string
+      outputs:
+      - title: qbr-preparation_result
+        type: object
+    ca-success-story:
+      description: Develop customer success story content
+      source: prompts/tasks.yaml#value_realization.success_story
+      inputs:
+      - title: account_name
+        type: string
+      - title: achievement
+        type: string
+      - title: details
+        type: string
+      outputs:
+      - title: success-story_result
+        type: object
+    ca-health-assessment:
+      description: Comprehensive customer health review
+      source: prompts/tasks.yaml#customer_health.health_assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: available_signals
+        type: string
+      outputs:
+      - title: health-assessment_result
+        type: object
+    ca-early-warning:
+      description: Identify early warning signs of trouble
+      source: prompts/tasks.yaml#customer_health.early_warning
+      inputs:
+      - title: account_name
+        type: string
+      - title: recent_signals
+        type: string
+      outputs:
+      - title: early-warning_result
+        type: object
+    ca-renewal-readiness:
+      description: Assess readiness for upcoming renewal
+      source: prompts/tasks.yaml#customer_health.renewal_readiness
+      inputs:
+      - title: account_name
+        type: string
+      - title: arr
+        type: string
+      - title: months_until_renewal
+        type: string
+      outputs:
+      - title: renewal-readiness_result
+        type: object
+    ca-accept-csp-handoff:
+      description: Receive and validate CSP handoff at deal close
+      source: prompts/tasks.yaml#customer_success_plan.accept_csp_handoff
+      inputs:
+      - title: account_name
+        type: string
+      - title: csp_link
+        type: string
+      - title: handoff_notes
+        type: string
+      - title: sa_name
+        type: string
+      outputs:
+      - title: accept-csp-handoff_result
+        type: object
+    ca-update-csp-value:
+      description: Monthly update of CSP value metrics
+      source: prompts/tasks.yaml#customer_success_plan.update_csp_value
+      inputs:
+      - title: account_name
+        type: string
+      - title: csp_link
+        type: string
+      - title: review_period
+        type: string
+      outputs:
+      - title: update-csp-value_result
+        type: object
+    ca-update-csp-milestones:
+      description: Track and update adoption milestones
+      source: prompts/tasks.yaml#customer_success_plan.update_csp_milestones
+      inputs:
+      - title: account_name
+        type: string
+      - title: current_phase
+        type: string
+      - title: milestone_list
+        type: string
+      outputs:
+      - title: update-csp-milestones_result
+        type: object
+    ca-quarterly-csp-refresh:
+      description: Comprehensive quarterly CSP review and update
+      source: prompts/tasks.yaml#customer_success_plan.quarterly_csp_refresh
+      inputs:
+      - title: account_name
+        type: string
+      - title: csp_link
+        type: string
+      - title: quarter
+        type: string
+      outputs:
+      - title: quarterly-csp-refresh_result
+        type: object
+    ca-csp-qbr-prep:
+      description: Extract QBR content from CSP
+      source: prompts/tasks.yaml#customer_success_plan.csp_qbr_prep
+      inputs:
+      - title: account_name
+        type: string
+      - title: csp_link
+        type: string
+      - title: qbr_date
+        type: string
+      outputs:
+      - title: csp-qbr-prep_result
+        type: object
+    ca-csp-risk-update:
+      description: Review and update CSP risk section
+      source: prompts/tasks.yaml#customer_success_plan.csp_risk_update
+      inputs:
+      - title: account_name
+        type: string
+      - title: recent_signals
+        type: string
+      - title: risk_list
+        type: string
+      outputs:
+      - title: csp-risk-update_result
+        type: object
+    ca-csp-expansion-planning:
+      description: Plan next adoption phase in CSP
+      source: prompts/tasks.yaml#customer_success_plan.csp_expansion_planning
+      inputs:
+      - title: account_name
+        type: string
+      - title: csp_link
+        type: string
+      - title: current_phase
+        type: string
+      - title: opportunities
+        type: string
+      outputs:
+      - title: csp-expansion-planning_result
+        type: object
+    ca-accept-journey-handoff:
+      description: Receive and validate journey map at deal close
+      source: prompts/tasks.yaml#customer_journey.accept_journey_handoff
+      inputs:
+      - title: account_name
+        type: string
+      - title: csp_link
+        type: string
+      - title: journey_map_link
+        type: string
+      - title: sa_name
+        type: string
+      outputs:
+      - title: accept-journey-handoff_result
+        type: object
+    ca-map-onboarding-journey:
+      description: Document customer experience during onboarding
+      source: prompts/tasks.yaml#customer_journey.map_onboarding_journey
+      inputs:
+      - title: account_name
+        type: string
+      - title: go_live_date
+        type: string
+      - title: milestones
+        type: string
+      outputs:
+      - title: map-onboarding-journey_result
+        type: object
+    ca-map-adoption-journey:
+      description: Track customer experience during adoption phase
+      source: prompts/tasks.yaml#customer_journey.map_adoption_journey
+      inputs:
+      - title: account_name
+        type: string
+      - title: adoption_level
+        type: string
+      - title: months_since_golive
+        type: string
+      outputs:
+      - title: map-adoption-journey_result
+        type: object
+    ca-analyze-journey-health:
+      description: Assess overall customer journey health
+      source: prompts/tasks.yaml#customer_journey.analyze_journey_health
+      inputs:
+      - title: account_name
+        type: string
+      - title: journey_map_link
+        type: string
+      - title: signals
+        type: string
+      outputs:
+      - title: analyze-journey-health_result
+        type: object
+    ca-identify-journey-friction:
+      description: Discover and document friction in customer journey
+      source: prompts/tasks.yaml#customer_journey.identify_journey_friction
+      inputs:
+      - title: account_name
+        type: string
+      - title: feedback
+        type: string
+      - title: support_data
+        type: string
+      - title: usage_signals
+        type: string
+      outputs:
+      - title: identify-journey-friction_result
+        type: object
+    ca-initiate-voc-tracking:
+      description: Set up VoC tracking for new customer
+      source: prompts/tasks.yaml#voice_of_customer.initiate_voc_tracking
+      inputs:
+      - title: account_name
+        type: string
+      - title: stakeholders
+        type: string
+      - title: tier
+        type: string
+      outputs:
+      - title: initiate-voc-tracking_result
+        type: object
+    ca-collect-nps-feedback:
+      description: Administer NPS survey and process results
+      source: prompts/tasks.yaml#voice_of_customer.collect_nps_feedback
+      inputs:
+      - title: account_name
+        type: string
+      - title: date
+        type: string
+      - title: respondent_count
+        type: string
+      - title: results
+        type: string
+      outputs:
+      - title: collect-nps-feedback_result
+        type: object
+    ca-collect-csat-feedback:
+      description: Capture satisfaction after key touchpoints
+      source: prompts/tasks.yaml#voice_of_customer.collect_csat_feedback
+      inputs:
+      - title: account_name
+        type: string
+      - title: date
+        type: string
+      - title: interaction_type
+        type: string
+      - title: participants
+        type: string
+      - title: results
+        type: string
+      outputs:
+      - title: collect-csat-feedback_result
+        type: object
+    ca-capture-qualitative-feedback:
+      description: Document and categorize qualitative feedback
+      source: prompts/tasks.yaml#voice_of_customer.capture_qualitative_feedback
+      inputs:
+      - title: account_name
+        type: string
+      - title: date
+        type: string
+      - title: source_type
+        type: string
+      - title: stakeholder
+        type: string
+      outputs:
+      - title: capture-qualitative-feedback_result
+        type: object
+    ca-analyze-support-voc:
+      description: Extract VoC insights from support interactions
+      source: prompts/tasks.yaml#voice_of_customer.analyze_support_voc
+      inputs:
+      - title: account_name
+        type: string
+      - title: count
+        type: string
+      - title: summary
+        type: string
+      - title: time_period
+        type: string
+      outputs:
+      - title: analyze-support-voc_result
+        type: object
+    ca-extract-meeting-voc:
+      description: Identify VoC signals from customer meetings
+      source: prompts/tasks.yaml#voice_of_customer.extract_meeting_voc
+      inputs:
+      - title: account_name
+        type: string
+      - title: date
+        type: string
+      - title: notes_summary
+        type: string
+      - title: type
+        type: string
+      outputs:
+      - title: extract-meeting-voc_result
+        type: object
+    ca-voc-trend-analysis:
+      description: Review VoC metrics and identify trends
+      source: prompts/tasks.yaml#voice_of_customer.voc_trend_analysis
+      inputs:
+      - title: account_name
+        type: string
+      - title: metrics
+        type: string
+      - title: time_period
+        type: string
+      outputs:
+      - title: voc-trend-analysis_result
+        type: object
+    ca-closed-loop-action:
+      description: Follow up on VoC feedback
+      source: prompts/tasks.yaml#voice_of_customer.closed_loop_action
+      inputs:
+      - title: account_name
+        type: string
+      - title: feedback_summary
+        type: string
+      - title: sentiment
+        type: string
+      - title: stakeholder
+        type: string
+      outputs:
+      - title: closed-loop-action_result
+        type: object
+    ca-voc-qbr-content:
+      description: Compile VoC insights for quarterly review
+      source: prompts/tasks.yaml#voice_of_customer.voc_qbr_content
+      inputs:
+      - title: account_name
+        type: string
+      - title: quarter
+        type: string
+      - title: voc_summary
+        type: string
+      outputs:
+      - title: voc-qbr-content_result
+        type: object
+    ca-product-feedback-aggregation:
+      description: Compile product-related VoC for PM team
+      source: prompts/tasks.yaml#voice_of_customer.product_feedback_aggregation
+      inputs:
+      - title: account_name
+        type: string
+      - title: sources
+        type: string
+      - title: time_period
+        type: string
+      outputs:
+      - title: product-feedback-aggregation_result
+        type: object
+    ca-triage-support-signal:
+      description: Process incoming support signal and classify for account action
+      source: prompts/tasks.yaml#support_intelligence.triage_support_signal
+      inputs:
+      - title: account_name
+        type: string
+      - title: adoption_status
+        type: string
+      - title: health_score
+        type: string
+      - title: signal_id
+        type: string
+      - title: signal_name
+        type: string
+      - title: signal_payload
+        type: string
+      outputs:
+      - title: triage-support-signal_result
+        type: object
+    ca-quarterly-support-review:
+      description: Analyze quarterly support patterns for QBR preparation
+      source: prompts/tasks.yaml#support_intelligence.quarterly_support_review
+      inputs:
+      - title: account_name
+        type: string
+      - title: prior_quarter
+        type: string
+      - title: quarter
+        type: string
+      - title: support_pattern_data
+        type: string
+      outputs:
+      - title: quarterly-support-review_result
+        type: object
+    ca-support-health-assessment:
+      description: Assess how support health affects overall account health
+      source: prompts/tasks.yaml#support_intelligence.support_health_assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: engagement_track
+        type: string
+      - title: health_score
+        type: string
+      - title: recent_signals
+        type: string
+      outputs:
+      - title: support-health-assessment_result
+        type: object
+    ca-support-intelligence-triage-analyze:
+      description: Analyze input
+      source: skills/support-intelligence-triage#step-1
+      inputs:
+      - title: context
+        type: string
+      outputs:
+      - title: result
+        type: object
+    ca-support-intelligence-triage-synthesize:
+      description: Synthesize findings
+      source: skills/support-intelligence-triage#step-2
+      inputs:
+      - title: analysis
+        type: string
+      outputs:
+      - title: result
+        type: object
+    ca-support-intelligence-triage-output:
+      description: Generate output
+      source: skills/support-intelligence-triage#step-3
+      inputs:
+      - title: synthesis
+        type: string
+      outputs:
+      - title: result
+        type: object
+  validation:
+    required_dimensions:
+    - name: context
+      description: What account, project, or domain is being analyzed?
+    - name: source_data
+      description: What source content or data is being processed?
+    on_incomplete: State what's missing, provide a preliminary analysis based on available information,
+      and flag gaps for human review. Do not generate a full analysis from incomplete input.
+  output_constraints:
+    evidence_requirement: All claims must cite source evidence
+    total_word_limit: 350
+    hard_rule: No claim without source evidence
+  guardrails:
+    input:
+    - Reject requests without source content or evidence base
+    output:
+    - NEVER invent customer architecture details
+    - NEVER assume integration risks without evidence
+    - NEVER create design mismatches
+    - Quote exact architecture statements
+    - Flag unclear architecture mentions for SA review
+    resource:
+    - max_tool_calls: 30
+  boundaries:
+  - Does not design customer architectures (handoff to SA/PM)
+  - Does not make {vendor} architecture decisions (SA Agent's domain) (handoff to SA/PM)
+  - Does not assess {vendor}-side technical risks (SA Agent's domain) (handoff to SA/PM)
+  permissions:
+  - Detect changes in customer architecture or design
+  - Flag integration risks from customer-side changes
+  - Track consistency between customer and {vendor} designs
+  - Signal SA when architecture mismatches detected
+  escalation_triggers:
+  - Critical architecture change detection exceeding agent authority (to SA/PM)
+  handoffs:
+    human_escalation: SA/PM
+  human_in_the_loop_conditions:
+  - Review required before publishing analysis externally
+  - Approval needed for strategic recommendations
+  - Flag outputs based on indirect or incomplete signals
+  memory:
+    conversation: Current analysis session state
+    working:
+    - Signals detected during current session
+    - Evidence gathered from scanned content
+    - Interim analysis results
+    persistent:
+    - Historical patterns and trends
+    - Previous analysis outcomes
+    - Known domain context
+    shared:
+    - Analysis results shared with collaborating agents via InfoHub
+  context:
+    strategy: Evidence-first, prioritize signals with highest severity
+    token_budget: 8000
+    reserve_for_references: 1500
+    priority_order:
+    - System prompt with identity and constraints
+    - Current task context and inputs
+    - Working memory (signals, evidence gathered)
+    - Architecture change detection
+    - Integration risk identification
+    - Design mismatch flagging
+    - Reference materials (if available)
+    include:
+    - Source evidence and quotes
+    - Current account or domain context
+    exclude:
+    - Generic advice without evidence
+    - Content outside agent scope
+  knowledge:
+    references: []
+  assets:
+  - name: arch-design-updates
+    filename: '{account}-arch-design-updates.md'
+    description: Arch design updates
+  - name: integration-risk-alerts
+    filename: '{account}-integration-risk-alerts.md'
+    description: Integration risk alerts
+  - name: design-mismatch-reports
+    filename: '{account}-design-mismatch-reports.md'
+    description: Design mismatch reports
+  - name: support-intelligence-actions
+    filename: '{account}-support-intelligence-actions.md'
+    description: Support intelligence actions
+  quality:
+  - All architecture changes quoted from source
+  - All integration risks evidenced
+  - All mismatches clearly stated, not inferred
+  - Escalate to SA when uncertain

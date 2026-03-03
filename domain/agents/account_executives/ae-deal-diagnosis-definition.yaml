@@ -1,0 +1,352 @@
+# AE Deal Diagnosis Agent
+# Sub-agent of Account Executive Agent (ae-agent)
+# Owns: individual deal health scoring, stall analysis, loss review, resurrection
+#
+# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+
+agentspec_version: "26.1.0"
+component_type: Agent
+
+id: ae-deal-diagnosis-agent
+name: AE Deal Diagnosis Agent
+description: >
+  Every deal has a story the CRM doesn't tell. This agent reads between the
+  lines, scoring deal health from actual engagement signals, diagnosing why
+  deals stall before the AE notices, extracting learnings from losses, and
+  finding deals worth resurrecting when conditions change.
+
+metadata:
+  definition_version: "0.1.0"
+  parent_agent: ae-agent
+  tags:
+    - deal-health
+    - stall-analysis
+    - loss-review
+    - resurrection
+    - commercial
+  responsibility: >
+    Provide accurate, evidence-based deal health assessments with specific
+    risk classifications, stall diagnoses, and actionable mitigation steps.
+
+system_prompt: |
+  You are a Deal Diagnosis Agent, part of the Account Executive intelligence
+  system. Your job is to assess individual deal health with precision.
+
+  You MUST:
+  - Score deal health as RED/YELLOW/GREEN with specific evidence
+  - Diagnose stall causes with contributing factors and unstall actions
+  - Analyze lost deals for warning signs, competitor impact, and learnings
+  - Identify resurrection candidates based on changed conditions
+  - Quantify with dates, values (EUR/USD), and percentages
+  - Every risk must suggest a mitigation action
+
+  You MUST NOT:
+  - Analyze portfolio-level metrics (Pipeline Management Agent's domain)
+  - Prepare meeting materials (Meeting Preparation Agent's domain)
+  - Run scheduled hygiene checks (Opportunity Hygiene Agent's domain)
+  - Invent stakeholder sentiments not expressed in source content
+  - Assume budget amounts not explicitly mentioned
+
+  When uncertain: use "appears delayed" not "is delayed", add
+  [NEEDS VERIFICATION] for unclear situations. Omit rather than guess.
+
+human_in_the_loop: true
+
+tools:
+  - component_type: ClientTool
+    id: read-crm-data
+    name: Read CRM Data
+    description: Access CRM fields, opportunity data, stage history
+    requires_confirmation: false
+    inputs:
+      - title: query
+        type: string
+    outputs:
+      - title: crm_data
+        type: object
+    x-ea-agent:
+      risk: low
+
+  - component_type: ClientTool
+    id: read-communications
+    name: Read Communications
+    description: Access Slack threads, email content, and meeting notes for signal detection
+    requires_confirmation: false
+    inputs:
+      - title: source_type
+        type: string
+      - title: account_name
+        type: string
+    outputs:
+      - title: content
+        type: string
+    x-ea-agent:
+      risk: low
+
+  - component_type: ClientTool
+    id: write-risk-alert
+    name: Write Risk Alert
+    description: Save deal-level risk alert to InfoHub risk register
+    requires_confirmation: true
+    inputs:
+      - title: risk
+        type: object
+      - title: destination_path
+        type: string
+    outputs:
+      - title: status
+        type: string
+    x-ea-agent:
+      risk: medium
+
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from account executive
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+
+toolboxes:
+  - component_type: Toolbox
+    id: deal-intelligence
+    name: Deal Intelligence
+    description: Deal health assessments and close plan status available to peer agents
+    tools:
+      - id: get-deal-health
+        name: Get Deal Health
+        description: Returns RED/YELLOW/GREEN health score with risk factors and mitigation actions
+        inputs:
+          - title: opportunity_name
+            type: string
+        outputs:
+          - title: deal_health
+            type: object
+      - id: get-close-plan-status
+        name: Get Close Plan Status
+        description: Returns mutual action plan health with milestone tracking and stall risks
+        inputs:
+          - title: opportunity_name
+            type: string
+        outputs:
+          - title: close_plan_status
+            type: object
+specialized_agents: []
+
+flows:
+  - component_type: Flow
+    id: deal-diagnosis
+    name: Deal Diagnosis
+    description: Diagnose deal health, identify stall causes, analyze losses, and find resurrection opportunities.
+    inputs:
+      - title: account_context
+        type: object
+      - title: opportunity_name
+        type: string
+      - title: current_stage
+        type: string
+      - title: days_in_stage
+        type: integer
+    outputs:
+      - title: deal_health_assessment
+        type: object
+      - title: stall_diagnosis
+        type: object
+      - title: loss_analysis
+        type: object
+      - title: resurrection_candidates
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: ae-analyze-deal-health
+          input: account_context, opportunity_name, time_period
+          description: Identify top risks and positive signals, assign health score (RED/YELLOW/GREEN)
+        - step: 2
+          prompt: ae-diagnose-stalled-deal
+          input: current_stage, days_in_stage
+          description: Identify stall cause, contributing factors, unstall actions
+        - step: 3
+          prompt: ae-loss-analysis
+          input: opportunity_name
+          description: Timeline of key moments, warning signs, competitor analysis, learnings
+        - step: 4
+          prompt: ae-resurrect-dead-deal
+          input: time_period
+          description: Identify resurrection candidates with changed conditions and triggers
+
+  - component_type: Flow
+    id: close-plan-management
+    name: Close Plan Management
+    description: Create, track, and assess mutual action plan health for deals in proposal stage or later.
+    inputs:
+      - title: opportunity_name
+        type: string
+      - title: current_stage
+        type: string
+      - title: stakeholder_map
+        type: object
+    outputs:
+      - title: close_plan
+        type: object
+      - title: plan_health
+        type: object
+      - title: stall_risks
+        type: array
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: ae-close-plan-create
+          input: opportunity_name, current_stage, stakeholder_map
+          description: Build mutual action plan with phases, milestones, owners, and target dates
+        - step: 2
+          prompt: ae-close-plan-health
+          input: close_plan, milestone_status
+          description: Assess close plan health (GREEN/YELLOW/RED), identify stall patterns and mitigations
+
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: "0.1"
+    capabilities:
+      - deal-health-scoring
+      - stall-diagnosis
+      - loss-analysis
+      - close-plan-management
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+
+x-ea-agent:
+
+  prompt_registry:
+    ae-analyze-deal-health:
+      description: Diagnose current deal health based on recent signals, risks, and positive indicators
+      source: prompts/tasks.yaml#deal_diagnosis.analyze_deal_health
+      inputs:
+        - title: account_name
+          type: string
+        - title: opportunity_name
+          type: string
+        - title: time_period
+          type: string
+      outputs:
+        - title: deal_health_assessment
+          type: object
+
+    ae-diagnose-stalled-deal:
+      description: Understand why a deal has stopped progressing with stall cause analysis
+      source: prompts/tasks.yaml#deal_diagnosis.diagnose_stalled_deal
+      inputs:
+        - title: current_stage
+          type: string
+        - title: days_in_stage
+          type: integer
+      outputs:
+        - title: stall_diagnosis
+          type: object
+
+    ae-loss-analysis:
+      description: Analyze a lost deal to extract learnings, warning signs, and resurrection potential
+      source: prompts/tasks.yaml#deal_diagnosis.loss_analysis
+      inputs:
+        - title: opportunity_name
+          type: string
+      outputs:
+        - title: loss_analysis
+          type: object
+
+    ae-resurrect-dead-deal:
+      description: Find opportunities to re-engage lost or stalled deals based on changed conditions
+      source: prompts/tasks.yaml#deal_diagnosis.resurrect_dead_deal
+      inputs:
+        - title: time_period
+          type: string
+        - title: account_name
+          type: string
+      outputs:
+        - title: resurrection_candidates
+          type: object
+
+    ae-close-plan-create:
+      description: Build mutual action plan with milestone phases, owners, and customer-confirmed dates
+      source: prompts/tasks.yaml#deal_diagnosis.close_plan_create
+      inputs:
+        - title: opportunity_name
+          type: string
+        - title: current_stage
+          type: string
+        - title: stakeholder_map
+          type: object
+      outputs:
+        - title: close_plan
+          type: object
+
+    ae-close-plan-health:
+      description: Assess close plan health against milestone tracking, identify stall patterns
+      source: prompts/tasks.yaml#deal_diagnosis.close_plan_health
+      inputs:
+        - title: close_plan
+          type: object
+        - title: milestone_status
+          type: object
+      outputs:
+        - title: plan_health
+          type: object
+
+  boundaries:
+    - Single deal scope only, does not analyze portfolio-level metrics
+    - Does not prepare meeting materials or QBR content
+    - Does not run scheduled hygiene checks
+    - Does not make pricing decisions or negotiate terms
+    - Does not invent stakeholder sentiments not expressed in source content
+
+  permissions:
+    - Read CRM data for specific opportunities
+    - Read communications for deal-related signals
+    - Score deal health with RED/YELLOW/GREEN classification
+    - Write deal-level risk alerts to InfoHub
+    - Diagnose stall causes and recommend unstall actions
+
+  guardrails:
+    input_validation:
+      - Reject deal health requests without opportunity name or account context
+      - Reject loss analysis without confirmed closed-lost status
+    output_checks:
+      - Health score must cite specific evidence for RED/YELLOW/GREEN classification
+      - Every risk must include severity classification and mitigation action
+      - Loss analysis must include actionable learnings, not just event timeline
+      - All assessments traceable to source data with dates and values
+    signal_validation:
+      - Never invent stakeholder opinions not stated in source content
+      - Never assume budget amounts not explicitly mentioned
+      - Use qualifiers ("appears delayed") when evidence is indirect
+      - Add [NEEDS VERIFICATION] marker when uncertain
+
+  knowledge:
+    references:
+      - path: references/signal-detection.yaml
+        description: Commercial risk keywords, severity indicators, relationship health signals
+        load_when: Analyzing deal signals from communications or CRM data
+      - path: references/risk-classification.yaml
+        description: Severity definitions (HIGH/MEDIUM/LOW) and escalation criteria
+        load_when: Classifying deal risks or recommending escalation
+      - path: references/close-plan-methodology.yaml
+        description: Mutual action plan structure, milestone phases, close plan health indicators, stall patterns
+        load_when: Creating or assessing close plans for deals in proposal stage or later
+      - path: references/negotiation-framework.yaml
+        description: Negotiation preparation, pricing strategy, concession trading, customer tactics and responses
+        load_when: Assessing deals in negotiation stage or diagnosing stalls related to commercial terms
+      - path: references/competitive-displacement.yaml
+        description: Incumbent analysis, competitive positioning, switching cost narrative, FUD defense
+        load_when: Diagnosing deals with active competitive threats or displacement scenarios

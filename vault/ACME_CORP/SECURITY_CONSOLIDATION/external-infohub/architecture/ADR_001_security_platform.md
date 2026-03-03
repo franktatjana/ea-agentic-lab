@@ -114,9 +114,9 @@ ACME Corporation is acquiring Industrietechnik GmbH (closing April 2026). The co
 
 ### Option C: CloudSIEM
 
-**Description**: Move to Azure-native SIEM
+**Description**: Move to cloud-native SIEM from hyperscaler
 
-**Status**: **ELIMINATED** - Customer stated "we're not an Azure shop"
+**Status**: **ELIMINATED** - Customer stated "we're not a hyperscaler-native shop"
 
 ## Recommendation
 

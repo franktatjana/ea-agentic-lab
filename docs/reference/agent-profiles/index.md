@@ -1,133 +1,112 @@
 ---
 title: "Agent Profiles"
-description: "Index of all agent profile cards with quick-reference summary"
+description: "Index of all agents organized by human role hierarchy"
 category: "reference"
-keywords: ["agent", "profile", "index", "catalog"]
-last_updated: "2026-02-11"
+keywords: ["agent", "profile", "index", "catalog", "taxonomy"]
+last_updated: "2026-03-01"
 ---
 
 # Agent Profiles
 
-Each agent in the EA Agentic Lab has a dedicated profile page documenting its identity, responsibilities, playbook ownership, handoff relationships, escalation rules, and personality traits. These profiles are the single source of truth for understanding what each agent does and how it interacts with the rest of the system.
+The EA Agentic Lab has 33 agent definitions organized under 12 human roles. Each role is a digital twin of a real job function. Some roles operate as a single agent, others decompose into sub-agents when the process requires different tools, guardrails, or autonomy (per DDR-019 holonic criteria). Profiles represent roles. Definitions represent agents.
 
-For a condensed overview, see the [Agent Quick Reference](../../architecture/agents/agent-quick-reference.md). For architecture and design rationale, see [Agent Architecture](../../architecture/agents/agent-architecture.md).
+For design rationale, see [DDR-021: Agent Taxonomy](../../decisions/DDR_021_agent_taxonomy.md). For architecture details, see [Agent Architecture](../../architecture/agents/agent-architecture.md).
 
-## Leadership Agents (2)
+---
 
-Leadership agents provide strategic oversight across the agent ecosystem. They resolve escalations, approve major pursuits, and ensure product roadmap alignment with customer needs.
+## Sales (4 roles, 4 agents)
 
-| Agent | Purpose | Escalates To |
-|-------|---------|--------------|
-| [Senior Manager](leadership/senior-manager-agent.md) | Strategic oversight, coaching, escalation resolution | VP/C-Level (deals >$2M) |
-| [Product Manager (PM)](leadership/pm-agent.md) | Product roadmap and customer alignment | PM Director (strategic feature) |
+Sales roles drive commercial strategy, competitive positioning, value quantification, and partner alignment.
 
-## Sales Agents (4)
+| Role | Agent | Purpose | Escalates To |
+|------|-------|---------|--------------|
+| Account Executive | [AE Agent](sales/ae-agent.md) | Commercial clarity and forecast stability | Senior Manager |
+| Competitive Intelligence | [CI Agent](sales/ci-agent.md) | Competitive awareness and positioning | Senior Manager |
+| Value Engineer | [VE Agent](sales/ve-agent.md) | Business value quantification and tracking | Senior Manager |
+| Partner Manager | [Partner Agent](sales/partner-agent.md) | Partner ecosystem alignment | Senior Manager |
 
-Sales agents drive commercial strategy, competitive positioning, value quantification, and partner ecosystem alignment to maintain pipeline health and forecast integrity.
+---
 
-| Agent | Purpose | Escalates To |
-|-------|---------|--------------|
-| [Account Executive (AE)](sales/ae-agent.md) | Commercial clarity and forecast stability | Senior Manager (>$500K, variance >15%) |
-| [Competitive Intelligence (CI)](sales/ci-agent.md) | Competitive awareness and positioning | Senior Manager (strategic threat) |
-| [Value Engineering (VE)](sales/ve-agent.md) | Business value quantification and tracking | Senior Manager (value hypothesis failing) |
-| [Partner](sales/partner-agent.md) | Partner ecosystem alignment | Senior Manager (dependency risk) |
+## Architecture (2 roles, 9 agents)
 
-## Architecture Agents (3)
+Architecture roles maintain technical integrity across engagements. The Solution Architect decomposes into 7 sub-agents for deal execution processes and domain specialist work.
 
-Architecture agents maintain technical integrity across engagements, handling solution design, customer-side architecture tracking, and domain expertise routing.
+### Solution Architect
 
-| Agent | Purpose | Escalates To |
-|-------|---------|--------------|
-| [Solution Architect (SA)](architecture/sa-agent.md) | Technical integrity and risk visibility | Senior Manager (HIGH risk) |
-| [Customer Architect (CA)](architecture/ca-agent.md) | Customer-side architecture tracking | Senior Manager (health <50) |
-| [Specialist](architecture/specialist-agent.md) | Domain expertise engagement | SA Lead (validation) |
+| Agent | Type | Purpose |
+|-------|------|---------|
+| [SA Agent](architecture/sa-agent.md) | Role | Technical integrity and risk visibility |
+| [POC Agent](deal-execution/poc-agent.md) | Sub-agent | Proof of concept execution and conversion |
+| [RFP Agent](deal-execution/rfp-agent.md) | Sub-agent | RFP bid strategy and response orchestration |
+| [InfoSec Agent](deal-execution/infosec-agent.md) | Sub-agent | Security and compliance enablement |
+| [Specialist Engagement Agent](architecture/specialist-agent.md) | Sub-agent | Domain expertise routing and coordination |
+| [Security Specialist](specialists/security-specialist-agent.md) | Sub-agent | SIEM, threat detection, MITRE ATT&CK |
+| [Observability Specialist](specialists/observability-specialist-agent.md) | Sub-agent | APM, SLO/SLI, distributed tracing |
+| [Search Specialist](specialists/search-specialist-agent.md) | Sub-agent | Relevance tuning, vector search, RAG |
 
-## Deal Execution Agents (3)
+### Customer Architect
 
-Deal execution agents handle the structured processes that convert opportunities into wins, from RFP response orchestration through security clearance.
+| Agent | Type | Purpose |
+|-------|------|---------|
+| [CA Agent](architecture/ca-agent.md) | Role | Customer-side architecture tracking |
+| [Retrospective Agent](meta/retrospective-agent.md) | Sub-agent | Lessons learned from completed deals |
 
-| Agent | Purpose | Escalates To |
-|-------|---------|--------------|
-| [RFP](deal-execution/rfp-agent.md) | RFP bid strategy and response orchestration | Senior Manager (score 45-55) |
-| [POC](deal-execution/poc-agent.md) | POC execution and conversion | Senior Manager (blocker >48h) |
-| [InfoSec](deal-execution/infosec-agent.md) | Security and compliance enablement | Senior Manager (blocker, no workaround) |
+---
 
-## Delivery Agents (3)
+## Intelligence (1 role, 5 agents)
 
-Delivery agents bridge what was sold with what gets implemented, coordinating handoffs, professional services, and support operations.
+Intelligence analysis serves the entire account team. One composite role covers account-level, industry-level, market-level, and technology-level research. Each agent handles a different scope with different data sources and cadences.
 
-| Agent | Purpose | Escalates To |
-|-------|---------|--------------|
-| [Delivery](delivery/delivery-agent.md) | Sales-to-delivery continuity | Senior Manager (HIGH impl risk) |
-| [Professional Services (PS)](delivery/ps-agent.md) | Pre-sales to post-sales delivery bridge | Senior Manager (scope issues) |
-| [Support](delivery/support-agent.md) | Support operations and account health signals | Senior Manager (critical on strategic account) |
+### Intelligence Analyst
 
-## Domain Specialists (3)
+| Agent | Type | Purpose |
+|-------|------|---------|
+| [Account Intelligence Agent](intelligence/aci-agent.md) | Sub-agent | Account-level intelligence and signal detection |
+| [Industry Intelligence Agent](intelligence/ii-agent.md) | Sub-agent | Industry trend analysis and vertical insights |
+| [Market News Agent](intelligence/mna-agent.md) | Sub-agent | Market news monitoring and impact assessment |
+| [Tech Scout Scanner](intelligence/tech-signal-scanner-agent.md) | Sub-agent | Technology signal scanning from job postings |
+| [Tech Scout Analyzer](intelligence/tech-signal-analyzer-agent.md) | Sub-agent | Technology signal analysis and map generation |
 
-Domain specialists provide deep technical expertise in specific technology areas. They are activated by the Specialist agent or directly by SA/POC agents when domain-specific validation is needed.
+---
 
-| Agent | Domain | Playbook Prefix |
-|-------|--------|-----------------|
-| [Security Specialist](specialists/security-specialist-agent.md) | SIEM, threat detection, MITRE ATT&CK, SOC workflows | `PB_SEC` |
-| [Observability Specialist](specialists/observability-specialist-agent.md) | APM, SLO/SLI, distributed tracing, alerting | `PB_OBS` |
-| [Search Specialist](specialists/search-specialist-agent.md) | Relevance tuning, vector search, RAG, schema design | `PB_SRCH` |
+## Leadership (2 roles, 2 agents)
 
-## Governance Agents (8)
+Leadership roles provide strategic oversight, escalation resolution, and product alignment.
 
-Governance agents enforce process and maintain artifacts. They operate automatically based on events and schedules, reducing entropy and ensuring nothing falls through the cracks.
+| Role | Agent | Purpose | Escalates To |
+|------|-------|---------|--------------|
+| Senior Manager | [Senior Manager Agent](leadership/senior-manager-agent.md) | Strategic oversight, coaching, escalation resolution | VP/C-Level |
+| Product Manager | [Product Manager Agent](leadership/pm-agent.md) | Product roadmap and customer alignment | PM Director |
+
+---
+
+## Delivery (2 roles, 2 agents)
+
+Delivery roles bridge what was sold with what gets implemented.
+
+| Role | Agent | Purpose | Escalates To |
+|------|-------|---------|--------------|
+| Delivery Manager | [Delivery Agent](delivery/delivery-agent.md) | Sales-to-delivery continuity | Senior Manager |
+| Professional Services | [PS Agent](delivery/ps-agent.md) | Pre-sales to post-sales delivery bridge | Senior Manager |
+
+---
+
+## Governance System (10 agents)
+
+Governance agents are system infrastructure, not human roles. They operate automatically on events and schedules, enforcing process quality across all account activity. No human job title maps to these functions. They are documented collectively.
 
 | Agent | Trigger | Quality Gate |
 |-------|---------|--------------|
-| [Meeting Notes](governance/meeting-notes-agent.md) | `meeting_ended` | Max 12 lines, all actions have owner + due date |
-| [Task Shepherd](governance/task-shepherd-agent.md) | `action_created` | Single owner, calendar due date, done-means defined |
-| [Decision Registrar](governance/decision-registrar-agent.md) | `decision_mentioned` | Owner, context, rationale documented |
-| [Risk Radar](governance/risk-radar-agent.md) | Various (meeting, decision, health drop) | Severity classified, owner assigned |
-| [Nudger](governance/nudger-agent.md) | Daily 9am/2pm, overdue actions | Max 1 reminder per action per day |
-| [Reporter](governance/reporter-agent.md) | Friday 5pm weekly | Fits in 10 lines, all claims linked to source |
-| [Playbook Curator](governance/playbook-curator-agent.md) | `playbook_modified` | No CRITICAL violations |
-| [InfoHub Curator](governance/infohub-curator-agent.md) | `artifact_created/updated` | No semantic conflicts |
-| [Knowledge Vault Curator](governance/knowledge-vault-curator-agent.md) | `knowledge_proposal_received` | Anonymization verified, no duplicates |
-
-## Intelligence Agents (2)
-
-Intelligence agents scan external data sources and generate technology signal maps. They operate on schedules and produce structured intelligence for account teams.
-
-| Agent | Purpose | Trigger |
-|-------|---------|---------|
-| [Tech Signal Scanner](intelligence/tech-signal-scanner-agent.md) | Scan job postings to extract technology signals | Weekly (Sundays 2am), manual |
-| [Tech Signal Analyzer](intelligence/tech-signal-analyzer-agent.md) | Analyze scan data to generate technology signal maps | Weekly (Mondays 6am), on scan complete |
-
-## Specialized and Meta Agents (2)
-
-| Agent | Purpose | Trigger |
-|-------|---------|---------|
-| [Retrospective](meta/retrospective-agent.md) | Extract lessons learned from completed deals | Closed-won (>=100K), closed-lost (>=50K), lost to competitor |
-| [Orchestration](meta/orchestration-agent.md) | Meta-layer coordination: process parsing, conflict detection, agent factory, versioning | Process submitted, conflict check |
-
-## Agent Interaction Map
-
-The following shows the primary handoff chains between agents. For the complete handover diagram, see [Agent Handover Diagram](../../architecture/agents/agent-handover-diagram.md).
-
-### Pre-Sales Flow
-
-```text
-AE -> RFP        (RFP received)
-AE -> POC        (POC requested)
-AE -> SA         (technical questions)
-AE -> CI         (competitor detected)
-AE -> InfoSec    (security questionnaire)
-AE -> SM         (deal > $500K)
-```
-
-### Post-Sales Flow
-
-```text
-AE -> Delivery   (contract signed)
-Delivery -> PS   (implementation start)
-Delivery -> CA   (go-live complete)
-Support -> CA    (pattern detected)
-Support -> SM    (critical on strategic account)
-```
+| [Meeting Notes Agent](governance/meeting-notes-agent.md) | `meeting_ended` | Max 12 lines, all actions have owner + due date |
+| [Task Shepherd Agent](governance/task-shepherd-agent.md) | `action_created` | Single owner, calendar due date, done-means defined |
+| [Decision Registrar Agent](governance/decision-registrar-agent.md) | `decision_mentioned` | Owner, context, rationale documented |
+| [Risk Radar Agent](governance/risk-radar-agent.md) | Various (meeting, decision, health drop) | Severity classified, owner assigned |
+| [Nudger Agent](governance/nudger-agent.md) | Daily 9am/2pm, overdue actions | Max 1 reminder per action per day |
+| [Reporter Agent](governance/reporter-agent.md) | Friday 5pm weekly | Fits in 10 lines, all claims linked to source |
+| [Signal Matcher Agent](governance/signal-matcher-agent.md) | Signal detected | Signal routed to correct agent |
+| [Playbook Curator Agent](governance/playbook-curator-agent.md) | `playbook_modified` | No CRITICAL violations |
+| [InfoHub Curator Agent](governance/infohub-curator-agent.md) | `artifact_created/updated` | No semantic conflicts |
+| [Knowledge Vault Curator Agent](governance/knowledge-vault-curator-agent.md) | `knowledge_proposal_received` | Anonymization verified, no duplicates |
 
 ### Governance Chain
 
@@ -139,9 +118,27 @@ Risk Radar -> Nudger/SM           (escalations)
 Nudger -> SM                      (overdue > 5 days)
 ```
 
+---
+
+## Summary
+
+| Category | Roles | Agents | Sub-agents |
+|----------|-------|--------|------------|
+| Sales | 4 | 4 | 0 |
+| Architecture | 2 | 2 | 7 |
+| Intelligence | 1 | 0 | 5 |
+| Leadership | 2 | 2 | 0 |
+| Delivery | 2 | 2 | 0 |
+| Governance | 0 | 0 | 10 |
+| **Total** | **11** | **10** | **22** |
+
+11 roles + 1 system function = 12 categories. 10 role agents + 22 sub-agents + 1 system function (10 agents) = 33 definitions total. Orchestration Agent exists as a [legacy meta-agent](meta/orchestration-agent.md) outside the taxonomy.
+
+---
+
 ## Related Documentation
 
-- [Agent Quick Reference](../../architecture/agents/agent-quick-reference.md): Condensed lookup card
+- [DDR-021: Agent Taxonomy](../../decisions/DDR_021_agent_taxonomy.md): Classification rationale
+- [DDR-019: Agent System Domain Model](../../decisions/DDR_019_agent_system_domain_model.md): Holonic architecture
 - [Agent Architecture](../../architecture/agents/agent-architecture.md): Design and collaboration model
-- [Agent Responsibilities](../../architecture/agents/agent-responsibilities.md): Detailed scope and boundaries
 - [Agent Handover Diagram](../../architecture/agents/agent-handover-diagram.md): Visual handover flows

@@ -1,0 +1,304 @@
+# AE Opportunity Hygiene Agent
+# Sub-agent of Account Executive Agent (ae-agent)
+# Owns: weekly hygiene checks, health indicators, stale alerts, paper process tracking, hygiene reports, CRM checklists
+#
+# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+
+agentspec_version: "26.1.0"
+component_type: Agent
+
+id: ae-opportunity-hygiene-agent
+name: AE Opportunity Hygiene Agent
+description: >
+  CRM data decays within days of the last update. This agent runs weekly
+  health checks across every active opportunity, tracks paper process
+  milestones (procurement, legal, security review), flags deals going
+  stale before they slip through the cracks, and generates specific CRM
+  update checklists so the pipeline reflects reality, not last month's
+  optimism.
+
+metadata:
+  definition_version: "0.1.0"
+  parent_agent: ae-agent
+  tags:
+    - hygiene
+    - stale-deals
+    - crm-updates
+    - paper-process
+    - weekly-checks
+    - operational
+  responsibility: >
+    Maintain CRM data quality and pipeline hygiene through scheduled checks,
+    health scoring, stale deal detection, paper process milestone tracking,
+    and actionable update checklists.
+
+system_prompt: |
+  You are an Opportunity Hygiene Agent, part of the Account Executive
+  intelligence system. Your job is to keep the pipeline clean and accurate.
+
+  You MUST:
+  - Run weekly checks on stage accuracy, close dates, next steps, last contact
+  - Track paper process milestones: procurement status, legal review stage, security approval
+  - Evaluate health indicators as GREEN/YELLOW/RED with specific criteria
+  - Detect stale opportunities: WARNING at 14 days, CRITICAL at 21 days
+  - Flag paper process delays (legal >10 days, security >14 days, procurement >7 days without update)
+  - Generate weekly reports with overall hygiene score and trends
+  - Produce CRM update checklists with specific field updates needed
+
+  You MUST NOT:
+  - Perform strategic deal analysis (Deal Diagnosis Agent's domain)
+  - Prepare meeting materials (Meeting Preparation Agent's domain)
+  - Scan communications for commercial signals (Signal Detection Agent's domain)
+  - Auto-change CRM data (recommends updates for human review only)
+  - Make forecast commitments (Pipeline Management Agent's domain)
+
+  Your cadence is operational: weekly hygiene runs, daily stale checks.
+  You report what the data shows, not what it might mean strategically.
+
+human_in_the_loop: true
+
+tools:
+  - component_type: ClientTool
+    id: read-crm-data
+    name: Read CRM Data
+    description: Access all opportunity data, stage history, last contact dates, CRM field states
+    requires_confirmation: false
+    inputs:
+      - title: query
+        type: string
+    outputs:
+      - title: crm_data
+        type: object
+    x-ea-agent:
+      risk: low
+
+  - component_type: ClientTool
+    id: write-risk-alert
+    name: Write Risk Alert
+    description: Save hygiene alerts (stale deals, data quality issues) to InfoHub
+    requires_confirmation: true
+    inputs:
+      - title: risk
+        type: object
+      - title: destination_path
+        type: string
+    outputs:
+      - title: status
+        type: string
+    x-ea-agent:
+      risk: medium
+
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification about opportunity status or CRM data
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+
+toolboxes:
+  - component_type: Toolbox
+    id: hygiene-reports
+    name: Hygiene Reports
+    description: CRM hygiene scores and stale deal alerts available to peer agents and orchestrator
+    tools:
+      - id: get-hygiene-report
+        name: Get Hygiene Report
+        description: Returns overall hygiene score with health distribution and specific violations
+        inputs:
+          - title: review_date
+            type: string
+        outputs:
+          - title: hygiene_report
+            type: object
+      - id: get-stale-alerts
+        name: Get Stale Alerts
+        description: Returns stale opportunity warnings with WARNING (14d) and CRITICAL (21d) severity
+        inputs:
+          - title: current_date
+            type: string
+        outputs:
+          - title: stale_alerts
+            type: array
+specialized_agents: []
+
+flows:
+  - component_type: Flow
+    id: opportunity-hygiene
+    name: Opportunity Hygiene
+    description: Run weekly hygiene checks, assess health indicators, detect stale opportunities, and generate reports.
+    inputs:
+      - title: pipeline_summary
+        type: object
+      - title: review_date
+        type: string
+      - title: opportunity_name
+        type: string
+      - title: current_date
+        type: string
+    outputs:
+      - title: hygiene_check
+        type: object
+      - title: health_indicators
+        type: object
+      - title: stale_alerts
+        type: object
+      - title: hygiene_report
+        type: object
+      - title: crm_checklist
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: ae-weekly-hygiene-check
+          input: pipeline_summary, review_date
+          description: Check stage accuracy, close dates, next steps, last contact, risk status
+        - step: 2
+          prompt: ae-opportunity-health-indicators
+          input: opportunity_name, current_stage, days_in_stage, last_contact_date
+          description: Evaluate GREEN/YELLOW/RED criteria, identify concerns, improvement actions
+        - step: 3
+          prompt: ae-stale-opportunity-alert
+          input: pipeline_data, current_date
+          description: Detect stale opportunities with WARNING (14d) and CRITICAL (21d) alert levels
+        - step: 4
+          prompt: ae-hygiene-report
+          input: pipeline_summary, week_end_date
+          description: Overall hygiene score, health distribution, activity metrics, recommendations
+        - step: 5
+          prompt: ae-crm-update-checklist
+          input: opportunity_name, recent_activity, crm_state
+          description: Generate CRM field updates, activity logging, and InfoHub update checklist
+
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: "0.1"
+    capabilities:
+      - crm-hygiene
+      - data-completeness
+      - stage-validation
+      - paper-process-tracking
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+
+x-ea-agent:
+
+  prompt_registry:
+    ae-weekly-hygiene-check:
+      description: Weekly hygiene check on all active opportunities for stage, date, and contact accuracy
+      source: prompts/tasks.yaml#opportunity_hygiene.weekly_hygiene_check
+      inputs:
+        - title: ae_name
+          type: string
+        - title: pipeline_summary
+          type: object
+        - title: review_date
+          type: string
+      outputs:
+        - title: hygiene_check
+          type: object
+
+    ae-opportunity-health-indicators:
+      description: Assess GREEN/YELLOW/RED health indicators for a specific opportunity
+      source: prompts/tasks.yaml#opportunity_hygiene.opportunity_health_indicators
+      inputs:
+        - title: opportunity_name
+          type: string
+        - title: stage
+          type: string
+        - title: days_in_stage
+          type: integer
+        - title: last_contact_date
+          type: string
+      outputs:
+        - title: health_indicators
+          type: object
+
+    ae-stale-opportunity-alert:
+      description: Identify stale opportunities with WARNING (14d) and CRITICAL (21d) alert levels
+      source: prompts/tasks.yaml#opportunity_hygiene.stale_opportunity_alert
+      inputs:
+        - title: ae_name
+          type: string
+        - title: current_date
+          type: string
+      outputs:
+        - title: stale_alerts
+          type: object
+
+    ae-hygiene-report:
+      description: Generate weekly hygiene report with score, health distribution, and activity metrics
+      source: prompts/tasks.yaml#opportunity_hygiene.hygiene_report
+      inputs:
+        - title: ae_name
+          type: string
+        - title: week_end_date
+          type: string
+        - title: pipeline_summary
+          type: object
+      outputs:
+        - title: hygiene_report
+          type: object
+
+    ae-crm-update-checklist:
+      description: Generate CRM update checklist with field updates, activity logging, and InfoHub updates
+      source: prompts/tasks.yaml#opportunity_hygiene.crm_update_checklist
+      inputs:
+        - title: opportunity_name
+          type: string
+        - title: recent_activity
+          type: string
+        - title: crm_state
+          type: object
+      outputs:
+        - title: crm_checklist
+          type: object
+
+  boundaries:
+    - Operational hygiene only, does not perform strategic deal analysis
+    - Does not prepare meeting materials or stakeholder briefs
+    - Does not scan communications for signals
+    - CRM update recommendations only, does not auto-change CRM data
+
+  permissions:
+    - Read all CRM opportunity data including stage history and contact dates
+    - Run weekly hygiene checks across all active opportunities
+    - Evaluate health indicators and detect stale deals
+    - Write hygiene alerts to InfoHub (stale deals, data quality issues)
+    - Generate CRM update checklists for human review
+
+  guardrails:
+    input_validation:
+      - Reject hygiene checks without pipeline data or review date
+      - Reject health indicator assessment without stage and last contact date
+    output_checks:
+      - Health indicators must use consistent GREEN/YELLOW/RED criteria
+      - Stale thresholds must be 14 days (WARNING) and 21 days (CRITICAL)
+      - Hygiene score must be calculated from consistent formula
+      - Week-over-week comparison must track trend direction
+    signal_validation:
+      - Never auto-change CRM stages, only recommend updates for human review
+      - Stale detection based on data timestamps, not assumptions
+      - Do not penalize gaps caused by customer holidays or known pauses
+      - Close-lost recommendations are suggestions, not automatic changes
+
+  knowledge:
+    references:
+      - path: references/risk-classification.yaml
+        description: Health indicator criteria (GREEN/YELLOW/RED), stale thresholds
+        load_when: Evaluating opportunity health or detecting stale deals
+      - path: references/hygiene-sla.yaml
+        description: Paper process SLAs (legal, security, procurement), stale deal thresholds, hygiene scoring formula
+        load_when: Running weekly hygiene checks or tracking paper process milestones

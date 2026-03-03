@@ -1,94 +1,133 @@
 ---
 title: "RFP Agent"
-description: "Win RFPs through strategic response orchestration and bid decision quality"
+description: "Digital twin for bid decisions, response strategy, orchestration"
 category: "reference"
-keywords: ["rfp_agent", "rfp", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["rfp_agent", "rfp", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
+
 
 # RFP Agent
 
-The RFP Agent owns the end-to-end RFP response process, from the moment a document lands to the submission deadline. It performs weighted bid/no-bid analysis, orchestrates cross-functional response teams, develops win themes, and ensures every answer reinforces the vendor's differentiators while maintaining compliance. Its core philosophy: win the right deals, not every deal.
+The RFP Agent is the digital twin of the RFP role. It operates as a single agent with 5 runbooks covering bid decisions, response strategy, orchestration, quality, and post submission. The RFP agent orchestrates the full lifecycle of RFP responses, from initial analysis and bid/no-bid decisions through cross-functional response coordination to submission. It applies a weighted scoring framework to ensure the team pursues winnable deals, develops differentiated win themes, and delivers compliant, compelling responses on deadline. The agent prioritizes winning the right deals over winning every deal.
+
+Its operating principle: win the right deals, not every deal.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| **Agent ID** | `rfp_agent` |
-| **Team** | rfp |
-| **Category** | Deal Execution |
-| **Purpose** | Win RFPs through strategic response orchestration |
+| **Agent ID** | `rfp-agent` |
+| **Role** | RFP (Deal Execution) |
+| **Mode** | Human-paired |
+| **Runbooks** | 5 |
+| **Prompts** | 14 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 2 |
 
-## Core Functions
 
-The RFP Agent coordinates the full response lifecycle across multiple agents and stakeholders, from intake and strategy through drafting, review, and submission.
+## Runbooks
 
-- Analyze RFP requirements, scoring criteria, and trap questions
-- Assess win probability using weighted bid/no-bid framework
-- Orchestrate cross-functional response team (SA, AE, InfoSec, CI)
-- Craft differentiated, compliant responses with proof points
-- Track competitor positioning in blind evaluations
-- Manage response deadlines with buffer time built in
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Bid Decisions
+
+Analyze RFP requirements and scoring criteria. Then formal bid/no-bid recommendation, and finally map RFP requirements to our capabilities.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `analyze_rfp` | Analyze RFP requirements and scoring criteria |
+| 2 | `bid_no_bid_assessment` | Formal bid/no-bid recommendation |
+| 3 | `requirement_compliance_matrix` | Map RFP requirements to our capabilities |
+
+
+### Response Strategy
+
+Create differentiated positioning for RFP response. Then create compelling executive summary, and finally draft response to specific RFP section.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `develop_win_themes` | Create differentiated positioning for RFP response |
+| 2 | `draft_executive_summary` | Create compelling executive summary |
+| 3 | `draft_response_section` | Draft response to specific RFP section |
+
+
+### Orchestration
+
+Plan RFP response with assignments and timeline. Then prepare RFP kickoff meeting agenda, and finally track RFP response progress and risks.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `create_response_plan` | Plan RFP response with assignments and timeline |
+| 2 | `kickoff_meeting_prep` | Prepare RFP kickoff meeting agenda |
+| 3 | `progress_tracking` | Track RFP response progress and risks |
+
+
+### Quality
+
+Review response for requirement compliance. Then review response for quality and impact, and finally final checklist before RFP submission.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `compliance_review` | Review response for requirement compliance |
+| 2 | `quality_review` | Review response for quality and impact |
+| 3 | `pre_submission_checklist` | Final checklist before RFP submission |
+
+
+### Post Submission
+
+Document successful RFP submission, then analyze RFP outcome for learnings.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `submission_confirmation` | Document successful RFP submission |
+| 2 | `win_loss_analysis` | Analyze RFP outcome for learnings |
+
 
 ## Scope Boundaries
 
-The RFP Agent does not make final bid decisions on borderline cases (escalates to leadership), write technical architecture responses (SA Agent's domain), provide security compliance details (InfoSec Agent's domain), set pricing or discounts (AE Agent's domain), or commit to product roadmap items (PM Agent's domain). It never fabricates capabilities the vendor does not have.
+The agent does not make final bid decisions (escalate to leadership) (handoff to Leadership), write technical architecture responses (SA Agent's domain) (handoff to SA Agent), provide security compliance details (InfoSec Agent's domain) (handoff to Infosec Agent), set pricing or discounts (AE Agent's domain) (handoff to AE Agent), commit to product roadmap items (PM Agent's domain) (handoff to PM Agent), or fabricate capabilities we don't have (handoff to Leadership).
 
-## Playbooks Owned
-
-The RFP Agent does not own dedicated playbooks in the current framework. It operates as the orchestration layer for RFP-specific execution, leveraging playbooks owned by the agents it coordinates (PB_101 from SA, PB_701 from CI, etc.).
-
-## Triggers
-
-The RFP Agent activates when formal RFP documents enter the system, requiring immediate triage and team mobilization.
-
-- RFP document uploaded or received from customer
-- RFP Q&A period opening or deadline approaching
-- Competitive evaluation signals in existing opportunities
-- Strategic account RFP requiring immediate bid assessment
-- Presentation or shortlist announcements
 
 ## Handoffs
 
-### Outbound (this agent -> others)
+### Outbound (this agent to others)
 
-| Trigger | Receiving Agent | Condition |
-|---------|-----------------|-----------|
-| Technical sections | SA Agent | Technical response drafting needed |
-| Security sections | InfoSec Agent | Security questionnaire completion |
-| Competitor analysis | CI Agent | Competitive positioning needed |
-| Pricing strategy | AE Agent | Commercial terms drafting |
-| Borderline decision | Senior Manager | Bid/no-bid score 45-55 |
-| RFP won | POC Agent or AE Agent | Transition to next phase |
+| Trigger | Receiving Agent | Context Passed |
+|---------|-----------------|----------------|
+| Technical architecture responses needed | SA Agent | Requirement details for technical architecture responses |
+| Security and compliance sections needed | Infosec Agent | Requirement details for security and compliance sections |
+| Commercial terms and pricing needed | AE Agent | Requirement details for commercial terms and pricing |
+| Roadmap commitments needed | PM Agent | Requirement details for roadmap commitments |
+| RFP context, deadlines, evaluation criteria | All Agents | Analysis results and recommendations |
+| Competitive positioning insights | AE Agent | Analysis results and recommendations |
 
-### Inbound (others -> this agent)
 
-| Source Agent | Artifact | Action Required |
-|--------------|----------|-----------------|
-| AE Agent | RFP document | Initiate bid/no-bid analysis |
-| SA Agent | Technical responses | Integrate into submission |
-| InfoSec Agent | Completed questionnaire | Integrate into submission |
+## Operating Modes
 
-## Escalation Rules
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-The RFP Agent escalates borderline decisions and situations that require strategic judgment beyond standard bid assessment. Speed matters since RFP timelines are typically fixed and unforgiving.
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-- Bid/no-bid score between 45-55 escalates to Senior Manager within 24 hours
-- Unusual contract terms escalate to Senior Manager
-- Competitor intelligence suggesting a wired RFP escalates to Senior Manager
-- Resource conflicts with other priorities escalate to Senior Manager
-- Strategic account RFPs trigger immediate Senior Manager notification
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-## Personality Traits
 
-| Attribute | Value |
-|-----------|-------|
-| **Tone** | Strategic, methodical, deadline-driven |
-| **Values** | Win the right deals, not every deal. Honest gaps are better than false promises. Team coordination beats individual heroics |
-| **Priorities** | 1. Bid/no-bid decision quality, 2. Response deadline compliance, 3. Win theme articulation, 4. Cross-team coordination |
+## Knowledge Base
+
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
+
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `bid-assessment-framework.yaml` | Criteria, Thresholds | Bid assessment framework |
+| `signal-detection.yaml` | Bid Quality Signals, Deadline Signals, Competitive Signals | Signal detection |
+
 
 ## Source Files
 
-- Agent config: `domain/agents/rfp/agents/rfp_agent.yaml`
-- Personality: `domain/agents/rfp/personalities/rfp_personality.yaml`
-- Task prompts: `domain/agents/rfp/prompts/tasks.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/rfp/rfp-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/rfp/agents/rfp_agent.yaml` | Agent configuration |
+| `domain/agents/rfp/personalities/rfp_personality.yaml` | Behavioral specification |
+| `domain/agents/rfp/prompts/tasks.yaml` | 14 CAF prompts across 5 domains |

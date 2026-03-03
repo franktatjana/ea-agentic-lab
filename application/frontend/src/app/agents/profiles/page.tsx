@@ -1,175 +1,95 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
-import {
-  Bot,
-  Briefcase,
-  Cpu,
-  Handshake,
-  Shield,
-  Truck,
-  Eye,
-  Settings,
-  Microscope,
-  ArrowRight,
-  Zap,
-  Users,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { MetricCard } from "@/components/metric-card";
 import { HelpPopover } from "@/components/help-popover";
-import type { LucideIcon } from "lucide-react";
+import {
+  TEAM_STYLES,
+  GOVERNANCE_STYLE,
+  TEAM_TAB_ORDER,
+} from "@/lib/agent-profiles-data";
+import type { AgentDefinitionSummary } from "@/types";
 
-type AgentMode = "autonomous" | "human-paired";
-
-interface AgentEntry {
-  name: string;
-  id: string;
-  purpose: string;
-  docPath: string;
-  mode: AgentMode;
+function stripAgentSuffix(name: string) {
+  return name.replace(/ Agent$/, "");
 }
 
-interface AgentCategory {
-  label: string;
-  icon: LucideIcon;
-  color: string;
-  description: string;
-  agents: AgentEntry[];
+function buildMeta(agent: AgentDefinitionSummary): string {
+  const parts: string[] = [];
+  if (agent.flow_count > 0) {
+    parts.push(`${agent.flow_count} runbook${agent.flow_count > 1 ? "s" : ""}`);
+  }
+  parts.push(agent.human_in_the_loop ? "Human-paired" : "Autonomous");
+  if (agent.sub_agents.length > 0) {
+    parts.push(`${agent.sub_agents.length} sub-agents`);
+  }
+  if (agent.escalation_target) {
+    parts.push(`Escalates to ${agent.escalation_target}`);
+  }
+  return parts.join(" · ");
 }
-
-const AGENT_CATEGORIES: AgentCategory[] = [
-  {
-    label: "Leadership",
-    icon: Briefcase,
-    color: "text-amber-400",
-    description: "Strategic oversight, escalation resolution, product roadmap alignment.",
-    agents: [
-      { name: "Senior Manager", id: "senior_manager_agent", purpose: "Strategic oversight, coaching, escalation resolution", docPath: "reference/agent-profiles/leadership/senior-manager-agent.md", mode: "human-paired" },
-      { name: "Product Manager", id: "pm_agent", purpose: "Product roadmap and customer alignment", docPath: "reference/agent-profiles/leadership/pm-agent.md", mode: "human-paired" },
-    ],
-  },
-  {
-    label: "Sales",
-    icon: Handshake,
-    color: "text-blue-400",
-    description: "Commercial strategy, competitive positioning, value quantification, partner alignment.",
-    agents: [
-      { name: "Account Executive (AE)", id: "ae_agent", purpose: "Commercial clarity and forecast stability", docPath: "reference/agent-profiles/sales/ae-agent.md", mode: "human-paired" },
-      { name: "Competitive Intelligence (CI)", id: "ci_agent", purpose: "Competitive awareness and positioning", docPath: "reference/agent-profiles/sales/ci-agent.md", mode: "human-paired" },
-      { name: "Value Engineering (VE)", id: "ve_agent", purpose: "Business value quantification and tracking", docPath: "reference/agent-profiles/sales/ve-agent.md", mode: "human-paired" },
-      { name: "Partner", id: "partner_agent", purpose: "Partner ecosystem alignment", docPath: "reference/agent-profiles/sales/partner-agent.md", mode: "human-paired" },
-    ],
-  },
-  {
-    label: "Architecture",
-    icon: Cpu,
-    color: "text-purple-400",
-    description: "Technical integrity, solution design, customer-side architecture.",
-    agents: [
-      { name: "Solution Architect (SA)", id: "sa_agent", purpose: "Technical integrity and risk visibility", docPath: "reference/agent-profiles/architecture/sa-agent.md", mode: "human-paired" },
-      { name: "Customer Architect (CA)", id: "ca_agent", purpose: "Customer-side architecture tracking", docPath: "reference/agent-profiles/architecture/ca-agent.md", mode: "human-paired" },
-    ],
-  },
-  {
-    label: "Deal Execution",
-    icon: Shield,
-    color: "text-orange-400",
-    description: "RFP response, POC execution, security clearance processes.",
-    agents: [
-      { name: "RFP", id: "rfp_agent", purpose: "RFP bid strategy and response orchestration", docPath: "reference/agent-profiles/deal-execution/rfp-agent.md", mode: "human-paired" },
-      { name: "POC", id: "poc_agent", purpose: "POC execution and conversion", docPath: "reference/agent-profiles/deal-execution/poc-agent.md", mode: "human-paired" },
-      { name: "InfoSec", id: "infosec_agent", purpose: "Security and compliance enablement", docPath: "reference/agent-profiles/deal-execution/infosec-agent.md", mode: "human-paired" },
-    ],
-  },
-  {
-    label: "Delivery",
-    icon: Truck,
-    color: "text-teal-400",
-    description: "Sales-to-delivery handoff, professional services.",
-    agents: [
-      { name: "Delivery", id: "delivery_agent", purpose: "Sales-to-delivery continuity", docPath: "reference/agent-profiles/delivery/delivery-agent.md", mode: "human-paired" },
-      { name: "Professional Services (PS)", id: "ps_agent", purpose: "Pre-sales to post-sales delivery bridge", docPath: "reference/agent-profiles/delivery/ps-agent.md", mode: "human-paired" },
-    ],
-  },
-  {
-    label: "Intelligence",
-    icon: Eye,
-    color: "text-cyan-400",
-    description: "External signal scanning, technology landscape analysis.",
-    agents: [
-      { name: "Tech Signal Scanner", id: "tech_signal_scanner_agent", purpose: "Scan job postings for technology signals", docPath: "reference/agent-profiles/intelligence/tech-signal-scanner-agent.md", mode: "autonomous" },
-      { name: "Tech Signal Analyzer", id: "tech_signal_analyzer_agent", purpose: "Generate technology signal maps from scan data", docPath: "reference/agent-profiles/intelligence/tech-signal-analyzer-agent.md", mode: "autonomous" },
-      { name: "Market News Analysis (MNA)", id: "mna_agent", purpose: "Monitor company, industry, and solution-domain news intelligence", docPath: "reference/agent-profiles/intelligence/mna-agent.md", mode: "autonomous" },
-    ],
-  },
-  {
-    label: "Governance",
-    icon: Settings,
-    color: "text-green-400",
-    description: "Process enforcement, artifact maintenance, automated quality gates.",
-    agents: [
-      { name: "Meeting Notes", id: "meeting_notes_agent", purpose: "Extract actions, decisions, risks from meetings", docPath: "reference/agent-profiles/governance/meeting-notes-agent.md", mode: "autonomous" },
-      { name: "Task Shepherd", id: "task_shepherd_agent", purpose: "Ensure actions have owners and due dates", docPath: "reference/agent-profiles/governance/task-shepherd-agent.md", mode: "autonomous" },
-      { name: "Decision Registrar", id: "decision_registrar_agent", purpose: "Document decisions with context and rationale", docPath: "reference/agent-profiles/governance/decision-registrar-agent.md", mode: "autonomous" },
-      { name: "Risk Radar", id: "risk_radar_agent", purpose: "Classify risks and assign owners", docPath: "reference/agent-profiles/governance/risk-radar-agent.md", mode: "autonomous" },
-      { name: "Nudger", id: "nudger_agent", purpose: "Remind owners of overdue actions", docPath: "reference/agent-profiles/governance/nudger-agent.md", mode: "autonomous" },
-      { name: "Reporter", id: "reporter_agent", purpose: "Weekly status summary generation", docPath: "reference/agent-profiles/governance/reporter-agent.md", mode: "autonomous" },
-      { name: "Playbook Curator", id: "playbook_curator_agent", purpose: "Validate playbook modifications", docPath: "reference/agent-profiles/governance/playbook-curator-agent.md", mode: "autonomous" },
-      { name: "InfoHub Curator", id: "infohub_curator_agent", purpose: "Maintain InfoHub semantic integrity and artifact lifecycle", docPath: "reference/agent-profiles/governance/infohub-curator-agent.md", mode: "autonomous" },
-      { name: "Knowledge Vault Curator", id: "knowledge_vault_curator_agent", purpose: "Facilitate institutional knowledge management in Global Knowledge Vault", docPath: "reference/agent-profiles/governance/knowledge-vault-curator-agent.md", mode: "autonomous" },
-      { name: "Signal Matcher", id: "signal_matcher_agent", purpose: "Infer action completion from seller activity signals", docPath: "reference/agent-profiles/governance/signal-matcher-agent.md", mode: "autonomous" },
-    ],
-  },
-  {
-    label: "Specialists",
-    icon: Microscope,
-    color: "text-indigo-400",
-    description: "Domain expertise routing and deep technical specialization.",
-    agents: [
-      { name: "Specialist Router", id: "specialist_agent", purpose: "Domain expertise engagement and routing", docPath: "reference/agent-profiles/architecture/specialist-agent.md", mode: "autonomous" },
-      { name: "Security Specialist", id: "security_specialist_agent", purpose: "SIEM, threat detection, MITRE ATT&CK, SOC workflows", docPath: "reference/agent-profiles/specialists/security-specialist-agent.md", mode: "human-paired" },
-      { name: "Observability Specialist", id: "observability_specialist_agent", purpose: "APM, SLO/SLI, distributed tracing, alerting", docPath: "reference/agent-profiles/specialists/observability-specialist-agent.md", mode: "human-paired" },
-      { name: "Search Specialist", id: "search_specialist_agent", purpose: "Relevance tuning, vector search, RAG, schema design", docPath: "reference/agent-profiles/specialists/search-specialist-agent.md", mode: "human-paired" },
-    ],
-  },
-  {
-    label: "Meta",
-    icon: Bot,
-    color: "text-pink-400",
-    description: "Orchestration, retrospectives, system-level coordination.",
-    agents: [
-      { name: "Orchestration", id: "orchestration_agent", purpose: "Process parsing, conflict detection, agent factory", docPath: "reference/agent-profiles/meta/orchestration-agent.md", mode: "autonomous" },
-      { name: "Retrospective", id: "retrospective_agent", purpose: "Extract lessons learned from completed deals", docPath: "reference/agent-profiles/meta/retrospective-agent.md", mode: "autonomous" },
-    ],
-  },
-];
-
-const totalAgents = AGENT_CATEGORIES.reduce((sum, cat) => sum + cat.agents.length, 0);
-const autonomousCount = AGENT_CATEGORIES.reduce((sum, cat) => sum + cat.agents.filter((a) => a.mode === "autonomous").length, 0);
-const humanPairedCount = totalAgents - autonomousCount;
-
-type ModeFilter = "all" | "autonomous" | "human-paired";
 
 export default function AgentProfilesPage() {
-  const [modeFilter, setModeFilter] = useState<ModeFilter>("all");
-  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [activeTab, setActiveTab] = useState("Sales");
 
-  const filteredCategories = AGENT_CATEGORIES
-    .map((cat) => ({
-      ...cat,
-      agents: modeFilter === "all" ? cat.agents : cat.agents.filter((a) => a.mode === modeFilter),
-    }))
-    .filter((cat) => cat.agents.length > 0);
+  const { data: allDefs, isLoading } = useQuery({
+    queryKey: ["definitions"],
+    queryFn: () => api.listDefinitions(),
+  });
 
-  function scrollToCategory(label: string) {
-    const el = sectionRefs.current[label];
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+  const { teamMembers, governanceAgents, grouped } = useMemo(() => {
+    if (!allDefs) return { teamMembers: [], governanceAgents: [], grouped: {} as Record<string, AgentDefinitionSummary[]> };
+
+    const members = allDefs.filter(
+      (d) => d.has_profile && d.category !== "Governance"
+    );
+    const governance = allDefs.filter((d) => d.category === "Governance");
+
+    const byCategory: Record<string, AgentDefinitionSummary[]> = {};
+    for (const m of members) {
+      if (!byCategory[m.category]) byCategory[m.category] = [];
+      byCategory[m.category].push(m);
     }
+
+    return { teamMembers: members, governanceAgents: governance, grouped: byCategory };
+  }, [allDefs]);
+
+  const tabs = [
+    ...TEAM_TAB_ORDER.map((cat) => {
+      const style = TEAM_STYLES[cat];
+      return { label: style.label, icon: style.icon, color: style.color, category: cat };
+    }),
+    {
+      label: GOVERNANCE_STYLE.label,
+      icon: GOVERNANCE_STYLE.icon,
+      color: GOVERNANCE_STYLE.color,
+      category: "Governance",
+    },
+  ];
+
+  const isGovernance = activeTab === GOVERNANCE_STYLE.label;
+  const activeCategory = isGovernance
+    ? "Governance"
+    : TEAM_TAB_ORDER.find((cat) => TEAM_STYLES[cat]?.label === activeTab) ?? activeTab;
+  const activeStyle = isGovernance ? GOVERNANCE_STYLE : TEAM_STYLES[activeCategory];
+  const activeAgents = isGovernance ? governanceAgents : (grouped[activeCategory] ?? []);
+
+  const totalRoles = teamMembers.length;
+  const totalAgents = allDefs?.length ?? 0;
+  const autonomous = allDefs?.filter((d) => !d.human_in_the_loop).length ?? 0;
+  const humanPaired = allDefs?.filter((d) => d.human_in_the_loop).length ?? 0;
+
+  if (isLoading) {
+    return (
+      <div className="max-w-6xl mx-auto py-20 text-center text-muted-foreground">
+        Loading profiles...
+      </div>
+    );
   }
 
   return (
@@ -178,121 +98,122 @@ export default function AgentProfilesPage() {
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold">Agent Profiles</h1>
           <HelpPopover title="Agent Profiles">
-            Each agent has clear responsibilities, scope boundaries, and handoff
-            relationships. Click any agent to view its full profile including
-            playbook ownership, triggers, and escalation rules.
+            Each role mirrors a real job function. Roles with complex processes
+            decompose into specialist agents. See DDR-021 for the taxonomy.
           </HelpPopover>
         </div>
         <p className="text-muted-foreground mt-1">
-          {totalAgents} agents across {AGENT_CATEGORIES.length} functional areas.
-          Each agent owns specific playbooks and collaborates through defined handoff chains.
+          {totalRoles} roles across {TEAM_TAB_ORDER.length} functional areas,
+          backed by {totalAgents} agents including sub-agents and system
+          functions.
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
+        <MetricCard label="Roles" value={totalRoles} />
         <MetricCard label="Total Agents" value={totalAgents} />
-        <MetricCard label="Autonomous" value={autonomousCount} />
-        <MetricCard label="Human-Paired" value={humanPairedCount} />
+        <MetricCard label="Autonomous" value={autonomous} />
+        <MetricCard label="Human-Paired" value={humanPaired} />
       </div>
 
-      <div>
-        <h2 className="text-sm font-medium mb-2 flex items-center gap-1.5">
-          Functional Areas ({AGENT_CATEGORIES.length})
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 gap-2">
-          {AGENT_CATEGORIES.map((cat) => (
-            <Card
-              key={cat.label}
-              className="cursor-pointer transition-colors hover:border-primary/30"
-              onClick={() => scrollToCategory(cat.label)}
-            >
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <cat.icon className={`h-4 w-4 ${cat.color}`} />
-                    <span className="text-sm font-medium">{cat.label}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Badge variant="secondary" className="text-[10px]">{cat.agents.length}</Badge>
-                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">
-                  {cat.description}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      <Separator />
-
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => setModeFilter("all")}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${modeFilter === "all" ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50"}`}
-        >
-          All ({totalAgents})
-        </button>
-        <button
-          onClick={() => setModeFilter("autonomous")}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${modeFilter === "autonomous" ? "bg-cyan-600/20 text-cyan-400 border border-cyan-600/30" : "text-muted-foreground hover:bg-accent/50"}`}
-        >
-          <Zap className="h-3 w-3" />
-          Autonomous ({autonomousCount})
-        </button>
-        <button
-          onClick={() => setModeFilter("human-paired")}
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${modeFilter === "human-paired" ? "bg-amber-600/20 text-amber-400 border border-amber-600/30" : "text-muted-foreground hover:bg-accent/50"}`}
-        >
-          <Users className="h-3 w-3" />
-          Human-Paired ({humanPairedCount})
-        </button>
-      </div>
-
-      <div className="space-y-6">
-        {filteredCategories.map((category) => (
-          <div
-            key={category.label}
-            ref={(el) => { sectionRefs.current[category.label] = el; }}
-            className="scroll-mt-8"
+      <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 overflow-x-auto">
+        {tabs.map((tab) => (
+          <button
+            key={tab.label}
+            onClick={() => setActiveTab(tab.label)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === tab.label
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
           >
-            <div className="flex items-center gap-2 mb-3">
-              <category.icon className={`h-5 w-5 ${category.color}`} />
-              <h2 className="text-lg font-semibold">{category.label}</h2>
-              <Badge variant="secondary" className="text-xs">{category.agents.length}</Badge>
-              <span className="text-sm text-muted-foreground ml-1">{category.description}</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {category.agents.map((agent) => (
-                <Link
-                  key={agent.id}
-                  href={`/docs?path=${encodeURIComponent(agent.docPath)}`}
-                >
-                  <Card className="hover:border-accent transition-colors h-full">
-                    <CardContent className="p-4 flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium truncate">{agent.name}</p>
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] shrink-0 ${agent.mode === "autonomous" ? "border-cyan-600/30 text-cyan-400 bg-cyan-600/10" : "border-amber-600/30 text-amber-400 bg-amber-600/10"}`}
-                          >
-                            {agent.mode === "autonomous" ? "Auto" : "Human"}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{agent.purpose}</p>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          </div>
+            <tab.icon className={`h-4 w-4 ${tab.color}`} />
+            {tab.label}
+          </button>
         ))}
       </div>
+
+      {activeStyle && !isGovernance && (
+        <div>
+          <p className="text-muted-foreground mb-5">{activeStyle.summary}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {activeAgents.map((agent) => (
+              <Link key={agent.id} href={`/agents/profiles/${agent.id}`}>
+                <Card
+                  className={`h-full border-l-4 ${activeStyle.border} hover:border-accent hover:border-l-4 transition-colors`}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <h3 className="text-lg font-semibold">
+                        {stripAgentSuffix(agent.name)}
+                      </h3>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+                    </div>
+                    <div className="text-muted-foreground leading-relaxed mb-4 space-y-2">
+                      {String(agent.description).split("\n").filter(Boolean).map((para, i) => (
+                        <p key={i}>{para.trim()}</p>
+                      ))}
+                    </div>
+                    {agent.capabilities.length > 0 && (
+                      <>
+                      <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                        With this agent you can
+                      </p>
+                      <ul className="space-y-1.5 mb-4">
+                        {agent.capabilities.map((cap) => (
+                          <li
+                            key={cap}
+                            className="flex items-start gap-2.5 text-sm"
+                          >
+                            <span
+                              className={`mt-[7px] h-1.5 w-1.5 rounded-full ${activeStyle.dot} shrink-0`}
+                            />
+                            <span>{cap}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      </>
+                    )}
+                    <p className="text-sm text-muted-foreground/50">
+                      {buildMeta(agent)}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isGovernance && (
+        <div>
+          <p className="text-muted-foreground mb-5">
+            {GOVERNANCE_STYLE.summary}
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {governanceAgents.map((agent) => (
+              <Link key={agent.id} href={`/agents/profiles/${agent.id}`}>
+                <Card className="h-full border-l-4 border-l-green-400 hover:border-accent hover:border-l-4 transition-colors">
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <h3 className="font-semibold">
+                        {stripAgentSuffix(agent.name)}
+                      </h3>
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-1" />
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+                      {agent.description}
+                    </p>
+                    <p className="text-sm text-muted-foreground/50">
+                      {buildMeta(agent)}
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

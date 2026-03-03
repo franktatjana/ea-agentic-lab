@@ -1,13 +1,16 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   Bot,
   Network,
   BookOpen,
+  FileCode2,
   ArrowRight,
   ChevronRight,
+  Presentation,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,41 +33,53 @@ interface HandoffFlow {
   steps: HandoffStep[];
 }
 
-const HANDOFF_FLOWS: HandoffFlow[] = [
-  {
-    label: "Pre-Sales",
-    color: "text-blue-400",
-    steps: [
-      { from: "AE", to: "RFP", trigger: "RFP received", description: "AE detects an incoming RFP and hands off to the RFP agent for bid strategy assessment, compliance matrix creation, and response orchestration." },
-      { from: "AE", to: "POC", trigger: "POC requested", description: "Customer requests a proof of concept. AE transfers context (success criteria, timeline, stakeholders) to the POC agent for execution planning." },
-      { from: "AE", to: "SA", trigger: "Technical questions", description: "AE encounters technical depth beyond commercial scope. SA takes over for architecture review, risk assessment, and solution design." },
-      { from: "AE", to: "CI", trigger: "Competitor detected", description: "A competitor is identified in the deal. CI agent activates to build battlecards, positioning strategies, and win themes." },
-      { from: "AE", to: "InfoSec", trigger: "Security questionnaire", description: "Customer sends a security or compliance questionnaire. InfoSec agent manages responses, coordinates with internal security teams." },
-      { from: "AE", to: "SM", trigger: "Deal > $500K", description: "Deal exceeds the $500K threshold or forecast variance > 15%. Senior Manager provides strategic oversight and executive engagement." },
-    ],
-  },
-  {
-    label: "Post-Sales",
-    color: "text-teal-400",
-    steps: [
-      { from: "AE", to: "Delivery", trigger: "Contract signed", description: "Deal closes. AE hands off the complete deal context (commitments, SLAs, stakeholder map) to Delivery for implementation planning." },
-      { from: "Delivery", to: "PS", trigger: "Implementation start", description: "Delivery agent engages Professional Services for hands-on implementation, scoping workshops, and resource allocation." },
-      { from: "Delivery", to: "CA", trigger: "Go-live complete", description: "System is live. Customer Architect takes over for ongoing adoption tracking, health monitoring, and expansion identification." },
-      { from: "Support", to: "CA", trigger: "Pattern detected", description: "Support identifies recurring issues or usage patterns that signal architectural concerns. CA investigates for systemic resolution." },
-      { from: "Support", to: "SM", trigger: "High-priority on strategic account", description: "A high-priority incident hits a strategic account. Senior Manager is alerted for executive communication and resource escalation." },
-    ],
-  },
-  {
-    label: "Governance",
-    color: "text-green-400",
-    steps: [
-      { from: "Meeting Notes", to: "Task Shepherd", trigger: "Actions extracted", description: "Meeting Notes agent extracts action items. Task Shepherd ensures each has a single owner, due date, and clear done-criteria." },
-      { from: "Meeting Notes", to: "Decision Registrar", trigger: "Decisions extracted", description: "Decisions mentioned in meetings are captured. Decision Registrar documents context, rationale, alternatives considered." },
-      { from: "Meeting Notes", to: "Risk Radar", trigger: "Risks identified", description: "Meeting surfaces new risks. Risk Radar classifies severity, assigns owners, and determines if escalation is needed." },
-      { from: "Risk Radar", to: "Nudger", trigger: "Escalations", description: "Risk owners have overdue mitigations. Nudger sends targeted reminders (max 1 per action per day) to drive resolution." },
-      { from: "Nudger", to: "SM", trigger: "Overdue > 5 days", description: "Action remains unresolved after 5 days of reminders. Senior Manager is escalated to intervene and unblock." },
-    ],
-  },
+const AGENT_SHORT_NAMES: Record<string, string> = {
+  sa_agent: "SA",
+  delivery_agent: "Delivery",
+  pm_agent: "PM",
+  ci_agent: "CI",
+  ve_agent: "VE",
+  partner_agent: "Partner",
+  rfp_agent: "RFP",
+  poc_agent: "POC",
+  infosec_agent: "InfoSec",
+  senior_manager_agent: "SM",
+};
+
+function buildPreSalesFlows(
+  deferTo: Record<string, unknown> | undefined,
+): HandoffStep[] {
+  if (!deferTo) return [];
+  const steps: HandoffStep[] = [];
+  for (const [agentKey, entry] of Object.entries(deferTo)) {
+    const to = AGENT_SHORT_NAMES[agentKey] ?? agentKey;
+    const e = entry as Record<string, unknown> | undefined;
+    const scenarios = e?.scenarios as Array<Record<string, string>> | undefined;
+    if (!scenarios) continue;
+    for (const s of scenarios) {
+      steps.push({
+        from: "AE",
+        to,
+        trigger: s.trigger,
+        description: `${s.trigger}. AE passes ${s.context_passed?.toLowerCase() ?? "context"} for ${s.receiver_action?.toLowerCase() ?? "processing"}.`,
+      });
+    }
+  }
+  return steps;
+}
+
+const POST_SALES_STEPS: HandoffStep[] = [
+  { from: "AE", to: "Delivery", trigger: "Contract signed", description: "Deal closes. AE hands off the complete deal context (commitments, SLAs, stakeholder map) to Delivery for implementation planning." },
+  { from: "Delivery", to: "PS", trigger: "Implementation start", description: "Delivery agent engages Professional Services for hands-on implementation, scoping workshops, and resource allocation." },
+  { from: "Delivery", to: "CA", trigger: "Go-live complete", description: "System is live. Customer Architect takes over for ongoing adoption tracking, health monitoring, and expansion identification." },
+];
+
+const GOVERNANCE_STEPS: HandoffStep[] = [
+  { from: "Meeting Notes", to: "Task Shepherd", trigger: "Actions extracted", description: "Meeting Notes agent extracts action items. Task Shepherd ensures each has a single owner, due date, and clear done-criteria." },
+  { from: "Meeting Notes", to: "Decision Registrar", trigger: "Decisions extracted", description: "Decisions mentioned in meetings are captured. Decision Registrar documents context, rationale, alternatives considered." },
+  { from: "Meeting Notes", to: "Risk Radar", trigger: "Risks identified", description: "Meeting surfaces new risks. Risk Radar classifies severity, assigns owners, and determines if escalation is needed." },
+  { from: "Risk Radar", to: "Nudger", trigger: "Escalations", description: "Risk owners have overdue mitigations. Nudger sends targeted reminders (max 1 per action per day) to drive resolution." },
+  { from: "Nudger", to: "SM", trigger: "Overdue > 5 days", description: "Action remains unresolved after 5 days of reminders. Senior Manager is escalated to intervene and unblock." },
 ];
 
 export default function AgentsHubPage() {
@@ -73,16 +88,48 @@ export default function AgentsHubPage() {
     queryFn: () => api.listPlaybooks(),
   });
 
+  const { data: definitions } = useQuery({
+    queryKey: ["definitions"],
+    queryFn: () => api.listDefinitions(),
+  });
+
+  const { data: aeDefinition } = useQuery({
+    queryKey: ["definition", "ae-agent"],
+    queryFn: () => api.getDefinition("ae-agent"),
+  });
+
+  const handoffFlows = useMemo<HandoffFlow[]>(() => {
+    const ext = aeDefinition?.["x-ea-agent"] as Record<string, unknown> | undefined;
+    const handoffs = ext?.handoffs as Record<string, unknown> | undefined;
+    const deferTo = handoffs?.defer_to as Record<string, unknown> | undefined;
+    const preSalesSteps = buildPreSalesFlows(deferTo);
+    return [
+      { label: "Pre-Sales", color: "text-blue-400", steps: preSalesSteps },
+      { label: "Post-Sales", color: "text-teal-400", steps: POST_SALES_STEPS },
+      { label: "Governance", color: "text-green-400", steps: GOVERNANCE_STEPS },
+    ];
+  }, [aeDefinition]);
+
   const NAV_CARDS: { href: string; icon: LucideIcon; title: string; count: number | string; description: string; color: string; bg: string; border: string }[] = [
     {
       href: "/agents/profiles",
       icon: Bot,
       title: "Agent Profiles",
-      count: 33,
-      description: "Browse all agents by functional area. Each profile defines the agent's purpose, playbook ownership, triggers, and escalation rules.",
+      count: "20 roles",
+      description: "20 roles across 7 areas owning 35 agents. Each profile covers purpose, sub-agents, runbooks, and escalation rules.",
       color: "text-amber-400",
       bg: "bg-amber-600/10",
       border: "border-amber-600/20 hover:border-amber-500/40",
+    },
+    {
+      href: "/agents/definitions",
+      icon: FileCode2,
+      title: "Agent Definitions",
+      count: definitions?.length ?? "–",
+      description: "System view of each role. Each definition specifies the agent's runbooks, tools, prompts, and guardrails.",
+      color: "text-emerald-400",
+      bg: "bg-emerald-600/10",
+      border: "border-emerald-600/20 hover:border-emerald-500/40",
     },
     {
       href: "/orchestration",
@@ -111,19 +158,25 @@ export default function AgentsHubPage() {
       <div>
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold">Agents &amp; Operations</h1>
+          <button
+            onClick={() => window.open("/present/orchestration", "_blank")}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Presentation className="h-3.5 w-3.5" />
+            Present
+          </button>
           <HelpPopover title="Agent Ecosystem">
-            The EA Agentic Lab operates through a multi-agent system where each
-            agent has clear responsibilities, scope boundaries, and handoff
-            relationships. Agents own playbooks, collaborate through defined
-            handoff chains, and are coordinated by the orchestration engine.
+            Each human role has a digital twin (agent) that owns runbooks,
+            tools, and guardrails. Playbooks orchestrate runbooks across roles,
+            and the orchestration engine coordinates handoffs.
           </HelpPopover>
         </div>
         <p className="text-muted-foreground mt-1">
-          33 agents across 9 functional areas. Each agent owns specific playbooks and collaborates through defined handoff chains.
+          20 roles, 35 agents. Each role is a digital twin of a human function, owning runbooks, tools, and playbook contributions.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {NAV_CARDS.map((card) => (
           <Link key={card.href} href={card.href} className="block">
             <Card className={`${card.border} ${card.bg} transition-colors h-full`}>
@@ -158,7 +211,7 @@ export default function AgentsHubPage() {
           Primary handoff chains between agents. Click a step to see the trigger and context passed.
         </p>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {HANDOFF_FLOWS.map((flow) => (
+          {handoffFlows.map((flow) => (
             <Card key={flow.label}>
               <CardContent className="p-5">
                 <h3 className={`text-sm font-semibold mb-3 ${flow.color}`}>{flow.label}</h3>

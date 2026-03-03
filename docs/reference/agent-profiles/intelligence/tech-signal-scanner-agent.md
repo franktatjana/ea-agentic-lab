@@ -1,95 +1,86 @@
 ---
-title: "Tech Signal Scanner Agent"
-description: "Scans job postings from realm-associated companies to extract technology intelligence data"
+title: "Technology Scout Scanner"
+description: "Digital twin for scanning"
 category: "reference"
-keywords: ["tech_signal_scanner_agent", "technology_scout", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["tech_signal_scanner_agent", "technology-scout", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
 
-# Tech Signal Scanner Agent
 
-The Tech Signal Scanner is the data-gathering half of the Technology Scout pipeline. It systematically scans job postings from companies associated with a realm, extracting technology mentions, requirement levels, and seniority signals. The resulting scan data feeds directly into the Tech Signal Analyzer for ring assignment, trend detection, and competitive analysis. Together, these two agents produce a decision-support artifact that flows into playbooks, governance, and account team workflows.
+# Technology Scout Scanner
+
+The Technology Scout Scanner is the digital twin of the Technology Scout Scanner role. It operates as a single agent with 1 runbooks covering scanning. The Technology Scout Scanner is the data-gathering half of the Technology Scout team. It scans job postings from realm-associated companies across multiple sources (LinkedIn Jobs, Indeed, company career pages), extracts technology mentions, normalizes them to canonical forms, and deduplicates before passing results to the Analyzer. The scanner also monitors tech blogs, engineering publications, and vendor announcements for technology adoption signals. It produces raw, source-attributed signal data without interpretation.
+
+Its operating principle: completeness over interpretation.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| Agent ID | `tech_signal_scanner_agent` |
-| Team | `technology_scout` |
-| Category | Intelligence |
-| Purpose | Scan job postings to gather technology intelligence for realm companies |
+| **Agent ID** | `tech-signal-scanner-agent` |
+| **Role** | Technology Scout Scanner (Intelligence Gathering) |
+| **Mode** | Human-paired |
+| **Runbooks** | 1 |
+| **Prompts** | 3 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 2 |
 
-## Core Functions
 
-The Scanner performs a multi-stage pipeline from data fetching through extraction. Each stage applies configurable rules from the central `technology_scout_config.yaml` to ensure consistency across scans and realms.
+## Runbooks
 
-- Fetch job postings from LinkedIn Jobs, Indeed, and company career pages
-- Normalize and preprocess job descriptions (HTML removal, whitespace, section extraction)
-- Detect seniority levels using pattern matching against configured scoring rules
-- Deduplicate postings using content hashing within a 30-day window
-- Extract technology mentions via regex patterns from the config
-- Classify requirement levels (required vs. nice-to-have) using context analysis
-- Detect competitor tool mentions using keyword matching
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Scanning
+
+Scan job postings for technology adoption signals. Then scan for vendor partnerships and product announcements, and finally scan engineering blogs and conference talks for technology signals.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `job_posting_scan` | Scan job postings for technology adoption signals |
+| 2 | `vendor_announcement_scan` | Scan for vendor partnerships and product announcements |
+| 3 | `tech_blog_scan` | Scan engineering blogs and conference talks for technology signals |
+
 
 ## Scope Boundaries
 
-The Scanner focuses exclusively on data collection and extraction. It does not interpret, aggregate, or generate intelligence artifacts. Those responsibilities belong to the Tech Signal Analyzer.
+The agent does not analyze or interpret scan results (that's Technology Scout Analyzer's job) (handoff to Leadership), make ring assignments or trend assessments (that's Analyzer's job) (handoff to Leadership), research company structure or strategy (that's Account Intelligence Agent's job) (handoff to Leadership), monitor news feeds (that's MNA Agent's job) (handoff to Leadership), assess competitive positioning (that's CI Agent's job) (handoff to Leadership), generate recommendations or action items (handoff to Leadership), or access systems requiring credentials beyond approved API keys (handoff to Leadership).
 
-- Does NOT assign technologies to rings or quadrants
-- Does NOT calculate trends or perform historical comparison
-- Does NOT generate reports or intelligence summaries
-- Does NOT modify the signal map directly
 
-## Playbooks Owned
+## Operating Modes
 
-The Tech Signal Scanner does not own traditional engagement playbooks. Its execution is governed by schedule-based and event-driven triggers, with quality gates enforcing minimum data thresholds.
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-- No `PB_` playbooks owned (operates as a data pipeline agent)
-- Governed by scan schedules and quality gates instead
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-## Triggers
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-The Scanner activates on a combination of scheduled and event-driven triggers. The schedule ensures regular coverage while manual and API triggers allow on-demand scans.
 
-- **Scheduled**: Weekly scan on Sundays at 2:00 AM (`0 2 * * 0`)
-- **Scheduled**: Bi-monthly full scan on 1st and 15th (`0 2 1,15 * *`)
-- **Event**: `manual_scan_requested` (user-initiated)
-- **Event**: `realm_company_updated` (new company added to realm)
-- **API**: `POST /api/v1/realms/{realm_id}/tech-signal-map/scan`
+## Knowledge Base
 
-## Handoffs
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
 
-### Outbound
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `analyzer-ring_criteria.yaml` | Ring Assignment, Vendor Landscape | Analyzer ring criteria |
+| `scanner-signal_keywords.yaml` | Technology Signals, Vendor Signals, Patterns | Scanner signal keywords |
 
-| Receiving Agent | Signal | Context |
-|-----------------|--------|---------|
-| Tech Signal Analyzer Agent | `SIG_TECH_004` (job_scan_completed) | Scan finished with status, job counts, and technologies extracted |
 
-### Inbound
+## Output Artifacts
 
-| Source | Context | Expected Action |
-|--------|---------|-----------------|
-| Realm profile | Company names and domains | Use as search parameters for job fetching |
-| Technology Scout config | Technology patterns, requirement patterns, competitor keywords | Apply during extraction and classification |
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-## Escalation Rules
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Artifacts | `{account}-artifacts.md` | artifacts |
+| Signals | `{account}-signals.md` | signals |
 
-The Scanner handles errors through built-in retry and fallback logic rather than agent-level escalation. Partial results are acceptable and flagged transparently in the output signal.
-
-- Rate limit exceeded: backoff and retry (3 attempts at 5, 15, 60 minute intervals)
-- API error: log and continue, skip the failing source
-- Partial failure: emit partial signal with `status: partial`
-- Quality gate failure (fewer than 10 jobs or 5 technologies): flag in scan metadata
-
-## Personality Traits
-
-| Dimension | Description |
-|-----------|-------------|
-| Tone | Systematic, mechanical, data-focused |
-| Values | Data completeness over speed, deduplication over volume, transparent error reporting over silent failure |
-| Priorities | 1. Comprehensive source coverage, 2. Accurate technology extraction, 3. Clean deduplicated data, 4. Reliable scheduled execution |
 
 ## Source Files
 
-- Agent config: `domain/agents/technology_scout/agents/tech_signal_scanner_agent.yaml`
-- Config reference: `domain/agents/technology_scout/config/technology_scout_config.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/technology_scout/tech-signal-scanner-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/technology_scout/agents/tech_signal_scanner_agent.yaml` | Agent configuration |
+| `domain/agents/technology_scout/personalities/tech_signal_scanner_personality.yaml` | Behavioral specification |
+| `domain/agents/technology_scout/prompts/tasks.yaml` | 3 CAF prompts across 1 domains |

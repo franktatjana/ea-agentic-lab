@@ -21,10 +21,10 @@ export function MetricCard({ label, value, trend, className, onClick, active }: 
       )}
       onClick={onClick}
     >
-      <CardContent className="p-4">
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <div className="flex items-baseline gap-2 mt-1">
-          <span className="text-2xl font-bold">{value}</span>
+      <CardContent className="px-3 py-2">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <div className="flex items-baseline gap-1.5 mt-0.5">
+          <span className="text-lg font-bold">{value}</span>
           {trend && (
             <span
               className={cn(

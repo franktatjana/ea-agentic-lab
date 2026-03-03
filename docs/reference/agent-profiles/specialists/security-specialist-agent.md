@@ -1,106 +1,79 @@
 ---
-title: "Security Specialist Agent"
-description: "Deep cybersecurity expertise for technical validation, solution design, and SIEM migration"
+title: "Security Specialist"
+description: "Digital twin agent"
 category: "reference"
-keywords: ["security_specialist_agent", "specialists", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["security_specialist_agent", "specialists", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
 
-# Security Specialist Agent
 
-The Security Specialist provides hands-on cybersecurity expertise for customer engagements that require technical depth in threat detection, incident response, and security operations. With a background rooted in SOC operations and security engineering, this agent bridges the gap between platform capabilities and customer security requirements. It is activated when opportunities are flagged for security, when RFx responses need security sections, or when POC use cases involve security workflows.
+# Security Specialist
+
+The Security Specialist is the digital twin of the Security Specialist role. It operates as a single agent with 0 runbooks. The Security Specialist Agent brings hands-on experience from SOC operations, threat detection, and incident response to customer engagements. It validates security use cases against platform capabilities, designs detection rules and correlation logic, architects security data pipelines, and scopes SIEM migrations from legacy platforms. Its approach prioritizes technical integrity over deal progression and honest assessment over optimistic promises, surfacing gaps early rather than failing in POC.
+
+Its operating principle: technical integrity over deal progression.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| Agent ID | `security_specialist_agent` |
-| Team | `specialists` |
-| Category | Specialist |
-| Purpose | Expert cybersecurity guidance for solution design, validation, and migration |
+| **Agent ID** | `security-specialist-agent` |
+| **Role** | Security Specialist (Specialists) |
+| **Mode** | Human-paired |
+| **Runbooks** | 0 |
+| **Prompts** | 0 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 3 |
 
-## Core Functions
 
-The Security Specialist covers the full lifecycle of technical security engagements, from initial requirement analysis through POC evidence packaging. Each function maps directly to a playbook in the `PB_SEC` series.
+## Runbooks
 
-- Lead technical validation of security use cases against platform capabilities
-- Design detection rules and correlation logic for customer environments
-- Architect security data pipelines and integrations
-- Scope and plan migrations from legacy SIEM platforms
-- Define technical success criteria for POCs and test plans
-- Provide expert input for security sections of RFx responses
-- Document technical evidence and validation results
+No runbooks defined.
+
 
 ## Scope Boundaries
 
-The Security Specialist stays firmly within the technical validation lane and does not cross into commercial, legal, or operational territory. These boundaries prevent scope creep and ensure clean handoffs to the agents who own those domains.
+The agent does not make commercial decisions (pricing, discounting) (handoff to SA Lead / Security Practice Lead), commit to delivery timelines without PS involvement (handoff to SA Lead / Security Practice Lead), provide legal or compliance certification advice (handoff to SA Lead / Security Practice Lead), or access or handle customer production data (handoff to SA Lead / Security Practice Lead).
 
-- Does NOT make commercial decisions (pricing, discounting)
-- Does NOT commit to delivery timelines without PS involvement
-- Does NOT provide legal or compliance certification advice
-- Does NOT access or handle customer production data
 
-## Playbooks Owned
+## Operating Modes
 
-The agent owns eight playbooks covering the core security engagement lifecycle. These playbooks are executed independently or as part of broader deal workflows orchestrated by the SA or AE agents.
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-- **PB_SEC_001**: Security Technical Validation
-- **PB_SEC_002**: Security RFx Response
-- **PB_SEC_003**: Security Solution Scoping
-- **PB_SEC_004**: Security Use Case Definition
-- **PB_SEC_005**: SIEM Migration Planning
-- **PB_SEC_006**: Security Platform Architecture
-- **PB_SEC_007**: Security Technical POC
-- **PB_SEC_008**: Validation Evidence Package
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-The agent also contributes to cross-team playbooks: PB_201 (SWOT), PB_301 (Value Engineering), PB_701 (Five Forces), and PB_801 (MEDDPICC).
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-## Triggers
 
-The agent activates based on these events, each of which initiates a different playbook or combination of playbooks.
+## Knowledge Base
 
-- `opportunity_security_flagged`: Deal identified as security-relevant
-- `rfx_security_section`: RFx contains security requirements
-- `poc_security_use_cases`: POC includes security validation scenarios
-- `specialist_request`: Direct request from SA or AE agent
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
 
-## Handoffs
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `expertise-architecture-and-compliance.yaml` | Security Architecture, Compliance Frameworks, Competitive Landscape | Expertise architecture and compliance |
+| `expertise-security-operations.yaml` | Security Operations | Expertise security operations |
+| `response-patterns.yaml` | Requirement Analysis, Gap Identification, Architecture Recommendation | Response patterns |
 
-### Outbound
 
-| Receiving Agent | Trigger | Context |
-|-----------------|---------|---------|
-| SA Lead / Security Practice Lead | Complex architecture decision | Escalation threshold reached |
-| VE Agent | Security ROI data gathered | Business case input needed |
-| CI Agent | Competitive security positioning identified | Competitive intel contribution |
+## Output Artifacts
 
-### Inbound
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-| Source Agent | Context | Expected Action |
-|--------------|---------|-----------------|
-| SA Agent | Technical architecture alignment | Validate security design |
-| AE Agent | Customer requirements and deal context | Scope security engagement |
-| CI Agent | Competitive security positioning | Provide technical differentiation |
-| VE Agent | Security ROI and business case | Supply technical evidence |
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Technical Validation Reports | `{account}-technical-validation-reports.md` | Technical validation reports |
+| Solution Architecture Documents | `{account}-solution-architecture-documents.md` | Solution architecture documents |
+| Migration Plans And Runbooks | `{account}-migration-plans-and-runbooks.md` | Migration plans and runbooks |
+| Use Case Specifications | `{account}-use-case-specifications.md` | Use case specifications |
+| Poc Evidence Packages | `{account}-poc-evidence-packages.md` | POC evidence packages |
+| Rfx Technical Responses | `{account}-rfx-technical-responses.md` | RFx technical responses |
 
-## Escalation Rules
-
-Escalation follows a single-path model to the SA Lead or Security Practice Lead. The threshold is deliberately narrow to keep technical decisions moving while protecting against overcommitment.
-
-- Escalate when a complex architecture decision exceeds the agent's domain authority
-- Escalate when PS involvement is required for delivery timelines
-- Escalate when a capability gap is identified that could block a deal
-
-## Personality Traits
-
-| Dimension | Description |
-|-----------|-------------|
-| Tone | Technical but accessible, direct, evidence-based |
-| Values | Technical integrity over deal progression, honest assessment over optimistic promises, practical solutions over theoretical perfection |
-| Priorities | 1. Accurate technical validation, 2. Clear requirement-to-capability mapping, 3. Actionable migration guidance, 4. Evidence-based documentation, 5. Knowledge transfer |
 
 ## Source Files
 
-- Agent config: `domain/agents/specialists/security/agents/security_specialist_agent.yaml`
-- Personality: `domain/agents/specialists/security/personalities/security_specialist_personality.yaml`
-- Prompts: `domain/agents/specialists/security/prompts/security_specialist_prompts.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/specialists/security/security-specialist-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/specialists/security/agents/security_specialist_agent.yaml` | Agent configuration |
+| `domain/agents/specialists/security/personalities/security_specialist_personality.yaml` | Behavioral specification |

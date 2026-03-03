@@ -1,99 +1,107 @@
 ---
 title: "Meeting Notes Agent"
-description: "Produces short, decision-grade meeting notes from messy input"
+description: "Digital twin for extract decisions, process meeting notes, meeting notes"
 category: "reference"
-keywords: ["meeting_notes_agent", "governance", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["meeting_notes_agent", "governance", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
+
 
 # Meeting Notes Agent
 
-The Meeting Notes Agent transforms raw meeting input, whether agendas, transcripts, or partial notes, into concise, decision-grade artifacts. It extracts decisions, actions, risks, and open questions while enforcing strict brevity (max 12 lines). This agent is the entry point for the governance processing chain, feeding downstream agents with structured data.
+The Meeting Notes Agent is the digital twin of the Meeting Notes role. It operates as a single agent with 3 runbooks covering extract decisions, process meeting notes, and meeting notes. The Meeting Notes Agent transforms raw meeting input (agendas, bullet fragments, transcripts, or messy attendee notes) into structured, decision-grade artifacts. It extracts decisions, action items, risks, and open questions, then routes each to the appropriate downstream system. The guiding principle: if a decision is not written down, it does not exist.
+
+Its operating principle: accuracy over completeness.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| **Agent ID** | `meeting_notes_agent` |
-| **Team** | Governance |
-| **Category** | Entropy Reduction |
-| **Purpose** | Produce short, decision-grade meeting notes |
+| **Agent ID** | `meeting-notes-agent` |
+| **Role** | Meeting Notes (Entropy Reduction) |
+| **Mode** | Human-paired |
+| **Runbooks** | 3 |
+| **Prompts** | 10 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 1 |
 
-## Core Functions
 
-The Meeting Notes Agent operates across three meeting phases (before, during, after) and focuses on extracting actionable content from any quality of input.
+## Runbooks
 
-- Extract decisions with owner, rationale, and status
-- Identify action items with owners and due dates
-- Surface risks and blockers mentioned in discussions
-- Capture open questions with assigned resolvers
-- Generate confirm-or-correct digests for attendees
-- Link extracted artifacts to InfoHub structures
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Extract Decisions
+
+Extract, validate, and register decisions from any source (meetings, emails, discussions) into the decision log
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `extract_decisions_analyze` | Analyze input |
+| 2 | `extract_decisions_synthesize` | Synthesize findings |
+| 3 | `extract_decisions_output` | Generate output |
+
+
+### Process Meeting Notes
+
+Extract decisions, actions, risks, and open questions from meeting notes or transcripts into structured, decision-grade output
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `process_meeting_notes_analyze` | Analyze input |
+| 2 | `process_meeting_notes_synthesize` | Synthesize findings |
+| 3 | `process_meeting_notes_output` | Generate output |
+
+
+### Meeting Notes
+
+Extract decisions, actions, risks from meeting. Then create micro-summary for Slack, then extract validated action items from notes, and finally prepare meeting structure before meeting.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `process_meeting` | Extract decisions, actions, risks from meeting |
+| 2 | `generate_slack_digest` | Create micro-summary for Slack |
+| 3 | `extract_actions` | Extract validated action items from notes |
+| 4 | `pre_meeting_prep` | Prepare meeting structure before meeting |
+
 
 ## Scope Boundaries
 
-This agent captures what happened in meetings but does not interpret, classify, or validate. The following responsibilities belong to other agents.
+The agent does not invent content not discussed (handoff to Leadership), interpret ambiguous statements (handoff to Leadership), assign owners without explicit mention (handoff to Leadership), create due dates not stated (handoff to Leadership), assess risk severity (Risk Radar's domain) (handoff to Leadership), or validate actions (Task Shepherd's domain) (handoff to Leadership).
 
-- Does not assess risk severity (Risk Radar's domain)
-- Does not validate action completeness (Task Shepherd's domain)
-- Does not invent owners, dates, or decisions not explicitly stated
-- Does not interpret ambiguous statements, marks them as TBD instead
 
-## Triggers
+## Operating Modes
 
-The agent activates on meeting lifecycle events and can also be invoked manually.
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-- `meeting_ended`, meeting has concluded and notes are expected
-- `notes_uploaded`, raw notes or fragments uploaded for processing
-- `transcript_available`, text transcript ready for extraction
-- Manual invocation supported
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-## Handoffs
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-### Outbound (this agent -> others)
 
-| Trigger | Receiving Agent | Condition |
-|---------|-----------------|-----------|
-| Actions extracted | Task Shepherd Agent | Actions identified in notes |
-| Decisions extracted | Decision Registrar Agent | Decisions identified in notes |
-| Risks extracted | Risk Radar Agent | Risks or blockers mentioned |
-| Critical blockers found | Nudger Agent | Unresolved blockers require follow-up |
+## Knowledge Base
 
-### Inbound (others -> this agent)
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
 
-| Source Agent | Artifact | Action Required |
-|--------------|----------|-----------------|
-| Calendar / Organizer | Agenda or keywords | Use as extraction context |
-| Attendees | Partial notes, decisions | Incorporate into structured output |
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `meeting-notes-extraction-rules.yaml` | Decisions, Actions, Risks | Meeting notes extraction rules |
 
-## Escalation Rules
 
-Escalation is triggered when meeting content reveals issues that require immediate attention beyond note-taking scope.
+## Output Artifacts
 
-- Unresolved blockers mentioned in meeting -> escalate to Nudger Agent
-- Critical risks identified -> escalate to Nudger Agent
-- Missing required attendees noted -> escalate to Nudger Agent
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-## Quality Gates
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Artifacts | `{account}-artifacts.md` | artifacts |
 
-The agent enforces strict quality standards on every output to ensure notes remain actionable and concise.
-
-- All actions have a single owner (not a team)
-- All actions have a due date or explicit TBD
-- Decisions have an owner and a status (Proposed or Confirmed)
-- No orphan risks (every risk must have severity indication)
-- Maximum 12 lines for full meeting notes
-- At least a 5-line Slack digest produced, even with messy input
-
-## Personality Traits
-
-| Dimension | Description |
-|-----------|-------------|
-| **Tone** | Neutral, factual, concise |
-| **Values** | Accuracy over completeness, attribution over inference, concise over comprehensive |
-| **Priorities** | 1. Decision extraction accuracy, 2. Action capture completeness, 3. Risk surfacing, 4. Question tracking |
 
 ## Source Files
 
-- Agent config: `domain/agents/governance/agents/meeting_notes_agent.yaml`
-- Personality: `domain/agents/governance/personalities/meeting_notes_personality.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/governance/meeting-notes-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/governance/agents/meeting_notes_agent.yaml` | Agent configuration |
+| `domain/agents/governance/personalities/meeting_notes_personality.yaml` | Behavioral specification |
+| `domain/agents/governance/prompts/tasks.yaml` | 10 CAF prompts across 3 domains |

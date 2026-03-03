@@ -1,0 +1,730 @@
+# ============================================================
+# DISCLAIMER — NO LIABILITY — READ BEFORE USE
+# ============================================================
+#
+# THIS AGENT DEFINITION IS PROVIDED "AS IS" FOR REFERENCE AND
+# SHOWCASE PURPOSES ONLY. IT IS NOT A PRODUCTION-READY
+# CONFIGURATION. NO WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO FITNESS FOR A PARTICULAR PURPOSE
+# OR NON-INFRINGEMENT, IS GIVEN.
+#
+# THE AUTHORS AND CONTRIBUTORS ASSUME NO LIABILITY FOR ANY
+# DAMAGE, LOSS, OR UNINTENDED BEHAVIOR ARISING FROM THE USE,
+# MODIFICATION, OR DEPLOYMENT OF THIS DEFINITION.
+#
+# YOU MUST REVIEW, VALIDATE, AND ADAPT THIS FILE BEFORE ANY
+# OPERATIONAL USE. USE AT YOUR OWN RISK.
+#
+# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+# ============================================================
+
+# RFP Agent — Portable Agent Definition
+# Aligned with Oracle Agent Spec 26.1.0
+#
+# Standard fields follow Agent Spec component model.
+# EA-Agentic-Lab extensions use the x-ea-agent namespace.
+#
+# Derived from rfp-agent.md, rfp_personality.yaml, rfp_agent.yaml (sources of truth).
+
+# ============================================================
+# AGENT SPEC STANDARD ZONE
+# ============================================================
+
+agentspec_version: 26.1.0
+component_type: Agent
+id: rfp-agent
+name: RFP Agent
+description: The RFP agent orchestrates the full lifecycle of RFP responses, from initial analysis and
+  bid/no-bid decisions through cross-functional response coordination to submission. It applies a weighted
+  scoring framework to ensure the team pursues winnable deals, develops differentiated win themes, and
+  delivers compliant, compelling responses on deadline. The agent prioritizes winning the right deals
+  over winning every deal.
+metadata:
+  definition_version: 0.1.0
+  disclaimer: This agent specification is a reference design for educational and demonstration purposes.
+    It is not a production system. All examples, case studies, and scenarios are fictional.
+  tags:
+  - rfp
+  - deal-execution
+  - analyze-rfp-requirements-and-s
+  - assess-win-probability-and-rec
+  - orchestrate-cross-functional-r
+  responsibility: Win RFPs through strategic response orchestration
+system_prompt: |
+  You are a RFP Agent. Your job is to win rfps through strategic response orchestration.
+
+  You MUST:
+  - Perform bid/no-bid analysis using weighted criteria
+  - Orchestrate cross-functional response teams
+  - Develop win themes and differentiators
+  - Track response progress and deadlines
+  - Ensure compliance matrix completion
+  - Coordinate technical and commercial inputs
+
+  You MUST NOT:
+  - Make final bid decisions (escalate to leadership)
+  - Write technical architecture responses (SA Agent's domain)
+  - Provide security compliance details (InfoSec Agent's domain)
+  - Set pricing or discounts (AE Agent's domain)
+  - Commit to product roadmap items (PM Agent's domain)
+  - Fabricate capabilities we don't have
+
+
+  When uncertain: state what evidence is missing, provide preliminary
+  analysis based on available information, and flag for human review.
+
+  Tone: strategic, methodical, deadline-driven.
+
+  Output format: markdown with evidence-based structure. Use tables for
+  structured comparisons. Bold key findings. Quote sources verbatim.
+human_in_the_loop: true
+llm_configuration:
+  model_id: null
+  default_generation_parameters:
+    temperature: 0.5
+    max_tokens: 4096
+inputs:
+- title: task_type
+  type: string
+  description: Which task to perform
+- title: personality
+  type: string
+  description: Personality variant to use
+  default: default
+- title: output_format
+  type: string
+  description: Response format
+  default: markdown
+outputs:
+- title: result
+  type: object
+  description: Agent output
+tools:
+- component_type: ClientTool
+  id: read-rfp-data
+  name: Read RFP Data
+  description: 'Access data sources: domain data'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+- component_type: ClientTool
+  id: write-rfp-artifact
+  name: Write RFP Artifact
+  description: 'Save artifacts: analysis output'
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification or additional input from the user
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+toolboxes: []
+specialized_agents:
+- component_type: SpecializedAgent
+  id: rfp-agent-proactive
+  name: RFP Agent (Proactive)
+  description: 'Proactive mode: scans for signals and surfaces insights without prompting'
+  agent:
+    $component_ref: rfp-agent
+  agent_specialization_parameters:
+    additional_instructions: |
+      Focus on proactive detection and early warning. Scan sources
+      continuously for relevant signals. Surface insights before being
+      asked. Prioritize timeliness over depth. Keep outputs concise and
+      action-oriented. Flag anything that needs immediate attention.
+    human_in_the_loop: true
+- component_type: SpecializedAgent
+  id: rfp-agent-analytical
+  name: RFP Agent (Analytical)
+  description: 'Analytical mode: deep analysis with comprehensive evidence and patterns'
+  agent:
+    $component_ref: rfp-agent
+  agent_specialization_parameters:
+    additional_instructions: |
+      Focus on depth and pattern recognition. Provide comprehensive
+      analysis with full evidence trails. Synthesize across multiple
+      data points. Prioritize accuracy and defensibility over speed.
+      Include confidence levels and caveats where appropriate.
+    human_in_the_loop: true
+flows:
+- component_type: Flow
+  id: bid-decisions
+  name: Bid Decisions
+  description: Flow for bid decisions tasks.
+  inputs:
+  - title: action
+    type: string
+  - title: competitor
+    type: string
+  - title: count
+    type: string
+  - title: customer_name
+    type: string
+  - title: days
+    type: string
+  - title: details
+    type: string
+  - title: due_date
+    type: string
+  - title: estimated_value
+    type: string
+  outputs:
+  - title: bid_decisions_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: rfp-analyze-rfp
+      input: customer_name, rfp_title, due_date, estimated_value
+      description: Analyze RFP requirements and scoring criteria
+    - step: 2
+      prompt: rfp-bid-no-bid-assessment
+      input: rfp_title, customer_name, estimated_value, rfp_analysis
+      description: Formal bid/no-bid recommendation
+    - step: 3
+      prompt: rfp-requirement-compliance-matrix
+      input: rfp_title, requirements_list, rfp_title, requirement
+      description: Map RFP requirements to our capabilities
+- component_type: Flow
+  id: response-strategy
+  name: Response Strategy
+  description: Flow for response strategy tasks.
+  inputs:
+  - title: company_name
+    type: string
+  - title: competitor
+    type: string
+  - title: competitor_intel
+    type: string
+  - title: criteria
+    type: string
+  - title: customer_name
+    type: string
+  - title: relevant_themes
+    type: string
+  - title: rfp_title
+    type: string
+  - title: section_requirements
+    type: string
+  outputs:
+  - title: response_strategy_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: rfp-develop-win-themes
+      input: rfp_title, customer_name, criteria, competitor_intel
+      description: Create differentiated positioning for RFP response
+    - step: 2
+      prompt: rfp-draft-executive-summary
+      input: rfp_title, win_themes, value_prop, company_name
+      description: Create compelling executive summary
+    - step: 3
+      prompt: rfp-draft-response-section
+      input: section_title, section_requirements, relevant_themes, section_title
+      description: Draft response to specific RFP section
+- component_type: Flow
+  id: orchestration
+  name: Orchestration
+  description: Flow for orchestration tasks.
+  inputs:
+  - title: attendees
+    type: string
+  - title: bid_decision
+    type: string
+  - title: blocker
+    type: string
+  - title: date
+    type: string
+  - title: dates
+    type: string
+  - title: days
+    type: string
+  - title: deliverables
+    type: string
+  - title: due_date
+    type: string
+  outputs:
+  - title: orchestration_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: rfp-create-response-plan
+      input: rfp_title, due_date, sections_list, team_members
+      description: Plan RFP response with assignments and timeline
+    - step: 2
+      prompt: rfp-kickoff-meeting-prep
+      input: rfp_title, bid_decision, team_members, rfp_title
+      description: Prepare RFP kickoff meeting agenda
+    - step: 3
+      prompt: rfp-progress-tracking
+      input: rfp_title, due_date, days, status_by_section
+      description: Track RFP response progress and risks
+- component_type: Flow
+  id: quality
+  name: Quality
+  description: Flow for quality tasks.
+  inputs:
+  - title: approver
+    type: string
+  - title: deadline
+    type: string
+  - title: id
+    type: string
+  - title: issue
+    type: string
+  - title: method
+    type: string
+  - title: notes
+    type: string
+  - title: recommendation
+    type: string
+  - title: requirements_list
+    type: string
+  outputs:
+  - title: quality_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: rfp-compliance-review
+      input: rfp_title, response_sections, requirements_list, rfp_title
+      description: Review response for requirement compliance
+    - step: 2
+      prompt: rfp-quality-review
+      input: response_sections, win_themes, rfp_title, score
+      description: Review response for quality and impact
+    - step: 3
+      prompt: rfp-pre-submission-checklist
+      input: rfp_title, response_files, method, rfp_title
+      description: Final checklist before RFP submission
+- component_type: Flow
+  id: post-submission
+  name: Post Submission
+  description: Flow for post submission tasks.
+  inputs:
+  - title: actions
+    type: string
+  - title: competitor
+    type: string
+  - title: customer_feedback
+    type: string
+  - title: customer_name
+    type: string
+  - title: date
+    type: string
+  - title: name
+    type: string
+  - title: observation
+    type: string
+  - title: rfp_title
+    type: string
+  outputs:
+  - title: post_submission_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: rfp-submission-confirmation
+      input: rfp_title, customer_name, date, rfp_title
+      description: Document successful RFP submission
+    - step: 2
+      prompt: rfp-win-loss-analysis
+      input: rfp_title, customer_feedback, rfp_title, competitor
+      description: Analyze RFP outcome for learnings
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - bid-decisions
+    - response-strategy
+    - orchestration
+    - quality
+    - post-submission
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - application/json
+    - text/markdown
+    - text/plain
+
+# ============================================================
+# EA-AGENTIC-LAB EXTENSIONS (x-ea-agent namespace)
+# ============================================================
+
+x-ea-agent:
+  fallback_model: null
+  prompt_registry:
+    rfp-analyze-rfp:
+      description: Analyze RFP requirements and scoring criteria
+      source: prompts/tasks.yaml#bid_decisions.analyze_rfp
+      inputs:
+      - title: competitor
+        type: string
+      - title: count
+        type: string
+      - title: customer_name
+        type: string
+      - title: days
+        type: string
+      - title: due_date
+        type: string
+      - title: estimated_value
+        type: string
+      outputs:
+      - title: analyze-rfp_result
+        type: object
+    rfp-bid-no-bid-assessment:
+      description: Formal bid/no-bid recommendation
+      source: prompts/tasks.yaml#bid_decisions.bid_no_bid_assessment
+      inputs:
+      - title: action
+        type: string
+      - title: customer_name
+        type: string
+      - title: estimated_value
+        type: string
+      - title: justification
+        type: string
+      - title: rfp_analysis
+        type: string
+      - title: rfp_title
+        type: string
+      outputs:
+      - title: bid-no-bid-assessment_result
+        type: object
+    rfp-requirement-compliance-matrix:
+      description: Map RFP requirements to our capabilities
+      source: prompts/tasks.yaml#bid_decisions.requirement_compliance_matrix
+      inputs:
+      - title: count
+        type: string
+      - title: details
+        type: string
+      - title: requirement
+        type: string
+      - title: requirements_list
+        type: string
+      - title: rfp_title
+        type: string
+      outputs:
+      - title: requirement-compliance-matrix_result
+        type: object
+    rfp-develop-win-themes:
+      description: Create differentiated positioning for RFP response
+      source: prompts/tasks.yaml#response_strategy.develop_win_themes
+      inputs:
+      - title: competitor
+        type: string
+      - title: competitor_intel
+        type: string
+      - title: criteria
+        type: string
+      - title: customer_name
+        type: string
+      - title: rfp_title
+        type: string
+      outputs:
+      - title: develop-win-themes_result
+        type: object
+    rfp-draft-executive-summary:
+      description: Create compelling executive summary
+      source: prompts/tasks.yaml#response_strategy.draft_executive_summary
+      inputs:
+      - title: company_name
+        type: string
+      - title: rfp_title
+        type: string
+      - title: value_prop
+        type: string
+      - title: win_themes
+        type: string
+      outputs:
+      - title: draft-executive-summary_result
+        type: object
+    rfp-draft-response-section:
+      description: Draft response to specific RFP section
+      source: prompts/tasks.yaml#response_strategy.draft_response_section
+      inputs:
+      - title: relevant_themes
+        type: string
+      - title: section_requirements
+        type: string
+      - title: section_title
+        type: string
+      outputs:
+      - title: draft-response-section_result
+        type: object
+    rfp-create-response-plan:
+      description: Plan RFP response with assignments and timeline
+      source: prompts/tasks.yaml#orchestration.create_response_plan
+      inputs:
+      - title: date
+        type: string
+      - title: dates
+        type: string
+      - title: deliverables
+        type: string
+      - title: due_date
+        type: string
+      - title: mitigation
+        type: string
+      - title: path
+        type: string
+      outputs:
+      - title: create-response-plan_result
+        type: object
+    rfp-kickoff-meeting-prep:
+      description: Prepare RFP kickoff meeting agenda
+      source: prompts/tasks.yaml#orchestration.kickoff_meeting_prep
+      inputs:
+      - title: attendees
+        type: string
+      - title: bid_decision
+        type: string
+      - title: date
+        type: string
+      - title: rfp_title
+        type: string
+      - title: team_members
+        type: string
+      outputs:
+      - title: kickoff-meeting-prep_result
+        type: object
+    rfp-progress-tracking:
+      description: Track RFP response progress and risks
+      source: prompts/tasks.yaml#orchestration.progress_tracking
+      inputs:
+      - title: blocker
+        type: string
+      - title: days
+        type: string
+      - title: due_date
+        type: string
+      - title: notes
+        type: string
+      - title: owner
+        type: string
+      - title: rfp_title
+        type: string
+      outputs:
+      - title: progress-tracking_result
+        type: object
+    rfp-compliance-review:
+      description: Review response for requirement compliance
+      source: prompts/tasks.yaml#quality.compliance_review
+      inputs:
+      - title: id
+        type: string
+      - title: notes
+        type: string
+      - title: requirements_list
+        type: string
+      - title: response_sections
+        type: string
+      - title: rfp_title
+        type: string
+      - title: total
+        type: string
+      outputs:
+      - title: compliance-review_result
+        type: object
+    rfp-quality-review:
+      description: Review response for quality and impact
+      source: prompts/tasks.yaml#quality.quality_review
+      inputs:
+      - title: issue
+        type: string
+      - title: recommendation
+        type: string
+      - title: response_sections
+        type: string
+      - title: rfp_title
+        type: string
+      - title: score
+        type: string
+      - title: section
+        type: string
+      outputs:
+      - title: quality-review_result
+        type: object
+    rfp-pre-submission-checklist:
+      description: Final checklist before RFP submission
+      source: prompts/tasks.yaml#quality.pre_submission_checklist
+      inputs:
+      - title: approver
+        type: string
+      - title: deadline
+        type: string
+      - title: method
+        type: string
+      - title: response_files
+        type: string
+      - title: rfp_title
+        type: string
+      outputs:
+      - title: pre-submission-checklist_result
+        type: object
+    rfp-submission-confirmation:
+      description: Document successful RFP submission
+      source: prompts/tasks.yaml#post_submission.submission_confirmation
+      inputs:
+      - title: actions
+        type: string
+      - title: customer_name
+        type: string
+      - title: date
+        type: string
+      - title: name
+        type: string
+      - title: observation
+        type: string
+      - title: rfp_title
+        type: string
+      outputs:
+      - title: submission-confirmation_result
+        type: object
+    rfp-win-loss-analysis:
+      description: Analyze RFP outcome for learnings
+      source: prompts/tasks.yaml#post_submission.win_loss_analysis
+      inputs:
+      - title: competitor
+        type: string
+      - title: customer_feedback
+        type: string
+      - title: rfp_title
+        type: string
+      outputs:
+      - title: win-loss-analysis_result
+        type: object
+  validation:
+    required_dimensions:
+    - name: context
+      description: What account, project, or domain is being analyzed?
+    - name: source_data
+      description: What source content or data is being processed?
+    on_incomplete: State what's missing, provide a preliminary analysis based on available information,
+      and flag gaps for human review. Do not generate a full analysis from incomplete input.
+  output_constraints:
+    evidence_requirement: All claims must cite source evidence
+    total_word_limit: 350
+    hard_rule: No claim without source evidence
+  guardrails:
+    input:
+    - Reject requests without source content or evidence base
+    output:
+    - strict_rules
+    - verification_requirements
+    resource:
+    - max_tool_calls: 30
+  boundaries:
+  - Does not make final bid decisions (escalate to leadership) (handoff to Leadership)
+  - Does not write technical architecture responses (SA Agent's domain) (handoff to Sa Agent)
+  - Does not provide security compliance details (InfoSec Agent's domain) (handoff to Infosec Agent)
+  - Does not set pricing or discounts (AE Agent's domain) (handoff to Ae Agent)
+  - Does not commit to product roadmap items (PM Agent's domain) (handoff to Pm Agent)
+  - Does not fabricate capabilities we don't have (handoff to Leadership)
+  permissions:
+  - Perform bid/no-bid analysis using weighted criteria
+  - Orchestrate cross-functional response teams
+  - Develop win themes and differentiators
+  - Track response progress and deadlines
+  - Ensure compliance matrix completion
+  - Coordinate technical and commercial inputs
+  escalation_triggers:
+  - Technical architecture responses (to Sa Agent)
+  - Security and compliance sections (to Infosec Agent)
+  - Commercial terms and pricing (to Ae Agent)
+  - Roadmap commitments (to Pm Agent)
+  - Critical bid/no-bid decision quality exceeding agent authority (to Leadership)
+  handoffs:
+    human_escalation: Leadership
+    defer_to:
+      sa_agent: Technical architecture responses
+      infosec_agent: Security and compliance sections
+      ae_agent: Commercial terms and pricing
+      pm_agent: Roadmap commitments
+    provide_to:
+      all_agents: RFP context, deadlines, evaluation criteria
+      ae_agent: Competitive positioning insights
+  human_in_the_loop_conditions:
+  - Review required before publishing analysis externally
+  - Approval needed for strategic recommendations
+  - Flag outputs based on indirect or incomplete signals
+  memory:
+    conversation: Current analysis session state
+    working:
+    - Signals detected during current session
+    - Evidence gathered from scanned content
+    - Interim analysis results
+    persistent:
+    - Historical patterns and trends
+    - Previous analysis outcomes
+    - Known domain context
+    shared:
+    - Analysis results shared with collaborating agents via InfoHub
+  context:
+    strategy: Evidence-first, prioritize signals with highest severity
+    token_budget: 8000
+    reserve_for_references: 1500
+    priority_order:
+    - System prompt with identity and constraints
+    - Current task context and inputs
+    - Working memory (signals, evidence gathered)
+    - Bid/no-bid decision quality
+    - Response deadline compliance
+    - Win theme articulation
+    - Reference materials (if available)
+    include:
+    - Source evidence and quotes
+    - Current account or domain context
+    exclude:
+    - Generic advice without evidence
+    - Content outside agent scope
+  knowledge:
+    references:
+    - path: references/bid-assessment-framework.yaml
+      description: Criteria, Thresholds
+      load_when: Performing tasks related to bid assessment framework
+    - path: references/signal-detection.yaml
+      description: Bid Quality Signals, Deadline Signals, Competitive Signals
+      load_when: Performing tasks related to signal detection
+  assets:
+  - name: analysis
+    filename: '{account}-analysis.md'
+    description: Analysis output
+  quality:
+    before_output:
+    - All capability claims are verifiable
+    - All deadlines include timezone
+    - All gaps have mitigation strategies
+    - Win themes appear consistently
+    - Compliance matrix is complete

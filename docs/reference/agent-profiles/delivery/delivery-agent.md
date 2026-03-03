@@ -1,91 +1,115 @@
 ---
 title: "Delivery Agent"
-description: "Implementation continuity and delivery risk detection between teams"
+description: "Digital twin for project health, blocker management, handoff"
 category: "reference"
-keywords: ["delivery_agent", "delivery", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["delivery_agent", "delivery", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
+
 
 # Delivery Agent
 
-The Delivery Agent maintains the critical bridge between what was sold and what gets delivered. It tracks implementation progress, detects delivery risks early by analyzing Jira and status reports, and pushes concise health summaries to the account team. Without this agent, the gap between sales promises and delivery reality widens silently until customers escalate.
+The Delivery Agent is the digital twin of the Delivery role. It operates as a single agent with 4 runbooks covering project health, blocker management, handoff, and risk issue. The Delivery Agent tracks delivery progress from Jira, status reports, and customer escalations, then flags risks and generates health summaries for account teams. It bridges the gap between delivery execution and account awareness, ensuring that project blockers, milestone slips, and go-live risks are visible to the broader team before they become surprises.
+
+Its operating principle: accurate delivery status prevents surprises.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| **Agent ID** | `delivery_agent` |
-| **Team** | delivery |
-| **Category** | Delivery |
-| **Purpose** | Maintain continuity between delivery and account teams |
+| **Agent ID** | `delivery-agent` |
+| **Role** | Delivery (Delivery) |
+| **Mode** | Human-paired |
+| **Runbooks** | 4 |
+| **Prompts** | 12 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 0 |
 
-## Core Functions
 
-The Delivery Agent provides the account team with real-time visibility into implementation progress, ensuring no one is surprised by delivery issues that could affect the customer relationship.
+## Runbooks
 
-- Track delivery progress signals from Jira, status reports, and Slack
-- Flag delivery risks (blocked, rescoped, delayed, resource constraints)
-- Generate concise health summaries for account teams
-- Connect delivery status to account context
-- Manage sales-to-delivery handoff continuity
-- Detect milestone slips and go-live risks
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Project Health
+
+Generate concise project status for account team. Then assess readiness for production go-live, and finally generate weekly delivery report for stakeholders.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `status_summary` | Generate concise project status for account team |
+| 2 | `go_live_readiness` | Assess readiness for production go-live |
+| 3 | `weekly_report` | Generate weekly delivery report for stakeholders |
+
+
+### Blocker Management
+
+Analyze blocker impact and resolution path. Then prepare escalation brief for leadership, and finally track and report on project dependencies.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `blocker_analysis` | Analyze blocker impact and resolution path |
+| 2 | `escalation_brief` | Prepare escalation brief for leadership |
+| 3 | `dependency_tracker` | Track and report on project dependencies |
+
+
+### Handoff
+
+Prepare handoff documentation for support team. Then brief account team on delivery outcomes, and finally document transition between project phases.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `support_handoff` | Prepare handoff documentation for support team |
+| 2 | `account_team_brief` | Brief account team on delivery outcomes |
+| 3 | `phase_transition` | Document transition between project phases |
+
+
+### Risk Issue
+
+Identify risks from project status and signals. Then triage and prioritize open issues, and finally assess customer impact of delivery issue.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `risk_identification` | Identify risks from project status and signals |
+| 2 | `issue_triage` | Triage and prioritize open issues |
+| 3 | `customer_impact` | Assess customer impact of delivery issue |
+
 
 ## Scope Boundaries
 
-The Delivery Agent does not manage delivery execution directly, assign delivery tasks, or make scope decisions. It is an observer and reporter, surfacing delivery intelligence to the account team without inserting itself into the execution workflow. Technical assessment stays with the SA Agent, and commercial negotiation stays with the AE Agent.
+The agent does not manage delivery execution (handoff to Delivery Manager), assign delivery tasks (handoff to Delivery Manager), or make scope decisions (handoff to Delivery Manager).
 
-## Playbooks Owned
 
-The Delivery Agent does not own dedicated numbered playbooks. It operates within the delivery tracking and risk detection frameworks defined in its agent configuration, feeding into the broader Customer Health (PB_401) and Adoption Metrics (PB_402) playbooks owned by the CA Agent.
+## Operating Modes
 
-## Triggers
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-The Delivery Agent activates on implementation lifecycle events that signal progress, risk, or transitions requiring account team awareness.
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-- Contract signed, initiating implementation planning
-- Jira status changes and sprint completion signals
-- Customer escalations related to delivery
-- Milestone dates approaching or missed
-- Go-live readiness checkpoints
-- Resource constraint or blocked status signals
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-## Handoffs
 
-### Outbound (this agent -> others)
+## Knowledge Base
 
-| Trigger | Receiving Agent | Condition |
-|---------|-----------------|-----------|
-| Contract signed | PS Agent | Implementation planning begins |
-| Implementation risk HIGH | Senior Manager | Escalation required |
-| Go-live complete | CA Agent | Transition to adoption tracking |
+No dedicated knowledge references.
 
-### Inbound (others -> this agent)
 
-| Source Agent | Artifact | Action Required |
-|--------------|----------|-----------------|
-| AE Agent | Signed contract | Initiate delivery tracking |
-| POC Agent | POC learnings | Apply to implementation |
-| VE Agent | Value commitments | Track realization milestones |
+## Output Artifacts
 
-## Escalation Rules
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-The Delivery Agent escalates when delivery risks cross thresholds that threaten the customer relationship or go-live timeline. It surfaces problems early so the account team can intervene before customers escalate.
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Status Note | `{account}-status-note.md` | Status note |
+| Delivery Risk Alerts | `{account}-delivery-risk-alerts.md` | Delivery risk alerts |
+| Health Summaries | `{account}-health-summaries.md` | Health summaries |
 
-- Critical path blocked or go-live at risk triggers immediate Senior Manager escalation
-- Customer escalation on delivery triggers immediate notification to AE and Senior Manager
-- Milestone delayed beyond acceptable variance escalates within 24 hours
-- Resource gaps affecting delivery timeline escalate to Senior Manager
-
-## Personality Traits
-
-| Attribute | Value |
-|-----------|-------|
-| **Tone** | Factual, concise, risk-aware |
-| **Values** | Accurate delivery status prevents surprises. Early risk surfacing enables intervention |
-| **Priorities** | 1. Delivery risk identification, 2. Status accuracy, 3. Account team visibility |
 
 ## Source Files
 
-- Agent config: `domain/agents/delivery/agents/delivery_agent.yaml`
-- Personality: `domain/agents/delivery/personalities/delivery_personality.yaml`
-- Task prompts: `domain/agents/delivery/prompts/tasks.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/delivery/delivery-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/delivery/agents/delivery_agent.yaml` | Agent configuration |
+| `domain/agents/delivery/personalities/delivery_personality.yaml` | Behavioral specification |
+| `domain/agents/delivery/prompts/tasks.yaml` | 12 CAF prompts across 4 domains |

@@ -35,7 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home", icon: Home, iconColor: "text-blue-400" },
   { href: "/blueprints", label: "Blueprints", icon: Layers, iconColor: "text-purple-400" },
   { href: "/agents", label: "Agents", icon: Bot, iconColor: "text-amber-400" },
-  { href: "/canvas", label: "Canvas Library", icon: LayoutGrid, iconColor: "text-cyan-400" },
+  { href: "/canvas", label: "Artifacts", icon: LayoutGrid, iconColor: "text-cyan-400" },
 ];
 
 export function Sidebar() {

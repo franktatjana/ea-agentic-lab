@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useCallback } from "react";
+import { Suspense, useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -10,6 +10,8 @@ import {
   ChevronRight,
   ChevronDown,
   Search,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm"; // GitHub-flavored markdown (tables, strikethrough, task lists)
@@ -18,6 +20,8 @@ import { api } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { HelpPopover } from "@/components/help-popover";
+import { MermaidDiagram } from "@/components/mermaid-diagram";
+import { DocFlowDiagram } from "@/components/doc-flow-diagram";
 import type { DocTreeEntry } from "@/types";
 
 /**
@@ -52,6 +56,22 @@ function resolveDocPath(href: string, basePath: string): string | null {
   return resolved.join("/");
 }
 
+function humanizeLabel(name: string): string {
+  return name
+    .replace(/\.md$/i, "")
+    .replace(/[-_]/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getParentDirs(path: string): string[] {
+  const parts = path.split("/");
+  const dirs: string[] = [];
+  for (let i = 1; i < parts.length; i++) {
+    dirs.push(parts.slice(0, i).join("/"));
+  }
+  return dirs;
+}
+
 /**
  * TreeNode renders a single entry in the docs sidebar tree.
  * Directories toggle expand/collapse, files navigate to their content.
@@ -74,12 +94,19 @@ function TreeNode({
   const isDir = entry.type === "directory";
   const isOpen = expanded.has(entry.path);
   const isActive = activePath === entry.path;
-  // Display the extracted title, or humanize the filename as fallback
-  const label = entry.title || entry.name.replace(/-/g, " ").replace(/_/g, " ");
+  const label = entry.title || humanizeLabel(entry.name);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (isActive && btnRef.current) {
+      btnRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [isActive]);
 
   return (
     <div>
       <button
+        ref={btnRef}
         onClick={() => (isDir ? onToggle(entry.path) : onSelect(entry.path))}
         className={cn(
           "flex items-center gap-1.5 w-full text-left rounded-md px-2 py-1.5 text-sm transition-colors",
@@ -87,7 +114,6 @@ function TreeNode({
             ? "bg-accent text-accent-foreground font-medium"
             : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
         )}
-        // Indent based on nesting depth for visual hierarchy
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
       >
         {/* Directory: show chevron + folder icon; File: show file icon */}
@@ -190,10 +216,28 @@ function DocsPageContent() {
   const activePath = searchParams.get("path") || "README.md"; // Default to root README
 
   const [search, setSearch] = useState("");
-  // Pre-expand top-level directories so the tree is immediately useful
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(
     new Set(["architecture", "reference", "guides", "operating-model", "decisions", "planning"])
   );
+
+  // Auto-expand parent directories of the active document
+  useEffect(() => {
+    if (!activePath) return;
+    const parents = getParentDirs(activePath);
+    if (parents.length === 0) return;
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const dir of parents) {
+        if (!next.has(dir)) {
+          next.add(dir);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [activePath]);
 
   // Fetch the docs directory tree for the sidebar
   const { data: tree, isLoading: treeLoading } = useQuery({
@@ -241,9 +285,14 @@ function DocsPageContent() {
   return (
     // Full-height layout with negative margin to fill the parent padding
     <div className="flex h-[calc(100vh-48px)] -m-6">
-      {/* Left panel: tree sidebar with search */}
-      <div className="w-72 border-r border-border flex flex-col shrink-0 bg-card">
-        <div className="p-3 border-b border-border">
+      {/* Left panel: collapsible tree sidebar */}
+      <div
+        className={cn(
+          "border-r border-border flex flex-col shrink-0 bg-card transition-[width] duration-200 overflow-hidden",
+          sidebarOpen ? "w-72" : "w-0 border-r-0"
+        )}
+      >
+        <div className="p-3 border-b border-border min-w-[18rem]">
           <div className="flex items-center gap-2 mb-2">
             <h2 className="text-sm font-semibold">Documentation</h2>
             <HelpPopover title="Documentation browser">
@@ -252,6 +301,13 @@ function DocsPageContent() {
               specific topics across all files. Click a document to view
               its rendered content.
             </HelpPopover>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="ml-auto p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+              title="Collapse sidebar"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
           </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -263,8 +319,7 @@ function DocsPageContent() {
             />
           </div>
         </div>
-        {/* Scrollable tree area */}
-        <div className="flex-1 overflow-auto p-2">
+        <div className="flex-1 overflow-auto p-2 min-w-[18rem]">
           {treeLoading ? (
             <p className="text-sm text-muted-foreground p-2">Loading...</p>
           ) : filteredTree.length === 0 ? (
@@ -286,17 +341,40 @@ function DocsPageContent() {
       </div>
 
       {/* Right panel: markdown content area */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto relative">
+        {!sidebarOpen && (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="absolute top-3 left-3 z-10 p-1.5 rounded-md bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+            title="Show sidebar"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </button>
+        )}
         {docLoading ? (
           <div className="flex items-center justify-center h-64">
             <p className="text-muted-foreground">Loading document...</p>
           </div>
         ) : doc ? (
           // Render markdown with Tailwind prose typography for dark mode
-          <article className="max-w-4xl mx-auto p-8 prose prose-invert prose-sm prose-headings:scroll-mt-4 prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline prose-code:text-orange-300 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-border prose-table:text-sm prose-th:text-left prose-img:rounded-lg">
+          <article className={cn(
+            "mx-auto p-8 prose dark:prose-invert prose-sm prose-headings:scroll-mt-4 prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline prose-code:text-orange-300 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-border prose-table:text-sm prose-th:text-left prose-img:rounded-lg",
+            sidebarOpen ? "max-w-4xl" : "max-w-6xl"
+          )}>
             <Markdown
               remarkPlugins={[remarkFrontmatter, remarkGfm]}
               components={{
+                // Intercept diagram code blocks (mermaid, reactflow) and render visually
+                pre: ({ children, ...props }) => {
+                  const child = children as React.ReactElement<{ className?: string; children?: string }>;
+                  if (child?.props?.className?.includes("language-mermaid")) {
+                    return <MermaidDiagram chart={String(child.props.children).trim()} />;
+                  }
+                  if (child?.props?.className?.includes("language-reactflow")) {
+                    return <DocFlowDiagram definition={String(child.props.children).trim()} />;
+                  }
+                  return <pre {...props}>{children}</pre>;
+                },
                 a: ({ href, children, ...props }) => {
                   // External links open in a new tab
                   if (!href || href.startsWith("http://") || href.startsWith("https://")) {

@@ -294,4 +294,14 @@ export const api = {
   // Data Sources
   getDataSources: (pageSection: string) =>
     fetchApi<import("@/types").DataSourceResponse>(`/data-sources/${pageSection}`),
+
+  // Agent Definitions
+  listDefinitions: () =>
+    fetchApi<import("@/types").AgentDefinitionSummary[]>("/definitions"),
+
+  getDefinition: (agentId: string) =>
+    fetchApi<import("@/types").AgentDefinition>(`/definitions/${agentId}`),
+
+  getPromptContent: (agentId: string, promptKey: string) =>
+    fetchApi<Record<string, unknown>>(`/definitions/${agentId}/prompts/${promptKey}`),
 };

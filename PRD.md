@@ -3,15 +3,15 @@
 *All examples, companies, scenarios, and data in this project are hypothetical. Names, characters, and organizations are fictional. Any resemblance to actual persons, companies, or events is purely coincidental.*
 
 **Product:** EA Agentic Lab
-**Version:** 1.2
-**Date:** 2026-01-23
+**Version:** 1.3
+**Date:** 2026-02-28
 **Status:** Living Document
 
 ---
 
 ## 1. Executive Summary
 
-EA Agentic Lab is a multi-agent governance platform that enforces structured account management for complex enterprise engagements. It combines AI-assisted agents with playbook-driven execution to ensure consistent, auditable governance.
+EA Agentic Lab is a multi-agent governance platform that enforces structured account management for complex enterprise engagements. It combines 33 AI-assisted agents with playbook-driven execution across 96 playbooks to ensure consistent, auditable governance. Knowledge is organized in a three-vault architecture, separating customer-facing, vendor-internal, and cross-account institutional knowledge. A web dashboard (Next.js) and iOS companion app provide the user interface for practitioners, managers, and platform administrators.
 
 ---
 
@@ -69,19 +69,27 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 
 ### 4.1 Multi-Agent Orchestration
 
-**Capability:** 24 specialized agents operating in coordinated layers.
+**Capability:** 33 specialized agents operating in three coordinated layers across 20 team directories.
+
+| Layer | Agents | Purpose |
+|-------|--------|---------|
+| Strategic | 18 | Account management, architecture, deal execution, delivery, leadership |
+| Governance | 10 | Process enforcement, artifact management, signal routing, quality control |
+| Intelligence | 5 | Company research, industry analysis, tech scanning, market news |
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
 | Agent Registry | Centralized agent definitions with capabilities, thresholds, boundaries | Critical |
-| Signal Routing | Event-driven communication between agents | Critical |
+| Signal Routing | Event-driven communication between agents via 53 signals across 12 categories | Critical |
 | Handover Protocol | Structured handoff with context preservation | Critical |
 | Escalation Hierarchy | Automated escalation based on authority levels | High |
 | Agent Monitoring | Health, activity, and performance tracking | Medium |
+| Agent Personalities | Per-agent personality YAML configs with tone, style, constraints | High |
+| Task Prompts | CAF-format (Context, Action, Format) task definitions per team | High |
 
 ### 4.2 Playbook Engine
 
-**Capability:** Execute strategic frameworks and operational procedures.
+**Capability:** Execute strategic frameworks and operational procedures. Currently 88 strategic playbooks across 12 team domains and 8 operational playbooks for event-driven procedures.
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
@@ -92,17 +100,27 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 | Playbook Executor | End-to-end orchestration | Critical |
 | Run Tracing | Execution history and audit trail | High |
 
-### 4.3 InfoHub (Knowledge Repository)
+### 4.3 Three-Vault Knowledge Architecture
 
-**Capability:** Structured storage for all engagement artifacts.
+**Capability:** Knowledge separated into three vaults with distinct audience, access rules, and lifecycle. Each vault is machine-readable YAML, enabling agents to validate, gap-scan, and cross-reference data automatically.
+
+| Vault | Scope | Audience | Content |
+|-------|-------|----------|---------|
+| **Customer InfoHub** | Per account, shareable | Customer + internal teams | Solution architecture, ADRs, POC plans, learning paths |
+| **Internal Account Hub** | Per account, vendor-only | Vendor team only | Competitive intelligence, risk assessments, stakeholder mapping, meeting notes |
+| **Global Knowledge Vault** | Cross-account, anonymized | All engagements | Best practices, winning patterns, evolved evaluation criteria, lessons learned |
+
+Knowledge flows in one direction: engagements produce account-level knowledge, and account-level knowledge feeds (after anonymization) into the global vault.
 
 | Feature | Description | Priority |
 |---------|-------------|----------|
-| Realm/Node Hierarchy | Company → Initiative structure | Critical |
-| Artifact Storage | Decisions, risks, actions, meetings, architecture | Critical |
+| Realm/Node Hierarchy | Company → Initiative structure with per-node vault separation | Critical |
+| Artifact Storage | Decisions, risks, actions, meetings, architecture per vault | Critical |
+| Vault Separation | Customer-facing, vendor-internal, and global knowledge isolation | Critical |
 | Versioning | Artifact history and change tracking | High |
 | Promotion Workflow | Draft → Review → Published lifecycle | High |
-| Cross-Node Queries | Realm-level aggregation | Medium |
+| Cross-Node Queries | Realm-level aggregation across vaults | Medium |
+| Anonymization Pipeline | Account → Global vault contribution with PII removal | Medium |
 
 ### 4.4 Canvas Framework
 
@@ -136,9 +154,34 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 |---------|-------------|----------|
 | Path Variables | Decouple playbooks from hardcoded paths | Critical |
 | Threshold Overrides | Blueprint → Realm → Node cascade | Critical |
-| Signal Catalog | Producer/consumer definitions | Critical |
-| Agent Catalog | Centralized agent registry | High |
+| Signal Catalog | 53 signals across 12 categories with producer/consumer definitions | Critical |
+| Agent Catalog | 33 agents across 20 team directories, centralized registry | High |
 | Operating Mode Rules | Mode → Playbook applicability matrix | High |
+
+### 4.7 User Interface
+
+**Capability:** Multi-platform access for practitioners, managers, and administrators.
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| Web Dashboard | Next.js 16 application with 17 pages: portfolio dashboard, realm/node explorer, canvas library, playbook catalog, agent profiles, blueprint browser, knowledge vault, docs | Critical |
+| iOS Companion App | SwiftUI native app (iOS 17+) for mobile read access: dashboard, nodes, actions, risks, signals | Medium |
+| Demo UI | Streamlit application for rapid prototyping and demos | Low |
+| Realm Explorer | Multi-tab detail views: overview, scenario, stakeholders, competitive, growth, industry, organigram, vendors, opportunities | Critical |
+| Canvas Rendering | Visual one-page artifact rendering from YAML data with filter tabs and catalog API | Critical |
+| Node Creation | Dialog-based node creation with archetype and track selection | High |
+
+### 4.8 Intelligence Layer
+
+**Capability:** Five specialized agents that gather, analyze, and surface external intelligence to inform engagement strategy. Intelligence feeds into the signal catalog and enriches playbook execution context.
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| Account Company Intelligence | Company research, organigram analysis, business line mapping, opportunity identification | High |
+| Industry Intelligence | Sector analysis, regulatory landscape monitoring, market trend detection | High |
+| Tech Signal Scanner | Job posting analysis, tech blog monitoring, technology announcement tracking | Medium |
+| Tech Signal Analyzer | Technology trend analysis, vendor landscape mapping, radar generation | Medium |
+| Market News Analysis | Lightweight news monitoring, feed signal generation for downstream agents | Medium |
 
 ---
 
@@ -187,19 +230,43 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 - Real-time collaboration on artifacts
 - Custom playbook authoring UI
 - Third-party CRM integration
-- Mobile offline mode
+- iOS offline mode (online-only read access is in scope)
 - Multi-language support
 
 ---
 
-## 7. Dependencies
+## 7. Technology Stack & Dependencies
 
-| Dependency | Description | Risk |
-|------------|-------------|------|
-| LLM Provider | Claude/GPT for agent reasoning | High - core functionality |
-| YAML Parser | ruamel.yaml for artifact I/O | Low - stable library |
-| Schema Validation | jsonschema for validation | Low - stable library |
-| FastAPI | Backend API framework | Low - stable framework |
+### Runtime & Backend
+
+| Component | Technology | Risk |
+|-----------|------------|------|
+| Runtime | Python 3.12+ | Low |
+| API Framework | FastAPI with Pydantic | Low |
+| Data Format | YAML with JSON Schema validation (PyYAML) | Low |
+| LLM Provider | Claude for agent reasoning | High, core functionality |
+| Testing | pytest (8 test modules) | Low |
+
+### Frontend
+
+| Component | Technology | Risk |
+|-----------|------------|------|
+| Web Dashboard | Next.js 16, React 19, TypeScript | Low |
+| UI Components | Tailwind CSS, shadcn/ui (Radix) | Low |
+| Data Fetching | TanStack React Query | Low |
+
+### Mobile
+
+| Component | Technology | Risk |
+|-----------|------------|------|
+| iOS App | Swift 5.9+, SwiftUI, iOS 17+ | Low |
+
+### Storage
+
+| Component | Technology | Risk |
+|-----------|------------|------|
+| Data Storage | File-based YAML (no database) | Medium, scale limits |
+| Knowledge Architecture | Three-vault separation per realm | Low |
 
 ---
 
@@ -216,13 +283,13 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 
 ## 9. Success Criteria (v1.0 Launch)
 
-- [ ] 5+ strategic playbooks production-ready
-- [ ] 3+ governance agents operational
-- [ ] 1 realm with 3+ nodes fully populated
-- [ ] Canvas framework rendering all 8 types
-- [ ] Gap analysis detecting missing artifacts
-- [ ] Mobile companion app for read access (planned)
-- [ ] 90%+ test pass rate
+- [x] 5+ strategic playbooks production-ready (88 defined)
+- [ ] 3+ governance agents operational (10 defined, runtime pending)
+- [x] 1 realm with 3+ nodes fully populated (3 realms, 4 nodes)
+- [x] Canvas framework rendering all 8 types
+- [ ] Gap analysis detecting missing artifacts (framework exists, not fully active)
+- [x] Mobile companion app for read access (iOS app built)
+- [ ] 90%+ test pass rate (8 test modules, execution engine pending)
 
 ---
 
@@ -253,15 +320,25 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 | **Template** | Governed library item (canvas template, schema). Version-controlled. | `templates/canvas/context_canvas.html` |
 | **Canvas** | One-page visual artifact for human consumption. Markdown + HTML output. | Context Canvas, Decision Canvas |
 
+### Knowledge Architecture
+
+| Term | Definition | Example |
+|------|------------|---------|
+| **Customer InfoHub** | Per-account shareable knowledge vault for customer-facing deliverables. | Solution architecture, ADRs, POC plans |
+| **Internal Account Hub** | Per-account vendor-only operational knowledge. | Competitive intelligence, meeting notes, risk assessments |
+| **Global Knowledge Vault** | Cross-account anonymized institutional learning repository. | Best practices, winning patterns, lessons learned |
+| **Domain** | Specialist area orthogonal to archetype. Determines which specialist agents and playbooks apply. | `security`, `search`, `observability` |
+
 ### Governance
 
 | Term | Definition | Example |
 |------|------------|---------|
 | **Checklist** | Machine-readable validation rules with assertions, severity, auto-fix. | `CHK_PRE_001`, `CHK_NODE_003` |
 | **Gap Scan** | Compliance check comparing Blueprint Instance against Reference Blueprint. | PB_971 output |
-| **Signal** | Event emitted by agents to trigger downstream actions. | `SIG_ART_001` (artifact created) |
-| **Agent** | AI-assisted actor with defined capabilities, boundaries, thresholds. | `sa_agent`, `risk_radar_agent` |
+| **Signal** | Event emitted by agents to trigger downstream actions. 53 signals across 12 categories. | `SIG_ART_001` (artifact created) |
+| **Agent** | AI-assisted actor with defined capabilities, boundaries, thresholds. 33 agents in 3 layers. | `sa_agent`, `risk_radar_agent` |
 | **Provenance** | Metadata tracking artifact origin (who, when, from what source). | `created_by: PB_201`, `source_run: run_123` |
+| **Intelligence Layer** | Signal-processing agents for market, company, and technology intelligence. | ACI, II, Tech Scout, MNA agents |
 
 ---
 
@@ -272,3 +349,4 @@ EA Agentic Lab is a multi-agent governance platform that enforces structured acc
 | 1.0 | 2026-01-23 | - | Initial PRD |
 | 1.1 | 2026-01-23 | - | Added glossary with corrected terminology (Blueprint vs Bundle) |
 | 1.2 | 2026-01-23 | - | Terminology Model v2: Archetype → Reference Blueprint → Blueprint Instance hierarchy |
+| 1.3 | 2026-02-28 | - | Major update to match current implementation: 33 agents (was 24), three-vault knowledge architecture (was single InfoHub), added User Interface section (Next.js + iOS), added Intelligence Layer section, updated tech stack and dependencies, updated success criteria with current progress |

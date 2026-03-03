@@ -27,6 +27,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MetricCard } from "@/components/metric-card";
 import { HelpPopover } from "@/components/help-popover";
 
 function formatLabel(s: string): string {
@@ -404,322 +406,406 @@ function BlueprintViewContent() {
   const displayName = String(meta?.name || blueprint?.blueprint_id || id);
   const description = String(meta?.description || "");
 
+  const archetypeInfo = (archetypesData as Record<string, unknown>)?.archetypes as Record<string, Record<string, unknown>> | undefined;
+  const thisArchetype = archetypeInfo?.[archetype];
+  const archetypeSignals = thisArchetype?.signals as string[] | undefined;
+  const archetypeComplexity = thisArchetype?.complexity as string | undefined;
+  const archetypeDuration = thisArchetype?.typical_duration_weeks;
+  const tracks = (tracksData as Record<string, unknown>)?.tracks as Record<string, Record<string, unknown>> | undefined;
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <div className="min-w-0 flex-1">
+      <div>
+        <div className="flex items-center gap-3 mb-1">
           <h1 className="text-2xl font-bold truncate">{displayName}</h1>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <Badge className={`text-xs border ${ARCHETYPE_COLORS[archetype] || "bg-muted text-muted-foreground"}`}>
-              {formatLabel(archetype)}
-            </Badge>
-            <span className="text-sm font-mono text-muted-foreground">{id}</span>
-          </div>
+          <Badge className={`text-xs border ${ARCHETYPE_COLORS[archetype] || "bg-muted text-muted-foreground"}`}>
+            {formatLabel(archetype)}
+          </Badge>
+          <span className="text-sm font-mono text-muted-foreground">{id}</span>
         </div>
+        {description && (
+          <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+        )}
       </div>
 
-      {description && (
-        <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
-      )}
-
-      {/* Blueprint overview: why and how */}
-      {(() => {
-        const archetypeInfo = (archetypesData as Record<string, unknown>)?.archetypes as Record<string, Record<string, unknown>> | undefined;
-        const thisArchetype = archetypeInfo?.[archetype];
-        const archetypeSignals = thisArchetype?.signals as string[] | undefined;
-        const archetypeComplexity = thisArchetype?.complexity as string | undefined;
-        const archetypeDuration = thisArchetype?.typical_duration_weeks;
-        const tracks = (tracksData as Record<string, unknown>)?.tracks as Record<string, Record<string, unknown>> | undefined;
-
-        if (!thisArchetype && !tracks) return null;
-
-        return (
-          <Card className="border-blue-600/20 bg-blue-950/10">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Info className="h-4 w-4 text-blue-400" />
-                Why this Blueprint
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-              {thisArchetype && (
-                <div>
-                  <p className="text-muted-foreground leading-relaxed">
-                    This blueprint governs <strong className="text-foreground">{formatLabel(archetype)}</strong> engagements,
-                    where the goal is to {String(thisArchetype.description).toLowerCase()}.
-                    {archetypeComplexity && (
-                      <> Complexity is rated <strong className="text-foreground">{formatLabel(archetypeComplexity)}</strong></>
-                    )}
-                    {!!archetypeDuration && (
-                      <>, with a typical timeline of <strong className="text-foreground">{String(archetypeDuration)} weeks</strong></>
-                    )}
-                    .
-                  </p>
-                  {archetypeSignals && archetypeSignals.length > 0 && (
-                    <p className="text-muted-foreground mt-2">
-                      Classification signals: {archetypeSignals.map((s) => formatLabel(String(s))).join(", ")}.
-                      When these signals are detected in an engagement profile, the system assigns this archetype.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div>
-                <p className="font-medium text-foreground mb-1">How playbooks are selected</p>
-                <p className="text-muted-foreground leading-relaxed">
-                  Playbook composition follows a layered model. A set of <strong className="text-foreground">base playbooks</strong> is
-                  required for every engagement regardless of service tier, covering fundamentals like stakeholder
-                  mapping and competitive analysis. On top of this base, each <strong className="text-foreground">engagement track</strong> (service tier)
-                  adds track-specific required and optional playbooks that match the depth and SLA of that tier.
-                </p>
-                <ul className="mt-2 space-y-1 text-muted-foreground">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                    <span><strong className="text-foreground">Required</strong>: automatically activated when the blueprint is instantiated for a node</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Target className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5" />
-                    <span><strong className="text-foreground">Optional</strong>: activated by a trigger condition (e.g., a signal or stakeholder event)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Ban className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
-                    <span><strong className="text-foreground">Blocked</strong>: explicitly excluded at lower tiers due to resource or depth requirements</span>
-                  </li>
-                </ul>
-              </div>
-
-              {tracks && mergedTracks.length > 0 && (
-                <div>
-                  <p className="font-medium text-foreground mb-1">Tracks in this blueprint</p>
-                  <div className="flex flex-wrap gap-2">
-                    {mergedTracks.map((t) => {
-                      const trackInfo = tracks[t.key] as Record<string, unknown> | undefined;
-                      return (
-                        <div key={t.key} className="flex items-center gap-1.5">
-                          <Badge className={`text-xs border ${TRACK_BADGE_COLORS[t.key] || "bg-muted text-muted-foreground"}`}>
-                            {formatLabel(t.key)}
-                          </Badge>
-                          {trackInfo && (
-                            <span className="text-xs text-muted-foreground">
-                              {String(trackInfo.description || "")}
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        );
-      })()}
-
-      {/* Summary strip */}
+      {/* Metric cards */}
       {summary && (
-        <Card className="bg-muted/30">
-          <CardContent className="p-4">
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-              <span className="inline-flex items-center gap-1.5">
-                <Layers className="h-4 w-4 text-muted-foreground" />
-                <strong>{summary.playbookCount}</strong> unique playbooks across
-                <strong>{summary.trackCount}</strong> tracks
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <LayoutGrid className="h-4 w-4 text-muted-foreground" />
-                <strong>{summary.canvasCount}</strong> canvas types
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Zap className="h-4 w-4 text-muted-foreground" />
-                <strong>{summary.signalCount}</strong> expected signals
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Shield className="h-4 w-4 text-muted-foreground" />
-                <strong>{summary.checklistCount}</strong> validation checks
-              </span>
-            </div>
-
-            {summary.phases.length > 0 && (
-              <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4 shrink-0" />
-                <div className="flex items-center gap-1 flex-wrap">
-                  {summary.phases.map((phase, i) => (
-                    <span key={phase} className="inline-flex items-center gap-1">
-                      {i > 0 && <ArrowRight className="h-3 w-3" />}
-                      <span>{phase}</span>
-                    </span>
-                  ))}
-                  <ArrowRight className="h-3 w-3" />
-                  <strong className="text-foreground">{summary.totalWeeks}w total</strong>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <MetricCard label="Playbooks" value={summary.playbookCount} />
+          <MetricCard label="Tracks" value={summary.trackCount} />
+          <MetricCard label="Signals" value={summary.signalCount} />
+          <MetricCard label="Checks" value={summary.checklistCount} />
+        </div>
       )}
 
-      {/* Merged track composition */}
-      {mergedTracks.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold mb-1 flex items-center gap-2">
-            <Layers className="h-5 w-5" />
-            Track Composition
-            <HelpPopover title="What is track composition?">
-              Each track receives a different set of playbooks and canvases.
-              Base playbooks are inherited by all tracks. Track-specific
-              playbooks add depth at higher tiers. Some playbooks are
-              explicitly blocked at lower tiers to match resource constraints.
-            </HelpPopover>
-          </h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Each card shows the complete picture for a track: base playbooks inherited by all
-            tracks, track-specific additions, optional trigger-based playbooks, and which
-            playbooks are blocked at that tier.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {mergedTracks.map((track) => (
-              <MergedTrackCard key={track.key} track={track} />
+      {/* Timeline strip */}
+      {summary && summary.phases.length > 0 && (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
+          <Clock className="h-4 w-4 shrink-0" />
+          <div className="flex items-center gap-1 flex-wrap">
+            {summary.phases.map((phase, i) => (
+              <span key={phase} className="inline-flex items-center gap-1">
+                {i > 0 && <ArrowRight className="h-3 w-3" />}
+                <span>{phase}</span>
+              </span>
             ))}
+            <ArrowRight className="h-3 w-3" />
+            <strong className="text-foreground">{summary.totalWeeks}w total</strong>
           </div>
         </div>
       )}
 
-      {/* Checklists */}
-      {checklists && Object.keys(checklists).length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Shield className="h-4 w-4" />
-              Validation Checklists
-              <HelpPopover title="Phase gate validation">
-                Each checklist defines mandatory conditions that must be met
-                before an engagement can advance to the next phase. Agents
-                evaluate these automatically and flag gaps.
-              </HelpPopover>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {Object.entries(checklists).map(([phase, items]) => (
-                <div key={phase}>
-                  <p className="text-sm font-medium capitalize mb-1.5">{formatLabel(phase)}</p>
-                  <ul className="space-y-2">
-                    {Array.isArray(items) && items.map((item, i) => (
-                      <ChecklistItemRow
-                        key={i}
-                        ruleId={String(item)}
-                        checkDefs={checkDefs as Record<string, CheckDefEntry> | undefined}
-                      />
-                    ))}
+      {/* Showcase banner */}
+      <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-blue-500/20 bg-blue-500/5 text-[11px] text-muted-foreground leading-relaxed">
+        <Info className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5" />
+        <span>
+          <span className="font-medium text-blue-400">Reference blueprint.</span>{" "}
+          This is a template for {formatLabel(archetype)} engagements, not a live instance.
+          Review and adapt when instantiating for a specific node.
+        </span>
+      </div>
+
+      {/* Tabbed navigation */}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="w-full justify-start">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="tracks">Tracks</TabsTrigger>
+          <TabsTrigger value="validation">Validation</TabsTrigger>
+          <TabsTrigger value="signals">Signals</TabsTrigger>
+          <TabsTrigger value="definition">Definition</TabsTrigger>
+        </TabsList>
+
+        {/* Overview tab */}
+        <TabsContent value="overview" className="space-y-4 mt-3">
+          {(thisArchetype || tracks) && (
+            <Card className="border-blue-600/20 bg-blue-950/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Info className="h-4 w-4 text-blue-400" />
+                  Why this Blueprint
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm">
+                {thisArchetype && (
+                  <div>
+                    <p className="text-muted-foreground leading-relaxed">
+                      This blueprint governs <strong className="text-foreground">{formatLabel(archetype)}</strong> engagements,
+                      where the goal is to {String(thisArchetype.description).toLowerCase()}.
+                      {archetypeComplexity && (
+                        <> Complexity is rated <strong className="text-foreground">{formatLabel(archetypeComplexity)}</strong></>
+                      )}
+                      {!!archetypeDuration && (
+                        <>, with a typical timeline of <strong className="text-foreground">{String(archetypeDuration)} weeks</strong></>
+                      )}
+                      .
+                    </p>
+                    {archetypeSignals && archetypeSignals.length > 0 && (
+                      <p className="text-muted-foreground mt-2">
+                        Classification signals: {archetypeSignals.map((s) => formatLabel(String(s))).join(", ")}.
+                        When these signals are detected in an engagement profile, the system assigns this archetype.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <p className="font-medium text-foreground mb-1">How playbooks are selected</p>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Playbook composition follows a layered model. A set of <strong className="text-foreground">base playbooks</strong> is
+                    required for every engagement regardless of service tier, covering fundamentals like stakeholder
+                    mapping and competitive analysis. On top of this base, each <strong className="text-foreground">engagement track</strong> (service tier)
+                    adds track-specific required and optional playbooks that match the depth and SLA of that tier.
+                  </p>
+                  <ul className="mt-2 space-y-1 text-muted-foreground">
+                    <li className="flex items-start gap-2">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                      <span><strong className="text-foreground">Required</strong>: automatically activated when the blueprint is instantiated for a node</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Target className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5" />
+                      <span><strong className="text-foreground">Optional</strong>: activated by a trigger condition (e.g., a signal or stakeholder event)</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <Ban className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
+                      <span><strong className="text-foreground">Blocked</strong>: explicitly excluded at lower tiers due to resource or depth requirements</span>
+                    </li>
                   </ul>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Signals & Success Criteria side-by-side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {signals && signals.length > 0 && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Zap className="h-4 w-4" />
-                Expected Signals
-                <HelpPopover title="Progress signals">
-                  Time-bound indicators the blueprint expects during the
-                  engagement. Agents monitor for these signals and escalate
-                  when they are overdue, keeping the engagement on track.
-                </HelpPopover>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2">
-                {signals.map((sig, i) => (
-                  <li key={i} className="flex items-center justify-between text-sm">
-                    <div>
-                      <p className="font-medium">{String(sig.name || sig.signal_id)}</p>
-                      <p className="text-xs font-mono text-muted-foreground">{String(sig.signal_id || "")}</p>
+                {tracks && mergedTracks.length > 0 && (
+                  <div>
+                    <p className="font-medium text-foreground mb-1">Tracks in this blueprint</p>
+                    <div className="flex flex-wrap gap-2">
+                      {mergedTracks.map((t) => {
+                        const trackInfo = tracks[t.key] as Record<string, unknown> | undefined;
+                        return (
+                          <div key={t.key} className="flex items-center gap-1.5">
+                            <Badge className={`text-xs border ${TRACK_BADGE_COLORS[t.key] || "bg-muted text-muted-foreground"}`}>
+                              {formatLabel(t.key)}
+                            </Badge>
+                            {trackInfo && (
+                              <span className="text-xs text-muted-foreground">
+                                {String(trackInfo.description || "")}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                    {sig.expected_by_week != null && (
-                      <Badge variant="outline" className="text-xs">
-                        Week {String(sig.expected_by_week)}
-                      </Badge>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-        {successCriteria && Object.keys(successCriteria).length > 0 && (
+          {/* Canvas + summary counts */}
+          {summary && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="bg-muted/50 rounded-lg border p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Canvas Types</span>
+                </div>
+                <span className="text-lg font-bold">{summary.canvasCount}</span>
+              </div>
+              <div className="bg-muted/50 rounded-lg border p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Unique Playbooks</span>
+                </div>
+                <span className="text-lg font-bold">{summary.playbookCount}</span>
+              </div>
+              <div className="bg-muted/50 rounded-lg border p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Zap className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Signals</span>
+                </div>
+                <span className="text-lg font-bold">{summary.signalCount}</span>
+              </div>
+              <div className="bg-muted/50 rounded-lg border p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Validation Checks</span>
+                </div>
+                <span className="text-lg font-bold">{summary.checklistCount}</span>
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Tracks tab */}
+        <TabsContent value="tracks" className="space-y-4 mt-3">
+          {mergedTracks.length > 0 ? (
+            <>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold flex items-center gap-2">
+                  <Layers className="h-4 w-4" />
+                  Track Composition
+                </h2>
+                <HelpPopover title="What is track composition?">
+                  Each track receives a different set of playbooks and canvases.
+                  Base playbooks are inherited by all tracks. Track-specific
+                  playbooks add depth at higher tiers. Some playbooks are
+                  explicitly blocked at lower tiers to match resource constraints.
+                </HelpPopover>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Each card shows the complete picture for a track: base playbooks inherited by all
+                tracks, track-specific additions, optional trigger-based playbooks, and which
+                playbooks are blocked at that tier.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {mergedTracks.map((track) => (
+                  <MergedTrackCard key={track.key} track={track} />
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground py-8 text-center">No track composition data available.</p>
+          )}
+        </TabsContent>
+
+        {/* Validation tab */}
+        <TabsContent value="validation" className="space-y-4 mt-3">
+          {checklists && Object.keys(checklists).length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Shield className="h-4 w-4" />
+                  Validation Checklists
+                  <HelpPopover title="Phase gate validation">
+                    Each checklist defines mandatory conditions that must be met
+                    before an engagement can advance to the next phase. Agents
+                    evaluate these automatically and flag gaps.
+                  </HelpPopover>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {Object.entries(checklists).map(([phase, items]) => (
+                    <div key={phase}>
+                      <p className="text-sm font-medium capitalize mb-1.5">{formatLabel(phase)}</p>
+                      <ul className="space-y-2">
+                        {Array.isArray(items) && items.map((item, i) => (
+                          <ChecklistItemRow
+                            key={i}
+                            ruleId={String(item)}
+                            checkDefs={checkDefs as Record<string, CheckDefEntry> | undefined}
+                          />
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {successCriteria && Object.keys(successCriteria).length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Success Criteria
+                  <HelpPopover title="Phase completion criteria">
+                    Measurable conditions that define success for each phase.
+                    Agents evaluate these expressions against live data to
+                    determine whether a phase is complete.
+                  </HelpPopover>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {Object.entries(successCriteria).map(([phase, items]) => (
+                    <div key={phase}>
+                      <p className="text-sm font-medium capitalize mb-1">{formatLabel(phase)}</p>
+                      <ul className="space-y-1">
+                        {Array.isArray(items) && items.map((item, i) => (
+                          <li key={i} className="text-xs text-muted-foreground font-mono">{String(item)}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {(!checklists || Object.keys(checklists).length === 0) && (!successCriteria || Object.keys(successCriteria).length === 0) && (
+            <p className="text-sm text-muted-foreground py-8 text-center">No validation data available.</p>
+          )}
+        </TabsContent>
+
+        {/* Signals tab */}
+        <TabsContent value="signals" className="space-y-4 mt-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {signals && signals.length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    Expected Signals
+                    <HelpPopover title="Progress signals">
+                      Time-bound indicators the blueprint expects during the
+                      engagement. Agents monitor for these signals and escalate
+                      when they are overdue, keeping the engagement on track.
+                    </HelpPopover>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {signals.map((sig, i) => (
+                      <li key={i} className="flex items-center justify-between text-sm">
+                        <div>
+                          <p className="font-medium">{String(sig.name || sig.signal_id)}</p>
+                          <p className="text-xs font-mono text-muted-foreground">{String(sig.signal_id || "")}</p>
+                        </div>
+                        {sig.expected_by_week != null && (
+                          <Badge variant="outline" className="text-xs">
+                            Week {String(sig.expected_by_week)}
+                          </Badge>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
+
+            {successCriteria && Object.keys(successCriteria).length > 0 && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Target className="h-4 w-4" />
+                    Success Criteria
+                    <HelpPopover title="Phase completion criteria">
+                      Measurable conditions that define success for each phase.
+                      Agents evaluate these expressions against live data to
+                      determine whether a phase is complete.
+                    </HelpPopover>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {Object.entries(successCriteria).map(([phase, items]) => (
+                      <div key={phase}>
+                        <p className="text-sm font-medium capitalize mb-1">{formatLabel(phase)}</p>
+                        <ul className="space-y-1">
+                          {Array.isArray(items) && items.map((item, i) => (
+                            <li key={i} className="text-xs text-muted-foreground font-mono">{String(item)}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {(!signals || signals.length === 0) && (!successCriteria || Object.keys(successCriteria).length === 0) && (
+            <p className="text-sm text-muted-foreground py-8 text-center">No signals data available.</p>
+          )}
+        </TabsContent>
+
+        {/* Definition tab */}
+        <TabsContent value="definition" className="mt-3">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Target className="h-4 w-4" />
-                Success Criteria
-                <HelpPopover title="Phase completion criteria">
-                  Measurable conditions that define success for each phase.
-                  Agents evaluate these expressions against live data to
-                  determine whether a phase is complete.
+                <FileCode2 className="h-4 w-4" />
+                Blueprint Definition
+                <HelpPopover title="Blueprint YAML">
+                  The raw YAML source that defines this reference blueprint. It
+                  contains the playbook composition rules per track, canvas
+                  requirements, validation checklists, expected signals, and
+                  success criteria.
                 </HelpPopover>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {Object.entries(successCriteria).map(([phase, items]) => (
-                  <div key={phase}>
-                    <p className="text-sm font-medium capitalize mb-1">{formatLabel(phase)}</p>
-                    <ul className="space-y-1">
-                      {Array.isArray(items) && items.map((item, i) => (
-                        <li key={i} className="text-xs text-muted-foreground font-mono">{String(item)}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+              <div className="rounded-md border overflow-hidden">
+                <CodeMirror
+                  value={rawData?.content || ""}
+                  extensions={[yamlLang()]}
+                  theme="dark"
+                  height="auto"
+                  maxHeight="80vh"
+                  editable={false}
+                  readOnly={true}
+                  basicSetup={{
+                    lineNumbers: true,
+                    foldGutter: true,
+                    highlightActiveLineGutter: false,
+                    highlightActiveLine: false,
+                  }}
+                />
               </div>
             </CardContent>
           </Card>
-        )}
-      </div>
-
-      {/* Raw YAML */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileCode2 className="h-4 w-4" />
-            Blueprint Definition
-            <HelpPopover title="Blueprint YAML">
-              The raw YAML source that defines this reference blueprint. It
-              contains the playbook composition rules per track, canvas
-              requirements, validation checklists, expected signals, and
-              success criteria.
-            </HelpPopover>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border overflow-hidden">
-            <CodeMirror
-              value={rawData?.content || ""}
-              extensions={[yamlLang()]}
-              theme="dark"
-              height="auto"
-              maxHeight="80vh"
-              editable={false}
-              readOnly={true}
-              basicSetup={{
-                lineNumbers: true,
-                foldGutter: true,
-                highlightActiveLineGutter: false,
-                highlightActiveLine: false,
-              }}
-            />
-          </div>
-        </CardContent>
-      </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

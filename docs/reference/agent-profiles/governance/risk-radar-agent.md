@@ -1,101 +1,122 @@
 ---
 title: "Risk Radar Agent"
-description: "Surfaces risks early and keeps them visible through classification and tracking"
+description: "Digital twin for extract decisions, process meeting notes, risk radar"
 category: "reference"
-keywords: ["risk_radar_agent", "governance", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["risk_radar_agent", "governance", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
+
 
 # Risk Radar Agent
 
-The Risk Radar Agent detects, classifies, and tracks risks before they become issues. It scans meeting notes, decisions, action trackers, and communication channels for both explicit risk mentions and implicit signals like "running behind" or "no response from". Every risk receives a severity rating, an owner, and a review cadence to ensure nothing falls through the cracks.
+The Risk Radar Agent is the digital twin of the Risk Radar role. It operates as a single agent with 3 runbooks covering extract decisions, process meeting notes, and risk radar. The Risk Radar Agent classifies, tracks, and escalates risks across engagements. It does not extract risks from source material (that is the Meeting Notes Agent's job), but once a risk is surfaced, it owns the full lifecycle: classification by severity and likelihood, owner assignment, mitigation tracking, pattern detection across accounts, and escalation when thresholds are breached.
+
+Its operating principle: early warning over post-mortem.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| **Agent ID** | `risk_radar_agent` |
-| **Team** | Governance |
-| **Category** | Entropy Reduction |
-| **Purpose** | Surface risks early and keep them visible |
+| **Agent ID** | `risk-radar-agent` |
+| **Role** | Risk Radar (Entropy Reduction) |
+| **Mode** | Human-paired |
+| **Runbooks** | 3 |
+| **Prompts** | 10 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 3 |
 
-## Core Functions
 
-The Risk Radar operates across three detection modes, classifies risks by severity and category, and maintains a living risk register with defined review cadences.
+## Runbooks
 
-- Detect explicit risks (keywords: "risk", "concern", "blocker", "delay", "issue")
-- Detect implicit risks (signals: "might not make", "running behind", "waiting on", "no response from")
-- Derive risks from data patterns (action overdue > 5 days, decision pending > 10 days, health score < 70)
-- Classify by severity (critical, high, medium, low) and category (technical, commercial, relationship, competitive, timeline, resource, compliance)
-- Calculate risk exposure as impact x probability
-- Track risk lifecycle: Identified -> Assessed -> Mitigating -> Monitoring -> Mitigated / Accepted / Materialized
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Extract Decisions
+
+Extract, validate, and register decisions from any source (meetings, emails, discussions) into the decision log
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `extract_decisions_analyze` | Analyze input |
+| 2 | `extract_decisions_synthesize` | Synthesize findings |
+| 3 | `extract_decisions_output` | Generate output |
+
+
+### Process Meeting Notes
+
+Extract decisions, actions, risks, and open questions from meeting notes or transcripts into structured, decision-grade output
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `process_meeting_notes_analyze` | Analyze input |
+| 2 | `process_meeting_notes_synthesize` | Synthesize findings |
+| 3 | `process_meeting_notes_output` | Generate output |
+
+
+### Risk Radar
+
+Scan sources for risk signals and update risk register. Then classify and enrich newly detected risk, then prepare weekly risk review summary, and finally generate escalation alert for critical risk.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `scan_for_risks` | Scan sources for risk signals and update risk register |
+| 2 | `classify_risk` | Classify and enrich newly detected risk |
+| 3 | `weekly_risk_review` | Prepare weekly risk review summary |
+| 4 | `risk_escalation` | Generate escalation alert for critical risk |
+
 
 ## Scope Boundaries
 
-This agent classifies and tracks risks but does not create mitigation plans or make acceptance decisions. The following responsibilities belong to other agents.
+The agent does not extract risks from meetings (Meeting Notes' domain) (handoff to Leadership), create mitigation plans (owner responsibility) (handoff to Leadership), make risk acceptance decisions (handoff to Leadership), assess technical feasibility (SA Agent's domain) (handoff to Leadership), evaluate commercial risk (AE Agent's domain) (handoff to Leadership), or invent risks not raised (handoff to Leadership).
 
-- Does not extract risks from meetings (Meeting Notes Agent's domain)
-- Does not create mitigation plans (owner responsibility)
-- Does not make risk acceptance decisions
-- Does not assess technical feasibility (SA Agent's domain)
-- Does not evaluate commercial risk (AE Agent's domain)
-- Does not invent risks that were not raised or detected
 
-## Triggers
+## Inbound Handoffs
 
-The agent activates on events, scheduled scans, and keyword detection across data sources.
+Other agents route relevant signals to this agent for processing.
 
-- `meeting_note_published`, scan notes for risk signals
-- `decision_made`, evaluate decisions for risk implications
-- `action_blocked`, blocked actions signal delivery risk
-- `health_score_dropped`, health changes trigger risk review
-- Scheduled: daily scan weekdays (cron `0 9 * * 1-5`), weekly risk review Mondays (cron `0 10 * * 1`)
+| Source Agent | Trigger |
+|-------------|---------|
+| Meeting Notes Agent | Risks mentioned in meetings |
+| Support Agent | Support-identified risks |
+| Delivery Agent | Delivery risks |
 
-## Handoffs
 
-### Outbound (this agent -> others)
+## Operating Modes
 
-| Trigger | Receiving Agent | Condition |
-|---------|-----------------|-----------|
-| Critical severity risk | Senior Manager Agent | Immediate notification, severity = critical |
-| Risk mitigation actions needed | Nudger Agent | Mitigation actions created for tracking |
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-### Inbound (others -> this agent)
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-| Source Agent | Artifact | Action Required |
-|--------------|----------|-----------------|
-| Meeting Notes Agent | Risks mentioned in meetings | Classify severity and assign owner |
-| CA Agent (SK_CA_001) | Support-originated risks | Add to risk register |
-| Delivery Agent | Delivery risks | Classify and track |
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-## Escalation Rules
 
-Escalation severity and timing are determined by the risk classification framework. Critical risks trigger immediate notifications.
+## Knowledge Base
 
-- Severity = critical: immediate notification to Senior Manager and account lead
-- Severity = high: notify risk owner and team lead within 24 hours
-- Pattern detected (3+ similar risks across accounts): escalate to Senior Manager with pattern analysis
-- Risk review cadence: critical = daily, high = every 2 days, medium = weekly, low = bi-weekly
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
 
-## Quality Gates
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `classification-examples.yaml` | Risk Classification, Pattern Detection | Classification examples |
+| `error-handling.yaml` | Insufficient Evidence, Conflicting Evidence, Ambiguous Severity | Error handling |
+| `output-schemas.yaml` | Risk Classification, Risk Register Summary | Output schemas |
 
-Every risk in the register must meet these standards to maintain data integrity and actionability.
 
-- All risks have an assigned owner
-- All risks have a severity classification
-- Critical risks have a mitigation plan
-- No duplicate risks in the register
-- Stale risks flagged (no update > 14 days)
+## Output Artifacts
 
-## Personality Traits
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-| Dimension | Description |
-|-----------|-------------|
-| **Tone** | Vigilant, precise, action-oriented |
-| **Values** | Early warning over post-mortem, patterns reveal systemic issues, every risk deserves attention |
-| **Priorities** | 1. Critical risk identification, 2. Accurate classification, 3. Pattern detection, 4. Mitigation tracking |
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Artifacts | `{account}-artifacts.md` | artifacts |
+| Alerts | `{account}-alerts.md` | alerts |
+| Reports | `{account}-reports.md` | reports |
+
 
 ## Source Files
 
-- Agent config: `domain/agents/governance/agents/risk_radar_agent.yaml`
-- Personality: `domain/agents/governance/personalities/risk_radar_personality.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/governance/risk-radar-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/governance/agents/risk_radar_agent.yaml` | Agent configuration |
+| `domain/agents/governance/personalities/risk_radar_personality.yaml` | Behavioral specification |
+| `domain/agents/governance/prompts/tasks.yaml` | 10 CAF prompts across 3 domains |

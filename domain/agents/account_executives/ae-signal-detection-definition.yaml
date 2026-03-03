@@ -1,0 +1,247 @@
+# AE Commercial Signal Detection Agent
+# Sub-agent of Account Executive Agent (ae-agent)
+# Owns: budget signal scanning, competitive threat detection, expansion opportunities
+#
+# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+
+agentspec_version: "26.1.0"
+component_type: Agent
+
+id: ae-signal-detection-agent
+name: AE Signal Detection Agent
+description: >
+  Budget shifts, competitive mentions, and expansion hints hide in emails,
+  Slack threads, and meeting notes. This agent surfaces those commercial
+  signals before they become surprises, classifying severity and citing the
+  exact source so the AE can act with confidence.
+
+metadata:
+  definition_version: "0.1.0"
+  parent_agent: ae-agent
+  tags:
+    - budget-signals
+    - competitive-threat
+    - expansion
+    - signal-detection
+  responsibility: >
+    Detect commercial signals early from customer communications and surface
+    them with evidence, severity classification, and recommended actions.
+
+system_prompt: |
+  You are a Commercial Signal Detection Agent, part of the Account Executive
+  intelligence system. Your job is to find commercial signals in communications.
+
+  You MUST:
+  - Scan communications for budget signals (availability, constraints, fiscal timing)
+  - Detect competitive activity with threat level assessment
+  - Identify upsell/cross-sell opportunities from usage and conversation signals
+  - Classify signal severity with specific evidence
+  - Write risk alerts for HIGH severity signals
+
+  You MUST NOT:
+  - Access CRM data directly (you work from communications content)
+  - Diagnose deal health or stall causes (Deal Diagnosis Agent's domain)
+  - Manage pipeline metrics (Pipeline Management Agent's domain)
+  - Invent competitive positioning without explicit mention in source content
+  - Assume budget amounts not explicitly stated
+
+  Every signal you detect must cite the source (email, Slack, meeting notes)
+  and the specific text that triggered detection.
+
+human_in_the_loop: true
+
+tools:
+  - component_type: ClientTool
+    id: read-communications
+    name: Read Communications
+    description: Access Slack threads, email content, and meeting notes for signal detection
+    requires_confirmation: false
+    inputs:
+      - title: source_type
+        type: string
+      - title: account_name
+        type: string
+    outputs:
+      - title: content
+        type: string
+    x-ea-agent:
+      risk: low
+
+  - component_type: ClientTool
+    id: write-risk-alert
+    name: Write Risk Alert
+    description: Save commercial signal alert to InfoHub risk register
+    requires_confirmation: true
+    inputs:
+      - title: risk
+        type: object
+      - title: destination_path
+        type: string
+    outputs:
+      - title: status
+        type: string
+    x-ea-agent:
+      risk: medium
+
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from account executive about signal context
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+
+toolboxes:
+  - component_type: Toolbox
+    id: signal-intelligence
+    name: Signal Intelligence
+    description: Commercial signal data available to peer agents for deal context enrichment
+    tools:
+      - id: get-commercial-signals
+        name: Get Commercial Signals
+        description: Returns classified commercial signals (budget, competitive, expansion) for an account
+        inputs:
+          - title: account_name
+            type: string
+          - title: time_period
+            type: string
+        outputs:
+          - title: signals
+            type: array
+      - id: get-risk-signals
+        name: Get Risk Signals
+        description: Returns risk-classified signals with severity and source citations
+        inputs:
+          - title: account_name
+            type: string
+        outputs:
+          - title: risk_signals
+            type: array
+specialized_agents: []
+
+flows:
+  - component_type: Flow
+    id: commercial-signal-detection
+    name: Commercial Signal Detection
+    description: Detect budget signals, competitive threats, and expansion opportunities from customer communications.
+    inputs:
+      - title: account_context
+        type: object
+      - title: time_period
+        type: string
+      - title: usage_patterns
+        type: object
+    outputs:
+      - title: budget_signals
+        type: object
+      - title: competitive_assessment
+        type: object
+      - title: expansion_opportunities
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: ae-budget-signal-scan
+          input: account_context, time_period
+          description: Extract budget availability, constraints, fiscal timing, approval processes
+        - step: 2
+          prompt: ae-competitive-threat
+          input: account_context
+          description: Assess competitive activity, threat levels, differentiation, defensive actions
+        - step: 3
+          prompt: ae-expansion-opportunity
+          input: account_context, usage_patterns
+          description: Identify upsell/cross-sell signals, value estimates, stakeholders to engage
+
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: "0.1"
+    capabilities:
+      - budget-signal-detection
+      - competitive-threat-assessment
+      - expansion-opportunity-detection
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+
+x-ea-agent:
+
+  prompt_registry:
+    ae-budget-signal-scan:
+      description: Identify budget-related signals in communications (availability, constraints, timing)
+      source: prompts/tasks.yaml#commercial_signals.budget_signal_scan
+      inputs:
+        - title: account_name
+          type: string
+        - title: time_period
+          type: string
+      outputs:
+        - title: budget_signals
+          type: object
+
+    ae-competitive-threat:
+      description: Identify competitive activity in account with threat level assessment
+      source: prompts/tasks.yaml#commercial_signals.competitive_threat
+      inputs:
+        - title: account_name
+          type: string
+      outputs:
+        - title: competitive_assessment
+          type: object
+
+    ae-expansion-opportunity:
+      description: Identify upsell and cross-sell opportunities from usage and conversation signals
+      source: prompts/tasks.yaml#commercial_signals.expansion_opportunity
+      inputs:
+        - title: account_name
+          type: string
+      outputs:
+        - title: expansion_opportunities
+          type: object
+
+  boundaries:
+    - Communications scanning only, does not access CRM data directly
+    - Does not diagnose deal health or manage pipeline metrics
+    - Does not prepare meeting materials
+    - Does not infer competitive positioning without explicit mention
+
+  permissions:
+    - Read all customer communications (email, Slack, meeting notes)
+    - Detect and classify commercial signals by severity
+    - Write signal-based risk alerts to InfoHub
+    - Forward competitive mentions to CI Agent via parent orchestrator
+
+  guardrails:
+    input_validation:
+      - Reject signal scans without specified time period or account context
+      - Reject competitive assessment without communication sources to scan
+    output_checks:
+      - All signals must be traceable to specific source, date, and text excerpt
+      - Threat levels must be justified by cited evidence
+      - Expansion estimates must be conservative and stated as ranges
+      - Severity classification must match reference criteria
+    signal_validation:
+      - Never assume budget amounts not explicitly mentioned
+      - Never infer competitive positioning without explicit mention in source
+      - Add [NEEDS VERIFICATION] when signal is ambiguous
+      - Distinguish between confirmed and inferred signals in output
+
+  knowledge:
+    references:
+      - path: references/signal-detection.yaml
+        description: Commercial risk keywords, severity indicators, competitive signals, budget patterns, compound signal patterns, contextual interpretation
+        load_when: Scanning any customer communication content
+      - path: references/competitive-displacement.yaml
+        description: Incumbent analysis framework, competitive positioning strategies, FUD patterns to detect
+        load_when: Detecting competitive activity or evaluating competitive threat severity

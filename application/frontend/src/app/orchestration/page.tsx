@@ -13,6 +13,7 @@ import {
   FileText,
   ChevronDown,
   Zap,
+  Presentation,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -255,6 +256,13 @@ export default function OrchestrationPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold">Process Orchestration</h1>
+              <button
+                onClick={() => window.open("/present/orchestration", "_blank")}
+                className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                <Presentation className="h-3.5 w-3.5" />
+                Present
+              </button>
               <HelpPopover title="What is Process Orchestration?">
                 Define how multiple agents collaborate on a workflow. The system
                 parses your process definition, detects conflicts where agents

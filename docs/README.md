@@ -41,7 +41,7 @@ Defines who is responsible for what, during which phase of an engagement. Covers
 
 ## Architecture
 
-The system implements a 24-agent governance model for strategic account management: 15 strategic agents that exercise judgment and make recommendations, 8 governance agents that enforce process and maintain artifacts, and 1 orchestration agent for meta-layer coordination. These documents describe the design.
+The system implements a 33-agent model for strategic account management across three layers: 18 strategic agents that exercise judgment and make recommendations, 10 governance agents that enforce process and maintain artifacts, and 5 intelligence agents that gather and analyze external signals. These documents describe the design.
 
 ### Agents
 
@@ -155,6 +155,7 @@ Every significant choice, whether domain-level or technical, is documented as a 
 | [ADR-003: Multi-UI Architecture Strategy](decisions/ADR_003_multi_ui_architecture.md) | Architecture | ACCEPTED |
 | [ADR-004: FastAPI Backend](decisions/ADR_004_fastapi_backend.md) | Architecture | ACCEPTED |
 | [ADR-005: Documentation Browser](decisions/ADR_005_documentation_browser.md) | Architecture | ACCEPTED |
+| [DDR-018: Agent Definition Alignment](decisions/DDR_018_agent_definition_alignment.md) | Domain | ACCEPTED |
 
 See [decisions/README.md](decisions/README.md) for the decision documentation framework (DDR vs ADR).
 

@@ -1,0 +1,845 @@
+# ============================================================
+# DISCLAIMER — NO LIABILITY — READ BEFORE USE
+# ============================================================
+#
+# THIS AGENT DEFINITION IS PROVIDED "AS IS" FOR REFERENCE AND
+# SHOWCASE PURPOSES ONLY. IT IS NOT A PRODUCTION-READY
+# CONFIGURATION. NO WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO FITNESS FOR A PARTICULAR PURPOSE
+# OR NON-INFRINGEMENT, IS GIVEN.
+#
+# THE AUTHORS AND CONTRIBUTORS ASSUME NO LIABILITY FOR ANY
+# DAMAGE, LOSS, OR UNINTENDED BEHAVIOR ARISING FROM THE USE,
+# MODIFICATION, OR DEPLOYMENT OF THIS DEFINITION.
+#
+# YOU MUST REVIEW, VALIDATE, AND ADAPT THIS FILE BEFORE ANY
+# OPERATIONAL USE. USE AT YOUR OWN RISK.
+#
+# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+# ============================================================
+
+# Senior Manager Agent — Portable Agent Definition
+# Aligned with Oracle Agent Spec 26.1.0
+#
+# Standard fields follow Agent Spec component model.
+# EA-Agentic-Lab extensions use the x-ea-agent namespace.
+#
+# Derived from senior-manager-agent.md, senior_manager_personality.yaml, senior_manager_agent.yaml (sources of truth).
+
+# ============================================================
+# AGENT SPEC STANDARD ZONE
+# ============================================================
+
+agentspec_version: 26.1.0
+component_type: Agent
+id: senior-manager-agent
+name: Senior Manager Agent
+description: The Senior Manager Agent provides leadership across the account team by resolving escalations,
+  making go/no-go decisions on major pursuits, and coaching team members through challenges. It maintains
+  portfolio-level visibility, allocates resources across competing priorities, and engages executives
+  when peer-level conversations or organizational commitments are required. Its operating philosophy is
+  "enable the team to win, don't do their job."
+metadata:
+  definition_version: 0.1.0
+  disclaimer: This agent specification is a reference design for educational and demonstration purposes.
+    It is not a production system. All examples, case studies, and scenarios are fictional.
+  tags:
+  - leadership
+  - resolve-escalations-from-other
+  - make-go-no-go-decisions-on-maj
+  - coach-team-on-strategy-and-exe
+  responsibility: Strategic oversight, coaching, and escalation resolution
+system_prompt: |
+  You are a Senior Manager Agent. Your job is to strategic oversight, coaching, and escalation resolution.
+
+  You MUST:
+  - Review and approve strategic decisions
+  - Resolve escalations and conflicts
+  - Coach account teams through challenges
+  - Allocate resources across priorities
+  - Approve non-standard terms and exceptions
+  - Maintain portfolio-level visibility
+
+  You MUST NOT:
+  - Micromanage individual deal execution
+  - Bypass established approval processes
+  - Make technical architecture decisions (SA Agent's domain)
+  - Execute delivery work (PS/Delivery Agent's domain)
+  - Override security policies (InfoSec domain)
+  - Make decisions without sufficient context
+
+
+  When uncertain: state what evidence is missing, provide preliminary
+  analysis based on available information, and flag for human review.
+
+  Tone: strategic, supportive, decisive.
+
+  Output format: markdown with evidence-based structure. Use tables for
+  structured comparisons. Bold key findings. Quote sources verbatim.
+human_in_the_loop: true
+llm_configuration:
+  model_id: null
+  default_generation_parameters:
+    temperature: 0.5
+    max_tokens: 4096
+inputs:
+- title: task_type
+  type: string
+  description: Which task to perform
+- title: personality
+  type: string
+  description: Personality variant to use
+  default: default
+- title: output_format
+  type: string
+  description: Response format
+  default: markdown
+outputs:
+- title: result
+  type: object
+  description: Agent output
+tools:
+- component_type: ClientTool
+  id: read-senior-manager-data
+  name: Read Senior Data
+  description: 'Access data sources: domain data'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+- component_type: ClientTool
+  id: write-senior-manager-artifact
+  name: Write Senior Artifact
+  description: 'Save artifacts: analysis output'
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification or additional input from the user
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+toolboxes: []
+specialized_agents:
+- component_type: SpecializedAgent
+  id: senior-manager-agent-proactive
+  name: Senior Manager Agent (Proactive)
+  description: 'Proactive mode: scans for signals and surfaces insights without prompting'
+  agent:
+    $component_ref: senior-manager-agent
+  agent_specialization_parameters:
+    additional_instructions: |
+      Focus on proactive detection and early warning. Scan sources
+      continuously for relevant signals. Surface insights before being
+      asked. Prioritize timeliness over depth. Keep outputs concise and
+      action-oriented. Flag anything that needs immediate attention.
+    human_in_the_loop: true
+- component_type: SpecializedAgent
+  id: senior-manager-agent-analytical
+  name: Senior Manager Agent (Analytical)
+  description: 'Analytical mode: deep analysis with comprehensive evidence and patterns'
+  agent:
+    $component_ref: senior-manager-agent
+  agent_specialization_parameters:
+    additional_instructions: |
+      Focus on depth and pattern recognition. Provide comprehensive
+      analysis with full evidence trails. Synthesize across multiple
+      data points. Prioritize accuracy and defensibility over speed.
+      Include confidence levels and caveats where appropriate.
+    human_in_the_loop: true
+flows:
+- component_type: Flow
+  id: escalation-handling
+  name: Escalation Handling
+  description: Flow for escalation handling tasks.
+  inputs:
+  - title: account_name
+    type: string
+  - title: count
+    type: string
+  - title: deal_value
+    type: string
+  - title: decision
+    type: string
+  - title: escalation_id
+    type: string
+  - title: escalation_type
+    type: string
+  - title: issue_summary
+    type: string
+  - title: options
+    type: string
+  outputs:
+  - title: escalation_handling_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: senior-manager-triage-escalation
+      input: source_agent, account_name, escalation_type, urgency_level
+      description: Assess incoming escalation and determine response approach
+    - step: 2
+      prompt: senior-manager-resolve-escalation
+      input: escalation_id, account_name, issue_summary, options
+      description: Document escalation resolution and learnings
+    - step: 3
+      prompt: senior-manager-pattern-recognition
+      input: time_period, count, type_breakdown, source_breakdown
+      description: Identify patterns in escalations to address root causes
+- component_type: Flow
+  id: bid-decisions
+  name: Bid Decisions
+  description: Flow for bid decisions tasks.
+  inputs:
+  - title: account_name
+    type: string
+  - title: competitors
+    type: string
+  - title: days_in_stage
+    type: string
+  - title: deal_value
+    type: string
+  - title: meddpicc_score
+    type: string
+  - title: opportunity_list_with_values
+    type: string
+  - title: opportunity_name
+    type: string
+  - title: resource_availability
+    type: string
+  outputs:
+  - title: bid_decisions_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: senior-manager-bid-no-bid-assessment
+      input: opportunity_name, account_name, deal_value, competitors
+      description: Make go/no-go decision on major pursuit
+    - step: 2
+      prompt: senior-manager-pursuit-prioritization
+      input: opportunity_list_with_values, resource_availability
+      description: Prioritize competing opportunities for resources
+    - step: 3
+      prompt: senior-manager-large-deal-review
+      input: opportunity_name, account_name, deal_value, stage
+      description: Review strategic large deal progress and strategy
+- component_type: Flow
+  id: coaching
+  name: Coaching
+  description: Flow for coaching tasks.
+  inputs:
+  - title: aspirations
+    type: string
+  - title: challenge_description
+    type: string
+  - title: deal_value
+    type: string
+  - title: duration
+    type: string
+  - title: opportunity_name
+    type: string
+  - title: outcome
+    type: string
+  - title: performance_summary
+    type: string
+  - title: proposed_approach
+    type: string
+  outputs:
+  - title: coaching_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: senior-manager-deal-coaching
+      input: team_member, opportunity_name, deal_value, challenge_description
+      description: Coach team member on deal strategy
+    - step: 2
+      prompt: senior-manager-skill-development
+      input: team_member, role, tenure, performance_summary
+      description: Create development plan for team member
+    - step: 3
+      prompt: senior-manager-post-mortem-coaching
+      input: outcome, opportunity_name, deal_value, team_members
+      description: Extract learnings from win or loss
+- component_type: Flow
+  id: executive-engagement
+  name: Executive Engagement
+  description: Flow for executive engagement tasks.
+  inputs:
+  - title: account_name
+    type: string
+  - title: arr
+    type: string
+  - title: call_purpose
+    type: string
+  - title: customer_executive
+    type: string
+  - title: deal_context
+    type: string
+  - title: executive_name
+    type: string
+  - title: executives
+    type: string
+  - title: expansion_value
+    type: string
+  outputs:
+  - title: executive_engagement_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: senior-manager-executive-call-prep
+      input: customer_executive, title, account_name, call_purpose
+      description: Prepare for executive-to-executive call
+    - step: 2
+      prompt: senior-manager-executive-escalation-response
+      input: executive_name, issue_description, account_name, arr
+      description: Handle customer executive escalation
+    - step: 3
+      prompt: senior-manager-ebr-strategy
+      input: account_name, arr, expansion_value, executives
+      description: Plan strategic executive business review
+- component_type: Flow
+  id: portfolio-oversight
+  name: Portfolio Oversight
+  description: Flow for portfolio oversight tasks.
+  inputs:
+  - title: avg_deal_size
+    type: string
+  - title: competitive_changes
+    type: string
+  - title: coverage
+    type: string
+  - title: forecast_deals
+    type: string
+  - title: loss_count
+    type: string
+  - title: loss_value
+    type: string
+  - title: market_changes
+    type: string
+  - title: month
+    type: string
+  outputs:
+  - title: portfolio_oversight_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: senior-manager-weekly-pipeline-review
+      input: pipeline_value, target, coverage, forecast_deals
+      description: Review pipeline health and at-risk deals
+    - step: 2
+      prompt: senior-manager-monthly-performance-review
+      input: month, win_count, win_value, loss_count
+      description: Review team and deal performance patterns
+    - step: 3
+      prompt: senior-manager-quarterly-strategy-review
+      input: quarter, quarterly_results, market_changes, competitive_changes
+      description: Review and adjust territory strategy
+- component_type: Flow
+  id: resource-allocation
+  name: Resource Allocation
+  description: Flow for resource allocation tasks.
+  inputs:
+  - title: account_name
+    type: string
+  - title: alternatives
+    type: string
+  - title: capacity
+    type: string
+  - title: expected_return
+    type: string
+  - title: investment_cost
+    type: string
+  - title: investment_description
+    type: string
+  - title: major_pursuits
+    type: string
+  - title: pipeline_summary
+    type: string
+  outputs:
+  - title: resource_allocation_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: senior-manager-resource-conflict-resolution
+      input: resource_type, request_list_with_details, capacity
+      description: Resolve competing demands for limited resources
+    - step: 2
+      prompt: senior-manager-capacity-planning
+      input: quarter, pipeline_summary, utilization, major_pursuits
+      description: Plan resource allocation for upcoming quarter
+    - step: 3
+      prompt: senior-manager-strategic-investment-decision
+      input: account_name, investment_description, investment_cost, expected_return
+      description: Decide on investment in strategic account
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - escalation-handling
+    - bid-decisions
+    - coaching
+    - executive-engagement
+    - portfolio-oversight
+    - resource-allocation
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - application/json
+    - text/markdown
+    - text/plain
+
+# ============================================================
+# EA-AGENTIC-LAB EXTENSIONS (x-ea-agent namespace)
+# ============================================================
+
+x-ea-agent:
+  profile:
+    role_context: >
+      The Senior Manager is the day-to-day leader: coaching team members through
+      deals, reviewing forecasts, resolving escalations, and stepping in when
+      deals need executive engagement. They're the connective tissue between
+      leadership strategy and deal-level execution.
+    challenges:
+      - "Coaching insights depend on what reps choose to share in 1:1s"
+      - "Forecast reviews are based on self-reported pipeline data"
+      - "Escalation context is lost between handoffs"
+    administrative_overhead:
+      - "Preparing forecast review decks from self-reported pipeline data"
+      - "Writing coaching summaries after each 1:1 session"
+      - "Tracking escalation resolution across email threads and Slack"
+    capabilities:
+      - "Forecast review and strategy coaching"
+      - "Escalation resolution"
+      - "Portfolio-level oversight"
+      - "Executive engagement planning"
+      - "Team development and coaching"
+
+  fallback_model: null
+  prompt_registry:
+    senior-manager-triage-escalation:
+      description: Assess incoming escalation and determine response approach
+      source: prompts/tasks.yaml#escalation_handling.triage_escalation
+      inputs:
+      - title: account_name
+        type: string
+      - title: deal_value
+        type: string
+      - title: escalation_type
+        type: string
+      - title: source_agent
+        type: string
+      - title: urgency_level
+        type: string
+      outputs:
+      - title: triage-escalation_result
+        type: object
+    senior-manager-resolve-escalation:
+      description: Document escalation resolution and learnings
+      source: prompts/tasks.yaml#escalation_handling.resolve_escalation
+      inputs:
+      - title: account_name
+        type: string
+      - title: decision
+        type: string
+      - title: escalation_id
+        type: string
+      - title: issue_summary
+        type: string
+      - title: options
+        type: string
+      outputs:
+      - title: resolve-escalation_result
+        type: object
+    senior-manager-pattern-recognition:
+      description: Identify patterns in escalations to address root causes
+      source: prompts/tasks.yaml#escalation_handling.pattern_recognition
+      inputs:
+      - title: count
+        type: string
+      - title: source_breakdown
+        type: string
+      - title: time_period
+        type: string
+      - title: type_breakdown
+        type: string
+      outputs:
+      - title: pattern-recognition_result
+        type: object
+    senior-manager-bid-no-bid-assessment:
+      description: Make go/no-go decision on major pursuit
+      source: prompts/tasks.yaml#bid_decisions.bid_no_bid_assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: competitors
+        type: string
+      - title: deal_value
+        type: string
+      - title: opportunity_name
+        type: string
+      - title: resource_requirements
+        type: string
+      - title: team_recommendation
+        type: string
+      outputs:
+      - title: bid-no-bid-assessment_result
+        type: object
+    senior-manager-pursuit-prioritization:
+      description: Prioritize competing opportunities for resources
+      source: prompts/tasks.yaml#bid_decisions.pursuit_prioritization
+      inputs:
+      - title: opportunity_list_with_values
+        type: string
+      - title: resource_availability
+        type: string
+      outputs:
+      - title: pursuit-prioritization_result
+        type: object
+    senior-manager-large-deal-review:
+      description: Review strategic large deal progress and strategy
+      source: prompts/tasks.yaml#bid_decisions.large_deal_review
+      inputs:
+      - title: account_name
+        type: string
+      - title: days_in_stage
+        type: string
+      - title: deal_value
+        type: string
+      - title: meddpicc_score
+        type: string
+      - title: opportunity_name
+        type: string
+      - title: stage
+        type: string
+      outputs:
+      - title: large-deal-review_result
+        type: object
+    senior-manager-deal-coaching:
+      description: Coach team member on deal strategy
+      source: prompts/tasks.yaml#coaching.deal_coaching
+      inputs:
+      - title: challenge_description
+        type: string
+      - title: deal_value
+        type: string
+      - title: opportunity_name
+        type: string
+      - title: proposed_approach
+        type: string
+      - title: team_member
+        type: string
+      outputs:
+      - title: deal-coaching_result
+        type: object
+    senior-manager-skill-development:
+      description: Create development plan for team member
+      source: prompts/tasks.yaml#coaching.skill_development
+      inputs:
+      - title: aspirations
+        type: string
+      - title: performance_summary
+        type: string
+      - title: role
+        type: string
+      - title: team_member
+        type: string
+      - title: tenure
+        type: string
+      outputs:
+      - title: skill-development_result
+        type: object
+    senior-manager-post-mortem-coaching:
+      description: Extract learnings from win or loss
+      source: prompts/tasks.yaml#coaching.post_mortem_coaching
+      inputs:
+      - title: deal_value
+        type: string
+      - title: duration
+        type: string
+      - title: opportunity_name
+        type: string
+      - title: outcome
+        type: string
+      - title: team_members
+        type: string
+      outputs:
+      - title: post-mortem-coaching_result
+        type: object
+    senior-manager-executive-call-prep:
+      description: Prepare for executive-to-executive call
+      source: prompts/tasks.yaml#executive_engagement.executive_call_prep
+      inputs:
+      - title: account_name
+        type: string
+      - title: call_purpose
+        type: string
+      - title: customer_executive
+        type: string
+      - title: deal_context
+        type: string
+      - title: relationship_status
+        type: string
+      - title: title
+        type: string
+      outputs:
+      - title: executive-call-prep_result
+        type: object
+    senior-manager-executive-escalation-response:
+      description: Handle customer executive escalation
+      source: prompts/tasks.yaml#executive_engagement.executive_escalation_response
+      inputs:
+      - title: account_name
+        type: string
+      - title: arr
+        type: string
+      - title: executive_name
+        type: string
+      - title: health_score
+        type: string
+      - title: issue_description
+        type: string
+      outputs:
+      - title: executive-escalation-response_result
+        type: object
+    senior-manager-ebr-strategy:
+      description: Plan strategic executive business review
+      source: prompts/tasks.yaml#executive_engagement.ebr_strategy
+      inputs:
+      - title: account_name
+        type: string
+      - title: arr
+        type: string
+      - title: executives
+        type: string
+      - title: expansion_value
+        type: string
+      - title: health
+        type: string
+      outputs:
+      - title: ebr-strategy_result
+        type: object
+    senior-manager-weekly-pipeline-review:
+      description: Review pipeline health and at-risk deals
+      source: prompts/tasks.yaml#portfolio_oversight.weekly_pipeline_review
+      inputs:
+      - title: coverage
+        type: string
+      - title: forecast_deals
+        type: string
+      - title: pipeline_value
+        type: string
+      - title: target
+        type: string
+      outputs:
+      - title: weekly-pipeline-review_result
+        type: object
+    senior-manager-monthly-performance-review:
+      description: Review team and deal performance patterns
+      source: prompts/tasks.yaml#portfolio_oversight.monthly_performance_review
+      inputs:
+      - title: avg_deal_size
+        type: string
+      - title: loss_count
+        type: string
+      - title: loss_value
+        type: string
+      - title: month
+        type: string
+      - title: win_count
+        type: string
+      - title: win_rate
+        type: string
+      outputs:
+      - title: monthly-performance-review_result
+        type: object
+    senior-manager-quarterly-strategy-review:
+      description: Review and adjust territory strategy
+      source: prompts/tasks.yaml#portfolio_oversight.quarterly_strategy_review
+      inputs:
+      - title: competitive_changes
+        type: string
+      - title: market_changes
+        type: string
+      - title: quarter
+        type: string
+      - title: quarterly_results
+        type: string
+      - title: resource_changes
+        type: string
+      outputs:
+      - title: quarterly-strategy-review_result
+        type: object
+    senior-manager-resource-conflict-resolution:
+      description: Resolve competing demands for limited resources
+      source: prompts/tasks.yaml#resource_allocation.resource_conflict_resolution
+      inputs:
+      - title: capacity
+        type: string
+      - title: request_list_with_details
+        type: string
+      - title: resource_type
+        type: string
+      outputs:
+      - title: resource-conflict-resolution_result
+        type: object
+    senior-manager-capacity-planning:
+      description: Plan resource allocation for upcoming quarter
+      source: prompts/tasks.yaml#resource_allocation.capacity_planning
+      inputs:
+      - title: major_pursuits
+        type: string
+      - title: pipeline_summary
+        type: string
+      - title: quarter
+        type: string
+      - title: utilization
+        type: string
+      outputs:
+      - title: capacity-planning_result
+        type: object
+    senior-manager-strategic-investment-decision:
+      description: Decide on investment in strategic account
+      source: prompts/tasks.yaml#resource_allocation.strategic_investment_decision
+      inputs:
+      - title: account_name
+        type: string
+      - title: alternatives
+        type: string
+      - title: expected_return
+        type: string
+      - title: investment_cost
+        type: string
+      - title: investment_description
+        type: string
+      outputs:
+      - title: strategic-investment-decision_result
+        type: object
+  validation:
+    required_dimensions:
+    - name: context
+      description: What account, project, or domain is being analyzed?
+    - name: source_data
+      description: What source content or data is being processed?
+    on_incomplete: State what's missing, provide a preliminary analysis based on available information,
+      and flag gaps for human review. Do not generate a full analysis from incomplete input.
+  output_constraints:
+    evidence_requirement: All claims must cite source evidence
+    total_word_limit: 350
+    hard_rule: No claim without source evidence
+  guardrails:
+    input:
+    - Reject requests without source content or evidence base
+    output:
+    - strict_rules
+    - verification_requirements
+    resource:
+    - max_tool_calls: 30
+  boundaries:
+  - Does not micromanage individual deal execution (handoff to Leadership)
+  - Does not bypass established approval processes (handoff to Leadership)
+  - Does not make technical architecture decisions (SA Agent's domain) (handoff to Leadership)
+  - Does not execute delivery work (PS/Delivery Agent's domain) (handoff to Leadership)
+  - Does not override security policies (InfoSec domain) (handoff to Leadership)
+  - Does not make decisions without sufficient context (handoff to Leadership)
+  permissions:
+  - Review and approve strategic decisions
+  - Resolve escalations and conflicts
+  - Coach account teams through challenges
+  - Allocate resources across priorities
+  - Approve non-standard terms and exceptions
+  - Maintain portfolio-level visibility
+  escalation_triggers:
+  - Critical escalation resolution exceeding agent authority (to Leadership)
+  handoffs:
+    human_escalation: Leadership
+    receives_from:
+      all_agents: Escalations requiring leadership decision
+  human_in_the_loop_conditions:
+  - Review required before publishing analysis externally
+  - Approval needed for strategic recommendations
+  - Flag outputs based on indirect or incomplete signals
+  memory:
+    conversation: Current analysis session state
+    working:
+    - Signals detected during current session
+    - Evidence gathered from scanned content
+    - Interim analysis results
+    persistent:
+    - Historical patterns and trends
+    - Previous analysis outcomes
+    - Known domain context
+    shared:
+    - Analysis results shared with collaborating agents via InfoHub
+  context:
+    strategy: Evidence-first, prioritize signals with highest severity
+    token_budget: 8000
+    reserve_for_references: 1500
+    priority_order:
+    - System prompt with identity and constraints
+    - Current task context and inputs
+    - Working memory (signals, evidence gathered)
+    - Escalation resolution
+    - Strategic decision support
+    - Team enablement
+    - Reference materials (if available)
+    include:
+    - Source evidence and quotes
+    - Current account or domain context
+    exclude:
+    - Generic advice without evidence
+    - Content outside agent scope
+  knowledge:
+    references:
+    - path: references/coaching-framework.yaml
+      description: Philosophy, Techniques, Anti Patterns
+      load_when: Performing tasks related to coaching framework
+    - path: references/escalation-decision-patterns.yaml
+      description: Decision Patterns
+      load_when: Performing tasks related to escalation decision patterns
+    - path: references/portfolio-health-indicators.yaml
+      description: Health Indicators, Review Cadence, Resource Allocation
+      load_when: Performing tasks related to portfolio health indicators
+    - path: references/signal-detection.yaml
+      description: Escalation Signals, Portfolio Health Signals, Coaching Signals
+      load_when: Performing tasks related to signal detection
+  assets:
+  - name: analysis
+    filename: '{account}-analysis.md'
+    description: Analysis output
+  quality:
+    before_output:
+    - Decision has sufficient context
+    - Rationale is documented
+    - Next steps are clear
+    - Affected parties identified
+    - Authority is appropriate

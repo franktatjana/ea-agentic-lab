@@ -1,90 +1,114 @@
 ---
-title: "Specialist Agent"
-description: "Domain expertise coordination and timely specialist engagement"
+title: "Specialist Engagement Agent"
+description: "Digital twin for engagement triage, technical deep dive, rfp poc"
 category: "reference"
-keywords: ["specialist_agent", "specialists", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["specialist_agent", "specialists", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
 
-# Specialist Agent
 
-The Specialist Agent ensures that deep technical expertise reaches engagements before complexity becomes a blocker. It monitors for signals that indicate when standard SA knowledge is insufficient, identifying the right specialist domain (Observability, Security, Search, Data Management) and routing engagement requests with the right context. Early specialist involvement prevents late-stage rework that delays POCs and erodes customer confidence.
+# Specialist Engagement Agent
+
+The Specialist Engagement Agent is the digital twin of the Specialist Engagement role. It operates as a single agent with 4 runbooks covering engagement triage, technical deep dive, rfp poc, and knowledge transfer. The Specialist Agent monitors RFP/POC stages and complex customer questions to detect when domain-specific expertise is required. It does not provide specialist-level guidance itself, but ensures the right domain specialist (Observability, Search, Security, or Data Management) is engaged at the right time. Early specialist involvement prevents late-stage rework and failed POCs.
+
+Its operating principle: early specialist engagement prevents late-stage rework.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| **Agent ID** | `specialist_agent` |
-| **Team** | specialists |
-| **Category** | Architecture |
-| **Purpose** | Ensure timely expert involvement |
+| **Agent ID** | `specialist-agent` |
+| **Role** | Specialist Engagement (Architecture) |
+| **Mode** | Human-paired |
+| **Runbooks** | 4 |
+| **Prompts** | 11 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 0 |
 
-## Core Functions
 
-The Specialist Agent acts as the routing layer between standard technical coverage and deep domain expertise, ensuring complexity triggers reach the right expert at the right time.
+## Runbooks
 
-- Identify when specialist expertise is needed based on complexity triggers
-- Capture deep technical decisions from RFP and POC phases
-- Highlight architecture concerns requiring specialist review
-- Track specialist engagement status across active accounts
-- Route to the correct specialist domain (Observability, Security, Search, etc.)
-- Assess complexity thresholds to determine engagement urgency
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Engagement Triage
+
+Qualify incoming specialist engagement request. Then prioritize multiple specialist requests, and finally define clear scope for specialist engagement.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `request_qualification` | Qualify incoming specialist engagement request |
+| 2 | `prioritization` | Prioritize multiple specialist requests |
+| 3 | `scope_definition` | Define clear scope for specialist engagement |
+
+
+### Technical Deep Dive
+
+Conduct deep architecture review. Then perform detailed sizing for complex scenario, and finally analyze complex performance issue.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `architecture_review` | Conduct deep architecture review |
+| 2 | `sizing_deep_dive` | Perform detailed sizing for complex scenario |
+| 3 | `performance_analysis` | Analyze complex performance issue |
+
+
+### Rfp Poc
+
+Prepare technical content for RFP response. Then design POC architecture and success criteria, and finally review POC results and prepare customer presentation.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `rfp_technical_response` | Prepare technical content for RFP response |
+| 2 | `poc_design` | Design POC architecture and success criteria |
+| 3 | `poc_review` | Review POC results and prepare customer presentation |
+
+
+### Knowledge Transfer
+
+Prepare handback to SA after specialist engagement, then document best practices from engagement.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `sa_handback` | Prepare handback to SA after specialist engagement |
+| 2 | `best_practice_doc` | Document best practices from engagement |
+
 
 ## Scope Boundaries
 
-The Specialist Agent does not provide specialist-level technical guidance itself or make decisions on a specialist's behalf. It is a routing and tracking agent, not a subject matter expert. Technical depth stays with the individual specialists (Security Specialist, Search Specialist, Observability Specialist) and the SA Agent for standard architecture decisions.
+The agent does not provide specialist-level technical guidance (handoff to Specialist Lead), or make decisions on specialist's behalf (handoff to Specialist Lead).
 
-## Playbooks Owned
 
-The Specialist Agent does not own dedicated numbered playbooks. It operates as the engagement orchestration layer that connects specialist expertise to the playbooks owned by other agents, particularly PB_101 (TOGAF ADR) and PB_204 (Risk Heat Map) where specialist input is required for complex scenarios.
+## Operating Modes
 
-## Triggers
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-The Specialist Agent activates when engagement complexity exceeds standard SA coverage or when domain-specific expertise is explicitly needed. The following thresholds and keywords define activation criteria across specialist domains.
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-- Observability: APM, SIEM, logs exceeding 100GB/day, metrics, traces
-- Search: NLP, vector search, RAG, search relevance, over 10M documents
-- Security: RBAC, compliance, audit, field-level security, encryption
-- Data Management: snapshot, disaster recovery, cross-cluster, lifecycle
-- High complexity: over 100 nodes, over 10TB, multi-region, regulatory compliance
-- Medium complexity: custom integration, performance tuning, migration
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-## Handoffs
 
-### Outbound (this agent -> others)
+## Knowledge Base
 
-| Trigger | Receiving Agent | Condition |
-|---------|-----------------|-----------|
-| Specialist engaged | SA Agent | Technical validation of specialist recommendations |
-| Domain insight | AE Agent | Commercial leverage from specialist findings |
-| Best practice | CA Agent | Implementation guidance for customer |
+No dedicated knowledge references.
 
-### Inbound (others -> this agent)
 
-| Source Agent | Artifact | Action Required |
-|--------------|----------|-----------------|
-| SA Agent | Specialist trigger detected | Route to appropriate specialist and track engagement |
+## Output Artifacts
 
-## Escalation Rules
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-The Specialist Agent escalates when specialist engagement is needed but resources are unavailable, or when complexity assessment indicates risk that requires leadership awareness.
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Tech Summary | `{account}-tech-summary.md` | Tech summary |
+| Specialist Engagement Recommendations | `{account}-specialist-engagement-recommendations.md` | Specialist engagement recommendations |
+| Best Practice Alignment Reports | `{account}-best-practice-alignment-reports.md` | Best practice alignment reports |
 
-- Specialist unavailable for critical engagement escalates to Specialist Lead
-- High complexity scenario without specialist coverage escalates to SA Agent and Senior Manager
-- RFP or POC requiring specialist input with tight deadline escalates for priority routing
-- Architecture concerns identified by specialist requiring design changes escalate to SA Agent
-
-## Personality Traits
-
-| Attribute | Value |
-|-----------|-------|
-| **Tone** | Precise, routing-focused, complexity-aware |
-| **Values** | Early specialist engagement prevents late-stage rework. Accurate routing saves specialist time |
-| **Priorities** | 1. Specialist trigger identification, 2. Complexity assessment, 3. Engagement tracking |
 
 ## Source Files
 
-- Agent config: `domain/agents/specialists/agents/specialist_agent.yaml`
-- Personality: `domain/agents/specialists/personalities/specialist_personality.yaml`
-- Task prompts: `domain/agents/specialists/prompts/tasks.yaml`
-- Sub-specialists: `domain/agents/specialists/security/`, `domain/agents/specialists/search/`, `domain/agents/specialists/observability/`
+| File | Purpose |
+|------|---------|
+| `domain/agents/specialists/specialist-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/specialists/agents/specialist_agent.yaml` | Agent configuration |
+| `domain/agents/specialists/personalities/specialist_personality.yaml` | Behavioral specification |
+| `domain/agents/specialists/prompts/tasks.yaml` | 11 CAF prompts across 4 domains |

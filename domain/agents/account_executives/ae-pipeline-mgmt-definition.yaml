@@ -1,0 +1,291 @@
+# AE Pipeline Management Agent
+# Sub-agent of Account Executive Agent (ae-agent)
+# Owns: forecast accuracy, pipeline coverage, next-best-action prioritization
+#
+# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+
+agentspec_version: "26.1.0"
+component_type: Agent
+
+id: ae-pipeline-mgmt-agent
+name: AE Pipeline Management Agent
+description: >
+  Forecast calls fail when they rely on gut feel instead of engagement data.
+  This agent scores commit confidence per deal, calculates whether pipeline
+  coverage actually supports the target, and surfaces the five actions that
+  will move the number most today.
+
+metadata:
+  definition_version: "0.1.0"
+  parent_agent: ae-agent
+  tags:
+    - pipeline
+    - forecast
+    - coverage
+    - prioritization
+  responsibility: >
+    Provide portfolio-level pipeline visibility with evidence-based forecast
+    confidence scoring and actionable priority recommendations.
+
+system_prompt: |
+  You are a Pipeline Management Agent, part of the Account Executive
+  intelligence system. Your job is to maintain portfolio-level visibility.
+
+  You MUST:
+  - Assess commit confidence per deal based on engagement signals
+  - Calculate pipeline coverage ratios against quarterly targets
+  - Identify the top 5 priority actions ranked by deal impact and urgency
+  - Flag forecast risks with specific evidence
+  - Quantify with dates, values (EUR/USD), and percentages
+
+  You MUST NOT:
+  - Diagnose individual deal health in depth (Deal Diagnosis Agent's domain)
+  - Write risk alerts (you are read-only)
+  - Prepare meeting materials (Meeting Preparation Agent's domain)
+  - Scan communications for signals (Signal Detection Agent's domain)
+  - Invent pipeline metrics not supported by CRM data
+
+  Your output is always portfolio-level: patterns across deals, coverage
+  gaps, forecast confidence distributions. If asked about a single deal,
+  redirect to Deal Diagnosis Agent.
+
+human_in_the_loop: true
+
+tools:
+  - component_type: ClientTool
+    id: read-crm-data
+    name: Read CRM Data
+    description: Access pipeline summary, opportunity stages, close dates, and deal values
+    requires_confirmation: false
+    inputs:
+      - title: query
+        type: string
+    outputs:
+      - title: crm_data
+        type: object
+    x-ea-agent:
+      risk: low
+
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from account executive
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+
+toolboxes:
+  - component_type: Toolbox
+    id: pipeline-intelligence
+    name: Pipeline Intelligence
+    description: Forecast confidence and coverage analysis available to peer agents and leadership
+    tools:
+      - id: get-forecast-confidence
+        name: Get Forecast Confidence
+        description: Returns commit confidence per deal or across portfolio with supporting signals
+        inputs:
+          - title: quarter
+            type: string
+        outputs:
+          - title: forecast_assessment
+            type: object
+      - id: get-coverage-analysis
+        name: Get Coverage Analysis
+        description: Returns pipeline coverage ratio against target with gap breakdown
+        inputs:
+          - title: quarter
+            type: string
+          - title: target_value
+            type: number
+        outputs:
+          - title: coverage_analysis
+            type: object
+specialized_agents: []
+
+flows:
+  - component_type: Flow
+    id: pipeline-management
+    name: Pipeline Management
+    description: Assess forecast accuracy, analyze pipeline coverage, and identify daily priority actions.
+    inputs:
+      - title: pipeline_deals
+        type: array
+      - title: quarter
+        type: string
+      - title: target_value
+        type: number
+      - title: win_rate
+        type: number
+    outputs:
+      - title: forecast_risk_assessment
+        type: object
+      - title: coverage_analysis
+        type: object
+      - title: priority_actions
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: ae-forecast-accuracy
+          input: pipeline_deals, quarter
+          description: Assess commit confidence per deal based on engagement and signals
+        - step: 2
+          prompt: ae-pipeline-coverage
+          input: pipeline_value, target_value, win_rate
+          description: Calculate coverage ratio, identify gap, recommend pipeline generation
+        - step: 3
+          prompt: ae-next-best-action
+          input: active_opportunities, recent_signals
+          description: Top 5 priority actions ranked by deal impact and urgency
+
+  - component_type: Flow
+    id: territory-planning
+    name: Territory Planning
+    description: Analyze territory coverage, tier accounts, identify whitespace, and build three-horizon pipeline plan.
+    inputs:
+      - title: territory_accounts
+        type: array
+      - title: quota_target
+        type: number
+      - title: current_pipeline
+        type: object
+    outputs:
+      - title: account_tiers
+        type: object
+      - title: whitespace_analysis
+        type: object
+      - title: horizon_plan
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: ae-territory-analysis
+          input: territory_accounts, quota_target, current_pipeline
+          description: Tier accounts by revenue potential and engagement, identify coverage gaps
+        - step: 2
+          prompt: ae-horizon-plan
+          input: account_tiers, whitespace_analysis
+          description: Build three-horizon plan (close now, qualify next quarter, prospect for future)
+
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: "0.1"
+    capabilities:
+      - forecast-accuracy
+      - pipeline-coverage
+      - priority-actions
+      - territory-planning
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+
+x-ea-agent:
+
+  prompt_registry:
+    ae-forecast-accuracy:
+      description: Identify deals that may slip from forecast with commit confidence assessment
+      source: prompts/tasks.yaml#pipeline_management.forecast_accuracy
+      inputs:
+        - title: stage
+          type: string
+        - title: quarter
+          type: string
+      outputs:
+        - title: forecast_risk_assessment
+          type: object
+
+    ae-pipeline-coverage:
+      description: Assess if pipeline is sufficient for target with coverage ratio and gap analysis
+      source: prompts/tasks.yaml#pipeline_management.pipeline_coverage
+      inputs:
+        - title: pipeline_value
+          type: number
+        - title: target_value
+          type: number
+        - title: win_rate
+          type: number
+      outputs:
+        - title: coverage_analysis
+          type: object
+
+    ae-next-best-action:
+      description: Identify highest-impact daily priority actions across active opportunities
+      source: prompts/tasks.yaml#pipeline_management.next_best_action
+      inputs: []
+      outputs:
+        - title: priority_actions
+          type: object
+
+    ae-territory-analysis:
+      description: Tier territory accounts by revenue potential, engagement level, and ICP fit
+      source: prompts/tasks.yaml#pipeline_management.territory_analysis
+      inputs:
+        - title: territory_accounts
+          type: array
+        - title: quota_target
+          type: number
+      outputs:
+        - title: account_tiers
+          type: object
+
+    ae-horizon-plan:
+      description: Build three-horizon pipeline plan mapping accounts to close/qualify/prospect timelines
+      source: prompts/tasks.yaml#pipeline_management.horizon_plan
+      inputs:
+        - title: account_tiers
+          type: object
+        - title: whitespace_analysis
+          type: object
+      outputs:
+        - title: horizon_plan
+          type: object
+
+  boundaries:
+    - Portfolio-level analysis only, does not diagnose individual deal health
+    - Read-only, does not write risk alerts or modify CRM data
+    - Does not prepare meeting materials or stakeholder briefs
+    - Does not scan communications for signals
+
+  permissions:
+    - Read pipeline summary and all opportunity data from CRM
+    - Assess forecast confidence per deal and across portfolio
+    - Calculate pipeline coverage ratios and identify gaps
+    - Recommend priority actions based on deal impact and urgency
+
+  guardrails:
+    input_validation:
+      - Reject forecast requests without quarterly target or pipeline data
+      - Reject coverage analysis without documented win rate
+    output_checks:
+      - Forecast confidence must be based on explicit evidence, not optimism
+      - Coverage ratio must use documented win rate, not assumed
+      - Priority actions must be specific and actionable with deal names
+      - All values must include currency units (EUR, USD) and dates
+    signal_validation:
+      - Never extrapolate timeline commitments from vague language
+      - All dates must be specific, reject "soon" or "next quarter"
+      - Flag when underlying data is stale (>7 days) or incomplete
+      - Confidence percentages must cite engagement signals as evidence
+
+  knowledge:
+    references:
+      - path: references/pipeline-methodology.yaml
+        description: Forecast methodology, stage progression criteria, coverage ratio benchmarks, commit confidence scoring
+        load_when: Assessing forecast accuracy, calculating coverage, or prioritizing actions
+      - path: references/roi-methodology.yaml
+        description: Business case strength indicators, value realization phases, ROI as forecast confidence input
+        load_when: Assessing forecast confidence for deals where business case maturity affects close probability
+      - path: references/account-planning.yaml
+        description: Strategic account planning, whitespace mapping, land-and-expand motions, multi-year growth planning
+        load_when: Territory planning, account tiering, or identifying expansion pipeline opportunities

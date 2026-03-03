@@ -237,6 +237,12 @@ export default function LandingPage() {
               Browse Documentation
             </Button>
           </Link>
+          <a href="/present/pitch" target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="lg">
+              <Presentation className="mr-2 h-4 w-4" />
+              Pitch Deck
+            </Button>
+          </a>
         </div>
       </section>
 
@@ -410,6 +416,12 @@ export default function LandingPage() {
               Browse Documentation
             </Button>
           </Link>
+          <a href="/present/pitch" target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="lg">
+              <Presentation className="mr-2 h-4 w-4" />
+              Pitch Deck
+            </Button>
+          </a>
         </div>
       </section>
     </div>

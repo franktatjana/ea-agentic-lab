@@ -1,105 +1,109 @@
 ---
 title: "Playbook Curator Agent"
-description: "Ensures playbook quality, compliance, and continuous improvement"
+description: "Digital twin for extract decisions, process meeting notes, playbook curator"
 category: "reference"
-keywords: ["playbook_curator_agent", "governance", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["playbook_curator_agent", "governance", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
+
 
 # Playbook Curator Agent
 
-The Playbook Curator Agent treats playbooks as governance code, applying the same rigor to their lifecycle that software engineering applies to production systems. It validates new and modified playbooks against structural and quality rules, tracks usage patterns to identify underperformers, detects violations like category boundary crossings and duplicate authority claims, and manages the full lifecycle from draft through retirement. Without this agent, playbook quality degrades silently over time, leading to inconsistent execution and conflicting guidance.
+The Playbook Curator Agent is the digital twin of the Playbook Curator role. It operates as a single agent with 3 runbooks covering extract decisions, process meeting notes, and playbook curator. The Playbook Curator Agent governs the playbook system itself, treating playbooks as governance code that requires the same rigor as software. It validates new and modified playbooks against governance criteria, tracks usage patterns and effectiveness, detects violations, and recommends retirement or updates. The operating philosophy: playbooks encode institutional knowledge, and unused playbooks are technical debt.
+
+Its operating principle: playbooks encode institutional knowledge.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| **Agent ID** | `playbook_curator_agent` |
-| **Team** | Governance |
-| **Category** | Governance |
-| **Purpose** | Ensure playbook quality, compliance, and continuous improvement |
+| **Agent ID** | `playbook-curator-agent` |
+| **Role** | Playbook Curator (Governance) |
+| **Mode** | Human-paired |
+| **Runbooks** | 3 |
+| **Prompts** | 10 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 2 |
 
-## Core Functions
 
-The Playbook Curator validates structure, enforces governance rules, and manages the playbook lifecycle to keep the system consistent and trustworthy.
+## Runbooks
 
-- Validate new and modified playbooks against category rules (CAT-001 to CAT-004), structure rules (STR-001 to STR-004), and quality rules (QUA-001 to QUA-003)
-- Detect governance violations: category boundary crossings (VIO-001), missing required fields (VIO-002), duplicate authority claims (VIO-003), circular dependencies (VIO-004), unreachable playbooks (VIO-005)
-- Track playbook usage patterns and execution success rates
-- Manage lifecycle transitions: draft, validation, approved, active, deprecated, retired
-- Recommend retirement for playbooks with no executions in 180 days, success rate < 50%, or that have been superseded
-- Enforce separation of concerns between playbook categories
-- Validate blueprint correspondence, ensuring blueprints reference only valid active playbooks
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Extract Decisions
+
+Extract, validate, and register decisions from any source (meetings, emails, discussions) into the decision log
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `extract_decisions_analyze` | Analyze input |
+| 2 | `extract_decisions_synthesize` | Synthesize findings |
+| 3 | `extract_decisions_output` | Generate output |
+
+
+### Process Meeting Notes
+
+Extract decisions, actions, risks, and open questions from meeting notes or transcripts into structured, decision-grade output
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `process_meeting_notes_analyze` | Analyze input |
+| 2 | `process_meeting_notes_synthesize` | Synthesize findings |
+| 3 | `process_meeting_notes_output` | Generate output |
+
+
+### Playbook Curator
+
+Validate new or modified playbook. Then generate weekly playbook usage report, then scan for playbook governance violations, and finally identify playbooks for retirement.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `validate_playbook` | Validate new or modified playbook |
+| 2 | `playbook_usage_report` | Generate weekly playbook usage report |
+| 3 | `detect_violations` | Scan for playbook governance violations |
+| 4 | `recommend_retirement` | Identify playbooks for retirement |
+
 
 ## Scope Boundaries
 
-This agent governs playbook quality and structure but never executes playbooks or overrides domain expertise.
+The agent does not execute playbooks (agent responsibility) (handoff to Leadership), mandate playbook adoption (handoff to Leadership), modify playbooks without approval (handoff to Leadership), create playbooks from scratch (requires SME input) (handoff to Leadership), override domain agent expertise (handoff to Leadership), or enforce compliance (governance role) (handoff to Leadership).
 
-- Does not execute playbooks or trigger their runtime behavior
-- Does not mandate playbook adoption by account teams
-- Does not modify playbook content without explicit approval
-- Does not create playbooks from scratch (authors own creation)
-- Does not override domain expertise on playbook logic
-- Does not auto-retire without governance approval
 
-## Triggers
+## Inbound Handoffs
 
-The agent reacts to playbook lifecycle events and produces periodic usage reports.
+Other agents route relevant signals to this agent for processing.
 
-- `playbook_created`, new playbook submitted for validation
-- `playbook_modified`, existing playbook updated
-- `on_change`, any structural modification to playbook YAML
-- Scheduled: weekly usage and compliance scan
+| Source Agent | Trigger |
+|-------------|---------|
+| Reporter Agent | Playbook usage metrics |
+| All Agents | Playbook feedback |
 
-## Handoffs
 
-### Outbound (this agent -> others)
+## Operating Modes
 
-| Trigger | Receiving Agent | Condition |
-|---------|-----------------|-----------|
-| CRITICAL violation | Senior Manager Agent | Validation cannot complete or conflicting authorities detected |
-| Retirement recommendation | Senior Manager Agent | Playbook meets retirement criteria, needs governance approval |
-| Usage analytics | Reporter Agent | Weekly playbook execution statistics |
-| Blueprint inconsistency | InfoHub Curator Agent | Blueprint references invalid or deprecated playbook |
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-### Inbound (others -> this agent)
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-| Source Agent | Artifact | Action Required |
-|--------------|----------|-----------------|
-| SA Agent | New playbook submission | Validate against governance rules |
-| Orchestration Agent | Playbook modification | Re-validate structure and compliance |
-| InfoHub Curator Agent | Staleness flag on playbook | Review for deprecation or update |
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-## Escalation Rules
 
-The Playbook Curator escalates when it encounters issues that require human judgment or cross-agent authority.
+## Knowledge Base
 
-- CRITICAL violation detected (structural integrity compromised): escalate to Senior Manager
-- Validation cannot complete (missing dependencies or circular references): escalate to Senior Manager
-- Conflicting authority claims between two playbooks: escalate to Senior Manager for resolution
-- Retirement decision on actively-used playbook: escalate to governance lead
-- Mass violations (> 5 playbooks failing simultaneously): escalate to governance lead
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
 
-## Quality Gates
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `playbook-curator-lifecycle.yaml` | Stages, Review Cycle | Playbook curator lifecycle |
+| `playbook-curator-standards.yaml` | Required Sections, Step Format, Quality Criteria | Playbook curator standards |
 
-Validation gates ensure no playbook enters active use without meeting minimum quality standards.
-
-- No CRITICAL violations in validated playbook
-- All required fields present per category rules
-- No duplicate authority claims with existing active playbooks
-- No circular dependencies in playbook chain
-- Blueprint references resolve to valid, active playbooks
-- Separation of concerns maintained across categories
-
-## Personality Traits
-
-| Dimension | Description |
-|-----------|-------------|
-| **Tone** | Systematic, helpful, quality-focused |
-| **Values** | Playbooks encode institutional knowledge. Structure enables consistency. Evolution over perfection |
-| **Priorities** | 1. Playbook accuracy, 2. Structure consistency, 3. Gap identification, 4. Continuous improvement |
 
 ## Source Files
 
-- Agent config: `domain/agents/governance/agents/playbook_curator_agent.yaml`
-- Personality: `domain/agents/governance/personalities/playbook_curator_personality.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/governance/playbook-curator-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/governance/agents/playbook_curator_agent.yaml` | Agent configuration |
+| `domain/agents/governance/personalities/playbook_curator_personality.yaml` | Behavioral specification |
+| `domain/agents/governance/prompts/tasks.yaml` | 10 CAF prompts across 3 domains |

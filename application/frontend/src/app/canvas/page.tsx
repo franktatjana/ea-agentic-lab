@@ -17,12 +17,14 @@ import {
   FileText,
   Lightbulb,
   CircleDot,
+  Presentation,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { HelpPopover } from "@/components/help-popover";
 import type { CanvasCatalogItem } from "@/types";
 
 const CANVAS_ICONS: Record<string, React.ReactNode> = {
@@ -262,7 +264,22 @@ export default function CanvasLibraryPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Canvas Library</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">Canvas Library</h1>
+          <button
+            onClick={() => window.open("/present/canvas", "_blank")}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Presentation className="h-3.5 w-3.5" />
+            Present
+          </button>
+          <HelpPopover title="Canvas Framework">
+            Canvases are strategic visual artifacts that transform vault data
+            into single-page decision views. Each canvas type has a YAML spec,
+            data sources from InfoHub, and a rendering pipeline that outputs
+            markdown for agents and HTML for humans.
+          </HelpPopover>
+        </div>
         <p className="text-muted-foreground mt-1">
           Strategic visual artifacts that transform vault data into single-page decision views.
           Each canvas type has a defined spec, data sources, and rendering pipeline.

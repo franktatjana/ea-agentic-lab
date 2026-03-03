@@ -1,105 +1,144 @@
 ---
 title: "Retrospective Agent"
-description: "Extracts lessons learned from completed deals through structured win/loss analysis and pattern detection"
+description: "Digital twin for win retrospective, loss retrospective, pattern analysis"
 category: "reference"
-keywords: ["retrospective_agent", "retrospective", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["retrospective_agent", "retrospective", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
+
 
 # Retrospective Agent
 
-The Retrospective Agent conducts structured win/loss analysis after deal completion, extracting actionable lessons and identifying recurring patterns that can improve future outcomes. Operating on the principle that every deal outcome is a learning opportunity, it enforces a blame-free, evidence-based methodology that focuses on process improvement rather than individual performance. The agent ensures that learnings are not just documented but distributed to the right audiences and tracked through implementation.
+The Retrospective Agent is the digital twin of the Retrospective role. It operates as a single agent with 5 runbooks covering win retrospective, loss retrospective, pattern analysis, knowledge sharing, and process improvement. The Retrospective agent conducts structured win/loss analysis after deal completion, extracting actionable lessons and identifying recurring patterns. It operates on the principle that every deal outcome, whether a win or a loss, contains learnings that can improve future performance. By maintaining a blame-free analytical approach and distributing insights across the organization, it turns individual deal experiences into organizational knowledge.
+
+Its operating principle: learning over blame.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| Agent ID | `retrospective_agent` |
-| Team | `retrospective` |
-| Category | Specialized |
-| Purpose | Extract lessons learned from completed deals to improve future outcomes |
+| **Agent ID** | `retrospective-agent` |
+| **Role** | Retrospective (Governance) |
+| **Mode** | Human-paired |
+| **Runbooks** | 5 |
+| **Prompts** | 16 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 3 |
 
-## Core Functions
 
-The Retrospective Agent covers the full learning cycle from deal close through pattern analysis and knowledge distribution. Its functions span individual deal retrospectives, cross-deal pattern detection, and systemic process improvement.
+## Runbooks
 
-- Conduct structured win/loss retrospectives within 7 days of deal close
-- Extract actionable lessons learned using a framework of analysis categories
-- Identify patterns across multiple retrospectives (competitor-specific, segment-specific, process-specific)
-- Generate process improvement recommendations tied to specific evidence
-- Facilitate knowledge sharing through anonymized distribution to appropriate audiences
-- Track implementation status of retrospective recommendations
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Win Retrospective
+
+Start structured retrospective for closed-won deal. Then deep analysis of why we won, and finally create win retrospective document.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `initiate_win_retro` | Start structured retrospective for closed-won deal |
+| 2 | `analyze_win_factors` | Deep analysis of why we won |
+| 3 | `document_win_learnings` | Create win retrospective document |
+
+
+### Loss Retrospective
+
+Start structured retrospective for closed-lost deal. Then deep analysis of why we lost, then create loss retrospective document, and finally detailed analysis when lost to specific competitor.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `initiate_loss_retro` | Start structured retrospective for closed-lost deal |
+| 2 | `analyze_loss_factors` | Deep analysis of why we lost |
+| 3 | `document_loss_learnings` | Create loss retrospective document |
+| 4 | `competitive_loss_deep_dive` | Detailed analysis when lost to specific competitor |
+
+
+### Pattern Analysis
+
+Find recurring patterns in wins and losses. Then analyze trends over time, and finally create periodic pattern report for leadership.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `identify_patterns` | Find recurring patterns in wins and losses |
+| 2 | `trend_analysis` | Analyze trends over time |
+| 3 | `generate_pattern_report` | Create periodic pattern report for leadership |
+
+
+### Knowledge Sharing
+
+Create shareable lessons learned document. Then extract competitive insights for CI team, and finally document product feedback from loss retrospective.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `create_lessons_summary` | Create shareable lessons learned document |
+| 2 | `create_competitive_brief` | Extract competitive insights for CI team |
+| 3 | `create_product_feedback` | Document product feedback from loss retrospective |
+
+
+### Process Improvement
+
+Create actionable process improvements from patterns. Then track status of retrospective recommendations, and finally evaluate if retrospective program is working.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `generate_recommendations` | Create actionable process improvements from patterns |
+| 2 | `track_implementation` | Track status of retrospective recommendations |
+| 3 | `retrospective_effectiveness` | Evaluate if retrospective program is working |
+
 
 ## Scope Boundaries
 
-The Retrospective Agent maintains strict boundaries around blame, confidentiality, and objectivity. These constraints protect the integrity of the retrospective process and ensure that analysis remains constructive.
+The agent does not assign blame to individuals (handoff to Leadership), override deal outcome classifications (handoff to Leadership), make personnel decisions (handoff to Leadership), share confidential details outside need-to-know (handoff to Leadership), conduct retrospectives during active deals (handoff to Leadership), or guarantee future outcomes based on learnings (handoff to Leadership).
 
-- Does NOT assign blame to individuals
-- Does NOT override deal outcome classifications
-- Does NOT make personnel decisions
-- Does NOT share confidential details outside need-to-know
-- Does NOT conduct retrospectives during active deals
-- Does NOT guarantee future outcomes based on learnings
-
-## Playbooks Owned
-
-The Retrospective Agent operates through task-based prompt categories rather than numbered playbooks. Each category contains structured prompts following the CAF (Context, Action, Format) framework.
-
-- **win_retrospective**: Initiation, win factor analysis, learning documentation
-- **loss_retrospective**: Initiation, loss factor analysis, competitive deep dive, learning documentation
-- **pattern_analysis**: Cross-retrospective pattern identification, trend analysis, pattern reporting
-- **knowledge_sharing**: Lessons summaries, competitive briefs, product feedback
-- **process_improvement**: Recommendation generation, implementation tracking, program effectiveness
-
-## Triggers
-
-The agent activates based on deal outcomes with ARR-based thresholds, ensuring that retrospectives are conducted for deals with meaningful learning potential.
-
-- **Deal closed-won**: ARR >= $100K, within 7 days of close
-- **Deal closed-lost**: ARR >= $50K or strategic account, within 7 days of close
-- **Deal closed-lost to competitor**: Any ARR, within 5 days of close
-- **Requested**: Team member request, manager flag, unusual deal dynamics
 
 ## Handoffs
 
-### Outbound
+### Outbound (this agent to others)
 
-| Receiving Agent | Trigger | Context |
-|-----------------|---------|---------|
-| Senior Manager Agent | Repeated loss to same competitor, product gap causing multiple losses, process failure pattern, strategic account loss | Escalation with pattern evidence |
-| PM Agent | Product feedback from loss retrospective | Feature gaps, competitive comparisons, ARR impact |
-| CI Agent | Competitive intelligence extracted | Competitor tactics, pricing intel, messaging that resonated |
-| All agents | Lessons learned summaries | Anonymized knowledge distribution |
+| Trigger | Receiving Agent | Context Passed |
+|---------|-----------------|----------------|
+| Pattern reports, escalations | Senior Manager Agent | Analysis results and recommendations |
+| Product feedback from losses | PM Agent | Analysis results and recommendations |
+| Lessons learned summaries | All Agents | Analysis results and recommendations |
 
-### Inbound
 
-| Source Agent | Context | Expected Action |
-|--------------|---------|-----------------|
-| AE Agent | Deal context, commercial factors, outcome details | Use as primary input for retrospective |
-| SA Agent | Technical factors, POV/POC execution details | Inform technical analysis categories |
-| CI Agent | Competitive intelligence, known competitor patterns | Enrich competitive analysis sections |
-| POC Agent | POV execution details and outcomes | Assess technical validation effectiveness |
+## Operating Modes
 
-## Escalation Rules
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-Escalation targets the Senior Manager Agent when patterns indicate systemic issues that require leadership attention. The threshold is based on recurrence and strategic impact rather than individual deal outcomes.
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-- Repeated loss to the same competitor (pattern, not single event)
-- Product gap causing multiple losses across deals
-- Process failure pattern identified across retrospectives
-- Strategic account loss requiring executive review
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-## Personality Traits
 
-| Dimension | Description |
-|-----------|-------------|
-| Tone | Analytical, constructive, blame-free, evidence-based |
-| Values | Learning over blame, patterns over incidents, action over documentation, sharing over hoarding |
-| Priorities | 1. Timely retrospective completion, 2. Actionable recommendations, 3. Pattern identification, 4. Knowledge distribution |
+## Knowledge Base
+
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
+
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `feedback-categories.yaml` | Sales Process, Technical Execution, Competitive | Feedback categories |
+| `methodology.yaml` | Timing, Participants, Structure | Methodology |
+| `signal-detection.yaml` | Retrospective Triggers, Pattern Indicators | Signal detection |
+
+
+## Output Artifacts
+
+The agent produces artifact types stored per account in the Node's InfoHub.
+
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Deal Retrospective | `{account}-deal-retrospective.md` | deal_retrospective |
+| Lessons Learned | `{account}-lessons-learned.md` | lessons_learned |
+| Pattern Analysis | `{account}-pattern-analysis.md` | pattern_analysis |
+
 
 ## Source Files
 
-- Agent config: `domain/agents/retrospective/agents/retrospective_agent.yaml`
-- Personality: `domain/agents/retrospective/personalities/retrospective_personality.yaml`
-- Task prompts: `domain/agents/retrospective/prompts/tasks.yaml`
-- Context template: `domain/agents/retrospective/prompts/context_template.md`
+| File | Purpose |
+|------|---------|
+| `domain/agents/retrospective/retrospective-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/retrospective/agents/retrospective_agent.yaml` | Agent configuration |
+| `domain/agents/retrospective/personalities/retrospective_personality.yaml` | Behavioral specification |
+| `domain/agents/retrospective/prompts/tasks.yaml` | 16 CAF prompts across 5 domains |

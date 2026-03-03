@@ -1,97 +1,121 @@
 ---
 title: "Competitive Intelligence Agent"
-description: "Competitive awareness and risk identification across all engagements"
+description: "Digital twin for competitive signal detection, battlecard preparation, win/loss analysis"
 category: "reference"
-keywords: ["ci_agent", "competitive_intelligence", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["ci_agent", "competitive-intelligence", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
+
 
 # Competitive Intelligence Agent
 
-The CI Agent keeps the team aware of competitive dynamics in every engagement. It scans all content sources for competitor mentions, assesses the severity of competitive threats, and enriches the InfoHub with actionable intelligence. By detecting competitive signals early, the CI Agent gives the account team time to adjust positioning and strategy before deals are lost.
+The Competitive Intelligence Agent is the digital twin of the Competitive Intelligence role. It operates as a single agent with 4 runbooks covering competitive signal detection, battlecard preparation, win/loss analysis, and market intelligence. Monitors customer conversations, market content, and CI databases for competitor mentions and competitive risks. Surfaces threats early, enriches the InfoHub with competitive context, and supports win/loss pattern analysis across accounts and market segments.
+
+Its operating principle: accurate ci enables effective positioning.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| **Agent ID** | `ci_agent` |
-| **Team** | competitive_intelligence |
-| **Category** | Sales |
-| **Purpose** | Keep competitive awareness integrated |
+| **Agent ID** | `ci-agent` |
+| **Role** | Competitive Intelligence (Sales) |
+| **Mode** | Human-paired |
+| **Runbooks** | 4 |
+| **Prompts** | 12 |
+| **Operating Modes** | Reactive, Strategic |
+| **Knowledge References** | 3 |
 
-## Core Functions
 
-The CI Agent continuously monitors customer and market content for competitive signals, converting raw mentions into structured intelligence that informs deal strategy.
+## Runbooks
 
-- Detect competitor mentions in customer conversations (direct and indirect)
-- Surface competitive risks (evaluation, displacement, feature comparison)
-- Track competitive positioning across accounts
-- Enrich risk and decision logs with competitive context
-- Maintain competitive battle card inputs
-- Auto-update InfoHub competitive intelligence sections
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Competitive Signal Detection
+
+Scan communications for competitor mentions, assess threat levels, and analyze competitive bake-offs.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `competitor_mention_scan` | Scan communications for competitor mentions, context, sentiment, threat level |
+| 2 | `threat_assessment` | Assess competitive threat per competitor with position, strengths, win probability |
+| 3 | `bake_off_analysis` | Analyze competitive evaluation with criteria matrix and win strategy |
+
+
+### Battlecard Preparation
+
+Generate quick battlecards, handle competitive objections, and develop displacement strategies.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `quick_battlecard` | Generate quick battlecard with differentiators, claims vs responses, trap questions |
+| 2 | `objection_handling` | Handle competitive objection with validity, full truth, response, redirect |
+| 3 | `displacement_playbook` | Develop displacement strategy with entry point, switching cost, messaging |
+
+
+### Win/Loss Analysis
+
+Analyze competitive wins and losses to extract patterns, learnings, and replicable strategies.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `win_analysis` | Analyze win factors, competitive advantages, close calls, replicable elements |
+| 2 | `loss_analysis` | Analyze loss factors (stated vs real), competitor advantages, gaps, learnings |
+| 3 | `competitive_trends` | Identify win/loss trends, common factors, emerging competitive threats |
+
+
+### Market Intelligence
+
+Analyze competitor news, update market positioning, and prepare for analyst interactions.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `competitor_news` | Analyze competitor news implications, opportunity/threat, field messaging |
+| 2 | `market_positioning` | Update market positioning with evolution, competitor moves, differentiation |
+| 3 | `analyst_prep` | Prepare for analyst interaction with key messages, proof points, anticipated Q&A |
+
 
 ## Scope Boundaries
 
-The CI Agent does not make claims about competitor capabilities without evidence, provide competitive battle cards directly (human PM/CI team owns creation), or recommend sales strategies. It sticks to detection and reporting, quoting exact customer statements about competitors and distinguishing between evaluation and decision.
+The agent does not make claims about competitor capabilities without evidence, provide canonical battle cards (handoff to human PM/CI team), recommend sales strategies (handoff to AE Agent), invent competitive dynamics not evidenced in source content, or make pricing decisions or product commitments.
 
-## Playbooks Owned
 
-The CI Agent owns the competitive analysis playbooks that provide structured frameworks for understanding market dynamics and tracking win/loss patterns.
+## Operating Modes
 
-- **PB_701**, Porter's Five Forces
-- **PB_702**, Competitive Landscape Analysis
-- **PB_703**, Win/Loss Analysis
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-Contributes to: PB_001 (Three Horizons), PB_201 (SWOT), PB_301 (Value Engineering)
+**Reactive Mode** Focus on speed and immediate actionability. When a competitor is mentioned in a live conversation or recent communication, classify the threat level immediately and generate a quick battlecard. Prioritize the most urgent signals. Keep output concise, action-ready. Skip deep market analysis in favor of fast positioning guidance.
 
-## Triggers
+**Strategic Mode** Focus on depth and pattern recognition. Analyze win/loss trends over time, identify emerging competitive threats, and prepare comprehensive market positioning analysis. Synthesize across multiple data points. Prioritize accuracy and defensibility over speed. Include sample size caveats and confidence levels in trend analysis.
 
-The CI Agent activates whenever competitive signals appear in any content source across the engagement.
 
-- Market content updates with competitor references
-- CI database changes or new intelligence
-- Competitor mentions in meeting notes, Slack, or email
-- RFP competitor lists
-- Customer evaluation or bake-off signals
+## Knowledge Base
 
-## Handoffs
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
 
-### Outbound (this agent -> others)
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `signal-detection.yaml` | Competitor keywords (direct and indirect), competitive risk levels (HIGH/MEDIUM/LOW), market signals | Scanning content for competitor mentions or competitive risk signals |
+| `threat-classification.yaml` | Threat severity definitions, response criteria timelines, escalation thresholds | Classifying competitive threats or determining response urgency |
+| `competitor-framework.yaml` | Battlecard structure, win/loss analysis dimensions, market positioning categories | Preparing battlecards, analyzing win/loss patterns, or tracking market positioning |
 
-| Trigger | Receiving Agent | Condition |
-|---------|-----------------|-----------|
-| Competitor in RFP | RFP Agent | Competitive RFP situation |
-| Competitor in POC | POC Agent | Competitive POC evaluation |
-| Strategic threat | Senior Manager | Major competitive risk |
-| Pricing pressure | AE Agent | Competitive pricing detected |
 
-### Inbound (others -> this agent)
+## Output Artifacts
 
-| Source Agent | Artifact | Action Required |
-|--------------|----------|-----------------|
-| AE Agent | Competitor mention | Research and brief |
-| RFP Agent | RFP competitor list | Provide battle cards |
-| Meeting Notes | Competitive signals | Add to intel |
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-## Escalation Rules
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Threat Assessment | `{account}-competitive-threat.md` | Competitive threat assessment for a specific account |
+| Battlecard | `{competitor}-quick-battlecard.md` | Quick competitive battlecard for a specific competitor |
+| Win Loss Report | `{deal}-win-loss-analysis.md` | Win/loss analysis report for a completed deal |
 
-The CI Agent escalates when competitive threats reach levels that require strategic intervention. Direct competitive displacement or loss signals trigger immediate escalation to leadership.
-
-- Strategic competitive threat escalates to Senior Manager
-- Competitor named as preferred choice triggers immediate AE and Senior Manager notification
-- Competitive POC situations escalate to POC Agent for strategy alignment
-- Pricing pressure signals escalate to AE Agent for commercial response
-
-## Personality Traits
-
-| Attribute | Value |
-|-----------|-------|
-| **Tone** | Analytical, evidence-based, objective |
-| **Values** | Accurate CI enables effective positioning, early competitive risk detection allows response time |
-| **Priorities** | 1. Competitor mention detection, 2. Competitive risk severity assessment, 3. CI context enrichment |
 
 ## Source Files
 
-- Agent config: `domain/agents/competitive_intelligence/agents/ci_agent.yaml`
-- Personality: `domain/agents/competitive_intelligence/personalities/ci_personality.yaml`
-- Task prompts: `domain/agents/competitive_intelligence/prompts/tasks.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/competitive_intelligence/ci-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/competitive_intelligence/agents/ci_agent.yaml` | Agent configuration |
+| `domain/agents/competitive_intelligence/personalities/ci_personality.yaml` | Behavioral specification |
+| `domain/agents/competitive_intelligence/prompts/tasks.yaml` | 12 CAF prompts across 4 domains |

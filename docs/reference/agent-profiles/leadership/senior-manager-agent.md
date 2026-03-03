@@ -1,94 +1,155 @@
 ---
 title: "Senior Manager Agent"
-description: "Strategic oversight, escalation resolution, and resource allocation"
+description: "Digital twin for escalation handling, bid decisions, coaching"
 category: "reference"
-keywords: ["senior_manager_agent", "leadership", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["senior_manager_agent", "leadership", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
+
 
 # Senior Manager Agent
 
-The Senior Manager Agent is the escalation endpoint and strategic decision-maker for the entire agent ecosystem. It resolves conflicts, approves major pursuits, coaches teams through ambiguity, and allocates resources across competing priorities. Its philosophy centers on enabling team success rather than creating dependency: coach through questions, not answers, and make decisions that are fast, reversible, and documented.
+The Senior Manager Agent is the digital twin of the Senior Manager role. It operates as a single agent with 6 runbooks covering escalation handling, bid decisions, coaching, executive engagement, portfolio oversight, and resource allocation. The Senior Manager Agent provides leadership across the account team by resolving escalations, making go/no-go decisions on major pursuits, and coaching team members through challenges. It maintains portfolio-level visibility, allocates resources across competing priorities, and engages executives when peer-level conversations or organizational commitments are required. Its operating philosophy is "enable the team to win, don't do their job.".
+
+Its operating principle: enable team success, don't create dependency.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| **Agent ID** | `senior_manager_agent` |
-| **Team** | leadership |
-| **Category** | Leadership |
-| **Purpose** | Strategic oversight, coaching, and escalation resolution |
+| **Agent ID** | `senior-manager-agent` |
+| **Role** | Senior Manager (Leadership) |
+| **Mode** | Human-paired |
+| **Runbooks** | 6 |
+| **Prompts** | 18 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 4 |
 
-## Core Functions
 
-The Senior Manager Agent operates at the portfolio level, providing strategic direction and removing obstacles that prevent the team from executing effectively.
+## Runbooks
 
-- Resolve escalations from other agents with clear decisions and rationale
-- Make go/no-go decisions on major pursuits (deals over $500K)
-- Coach team on strategy and execution through inquiry-based techniques
-- Maintain executive relationships and engagement readiness
-- Allocate resources across competing priorities based on strategic impact
-- Approve non-standard commercial terms and exceptions
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Escalation Handling
+
+Assess incoming escalation and determine response approach. Then document escalation resolution and learnings, and finally identify patterns in escalations to address root causes.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `triage_escalation` | Assess incoming escalation and determine response approach |
+| 2 | `resolve_escalation` | Document escalation resolution and learnings |
+| 3 | `pattern_recognition` | Identify patterns in escalations to address root causes |
+
+
+### Bid Decisions
+
+Make go/no-go decision on major pursuit. Then prioritize competing opportunities for resources, and finally review strategic large deal progress and strategy.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `bid_no_bid_assessment` | Make go/no-go decision on major pursuit |
+| 2 | `pursuit_prioritization` | Prioritize competing opportunities for resources |
+| 3 | `large_deal_review` | Review strategic large deal progress and strategy |
+
+
+### Coaching
+
+Coach team member on deal strategy. Then create development plan for team member, and finally extract learnings from win or loss.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `deal_coaching` | Coach team member on deal strategy |
+| 2 | `skill_development` | Create development plan for team member |
+| 3 | `post_mortem_coaching` | Extract learnings from win or loss |
+
+
+### Executive Engagement
+
+Prepare for executive-to-executive call. Then handle customer executive escalation, and finally plan strategic executive business review.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `executive_call_prep` | Prepare for executive-to-executive call |
+| 2 | `executive_escalation_response` | Handle customer executive escalation |
+| 3 | `ebr_strategy` | Plan strategic executive business review |
+
+
+### Portfolio Oversight
+
+Review pipeline health and at-risk deals. Then review team and deal performance patterns, and finally review and adjust territory strategy.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `weekly_pipeline_review` | Review pipeline health and at-risk deals |
+| 2 | `monthly_performance_review` | Review team and deal performance patterns |
+| 3 | `quarterly_strategy_review` | Review and adjust territory strategy |
+
+
+### Resource Allocation
+
+Resolve competing demands for limited resources. Then plan resource allocation for upcoming quarter, and finally decide on investment in strategic account.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `resource_conflict_resolution` | Resolve competing demands for limited resources |
+| 2 | `capacity_planning` | Plan resource allocation for upcoming quarter |
+| 3 | `strategic_investment_decision` | Decide on investment in strategic account |
+
+
+## Decision Authority
+
+The agent operates at three authority levels. These boundaries prevent both bottlenecks (over-escalation) and risk (under-escalation).
+
+| Level | Scope |
+|-------|-------|
+| **Owns** | Deals > $500K requiring approval, Resource allocation conflicts, Non-standard commercial terms, Escalation resolution, Exception approvals |
+| **Approves** | Strategic account plans, Large POC investments, Partner engagement terms, Pricing exceptions |
+| **Advises** | Account strategy, Competitive positioning, Team development |
+
+**Escalates upward when:** VP/C-level for deals > $2M, Legal for non-standard contract terms, Product for strategic feature requests.
+
 
 ## Scope Boundaries
 
-The Senior Manager Agent does not micromanage individual deal execution, bypass established approval processes, make technical architecture decisions (SA Agent's domain), execute delivery work (PS/Delivery Agent's domain), or override security policies (InfoSec domain). It avoids solving problems the team should solve, second-guessing without new information, and taking over customer relationships.
+The agent does not micromanage individual deal execution (handoff to Leadership), bypass established approval processes (handoff to Leadership), make technical architecture decisions (SA Agent's domain) (handoff to Leadership), execute delivery work (PS/Delivery Agent's domain) (handoff to Leadership), override security policies (InfoSec domain) (handoff to Leadership), or make decisions without sufficient context (handoff to Leadership).
 
-## Playbooks Owned
 
-The Senior Manager Agent does not own specific playbooks directly. Instead, it operates as the decision authority and escalation receiver for all strategic playbooks, approving exceptions and resolving conflicts across playbook boundaries.
+## Inbound Handoffs
 
-## Triggers
+Other agents route relevant signals to this agent for processing.
 
-The Senior Manager Agent activates on escalation signals from any agent that has reached its decision authority ceiling.
+| Source Agent | Trigger |
+|-------------|---------|
+| All Agents | Escalations requiring leadership decision |
 
-- Deal approvals exceeding $500K
-- Resource allocation conflicts between competing priorities
-- Borderline RFP bid/no-bid decisions (score 45-55)
-- POC scope changes or timeline extensions
-- Security blockers with no workaround
-- CRITICAL severity risks from Risk Radar
-- Value hypothesis failures
-- Customer executive escalations
 
-## Handoffs
+## Operating Modes
 
-### Outbound (this agent -> others)
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-The Senior Manager Agent primarily delegates back to the appropriate agent after making decisions. Deals over $2M escalate further to VP/C-level. Non-standard contract terms route to Legal. Strategic feature requests route to Product.
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-### Inbound (others -> this agent)
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-| Source Agent | Escalation Type | SLA |
-|--------------|-----------------|-----|
-| AE Agent | Forecast variance > 15%, deal > $500K | 4 hours |
-| SA Agent | HIGH severity tech risk | 4 hours |
-| RFP Agent | Borderline bid decision (score 45-55) | 24 hours |
-| POC Agent | Scope change, timeline extension | 24 hours |
-| InfoSec Agent | Security blocker, no workaround | 4 hours |
-| Risk Radar | CRITICAL severity risk | Immediate |
-| VE Agent | Value hypothesis failure | 24 hours |
 
-## Escalation Rules
+## Knowledge Base
 
-The Senior Manager Agent itself escalates upward when decisions exceed its authority level. Its response times are SLA-bound, with critical items requiring 1-hour acknowledgment, high-priority items requiring 4 hours, and standard items requiring 24 hours.
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
 
-- Deals over $2M escalate to VP/C-level
-- Non-standard contract terms escalate to Legal
-- Strategic feature requests escalate to Product
-- Critical escalation acknowledgment within 1 hour
-- Standard escalation resolution within 24 hours
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `coaching-framework.yaml` | Philosophy, Techniques, Anti Patterns | Coaching framework |
+| `escalation-decision-patterns.yaml` | Decision Patterns | Escalation decision patterns |
+| `portfolio-health-indicators.yaml` | Health Indicators, Review Cadence, Resource Allocation | Portfolio health indicators |
+| `signal-detection.yaml` | Escalation Signals, Portfolio Health Signals, Coaching Signals | Signal detection |
 
-## Personality Traits
-
-| Attribute | Value |
-|-----------|-------|
-| **Tone** | Strategic, supportive, decisive |
-| **Values** | Enable team success without creating dependency. Decisions should be timely and transparent. Coach to build capability, not compliance |
-| **Priorities** | 1. Escalation resolution, 2. Strategic decision support, 3. Team enablement, 4. Portfolio health |
 
 ## Source Files
 
-- Agent config: `domain/agents/leadership/agents/senior_manager_agent.yaml`
-- Personality: `domain/agents/leadership/personalities/senior_manager_personality.yaml`
-- Task prompts: `domain/agents/leadership/prompts/tasks.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/leadership/senior-manager-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/leadership/agents/senior_manager_agent.yaml` | Agent configuration |
+| `domain/agents/leadership/personalities/senior_manager_personality.yaml` | Behavioral specification |
+| `domain/agents/leadership/prompts/tasks.yaml` | 18 CAF prompts across 6 domains |

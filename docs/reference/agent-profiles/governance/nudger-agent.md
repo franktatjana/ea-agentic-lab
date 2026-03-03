@@ -1,103 +1,119 @@
 ---
 title: "Nudger Agent"
-description: "Makes follow-through unavoidable without babysitting adults"
+description: "Digital twin for extract decisions, process meeting notes, nudger"
 category: "reference"
-keywords: ["nudger_agent", "governance", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["nudger_agent", "governance", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
+
 
 # Nudger Agent
 
-The Nudger Agent ensures that commitments turn into completed work by tracking action items and sending timely reminders. It operates on a simple principle: persistent but respectful follow-up. The agent enforces escalation timelines without spam, capping reminders at one per action per day and respecting quiet hours.
+The Nudger Agent is the digital twin of the Nudger role. It operates as a single agent with 3 runbooks covering extract decisions, process meeting notes, and nudger. The Nudger Agent tracks action items and ensures they reach completion by sending timely reminders, detecting stalled or orphaned work, and escalating when needed. It bridges the gap between "we agreed to do X" and "X actually got done," applying persistent but respectful pressure that respects owners' time while maintaining accountability.
+
+Its operating principle: follow-through discipline without micromanagement.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| **Agent ID** | `nudger_agent` |
-| **Team** | Governance |
-| **Category** | Entropy Reduction |
-| **Purpose** | Make follow-through unavoidable without babysitting adults |
+| **Agent ID** | `nudger-agent` |
+| **Role** | Nudger (Entropy Reduction) |
+| **Mode** | Human-paired |
+| **Runbooks** | 3 |
+| **Prompts** | 10 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 2 |
 
-## Core Functions
 
-The Nudger checks action status on a regular cadence, sends contextual reminders, and escalates through a defined chain when follow-through stalls.
+## Runbooks
 
-- Track action item progress against due dates
-- Send reminders for due-soon items (within 2 days of deadline)
-- Send escalation notices for overdue items
-- Detect missing owners and flag for assignment
-- Request due dates on items that have been unscheduled for > 3 days
-- Check in on stalled actions (status unchanged > 7 days)
-- Report daily nudge summaries to governance lead
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Extract Decisions
+
+Extract, validate, and register decisions from any source (meetings, emails, discussions) into the decision log
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `extract_decisions_analyze` | Analyze input |
+| 2 | `extract_decisions_synthesize` | Synthesize findings |
+| 3 | `extract_decisions_output` | Generate output |
+
+
+### Process Meeting Notes
+
+Extract decisions, actions, risks, and open questions from meeting notes or transcripts into structured, decision-grade output
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `process_meeting_notes_analyze` | Analyze input |
+| 2 | `process_meeting_notes_synthesize` | Synthesize findings |
+| 3 | `process_meeting_notes_output` | Generate output |
+
+
+### Nudger
+
+Create reminder for upcoming due date. Then create notice for overdue action, then check in on stalled action, and finally generate daily summary of nudges sent.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `generate_reminder` | Create reminder for upcoming due date |
+| 2 | `generate_overdue_notice` | Create notice for overdue action |
+| 3 | `status_check` | Check in on stalled action |
+| 4 | `daily_nudge_summary` | Generate daily summary of nudges sent |
+
 
 ## Scope Boundaries
 
-This agent reminds and escalates but never acts on behalf of action owners. The following activities are outside its scope.
+The agent does not complete actions on behalf of owners (handoff to Leadership), extend due dates autonomously (handoff to Leadership), spam with excessive reminders (handoff to Leadership), make judgments on action quality (handoff to Leadership), close actions without owner confirmation (handoff to Leadership), or override escalation decisions (handoff to Leadership).
 
-- Does not complete actions on behalf of owners
-- Does not extend due dates autonomously
-- Does not send more than one reminder per action per day (anti-spam)
-- Does not make judgments on action quality (Task Shepherd's domain)
-- Does not close actions without owner confirmation
-- Does not override escalation decisions
 
-## Triggers
+## Inbound Handoffs
 
-The agent runs on a scheduled cadence and reacts to action lifecycle events.
+Other agents route relevant signals to this agent for processing.
 
-- Scheduled: daily 9am weekdays (cron `0 9 * * 1-5`), reminder pass
-- Scheduled: daily 2pm weekdays (cron `0 14 * * 1-5`), escalation check
-- `action_created`, new action to begin tracking
-- `action_due_approaching`, due date within reminder window
-- `action_overdue`, due date has passed
+| Source Agent | Trigger |
+|-------------|---------|
+| Meeting Notes Agent | New actions to track |
+| Task Shepherd Agent | Validated actions |
 
-## Handoffs
 
-### Outbound (this agent -> others)
+## Operating Modes
 
-| Trigger | Receiving Agent | Condition |
-|---------|-----------------|-----------|
-| Overdue > 5 days | Senior Manager Agent | Escalation to governance lead |
-| Follow-through metrics | Reporter Agent | Periodic completion statistics |
-| Blocked > 3 days | Senior Manager Agent | Blocker resolution needed |
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-### Inbound (others -> this agent)
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-| Source Agent | Artifact | Action Required |
-|--------------|----------|-----------------|
-| Meeting Notes Agent | New actions to track | Begin reminder cycle |
-| Task Shepherd Agent | Validated actions | Track for follow-through |
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-## Escalation Rules
 
-The Nudger follows a strict, time-based escalation chain. Each level triggers only after the previous level has been given time to respond.
+## Knowledge Base
 
-- Overdue > 2 days: notify owner's manager
-- Overdue > 5 days: escalate to governance lead
-- Blocked > 3 days: route to blocker resolver / Senior Manager Agent
-- Owner unresponsive after 2 nudges: escalate to next level
-- Customer-facing commitments receive priority escalation
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
 
-## Quality Gates
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `nudger-escalation-framework.yaml` | Triggers, Path, Message Template | Nudger escalation framework |
+| `nudger-nudge-rules.yaml` | Timing, Frequency, Content | Nudger nudge rules |
 
-Anti-spam and accuracy safeguards ensure the Nudger remains useful rather than annoying.
 
-- Maximum 1 reminder per action per day
-- Maximum 5 total nudges per owner per day
-- Escalation requires documented overdue proof
-- Owner must exist in system before reminder is sent
-- Quiet hours enforced (18:00 - 09:00 local time)
+## Output Artifacts
 
-## Personality Traits
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-| Dimension | Description |
-|-----------|-------------|
-| **Tone** | Professional, persistent, non-judgmental |
-| **Values** | Follow-through discipline without micromanagement, persistence without annoyance, escalation as last resort |
-| **Priorities** | 1. Customer-facing actions, 2. Blocking dependencies, 3. Leadership commitments, 4. Internal actions |
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Notifications | `{account}-notifications.md` | notifications |
+| Reports | `{account}-reports.md` | reports |
+
 
 ## Source Files
 
-- Agent config: `domain/agents/governance/agents/nudger_agent.yaml`
-- Personality: `domain/agents/governance/personalities/nudger_personality.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/governance/nudger-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/governance/agents/nudger_agent.yaml` | Agent configuration |
+| `domain/agents/governance/personalities/nudger_personality.yaml` | Behavioral specification |
+| `domain/agents/governance/prompts/tasks.yaml` | 10 CAF prompts across 3 domains |

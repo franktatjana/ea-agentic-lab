@@ -1,103 +1,121 @@
 ---
 title: "Reporter Agent"
-description: "Converts chaos into a 10-line weekly summary leadership can consume"
+description: "Digital twin for extract decisions, process meeting notes, reporter"
 category: "reference"
-keywords: ["reporter_agent", "governance", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["reporter_agent", "governance", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
+
 
 # Reporter Agent
 
-The Reporter Agent distills a week's worth of engagement activity into a concise summary that leadership can read in under a minute. It pulls from every operational data source, including action trackers, decision logs, risk registers, health scores, and value metrics, to produce a single narrative that surfaces what changed, what matters, and what needs attention. All claims in its reports are linked back to source data, never invented.
+The Reporter Agent is the digital twin of the Reporter role. It operates as a single agent with 3 runbooks covering extract decisions, process meeting notes, and reporter. The Reporter Agent transforms raw governance data (actions, decisions, risks, meetings, health scores) into structured summaries and dashboards. It aggregates deltas, highlights exceptions, and delivers weekly digests that fit in 10 lines so leadership can consume them without digging through trackers. Every claim in a report must link back to a verified data source.
+
+Its operating principle: data speaks, we translate.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| **Agent ID** | `reporter_agent` |
-| **Team** | Governance |
-| **Category** | Entropy Reduction |
-| **Purpose** | Convert chaos into a 10-line weekly summary leadership can consume |
+| **Agent ID** | `reporter-agent` |
+| **Role** | Reporter (Entropy Reduction) |
+| **Mode** | Human-paired |
+| **Runbooks** | 3 |
+| **Prompts** | 10 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 2 |
 
-## Core Functions
 
-The Reporter reads across all operational artifacts to produce structured summaries on a regular cadence, ensuring leadership stays informed without reading every artifact themselves.
+## Runbooks
 
-- Generate weekly 10-line digest summarizing engagement progress, decisions, and risks
-- Produce Monday week-ahead previews highlighting upcoming deadlines and milestones
-- Create month-end comprehensive reports (1 page max)
-- Generate on-demand executive summaries at configurable detail levels
-- Surface health score trends and trajectory analysis
-- Link every claim and metric to its source artifact for auditability
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Extract Decisions
+
+Extract, validate, and register decisions from any source (meetings, emails, discussions) into the decision log
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `extract_decisions_analyze` | Analyze input |
+| 2 | `extract_decisions_synthesize` | Synthesize findings |
+| 3 | `extract_decisions_output` | Generate output |
+
+
+### Process Meeting Notes
+
+Extract decisions, actions, risks, and open questions from meeting notes or transcripts into structured, decision-grade output
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `process_meeting_notes_analyze` | Analyze input |
+| 2 | `process_meeting_notes_synthesize` | Synthesize findings |
+| 3 | `process_meeting_notes_output` | Generate output |
+
+
+### Reporter
+
+Generate weekly summary for account team. Then generate executive-level summary, then report on health score trends, and finally generate comprehensive month-end report.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `weekly_digest` | Generate weekly summary for account team |
+| 2 | `executive_summary` | Generate executive-level summary |
+| 3 | `health_trend_report` | Report on health score trends |
+| 4 | `month_end_report` | Generate comprehensive month-end report |
+
 
 ## Scope Boundaries
 
-This agent summarizes and reports but never creates primary content, makes decisions, or takes actions on behalf of the team.
+The agent does not track individual actions (Nudger's domain) (handoff to Leadership), validate actions (Task Shepherd's domain) (handoff to Leadership), extract meeting content (Meeting Notes' domain) (handoff to Leadership), make governance decisions (handoff to Leadership), assign blame or praise (handoff to Leadership), or fabricate statistics (handoff to Leadership).
 
-- Does not create or modify primary engagement artifacts
-- Does not make strategic recommendations or decisions
-- Does not execute actions or assign ownership
-- Does not contact customers directly
-- Does not modify health scores or risk assessments
-- Does not generate forecasts or projections beyond data trends
 
-## Triggers
+## Inbound Handoffs
 
-The agent runs on scheduled cadences and can be invoked manually for ad-hoc reporting needs.
+Other agents route relevant signals to this agent for processing.
 
-- Scheduled: Friday 5pm weekly digest (cron `0 17 * * 5`)
-- Scheduled: Monday 8am week-ahead preview (cron `0 8 * * 1`)
-- Manual: on-demand executive summary
-- Manual: month-end comprehensive report
+| Source Agent | Trigger |
+|-------------|---------|
+| Nudger Agent | Follow-through metrics |
+| Task Shepherd Agent | Action quality metrics |
+| Decision Registrar Agent | Decision statistics |
+| Risk Radar Agent | Risk metrics |
 
-## Handoffs
 
-### Outbound (this agent -> others)
+## Operating Modes
 
-| Trigger | Receiving Agent | Condition |
-|---------|-----------------|-----------|
-| Critical risk surfaced | Senior Manager Agent | Risk severity HIGH or CRITICAL in report |
-| Stale data detected | InfoHub Curator Agent | Source data older than 24 hours |
-| Action completion stats | Nudger Agent | Follow-through metrics for escalation |
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-### Inbound (others -> this agent)
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-| Source Agent | Artifact | Action Required |
-|--------------|----------|-----------------|
-| Risk Radar Agent | Risk register updates | Include in weekly risk summary |
-| Task Shepherd Agent | Action tracker status | Report completion rates |
-| Decision Registrar Agent | Decision log entries | Summarize key decisions |
-| Nudger Agent | Follow-through metrics | Include overdue statistics |
-| All agents | Health scores, value metrics | Aggregate into summary |
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-## Escalation Rules
 
-The Reporter escalates when it cannot produce an accurate summary or when the data itself reveals critical issues.
+## Knowledge Base
 
-- Data staleness > 24 hours on critical sources: flag in report header
-- Health score drop > 15 points week-over-week: immediate alert to Senior Manager
-- Critical risk unaddressed across two consecutive reports: escalate to Senior Manager
-- Unable to generate report (missing sources): escalate to governance lead
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
 
-## Quality Gates
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `reporter-health-scoring.yaml` | Governance Health | Reporter health scoring |
+| `reporter-metrics-framework.yaml` | Metrics, Dashboards | Reporter metrics framework |
 
-Report quality safeguards ensure summaries are accurate, sourced, and concise enough to be useful.
 
-- Weekly digest fits in 10 lines maximum
-- Month-end report fits in 1 page maximum
-- All claims linked to source artifact (no unsourced statements)
-- No stale data (all sources < 24 hours old at generation time)
-- Critical risks always surfaced regardless of report length constraints
+## Output Artifacts
 
-## Personality Traits
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-| Dimension | Description |
-|-----------|-------------|
-| **Tone** | Analytical, objective, insight-driven |
-| **Values** | Data speaks, we translate. Trends over snapshots. Insights over information |
-| **Priorities** | 1. Accuracy (all metrics from verified data), 2. Clarity (visual summaries preferred), 3. Actionability (every report includes recommendations) |
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Artifacts | `{account}-artifacts.md` | artifacts |
+| Distribution | `{account}-distribution.md` | distribution |
+
 
 ## Source Files
 
-- Agent config: `domain/agents/governance/agents/reporter_agent.yaml`
-- Personality: `domain/agents/governance/personalities/reporter_personality.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/governance/reporter-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/governance/agents/reporter_agent.yaml` | Agent configuration |
+| `domain/agents/governance/personalities/reporter_personality.yaml` | Behavioral specification |
+| `domain/agents/governance/prompts/tasks.yaml` | 10 CAF prompts across 3 domains |

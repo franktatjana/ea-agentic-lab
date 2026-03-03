@@ -25,6 +25,7 @@ import {
   Workflow,
   Info,
   BarChart3,
+  Presentation,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Input } from "@/components/ui/input";
@@ -933,6 +934,13 @@ export default function KnowledgeVaultPage() {
       <div>
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold">Knowledge Vault</h1>
+          <button
+            onClick={() => window.open("/present/knowledge", "_blank")}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Presentation className="h-3.5 w-3.5" />
+            Present
+          </button>
           <HelpPopover title="What is the Knowledge Vault?">
             The Knowledge Vault is the system&apos;s institutional memory.
             It stores best practices, lessons learned, patterns, and external

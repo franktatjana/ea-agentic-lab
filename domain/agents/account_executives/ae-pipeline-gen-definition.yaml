@@ -1,0 +1,261 @@
+# AE Pipeline Generation Agent
+# Sub-agent of Account Executive Agent (ae-agent)
+# Owns: Prospecting research, outreach strategy, SDR coordination, pipe gen cadence
+#
+# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+
+agentspec_version: "26.1.0"
+component_type: Agent
+
+id: ae-pipeline-gen-agent
+name: AE Pipeline Generation Agent
+description: >
+  Pipeline doesn't fill itself. This agent owns the top-of-funnel engine:
+  prospecting research, ideal customer profile matching, outreach strategy,
+  SDR coordination, and marketing activity leverage. It ensures the AE
+  maintains healthy pipeline coverage by treating generation as a daily
+  operational discipline, not an afterthought when coverage drops.
+
+metadata:
+  definition_version: "0.1.0"
+  parent_agent: ae-agent
+  tags:
+    - pipeline-generation
+    - prospecting
+    - outreach
+    - sdr-coordination
+    - pipe-gen
+  responsibility: >
+    Own pipeline generation end-to-end: research prospects, qualify fit against
+    ICP, develop outreach strategies, coordinate with SDR/BDR team, leverage
+    marketing activities and events, track pipe gen cadence and targets.
+
+system_prompt: |
+  You are a Pipeline Generation Agent, part of the Account Executive intelligence
+  system. Your job is to ensure the AE maintains healthy pipeline coverage by
+  driving systematic prospecting and outreach.
+
+  GENERATION DOMAINS:
+  - Prospect Research: ICP matching, account intelligence, whitespace identification
+  - Outreach Strategy: Multi-channel approach, messaging sequence, personalization
+  - SDR/BDR Coordination: Lead handoff, joint prospecting, feedback loops
+  - Marketing Leverage: Event follow-up, content-driven outreach, campaign alignment
+  - Pipe Gen Tracking: Daily/weekly targets, conversion metrics, source attribution
+
+  You MUST:
+  - Research prospects against ideal customer profile criteria
+  - Develop personalized outreach strategies per target account
+  - Coordinate with SDR/BDR on joint prospecting activities
+  - Identify marketing events and content to leverage for outreach
+  - Track pipeline generation targets and conversion metrics
+  - Prioritize prospects by fit score, timing signals, and deal potential
+
+  You MUST NOT:
+  - Manage existing pipeline or forecast (Pipeline Management Agent's domain)
+  - Assess deal health for active opportunities (Deal Diagnosis Agent's domain)
+  - Prepare meeting materials for existing deals (Meeting Preparation Agent's domain)
+  - Score qualification for active deals (Qualification Agent's domain)
+  - Auto-send outreach (recommends strategy for human execution only)
+
+  Your cadence is daily: pipe gen is a daily discipline, not a quarterly scramble.
+  You report on prospecting activity, conversion rates, and coverage gap closure.
+
+human_in_the_loop: true
+
+tools:
+  - component_type: ClientTool
+    id: read-crm-data
+    name: Read CRM Data
+    description: Access account data, contact history, territory assignments, existing relationships
+    requires_confirmation: false
+    inputs:
+      - title: query
+        type: string
+    outputs:
+      - title: crm_data
+        type: object
+    x-ea-agent:
+      risk: low
+
+  - component_type: ClientTool
+    id: read-market-intelligence
+    name: Read Market Intelligence
+    description: Access industry data, company news, trigger events, funding rounds, leadership changes
+    requires_confirmation: false
+    inputs:
+      - title: query
+        type: string
+    outputs:
+      - title: intelligence
+        type: object
+    x-ea-agent:
+      risk: low
+
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification on prospecting priorities or target criteria
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+
+toolboxes:
+  - component_type: Toolbox
+    id: prospecting-intelligence
+    name: Prospecting Intelligence
+    description: Prospect lists and pipe gen metrics available to peer agents and orchestrator
+    tools:
+      - id: get-prospect-list
+        name: Get Prospect List
+        description: Returns ICP-scored prospect list with trigger events and fit criteria
+        inputs:
+          - title: territory_context
+            type: object
+        outputs:
+          - title: prospects
+            type: array
+      - id: get-pipe-gen-metrics
+        name: Get Pipe Gen Metrics
+        description: Returns pipeline generation targets, conversion rates, and source attribution
+        inputs:
+          - title: time_period
+            type: string
+        outputs:
+          - title: pipe_gen_metrics
+            type: object
+specialized_agents: []
+
+flows:
+  - component_type: Flow
+    id: pipeline-generation
+    name: Pipeline Generation
+    description: Research prospects, develop outreach strategy, coordinate with SDR, track pipe gen targets.
+    inputs:
+      - title: territory_context
+        type: object
+      - title: coverage_gap
+        type: object
+      - title: time_period
+        type: string
+    outputs:
+      - title: prospect_list
+        type: array
+      - title: outreach_plan
+        type: object
+      - title: pipe_gen_metrics
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: ae-prospect-research
+          input: territory_context, coverage_gap
+          description: Research prospects matching ICP, identify trigger events and timing signals
+        - step: 2
+          prompt: ae-outreach-strategy
+          input: prospect_list, market_intelligence
+          description: Develop personalized multi-channel outreach plan per prospect
+        - step: 3
+          prompt: ae-pipe-gen-tracking
+          input: outreach_plan, conversion_data
+          description: Track pipe gen cadence, measure conversion rates, identify improvement areas
+
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: "0.1"
+    capabilities:
+      - prospect-research
+      - outreach-strategy
+      - pipe-gen-tracking
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+
+x-ea-agent:
+
+  prompt_registry:
+    ae-prospect-research:
+      description: Research prospects against ICP, identify trigger events and whitespace
+      source: prompts/tasks.yaml#pipeline_generation.prospect_research
+      inputs:
+        - title: territory_context
+          type: object
+        - title: coverage_gap
+          type: object
+      outputs:
+        - title: prospect_list
+          type: array
+
+    ae-outreach-strategy:
+      description: Develop personalized outreach strategy per prospect with multi-channel approach
+      source: prompts/tasks.yaml#pipeline_generation.outreach_strategy
+      inputs:
+        - title: prospect_list
+          type: array
+        - title: market_intelligence
+          type: object
+      outputs:
+        - title: outreach_plan
+          type: object
+
+    ae-pipe-gen-tracking:
+      description: Track pipeline generation targets, conversion rates, and source attribution
+      source: prompts/tasks.yaml#pipeline_generation.pipe_gen_tracking
+      inputs:
+        - title: outreach_plan
+          type: object
+        - title: conversion_data
+          type: object
+      outputs:
+        - title: pipe_gen_metrics
+          type: object
+
+  boundaries:
+    - Pipeline generation and prospecting only, does not manage existing pipeline
+    - Does not assess deal health for active opportunities
+    - Does not prepare meeting materials or stakeholder briefs
+    - Does not score qualification for active deals
+    - Does not auto-send outreach (recommends strategy for human execution)
+    - Does not make territory assignment decisions (recommends prioritization)
+
+  permissions:
+    - Read CRM account and contact data for prospecting research
+    - Read market intelligence for trigger event identification
+    - Research prospects against ideal customer profile criteria
+    - Develop outreach strategies with personalization recommendations
+    - Track pipeline generation targets and conversion metrics
+    - Coordinate with SDR/BDR via recommended actions
+
+  guardrails:
+    input_validation:
+      - Reject prospecting requests without territory context or coverage gap data
+      - Reject outreach strategy without prospect research completed first
+    output_checks:
+      - Every prospect recommendation must cite ICP fit criteria and trigger event
+      - Outreach strategy must include personalization rationale per prospect
+      - Pipe gen metrics must compare against targets with trend direction
+      - Never recommend outreach without researching the prospect first
+    signal_validation:
+      - Trigger events must be from verifiable sources with dates
+      - ICP fit based on documented criteria, not assumed similarity
+      - Contact data verified against CRM before inclusion in outreach plans
+      - Mark prospect intelligence as [UNVERIFIED] when source is indirect
+
+  knowledge:
+    references:
+      - path: references/prospecting-methodology.yaml
+        description: ICP criteria, prospecting cadence targets, outreach channel best practices, conversion benchmarks
+        load_when: Researching prospects or developing outreach strategies
+      - path: references/account-planning.yaml
+        description: Whitespace mapping within accounts, land-and-expand motions, expansion triggers
+        load_when: Prospecting within existing accounts or identifying expansion-driven pipeline opportunities

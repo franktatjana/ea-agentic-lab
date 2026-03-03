@@ -1,97 +1,115 @@
 ---
 title: "Partner Agent"
-description: "Partner ecosystem coordination and dependency visibility"
+description: "Digital twin for partner health, coordination, partner risk"
 category: "reference"
-keywords: ["partner_agent", "partners", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["partner_agent", "partners", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
+
 
 # Partner Agent
 
-The Partner Agent keeps partner dependencies visible and aligned with account plans. In complex enterprise deals, partners (system integrators, resellers, alliance members) introduce coordination risk that can quietly derail timelines if left unmonitored. This agent scans joint threads and documents, compares partner plans against the account plan, and surfaces misalignment before it becomes a blocker.
+The Partner Agent is the digital twin of the Partner role. It operates as a single agent with 4 runbooks covering partner health, coordination, partner risk, and reporting. The Partner Agent tracks partner involvement in accounts, flags partner-related risks (misalignment, delays, conflicts), and monitors partner deliverables against commitments. It links partner work to account plans and provides visibility on dependencies that could affect deal execution or delivery timelines. The agent ensures that partner coordination gaps do not become account surprises.
+
+Its operating principle: clear partner dependency visibility prevents delays.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| **Agent ID** | `partner_agent` |
-| **Team** | partners |
-| **Category** | Sales |
-| **Purpose** | Maintain partner alignment and dependency visibility |
+| **Agent ID** | `partner-agent` |
+| **Role** | Partner (Sales) |
+| **Mode** | Human-paired |
+| **Runbooks** | 4 |
+| **Prompts** | 12 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 0 |
 
-## Core Functions
 
-The Partner Agent tracks partner involvement across accounts, ensuring that joint execution stays coordinated and that dependencies are visible to the entire account team.
+## Runbooks
 
-- Track partner involvement and activities in accounts
-- Flag partner-related risks (misalignment, delays, scope conflicts)
-- Monitor partner deliverables against commitments
-- Link partner work to account plans for alignment
-- Compare partner execution plans against account strategy
-- Auto-update partner sections in account documentation
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Partner Health
+
+Assess health of partner engagement in account. Then track status of partner dependencies, and finally review partner performance over period.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `engagement_health` | Assess health of partner engagement in account |
+| 2 | `dependency_status` | Track status of partner dependencies |
+| 3 | `partner_performance` | Review partner performance over period |
+
+
+### Coordination
+
+Prepare for joint planning with partner. Then coordinate handoff to/from partner, and finally prepare for partner communication sync.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `joint_planning` | Prepare for joint planning with partner |
+| 2 | `handoff_coordination` | Coordinate handoff to/from partner |
+| 3 | `communication_sync` | Prepare for partner communication sync |
+
+
+### Partner Risk
+
+Identify partner-related risks. Then plan resolution for partner issue, and finally prepare partner escalation.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `risk_identification` | Identify partner-related risks |
+| 2 | `issue_resolution` | Plan resolution for partner issue |
+| 3 | `escalation_prep` | Prepare partner escalation |
+
+
+### Reporting
+
+Prepare partner update for account team. Then update partner scorecard metrics, and finally develop joint success story with partner.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `account_team_update` | Prepare partner update for account team |
+| 2 | `partner_scorecard` | Update partner scorecard metrics |
+| 3 | `joint_success_story` | Develop joint success story with partner |
+
 
 ## Scope Boundaries
 
-The Partner Agent does not manage partner relationships directly, make partner commitments on anyone's behalf, or assess partner technical capabilities. It is a dependency tracker and alignment monitor, quoting exact partner-related statements and never assuming partner scope without explicit mention. Relationship management and partner strategy remain with human partner managers.
+The agent does not manage partner relationships directly (handoff to Partner Manager), make partner commitments (handoff to Partner Manager), or assess partner technical capabilities (handoff to Partner Manager).
 
-## Playbooks Owned
 
-| ID | Name | Purpose |
-|----|------|---------|
-| PB_PTR_001 | Partner Engagement Health | Periodic assessment of partner engagement health, evaluating commitments, communication, alignment, and delivery with GREEN/YELLOW/RED scorecard |
-| PB_PTR_002 | Partner Dependency Tracking | Track dependencies between account delivery and partner activities, flag at-risk dependencies, route mitigations |
-| PB_PTR_003 | Joint Account Planning | Structure joint planning sessions between vendor and partner for shared accounts, align goals, divide responsibilities |
+## Operating Modes
 
-The Partner Agent also feeds dependency intelligence into account plans and risk registers owned by other agents.
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-## Triggers
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-The Partner Agent activates when partner involvement is detected or when partner-related risks emerge in account activities.
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-- Joint communication threads with partner references
-- Partner deliverable deadlines approaching
-- Account plan partner section updates
-- Partner-related risk signals (delays, misalignment, conflicts)
-- New partner engagement initiated in an account
-- SI engagement, reseller activity, or alliance coordination mentions
 
-## Handoffs
+## Knowledge Base
 
-### Outbound (this agent -> others)
+No dedicated knowledge references.
 
-| Trigger | Receiving Agent | Condition |
-|---------|-----------------|-----------|
-| Partner referral received | AE Agent | New opportunity from partner |
-| Partner technical issue | SA Agent | Integration problem with partner solution |
-| Partner risk identified | Senior Manager | Dependency risk threatening deal |
-| Partner SOW needed | PS Agent | Partner services scoping required |
 
-### Inbound (others -> this agent)
+## Output Artifacts
 
-| Source Agent | Artifact | Action Required |
-|--------------|----------|-----------------|
-| AE Agent | Partner involvement signal | Begin tracking alignment |
-| PS Agent | Joint delivery plan | Monitor partner deliverables |
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-## Escalation Rules
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Alignment Note | `{account}-alignment-note.md` | Alignment note |
+| Partner Risk Alerts | `{account}-partner-risk-alerts.md` | Partner risk alerts |
+| Dependency Tracking | `{account}-dependency-tracking.md` | Dependency tracking |
 
-The Partner Agent escalates when partner dependencies threaten deal timelines or when misalignment between partner and account plans reaches critical levels.
-
-- Partner delay blocking deal progress escalates immediately to Senior Manager
-- Partner conflict or relationship issues escalate to Partner Manager and Senior Manager
-- Partner scope unclear or dependency unresolved escalates within 24 hours
-- Partner technical issues escalate to SA Agent for resolution
-
-## Personality Traits
-
-| Attribute | Value |
-|-----------|-------|
-| **Tone** | Coordination-focused, precise, dependency-aware |
-| **Values** | Clear partner dependency visibility prevents delays. Alignment tracking ensures coordinated execution |
-| **Priorities** | 1. Partner dependency identification, 2. Partner risk detection, 3. Alignment monitoring |
 
 ## Source Files
 
-- Agent config: `domain/agents/partners/agents/partner_agent.yaml`
-- Personality: `domain/agents/partners/personalities/partner_personality.yaml`
-- Task prompts: `domain/agents/partners/prompts/tasks.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/partners/partner-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/partners/agents/partner_agent.yaml` | Agent configuration |
+| `domain/agents/partners/personalities/partner_personality.yaml` | Behavioral specification |
+| `domain/agents/partners/prompts/tasks.yaml` | 12 CAF prompts across 4 domains |

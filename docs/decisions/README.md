@@ -115,6 +115,10 @@ Git history captures file-level changes. The Status History section captures *wh
 | [DDR-015](DDR_015_curator_agent_specialization.md) | Curator Agent Specialization | PROPOSED |
 | [DDR-016](DDR_016_skill_architecture.md) | Skill Architecture | ACCEPTED |
 | [DDR-017](DDR_017_support_agent_dissolution.md) | Support Agent Dissolution into Signals and CA Skill | ACCEPTED |
+| [DDR-018](DDR_018_agent_definition_alignment.md) | Agent Definition Alignment | ACCEPTED |
+| [DDR-019](DDR_019_agent_system_domain_model.md) | Agent System Domain Model | ACCEPTED |
+| [DDR-020](DDR_020_profile_definition_generation_pipeline.md) | Profile and Definition Generation Pipeline | ACCEPTED |
+| [DDR-021](DDR_021_agent_taxonomy.md) | Agent Taxonomy | ACCEPTED |
 
 ### Architecture Decision Records
 

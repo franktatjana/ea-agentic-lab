@@ -1,101 +1,117 @@
 ---
 title: "Task Shepherd Agent"
-description: "Ensures actions are real tasks with owners, dates, and clear completion criteria"
+description: "Digital twin for extract decisions, process meeting notes, task shepherd"
 category: "reference"
-keywords: ["task_shepherd_agent", "governance", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["task_shepherd_agent", "governance", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
+
 
 # Task Shepherd Agent
 
-The Task Shepherd Agent validates every action item to ensure it is a real, trackable task rather than a vague promise. It checks for single ownership, specific due dates, and verifiable completion criteria. Actions that fail validation are flagged with constructive feedback, not silently accepted.
+The Task Shepherd Agent is the digital twin of the Task Shepherd role. It operates as a single agent with 3 runbooks covering extract decisions, process meeting notes, and task shepherd. The Task Shepherd Agent validates action items before they enter the governance system. It checks that each action has a specific owner (a real person, not a team or "TBD"), a concrete due date, and clear completion criteria (`done_means`). Actions that fail validation are rejected with constructive feedback. This gate prevents vague commitments from cluttering the action tracker and ensures downstream agents (Nudger, Signal Matcher) have actionable items to work with.
+
+Its operating principle: quality over speed.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| **Agent ID** | `task_shepherd_agent` |
-| **Team** | Governance |
-| **Category** | Entropy Reduction |
-| **Purpose** | Ensure actions are real tasks, not vague promises |
+| **Agent ID** | `task-shepherd-agent` |
+| **Role** | Task Shepherd (Entropy Reduction) |
+| **Mode** | Human-paired |
+| **Runbooks** | 3 |
+| **Prompts** | 10 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 1 |
 
-## Core Functions
 
-The Task Shepherd validates action items from meetings and decisions against strict quality rules, then routes validated actions downstream.
+## Runbooks
 
-- Validate action item completeness (description, owner, due date)
-- Ensure owners are assigned and valid (real person, not a team)
-- Verify due dates are realistic and specific calendar dates
-- Check for duplicate actions across sources
-- Link actions to parent decisions and source meetings
-- Infer priority from context (blocker -> critical, executive ask -> critical, risk mitigation -> high, default -> medium)
-- Detect blocking dependencies between actions
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Extract Decisions
+
+Extract, validate, and register decisions from any source (meetings, emails, discussions) into the decision log
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `extract_decisions_analyze` | Analyze input |
+| 2 | `extract_decisions_synthesize` | Synthesize findings |
+| 3 | `extract_decisions_output` | Generate output |
+
+
+### Process Meeting Notes
+
+Extract decisions, actions, risks, and open questions from meeting notes or transcripts into structured, decision-grade output
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `process_meeting_notes_analyze` | Analyze input |
+| 2 | `process_meeting_notes_synthesize` | Synthesize findings |
+| 3 | `process_meeting_notes_output` | Generate output |
+
+
+### Task Shepherd
+
+Ensure action meets quality standards. Then audit all actions for hygiene, then identify and merge duplicate actions, and finally infer priority from context.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `validate_action` | Ensure action meets quality standards |
+| 2 | `weekly_action_audit` | Audit all actions for hygiene |
+| 3 | `merge_duplicate_actions` | Identify and merge duplicate actions |
+| 4 | `priority_inference` | Infer priority from context |
+
 
 ## Scope Boundaries
 
-This agent validates and enriches actions but does not create, remind, or close them. The following responsibilities belong to other agents.
+The agent does not extract actions from meetings (Meeting Notes' domain) (handoff to Leadership), send reminders (Nudger's domain) (handoff to Leadership), complete actions on behalf of owners (handoff to Leadership), modify action content (handoff to Leadership), extend due dates autonomously (handoff to Leadership), or prioritize actions (Reporter's domain) (handoff to Leadership).
 
-- Does not extract actions from meetings (Meeting Notes Agent's domain)
-- Does not send reminders or escalations (Nudger Agent's domain)
-- Does not complete actions on behalf of owners
-- Does not modify action content or extend due dates autonomously
-- Does not prioritize actions for reporting (Reporter Agent's domain)
 
-## Triggers
+## Inbound Handoffs
 
-The agent activates when new actions appear or when scheduled audits run.
+Other agents route relevant signals to this agent for processing.
 
-- `action_created`, a new action item has been submitted
-- `meeting_note_published`, meeting notes may contain new actions
-- `decision_made`, decisions often generate follow-up actions
-- Scheduled: Monday morning audit (cron `0 8 * * 1`)
+| Source Agent | Trigger |
+|-------------|---------|
+| Meeting Notes Agent | Raw actions for validation |
 
-## Handoffs
 
-### Outbound (this agent -> others)
+## Operating Modes
 
-| Trigger | Receiving Agent | Condition |
-|---------|-----------------|-----------|
-| Validated actions ready | Nudger Agent | Actions pass all validation gates |
-| Action quality metrics | Reporter Agent | Periodic quality statistics |
-| Validation failure unresolved | Nudger Agent | Owner fails to fix within 24 hours |
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-### Inbound (others -> this agent)
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-| Source Agent | Artifact | Action Required |
-|--------------|----------|-----------------|
-| Meeting Notes Agent | Raw extracted actions | Validate completeness and quality |
-| Decision Registrar Agent | Decision-linked actions | Validate and link to decision source |
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-## Escalation Rules
 
-The Task Shepherd follows a structured escalation path when actions cannot be validated.
+## Knowledge Base
 
-- Missing owner: request owner assignment from meeting organizer
-- Missing due date: request specific date from action owner
-- Vague description: request "done means" definition from owner
-- Owner has 24 hours to fix validation failures
-- Unresolved after 24 hours: escalate to Nudger Agent
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
 
-## Quality Gates
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `task-shepherd-validation-rules.yaml` | Required Fields, Quality Checks, Rejection Criteria | Task shepherd validation rules |
 
-Every action must pass these gates before being accepted into the action tracker.
 
-- Owner is a real person (not a role or team name)
-- Due date is a specific calendar date (not "soon" or "ASAP")
-- Done-means is verifiable (clear completion criteria)
-- Source link exists (meeting or decision reference)
-- No duplicate actions across sources
+## Output Artifacts
 
-## Personality Traits
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-| Dimension | Description |
-|-----------|-------------|
-| **Tone** | Helpful, precise, constructive |
-| **Values** | Quality over speed, constructive feedback over rejection, complete validation over partial checks |
-| **Priorities** | 1. Owner validation, 2. Due date verification, 3. Description quality, 4. Dependency linking |
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Artifacts | `{account}-artifacts.md` | artifacts |
+| Reports | `{account}-reports.md` | reports |
+
 
 ## Source Files
 
-- Agent config: `domain/agents/governance/agents/task_shepherd_agent.yaml`
-- Personality: `domain/agents/governance/personalities/task_shepherd_personality.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/governance/task-shepherd-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/governance/agents/task_shepherd_agent.yaml` | Agent configuration |
+| `domain/agents/governance/personalities/task_shepherd_personality.yaml` | Behavioral specification |
+| `domain/agents/governance/prompts/tasks.yaml` | 10 CAF prompts across 3 domains |

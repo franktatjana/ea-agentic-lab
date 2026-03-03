@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Timer,
   Zap,
+  Presentation,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -332,6 +333,13 @@ export default function BlueprintHubPage() {
       <div>
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold">Blueprints &amp; Composition</h1>
+          <button
+            onClick={() => window.open("/present/blueprints", "_blank")}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Presentation className="h-3.5 w-3.5" />
+            Present
+          </button>
           <HelpPopover title="What are Blueprints?">
             Reference blueprints are composable templates that define which
             playbooks, canvases, checklists, and governance rules apply to a

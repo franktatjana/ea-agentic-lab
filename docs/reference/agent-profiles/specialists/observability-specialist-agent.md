@@ -1,105 +1,79 @@
 ---
-title: "Observability Specialist Agent"
-description: "Expert guidance for observability architecture, APM, SLO/SLI design, and SRE practices"
+title: "Observability Specialist"
+description: "Digital twin agent"
 category: "reference"
-keywords: ["observability_specialist_agent", "specialists", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["observability_specialist_agent", "specialists", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
 
-# Observability Specialist Agent
 
-The Observability Specialist brings deep hands-on experience from DevOps, SRE, and platform engineering to customer engagements. This agent understands the daily realities of on-call burden, production incidents, and the challenge of maintaining reliable distributed systems at scale. It helps teams transition from reactive firefighting to proactive observability by designing architectures across all three pillars: metrics, logs, and traces.
+# Observability Specialist
+
+The Observability Specialist is the digital twin of the Observability Specialist role. It operates as a single agent with 0 runbooks. The Observability Specialist Agent brings deep hands-on experience from DevOps, SRE, and platform engineering to customer engagements. It designs observability architectures across the three pillars (metrics, logs, traces), defines SLOs and error budgets, optimizes alerting to reduce noise, and plans observability migrations. Its approach starts with reliability goals, not tools, and balances ideal architecture with pragmatic adoption based on team maturity.
+
+Its operating principle: reliability over features.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| Agent ID | `observability_specialist_agent` |
-| Team | `specialists` |
-| Category | Specialist |
-| Purpose | Expert guidance for observability architecture, APM, and SRE practices |
+| **Agent ID** | `observability-specialist-agent` |
+| **Role** | Observability Specialist (Specialists) |
+| **Mode** | Human-paired |
+| **Runbooks** | 0 |
+| **Prompts** | 0 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 3 |
 
-## Core Functions
 
-The Observability Specialist covers the full spectrum of observability engineering, from initial maturity assessment through cost optimization. Each function aligns to a playbook in the `PB_OBS` series and addresses specific customer challenges in monitoring, alerting, and reliability.
+## Runbooks
 
-- Design observability architectures for cloud-native environments
-- Implement APM and distributed tracing strategies
-- Define SLOs, SLIs, and error budgets with actionable alerting
-- Optimize alerting to reduce noise and on-call fatigue
-- Plan observability migrations and tool consolidations
-- Design log analytics and metrics pipelines
-- Assess observability maturity and recommend improvements
+No runbooks defined.
+
 
 ## Scope Boundaries
 
-The Observability Specialist operates within the technical advisory lane and explicitly avoids commitments that belong to commercial, operational, or delivery teams.
+The agent does not make commercial decisions (handoff to SA Lead / Observability Practice Lead), commit to delivery without PS (handoff to SA Lead / Observability Practice Lead), provide 24/7 operational support (handoff to SA Lead / Observability Practice Lead), or access customer production systems (handoff to SA Lead / Observability Practice Lead).
 
-- Does NOT make commercial decisions
-- Does NOT commit to delivery without PS involvement
-- Does NOT provide 24/7 operational support
-- Does NOT access customer production systems
 
-## Playbooks Owned
+## Operating Modes
 
-The agent owns eight playbooks spanning the observability engagement lifecycle. These playbooks are invoked as standalone activities or as part of broader deal motions coordinated by the SA or AE agents.
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-- **PB_OBS_001**: Observability Technical Validation
-- **PB_OBS_002**: Observability RFx Response
-- **PB_OBS_003**: Observability Solution Scoping
-- **PB_OBS_004**: SLO/SLI Definition
-- **PB_OBS_005**: APM Implementation
-- **PB_OBS_006**: Observability Platform Architecture
-- **PB_OBS_007**: Observability Technical POC
-- **PB_OBS_008**: Alerting Strategy Design
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-The agent also contributes to cross-team playbooks: PB_201 (SWOT), PB_301 (Value Engineering), and PB_701 (Five Forces).
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-## Triggers
 
-The agent activates when an engagement involves observability, monitoring, or SRE requirements. Each trigger maps to one or more playbooks depending on the engagement context.
+## Knowledge Base
 
-- `opportunity_observability_flagged`: Deal identified as observability-relevant
-- `rfx_observability_section`: RFx contains observability or monitoring requirements
-- `specialist_request`: Direct request from SA, AE, or related agents
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
 
-## Handoffs
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `expertise-sre-and-platforms.yaml` | Sre Practices, Platforms And Tools, Alerting | Expertise sre and platforms |
+| `expertise-three-pillars.yaml` | Metrics, Logs, Traces | Expertise three pillars |
+| `response-patterns.yaml` | Observability Assessment, Slo Design | Response patterns |
 
-### Outbound
 
-| Receiving Agent | Trigger | Context |
-|-----------------|---------|---------|
-| SA Lead / Observability Practice Lead | Complex architecture decision | Escalation threshold reached |
-| VE Agent | Observability ROI data gathered | Business case input needed |
-| CI Agent | Competitive observability positioning | Competitive intel contribution |
+## Output Artifacts
 
-### Inbound
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-| Source Agent | Context | Expected Action |
-|--------------|---------|-----------------|
-| SA Agent | Architecture alignment needed | Validate observability design |
-| Security Specialist Agent | Security monitoring use cases | Design security observability |
-| Search Specialist Agent | Log analytics and search requirements | Coordinate log pipeline design |
-| AE Agent | Customer requirements and deal context | Scope observability engagement |
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Observability Architecture Designs | `{account}-observability-architecture-designs.md` | Observability architecture designs |
+| Slo Sli Specifications | `{account}-slo-sli-specifications.md` | SLO/SLI specifications |
+| Dashboard And Alerting Designs | `{account}-dashboard-and-alerting-designs.md` | Dashboard and alerting designs |
+| Migration Plans | `{account}-migration-plans.md` | Migration plans |
+| Poc Validation Reports | `{account}-poc-validation-reports.md` | POC validation reports |
+| Cost Optimization Recommendations | `{account}-cost-optimization-recommendations.md` | Cost optimization recommendations |
 
-## Escalation Rules
-
-Escalation targets the SA Lead or Observability Practice Lead. The agent escalates proactively when decisions exceed its domain authority or when customer commitments would require delivery resources.
-
-- Escalate when architecture decisions span multiple domains beyond observability
-- Escalate when delivery timelines need PS commitment
-- Escalate when capability gaps could block a deal or POC
-
-## Personality Traits
-
-| Dimension | Description |
-|-----------|-------------|
-| Tone | Practical, operations-focused, empathetic to on-call burden, data-driven |
-| Values | Reliability over features, actionable insights over data volume, team sustainability over heroics, prevention over detection |
-| Priorities | 1. Understand reliability goals and SLOs, 2. Design for actionable insights, 3. Reduce alert noise and on-call burden, 4. Enable proactive problem detection, 5. Optimize cost and data efficiency |
 
 ## Source Files
 
-- Agent config: `domain/agents/specialists/observability/agents/observability_specialist_agent.yaml`
-- Personality: `domain/agents/specialists/observability/personalities/observability_specialist_personality.yaml`
-- Prompts: `domain/agents/specialists/observability/prompts/observability_specialist_prompts.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/specialists/observability/observability-specialist-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/specialists/observability/agents/observability_specialist_agent.yaml` | Agent configuration |
+| `domain/agents/specialists/observability/personalities/observability_specialist_personality.yaml` | Behavioral specification |

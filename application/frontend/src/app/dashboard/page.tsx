@@ -8,13 +8,16 @@ import {
   ArrowRight,
   Building2,
   Calendar,
+  CheckCircle2,
   ChevronRight,
+  Circle,
   CircleDot,
   Flag,
   Minus,
   ShieldAlert,
   TrendingDown,
   TrendingUp,
+  Presentation,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +26,8 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { HelpPopover } from "@/components/help-popover";
+import { QBR_SAMPLE_DATA } from "@/components/presentation/qbr-data";
+import type { ScoreStatus } from "@/components/presentation/qbr-data";
 import type { DashboardSummary, DashboardNode, DashboardAttentionItem } from "@/types";
 
 function formatCurrency(value: number): string {
@@ -321,6 +326,320 @@ function NodeRow({ node }: { node: DashboardNode }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// QBR Tracking Canvas - CY25 Q4 sample data derived from vault
+// ---------------------------------------------------------------------------
+
+function deriveScoreStatus(score: number): ScoreStatus {
+  if (score >= 75) return "green";
+  if (score >= 50) return "yellow";
+  return "red";
+}
+
+const qbrStatusColors: Record<ScoreStatus, string> = {
+  green: "border-green-500/60 text-green-400",
+  yellow: "border-yellow-500/60 text-yellow-400",
+  red: "border-red-500/60 text-red-400",
+};
+
+const qbrStatusBg: Record<ScoreStatus, string> = {
+  green: "bg-green-500/10",
+  yellow: "bg-yellow-500/10",
+  red: "bg-red-500/10",
+};
+
+const qbrBadgeStyles: Record<string, string> = {
+  completed: "bg-green-500/15 text-green-400",
+  in_progress: "bg-blue-500/15 text-blue-400",
+  not_started: "bg-muted text-muted-foreground",
+  blocked: "bg-red-500/15 text-red-400",
+  open: "bg-red-500/15 text-red-400",
+  mitigating: "bg-yellow-500/15 text-yellow-400",
+  resolved: "bg-green-500/15 text-green-400",
+};
+
+const QBR_DATA = QBR_SAMPLE_DATA;
+
+function QbrTrackingSection() {
+  const d = QBR_DATA;
+  const sc = d.scorecard;
+
+  const overallScore = Math.round(
+    sc.revenue.attainment * 0.30 +
+    (sc.pipeline.coverage >= 3 ? 100 : sc.pipeline.coverage >= 2 ? 70 : 40) * 0.20 +
+    sc.forecast.accuracy * 0.15 +
+    (sc.deal_quality.avg_meddpicc / 25 * 100) * 0.15 +
+    sc.competitive.win_rate * 0.10 +
+    sc.health.avg * 0.10
+  );
+  const overallStatus = deriveScoreStatus(overallScore);
+
+  const commitDone = d.commitments.filter(c => c.status === "completed").length;
+  const commitPct = Math.round(commitDone / d.commitments.length * 100);
+  const readinessDone = d.readiness.filter(r => r.done).length;
+  const readinessPct = Math.round(readinessDone / d.readiness.length * 100);
+
+  const dimensions = [
+    { label: "Revenue", value: `${sc.revenue.attainment}%`, detail: `${sc.revenue.actual} / ${sc.revenue.target}`, weight: 30, status: sc.revenue.status,
+      help: "Quarterly revenue closed vs. target. GREEN >= 90%, YELLOW 75-89%, RED < 75%. Includes new business, expansion, and renewal." },
+    { label: "Pipeline", value: `${sc.pipeline.coverage}x`, detail: `${sc.pipeline.total} pipeline`, weight: 20, status: sc.pipeline.status,
+      help: "Total qualified pipeline divided by remaining target. Industry benchmark is 3x minimum. GREEN >= 3.0x, YELLOW 2.0-2.9x, RED < 2.0x." },
+    { label: "Forecast", value: `${sc.forecast.accuracy}%`, detail: sc.forecast.detail, weight: 15, status: sc.forecast.status,
+      help: "Trailing forecast accuracy across commit, upside, and pipeline categories. GREEN >= 80%, YELLOW 70-79%, RED < 70%. Low accuracy triggers commit criteria recalibration." },
+    { label: "Deal Quality", value: `${sc.deal_quality.avg_meddpicc}`, detail: `${sc.deal_quality.stalled} stalled`, weight: 15, status: sc.deal_quality.status,
+      help: "Average MEDDPICC score (0-25) for commit-stage deals plus stalled deal count (30+ days no movement). GREEN: avg >= 18 and stalled <= 1. RED: avg < 12 or stalled >= 3." },
+    { label: "Competitive", value: `${sc.competitive.win_rate}%`, detail: `${sc.competitive.encounters} encounters`, weight: 10, status: sc.competitive.status,
+      help: "Win rate across all competitive encounters this quarter. GREEN >= 60%, YELLOW 40-59%, RED < 40%. Repeated losses to the same competitor trigger a competitive war room." },
+    { label: "Acct Health", value: `${sc.health.avg}`, detail: `${sc.health.at_risk} at risk`, weight: 10, status: sc.health.status,
+      help: "Portfolio-average health score (0-100) across all realms. At-risk = score below 50. GREEN: avg >= 70 and 0 at risk. RED: avg < 50 or >= 2 at risk. Triggers CA health triage." },
+  ];
+
+  const phaseLabels: Record<string, string> = {
+    weeks_1_4: "Wk 1-4",
+    weeks_5_8: "Wk 5-8",
+    weeks_9_12: "Wk 9-12",
+    pre_qbr_sync: "Pre-QBR",
+  };
+
+  return (
+    <Card>
+      {/* Header */}
+      <CardHeader className="pb-2 pt-3 px-4">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <Activity className="h-4 w-4 text-teal-500" />
+            QBR Tracking Canvas
+            <Badge variant="outline" className="text-xs">{d.quarter}</Badge>
+            <HelpPopover title="QBR Tracking Canvas">
+              Continuous tracking instrument between Quarterly Business Reviews (PB_603). Monitors 6 weighted scoring dimensions, prior QBR commitments, portfolio health across all accounts, active signals and risks, and preparation readiness. Updated weekly throughout the quarter. Overall score: weighted sum across all dimensions (0-100). GREEN {"\u2265"} 75, YELLOW 50-74, RED {"<"} 50.
+            </HelpPopover>
+            <button
+              onClick={() => window.open("/present/qbr", "_blank")}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <Presentation className="h-3.5 w-3.5" />
+              Present
+            </button>
+          </CardTitle>
+          <div className="flex items-center gap-3 text-xs">
+            <span className="text-muted-foreground">{d.ae_name}</span>
+            <span className="text-muted-foreground">{d.realm_count} accounts</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground">Readiness</span>
+              <Progress value={readinessPct} className="h-1.5 w-16" />
+              <span className="font-medium">{readinessPct}%</span>
+              <HelpPopover title="QBR Readiness">
+                Percentage of preparation checklist items completed. Maps to PB_603 quarter-long cadence across 4 phases.
+              </HelpPopover>
+            </div>
+            <div className="flex items-center gap-1">
+              <div className={cn(
+                "flex items-center gap-1 px-2 py-0.5 rounded font-bold",
+                qbrStatusBg[overallStatus], qbrStatusColors[overallStatus],
+              )}>
+                <span>{overallScore}</span>
+                <span className="text-[9px] font-normal uppercase">score</span>
+              </div>
+              <HelpPopover title="Overall QBR Score">
+                Weighted sum: Revenue (30%) + Pipeline (20%) + Forecast (15%) + Deal Quality (15%) + Competitive (10%) + Account Health (10%). Score 0-100.
+              </HelpPopover>
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-4 mt-1 text-[10px] text-muted-foreground">
+          <span>Prior QBR: {d.prior_qbr}</span>
+          <span>Next QBR: {d.next_qbr}</span>
+          <span>Updated: {d.last_updated}</span>
+        </div>
+      </CardHeader>
+
+      <CardContent className="px-4 pb-4 space-y-4">
+        {/* Quarter Scorecard */}
+        <div>
+          <div className="flex items-center gap-1 mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-500">Quarter Scorecard</p>
+            <HelpPopover title="Quarter Scorecard">
+              Six key metrics aligned with PB_603 scoring dimensions, updated weekly. Each dimension has a weight that contributes to the overall QBR score. Thresholds follow PB_603 decision logic: pipeline below 2x triggers immediate action, forecast below 70% triggers commit criteria recalibration, 2+ at-risk accounts triggers health triage escalation.
+            </HelpPopover>
+          </div>
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+            {dimensions.map(dim => (
+              <div key={dim.label} className={cn("rounded-md border-t-2 p-2.5", qbrStatusColors[dim.status], qbrStatusBg[dim.status])}>
+                <div className="flex items-center gap-1">
+                  <p className="text-[10px] uppercase font-semibold tracking-wide text-muted-foreground">{dim.label}</p>
+                  <HelpPopover title={dim.label}>{dim.help}</HelpPopover>
+                </div>
+                <p className="text-lg font-bold mt-0.5">{dim.value}</p>
+                <p className="text-[10px] text-muted-foreground">{dim.detail}</p>
+                <p className="text-[9px] text-muted-foreground/60 mt-1">Weight: {dim.weight}%</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Commitments + Portfolio Health */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Commitment Tracker */}
+          <div>
+            <div className="flex items-center gap-1 mb-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-500">
+                Prior QBR Commitments ({commitPct}% complete)
+              </p>
+              <HelpPopover title="Prior QBR Commitments">
+                Action items from the previous QBR with current status. Every item must have an owner and deadline. Blocked items must include a reason. Items past deadline without completion are flagged. 2+ blocked commitments triggers a warning alert in PB_603.
+              </HelpPopover>
+            </div>
+            <div className="border rounded-md overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Action</th>
+                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Owner</th>
+                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.commitments.map((c, i) => (
+                    <tr key={i} className="border-b last:border-b-0">
+                      <td className="px-2 py-1.5">
+                        <p className="truncate max-w-[200px]" title={c.action}>{c.action}</p>
+                        {c.outcome && <p className="text-[10px] text-muted-foreground truncate max-w-[200px]" title={c.outcome}>{c.outcome}</p>}
+                      </td>
+                      <td className="px-2 py-1.5 text-muted-foreground whitespace-nowrap">{c.owner}</td>
+                      <td className="px-2 py-1.5">
+                        <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] font-medium", qbrBadgeStyles[c.status])}>
+                          {c.status.replace(/_/g, " ")}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Portfolio Health */}
+          <div>
+            <div className="flex items-center gap-1 mb-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-500">Portfolio Health</p>
+              <HelpPopover title="Portfolio Health">
+                Account health and pipeline across all realms in the AE portfolio. Health scores (0-100) come from 5 components: product adoption, engagement, relationship, commercial, and risk profile. Scores older than 14 days are flagged as stale. 2+ accounts below 50 triggers an intervention alert.
+              </HelpPopover>
+            </div>
+            <div className="border rounded-md overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Account</th>
+                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Health</th>
+                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Trend</th>
+                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Pipeline</th>
+                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Risk</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.portfolio.map((p, i) => (
+                    <tr key={i} className="border-b last:border-b-0">
+                      <td className="px-2 py-1.5 font-medium">{p.realm}</td>
+                      <td className="px-2 py-1.5">
+                        <span className={healthColor(p.health)}>{p.health}</span>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <TrendIcon trend={p.trend} />
+                      </td>
+                      <td className="px-2 py-1.5 text-muted-foreground">{p.pipeline}</td>
+                      <td className="px-2 py-1.5">
+                        <p className="text-[10px] text-muted-foreground truncate max-w-[140px]" title={p.risk}>{p.risk}</p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Signals & Risks + Readiness */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Signals & Risks */}
+          <div>
+            <div className="flex items-center gap-1 mb-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-500">Signals & Risks</p>
+              <HelpPopover title="Signals & Risks">
+                Active risks, competitive encounters, and PB_603 decision rules triggered this quarter. Types: Pipeline Risk, Competitive, Forecast, Account Health, Stalled Deal. Sorted by severity. PB_603 defines 8 decision rules that auto-generate signals, for example: pipeline below 2x, repeated losses to same competitor, 3+ stalled deals.
+              </HelpPopover>
+            </div>
+            <div className="border rounded-md overflow-hidden">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b bg-muted/30">
+                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Signal</th>
+                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Severity</th>
+                    <th className="text-left px-2 py-1.5 font-medium text-muted-foreground">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.signals.map((s, i) => (
+                    <tr key={i} className="border-b last:border-b-0">
+                      <td className="px-2 py-1.5">
+                        <p className="truncate max-w-[220px]" title={s.signal}>{s.signal}</p>
+                        <p className="text-[10px] text-muted-foreground">{s.type} / {s.owner}</p>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <span className={cn(
+                          "inline-block px-1.5 py-0.5 rounded text-[10px] font-bold",
+                          s.severity === "HIGH" ? "bg-red-500/20 text-red-400" :
+                          s.severity === "MEDIUM" ? "bg-yellow-500/20 text-yellow-400" :
+                          "bg-green-500/20 text-green-400",
+                        )}>{s.severity}</span>
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <span className={cn("inline-block px-1.5 py-0.5 rounded text-[10px] font-medium", qbrBadgeStyles[s.status])}>
+                          {s.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* QBR Readiness */}
+          <div>
+            <div className="flex items-center gap-1 mb-2">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-500">
+                QBR Readiness ({readinessPct}%)
+              </p>
+              <HelpPopover title="QBR Readiness">
+                Preparation checklist mapped to PB_603 quarter-long cadence. Wk 1-4: foundation (targets, baseline pipeline). Wk 5-8: continuous capture (health scores, competitive encounters, win/loss retrospectives). Wk 9-12: synthesis (MEDDPICC assessments, pipeline snapshot, narrative). Pre-QBR: alignment sync with SA, CA, CI, VE agents. GREEN {"\u2265"} 80%, YELLOW 50-79%, RED {"<"} 50%.
+              </HelpPopover>
+            </div>
+            <div className="space-y-1">
+              {d.readiness.map((r, i) => (
+                <div key={i} className="flex items-center gap-1.5 text-xs">
+                  {r.done
+                    ? <CheckCircle2 className="h-3 w-3 text-green-400 shrink-0" />
+                    : <Circle className="h-3 w-3 text-muted-foreground/40 shrink-0" />
+                  }
+                  <span className={r.done ? "text-muted-foreground" : ""}>{r.item}</span>
+                  <span className="ml-auto text-[9px] text-muted-foreground/50 uppercase shrink-0">
+                    {phaseLabels[r.phase] || r.phase}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function PortfolioByRealm({ nodes }: { nodes: DashboardNode[] }) {
   const byRealm = new Map<string, { realm_name: string; nodes: DashboardNode[] }>();
   for (const n of nodes) {
@@ -397,10 +716,21 @@ export default function DashboardPage() {
 
       <AttentionSection items={data.attention_items} />
 
+      <QbrTrackingSection />
+
       <Separator />
 
       <div>
-        <h2 className="text-lg font-semibold mb-4">Portfolio</h2>
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="text-lg font-semibold">Portfolio</h2>
+          <button
+            onClick={() => window.open("/present/portfolio", "_blank")}
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          >
+            <Presentation className="h-3.5 w-3.5" />
+            Present
+          </button>
+        </div>
         <PortfolioByRealm nodes={data.nodes} />
       </div>
     </div>

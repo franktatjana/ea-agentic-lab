@@ -1,97 +1,87 @@
 ---
-title: "Tech Signal Analyzer Agent"
-description: "Analyzes job scan data to generate and maintain technology signal maps for realms"
+title: "Technology Scout Analyzer"
+description: "Digital twin for analysis"
 category: "reference"
-keywords: ["tech_signal_analyzer_agent", "technology_scout", "agent", "profile"]
-last_updated: "2026-02-10"
+keywords: ["tech_signal_analyzer_agent", "technology-scout", "agent", "profile", "digital_twin"]
+last_updated: "2026-03-01"
 ---
 
-# Tech Signal Analyzer Agent
 
-The Tech Signal Analyzer is the intelligence-generation half of the Technology Scout pipeline. It takes raw scan data from the Tech Signal Scanner and transforms it into a structured signal map: assigning technologies to rings (Adopt, Trial, Assess, Hold) and quadrants (Techniques, Tools, Platforms, Languages & Frameworks), calculating trends, detecting new technologies, and identifying competitive displacement opportunities. The resulting map is a decision-support artifact consumed by account teams, playbooks, and governance workflows across the system.
+# Technology Scout Analyzer
+
+The Technology Scout Analyzer is the digital twin of the Technology Scout Analyzer role. It operates as a single agent with 1 runbooks covering analysis. The Technology Scout Analyzer is the interpretation half of the Technology Scout team. It takes raw scan data from the Scanner and transforms it into structured technology signal maps. Each technology is assigned to a ring (Adopt, Trial, Assess, Hold) based on evidence thresholds, then tracked for trend direction over 30-day and 90-day periods. The Analyzer also identifies competitor tool mentions, maps technologies to vendor product offerings for skills gap analysis, and produces weekly tech intelligence digests for engagement teams.
+
+Its operating principle: data-driven over opinion-based.
 
 ## Identity
 
 | Attribute | Value |
 |-----------|-------|
-| Agent ID | `tech_signal_analyzer_agent` |
-| Team | `technology_scout` |
-| Category | Intelligence |
-| Purpose | Analyze job posting data to generate and update technology signal maps for realms |
+| **Agent ID** | `tech-signal-analyzer-agent` |
+| **Role** | Technology Scout Analyzer (Intelligence Analysis) |
+| **Mode** | Human-paired |
+| **Runbooks** | 1 |
+| **Prompts** | 3 |
+| **Operating Modes** | Proactive, Analytical |
+| **Knowledge References** | 2 |
 
-## Core Functions
 
-The Analyzer executes a multi-stage analysis pipeline that converts raw scan results into actionable intelligence. Each stage builds on the previous, culminating in a comprehensive signal map and associated reports.
+## Runbooks
 
-- Aggregate technology mentions across all scanned jobs by canonical name
-- Assign technologies to rings using configurable rule-based scoring
-- Calculate 30-day and 90-day trends for mention counts, requirement ratios, and seniority scores
-- Detect new technologies appearing for the first time in a realm
-- Analyze competitor tool mentions and identify displacement opportunities
-- Map technologies to platform offerings (skills gap analysis)
-- Measure hiring velocity and seniority distribution trends
+Each runbook is a scenario process that sequences prompts into a multi-step workflow. The agent selects the appropriate runbook based on the incoming trigger, then executes its prompt sequence with data flowing between steps.
+
+
+### Analysis
+
+Generate technology signal map from scan results. Then build vendor/supplier technology landscape, and finally generate weekly technology intelligence summary.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `tech_map_generation` | Generate technology signal map from scan results |
+| 2 | `vendor_landscape_analysis` | Build vendor/supplier technology landscape |
+| 3 | `weekly_tech_digest` | Generate weekly technology intelligence summary |
+
 
 ## Scope Boundaries
 
-The Analyzer focuses on analysis and intelligence generation. It does not collect raw data (that is the Scanner's job) and it does not take action on its findings (that belongs to the account team agents).
+The agent does not scan or fetch raw data (that's Technology Scout Scanner's job) (handoff to Leadership), research company org structure (that's Account Intelligence Agent's job) (handoff to Leadership), analyze industry-level trends (that's Industry Intelligence Agent's job) (handoff to Leadership), make commercial recommendations (that's AE Agent's job) (handoff to Leadership), create competitive battlecards (that's CI Agent's job) (handoff to Leadership), or directly modify node risk registers (handoff to Leadership).
 
-- Does NOT fetch or scrape job postings (Scanner responsibility)
-- Does NOT make engagement or deal recommendations
-- Does NOT contact customers or account teams directly
-- Does NOT modify playbook execution or agent behavior
 
-## Playbooks Owned
+## Operating Modes
 
-Like the Scanner, the Analyzer does not own traditional engagement playbooks. It operates as an intelligence pipeline agent whose outputs feed into other agents' playbooks and decision frameworks.
+Two specialized modes adjust behavior without changing the underlying runbooks or prompts.
 
-- No `PB_` playbooks owned (operates as an intelligence pipeline agent)
-- Outputs are consumed by SA, CI, AE, and PM agents within their own playbooks
+**Proactive Mode** scans for signals and surfaces insights without prompting. Prioritizes timeliness over depth. Keeps outputs concise and action-oriented.
 
-## Triggers
+**Analytical Mode** provides deep analysis with comprehensive evidence trails. Synthesizes across multiple data points. Prioritizes accuracy and defensibility over speed.
 
-The Analyzer activates primarily when scan data becomes available, supplemented by scheduled analysis runs and manual refresh requests.
 
-- **Signal**: `SIG_TECH_004` (job_scan_completed) with status `completed` or `partial`
-- **Scheduled**: Weekly analysis on Mondays at 6:00 AM (`0 6 * * 1`)
-- **Event**: `manual_map_refresh` (user-initiated)
-- **API**: `POST /api/v1/realms/{realm_id}/tech-signal-map/refresh`
+## Knowledge Base
 
-## Handoffs
+The agent draws on reference knowledge that encodes domain expertise and decision patterns.
 
-### Outbound
+| Reference | Content | Loaded By |
+|-----------|---------|-----------|
+| `analyzer-ring_criteria.yaml` | Ring Assignment, Vendor Landscape | Analyzer ring criteria |
+| `scanner-signal_keywords.yaml` | Technology Signals, Vendor Signals, Patterns | Scanner signal keywords |
 
-| Receiving Agent | Signal | Context |
-|-----------------|--------|---------|
-| SA Agent | `SIG_TECH_001` (technology_scout_updated), `SIG_TECH_002` (new_technology_detected) | Updated map for architecture decisions |
-| CI Agent | `SIG_TECH_001` (technology_scout_updated), `SIG_TECH_003` (technology_trending) | Competitive intelligence, trending technologies |
-| AE Agent | `SIG_TECH_001` (technology_scout_updated) | Account-level technology landscape |
-| PM Agent | `SIG_TECH_002` (new_technology_detected) | New technology for roadmap consideration |
 
-### Inbound
+## Output Artifacts
 
-| Source | Signal/Artifact | Expected Action |
-|--------|-----------------|-----------------|
-| Tech Signal Scanner Agent | `SIG_TECH_004` (scan results) | Trigger full analysis pipeline |
-| Previous signal map | `current_map.yaml` | Use as baseline for trend calculation |
-| Map history | Historical snapshots | Use for 30/90-day trend comparison |
+The agent produces artifact types stored per account in the Node's InfoHub.
 
-## Escalation Rules
+| Artifact | Format | Purpose |
+|----------|--------|---------|
+| Artifacts | `{account}-artifacts.md` | artifacts |
+| Signals | `{account}-signals.md` | signals |
+| Reports | `{account}-reports.md` | reports |
 
-The Analyzer does not escalate in the traditional sense. Instead, it emits signals with different urgency levels that downstream agents handle according to their own escalation rules.
-
-- `SIG_TECH_002` (new technology detected): informational, no escalation
-- `SIG_TECH_003` (technology trending >15% change or ring movement): advisory signal to CI and SA agents
-- Quality gate failures (missing canonical names, duplicate technologies): logged in map metadata, flagged for manual review
-
-## Personality Traits
-
-| Dimension | Description |
-|-----------|-------------|
-| Tone | Analytical, pattern-oriented, signal-focused |
-| Values | Accuracy over speed, trend significance over noise, canonical consistency over raw volume |
-| Priorities | 1. Accurate ring assignment, 2. Meaningful trend detection, 3. Complete competitor tracking, 4. Actionable skills gap analysis |
 
 ## Source Files
 
-- Agent config: `domain/agents/technology_scout/agents/tech_signal_analyzer_agent.yaml`
-- Config reference: `domain/agents/technology_scout/config/technology_scout_config.yaml`
+| File | Purpose |
+|------|---------|
+| `domain/agents/technology_scout/tech-signal-analyzer-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/technology_scout/agents/tech_signal_analyzer_agent.yaml` | Agent configuration |
+| `domain/agents/technology_scout/personalities/tech_signal_analyzer_personality.yaml` | Behavioral specification |
+| `domain/agents/technology_scout/prompts/tasks.yaml` | 3 CAF prompts across 1 domains |

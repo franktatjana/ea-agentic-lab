@@ -476,6 +476,163 @@ export interface CanvasCatalogItem {
   layout: string;
 }
 
+// Agent Definitions
+export interface AgentProfileSubAgent {
+  name: string;
+  id?: string;
+  purpose: string;
+}
+
+export interface QualificationDimension {
+  letter: string;
+  name: string;
+  description: string;
+  supported_by: string | null;
+}
+
+export interface QualificationFramework {
+  name: string;
+  owner?: string;
+  note?: string;
+  dimensions: QualificationDimension[];
+}
+
+export interface ContributingAgent {
+  agent: string;
+  provides: string;
+}
+
+export interface ActivityDomain {
+  domain: string;
+  why: string;
+  agent: string;
+  contributing_agents?: ContributingAgent[];
+  activities: string[];
+  cadence: string;
+}
+
+export interface ActivityMap {
+  purpose: string;
+  domains: ActivityDomain[];
+  playbook_participation?: string;
+}
+
+export interface ChallengeItem {
+  text: string;
+  solved_by?: string;
+}
+
+export interface OverheadItem {
+  text: string;
+  automated_by?: string;
+}
+
+export interface StakeholderItem {
+  role: string;
+  connected_via?: string;
+}
+
+export type ChallengeEntry = string | ChallengeItem;
+export type OverheadEntry = string | OverheadItem;
+export type StakeholderEntry = string | StakeholderItem;
+
+export interface StakeholderLandscape {
+  customer_side?: StakeholderEntry[];
+  internal_team?: StakeholderEntry[];
+}
+
+export interface ProfilePlaybookEntry {
+  playbook: string;
+  scope: string;
+  team?: string;
+  file?: string;
+}
+
+export interface ProfilePlaybookRaci {
+  context?: string;
+  responsible?: ProfilePlaybookEntry[];
+  accountable?: ProfilePlaybookEntry[];
+  consulted?: ProfilePlaybookEntry[];
+  informed?: ProfilePlaybookEntry[];
+}
+
+export interface PublicResource {
+  title: string;
+  url: string;
+  context?: string;
+}
+
+export interface AgentProfile {
+  why?: string;
+  goals?: string[];
+  role_context: string;
+  challenges: ChallengeEntry[];
+  administrative_overhead: OverheadEntry[];
+  capabilities: string[];
+  key_metrics?: string[];
+  qualification_framework?: QualificationFramework;
+  stakeholder_landscape?: StakeholderLandscape;
+  public_resources?: PublicResource[];
+  activity_map?: ActivityMap;
+  playbook_raci?: ProfilePlaybookRaci;
+  sub_agents?: AgentProfileSubAgent[];
+}
+
+export interface AgentDefinitionSummary {
+  id: string;
+  name: string;
+  description: string;
+  agentspec_version: string;
+  metadata: Record<string, unknown>;
+  file_path: string;
+  flow_count: number;
+  tool_count: number;
+  prompt_count: number;
+  category: string;
+  tags: string[];
+  human_in_the_loop: boolean;
+  capabilities: string[];
+  sub_agents: AgentProfileSubAgent[];
+  escalation_target: string;
+  has_profile: boolean;
+}
+
+export interface AgentDefinitionFlow {
+  id: string;
+  name: string;
+  description?: string;
+  "x-ea-agent"?: {
+    workflow_shorthand?: Array<Record<string, unknown>>;
+  };
+}
+
+export interface AgentDefinitionTool {
+  id: string;
+  name: string;
+  type?: string;
+  description?: string;
+}
+
+export interface AgentDefinition {
+  agentspec_version: string;
+  component_type: string;
+  id: string;
+  name: string;
+  description: string;
+  metadata: Record<string, unknown>;
+  system_prompt: string;
+  human_in_the_loop: boolean;
+  llm_configuration: Record<string, unknown>;
+  inputs: Array<Record<string, unknown>>;
+  outputs: Array<Record<string, unknown>>;
+  tools: AgentDefinitionTool[];
+  specialized_agents: Array<Record<string, unknown>>;
+  flows: AgentDefinitionFlow[];
+  a2a?: Record<string, unknown>;
+  "x-ea-agent"?: Record<string, unknown>;
+  _category?: string;
+}
+
 // Canvas rendering
 export interface CanvasSection {
   id: string;
