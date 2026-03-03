@@ -1,0 +1,1556 @@
+"use client";
+
+import { use, useState, useMemo } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  Workflow,
+  ShieldCheck,
+  ShieldOff,
+  ArrowRight,
+  Users,
+  FileCode2,
+  Zap,
+  ChevronDown,
+  ChevronRight,
+  Bot,
+  Wrench,
+  LayoutList,
+  ClipboardList,
+  ListChecks,
+  Briefcase,
+  Target,
+  Network,
+  BookOpen,
+  Library,
+  AlertTriangle,
+  Sparkles,
+  Crosshair,
+  UserCheck,
+  ExternalLink,
+} from "lucide-react";
+import { api } from "@/lib/api";
+import { Card, CardContent } from "@/components/ui/card";
+import { TEAM_STYLES } from "@/lib/agent-profiles-data";
+import type {
+  AgentProfile,
+  AgentDefinitionSummary,
+  ProfilePlaybookEntry,
+  ChallengeEntry,
+  OverheadEntry,
+  StakeholderEntry,
+} from "@/types";
+
+function Section({
+  icon: Icon,
+  title,
+  color,
+  children,
+}: {
+  icon: React.ElementType;
+  title: string;
+  color: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+        <Icon className={`h-4 w-4 ${color}`} />
+        {title}
+      </h2>
+      {children}
+    </div>
+  );
+}
+
+const ABBREVIATIONS = new Set(["sa", "ci", "ca", "pm", "ve", "ps", "ae", "ii", "aci", "mna", "qbr", "crm", "rfp", "poc"]);
+
+function formatAgentName(id: string): string {
+  return id
+    .replace(/-agent$/, "")
+    .replace(/^ae-/, "")
+    .replace(/-/g, " ")
+    .split(" ")
+    .map((w) => (ABBREVIATIONS.has(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+}
+
+function challengeText(entry: ChallengeEntry): string {
+  return typeof entry === "string" ? entry : entry.text;
+}
+function challengeAgent(entry: ChallengeEntry): string | undefined {
+  return typeof entry === "string" ? undefined : entry.solved_by;
+}
+function overheadText(entry: OverheadEntry): string {
+  return typeof entry === "string" ? entry : entry.text;
+}
+function overheadAgent(entry: OverheadEntry): string | undefined {
+  return typeof entry === "string" ? undefined : entry.automated_by;
+}
+function stakeholderText(entry: StakeholderEntry): string {
+  return typeof entry === "string" ? entry : entry.role;
+}
+function stakeholderAgent(entry: StakeholderEntry): string | undefined {
+  return typeof entry === "string" ? undefined : entry.connected_via;
+}
+
+function AgentBadge({ agentId }: { agentId: string }) {
+  return (
+    <Link
+      href={`/agents/profiles/${agentId}`}
+      className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 transition-colors whitespace-nowrap shrink-0"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Bot className="h-3 w-3" />
+      {formatAgentName(agentId)}
+    </Link>
+  );
+}
+
+interface WorkflowStep {
+  step: number;
+  prompt: string;
+  input: string;
+  description: string;
+}
+
+type ProfileTab = "overview" | "role" | "operations" | "knowledge" | "sub-agents" | "playbooks" | "collaboration" | "runbooks" | "definition";
+
+export default function AgentProfileDetailPage({
+  params,
+}: {
+  params: Promise<{ agentId: string }>;
+}) {
+  const { agentId } = use(params);
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
+  const [expandedFlow, setExpandedFlow] = useState<string | null>(null);
+
+  const { data: def, isLoading } = useQuery({
+    queryKey: ["definition", agentId],
+    queryFn: () => api.getDefinition(agentId),
+  });
+
+  const { data: allDefs } = useQuery({
+    queryKey: ["definitions"],
+    queryFn: () => api.listDefinitions(),
+  });
+
+  const subAgentLookup = useMemo(() => {
+    if (!allDefs) return {} as Record<string, AgentDefinitionSummary>;
+    const map: Record<string, AgentDefinitionSummary> = {};
+    for (const d of allDefs) map[d.id] = d;
+    return map;
+  }, [allDefs]);
+
+  if (isLoading) {
+    return (
+      <div className="max-w-[1400px] mx-auto py-20 text-center text-muted-foreground">
+        Loading profile...
+      </div>
+    );
+  }
+
+  if (!def) {
+    return (
+      <div className="max-w-[1400px] mx-auto py-20 text-center">
+        <p className="text-muted-foreground mb-4">
+          Profile not found for &quot;{agentId}&quot;.
+        </p>
+        <Link
+          href="/agents/profiles"
+          className="text-sm text-blue-400 hover:underline"
+        >
+          Back to profiles
+        </Link>
+      </div>
+    );
+  }
+
+  // Extract x-ea-agent extension
+  const ext = (def as unknown as Record<string, unknown>)["x-ea-agent"] as
+    | Record<string, unknown>
+    | undefined;
+
+  // Profile data
+  const profile = ext?.profile as AgentProfile | undefined;
+  const profileWhy = profile?.why ?? "";
+  const profileGoals = profile?.goals ?? [];
+  const roleContext = profile?.role_context ?? "";
+  const challenges = profile?.challenges ?? [];
+  const adminOverhead = profile?.administrative_overhead ?? [];
+  const capabilities = profile?.capabilities ?? [];
+  const keyMetrics = profile?.key_metrics ?? [];
+  const activityMap = profile?.activity_map;
+  const qualFramework = profile?.qualification_framework;
+  const stakeholders = profile?.stakeholder_landscape;
+  const publicResources = profile?.public_resources ?? [];
+  const subAgents = profile?.sub_agents ?? [];
+  const playbookRaci = profile?.playbook_raci;
+
+  // Agent operational data
+  const boundaries = ext?.boundaries as string[] | undefined;
+  const permissions = ext?.permissions as string[] | undefined;
+  const escalation = ext?.escalation_triggers as string[] | undefined;
+  const handoffs = ext?.handoffs as Record<string, unknown> | undefined;
+  const deferTo = handoffs?.defer_to as Record<string, string> | undefined;
+  const provideTo = handoffs?.provide_to as Record<string, string> | undefined;
+  const humanEscalation = handoffs?.human_escalation as string | undefined;
+
+  const responsibility = def.metadata?.responsibility as string | undefined;
+  const parentAgent = def.metadata?.parent_agent as string | undefined;
+  const isHumanPaired = def.human_in_the_loop;
+  const roleName = def.name.replace(/ Agent$/, "");
+
+  // Team styling from category
+  const category = (def as unknown as Record<string, unknown>)._category as
+    | string
+    | undefined;
+  const teamStyle = category ? TEAM_STYLES[category] : undefined;
+  const dotColor = teamStyle?.dot ?? "bg-muted-foreground";
+
+  const hasRunbooks = def.flows && def.flows.length > 0;
+
+  // Definition tab data
+  const specVersion = def.agentspec_version;
+  const toolCount = def.tools?.length ?? 0;
+  const flowCount = def.flows?.length ?? 0;
+  const promptCount = ext?.prompt_registry
+    ? Object.keys(ext.prompt_registry as Record<string, unknown>).length
+    : 0;
+  const specializedAgents = def.specialized_agents ?? [];
+
+  return (
+    <div className="max-w-[1400px] mx-auto space-y-8">
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+          <Link
+            href="/agents/profiles"
+            className="flex items-center gap-1 hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Profiles
+          </Link>
+          {parentAgent && (
+            <>
+              <span>/</span>
+              <Link
+                href={`/agents/profiles/${parentAgent}`}
+                className="hover:text-foreground transition-colors"
+              >
+                {formatAgentName(parentAgent)}
+              </Link>
+            </>
+          )}
+        </div>
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <h1 className="text-2xl font-bold">{roleName}</h1>
+            <div className="flex items-center gap-2">
+              {parentAgent && (
+                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-purple-400/15 text-purple-400 border border-purple-400/20">
+                  Sub-agent
+                </span>
+              )}
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${
+                isHumanPaired
+                  ? "bg-blue-400/15 text-blue-400 border-blue-400/20"
+                  : "bg-emerald-400/15 text-emerald-400 border-emerald-400/20"
+              }`}>
+                {isHumanPaired ? "Human-paired" : "Autonomous"}
+              </span>
+            </div>
+          </div>
+          {responsibility && (
+            <p className="text-muted-foreground leading-relaxed max-w-3xl">
+              {responsibility}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Section navigation stripe */}
+      <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+        <button
+          onClick={() => setActiveTab("overview")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+            activeTab === "overview"
+              ? "bg-blue-500/15 text-blue-400 shadow-sm"
+              : "text-muted-foreground hover:text-blue-400"
+          }`}
+        >
+          <LayoutList className="h-4 w-4" />
+          Overview
+        </button>
+        {(challenges.length > 0 || adminOverhead.length > 0 || stakeholders) && (
+          <button
+            onClick={() => setActiveTab("role")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === "role"
+                ? `bg-amber-500/15 text-amber-400 shadow-sm`
+                : "text-muted-foreground hover:text-amber-400"
+            }`}
+          >
+            <Target className="h-4 w-4" />
+            Role
+          </button>
+        )}
+        {(capabilities.length > 0 || (activityMap && activityMap.domains.length > 0)) && (
+          <button
+            onClick={() => setActiveTab("operations")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === "operations"
+                ? "bg-emerald-500/15 text-emerald-400 shadow-sm"
+                : "text-muted-foreground hover:text-emerald-400"
+            }`}
+          >
+            <Briefcase className="h-4 w-4" />
+            Operations
+            {activityMap && activityMap.domains.length > 0 && (
+              <span className="text-xs opacity-60 ml-0.5">
+                {activityMap.domains.length}
+              </span>
+            )}
+          </button>
+        )}
+        {(qualFramework || stakeholders || publicResources.length > 0) && (
+          <button
+            onClick={() => setActiveTab("knowledge")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === "knowledge"
+                ? "bg-cyan-500/15 text-cyan-400 shadow-sm"
+                : "text-muted-foreground hover:text-cyan-400"
+            }`}
+          >
+            <Library className="h-4 w-4" />
+            Knowledge
+          </button>
+        )}
+        {subAgents.length > 0 && (
+          <button
+            onClick={() => setActiveTab("sub-agents")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === "sub-agents"
+                ? "bg-purple-500/15 text-purple-400 shadow-sm"
+                : "text-muted-foreground hover:text-purple-400"
+            }`}
+          >
+            <Bot className="h-4 w-4" />
+            Sub-agents
+            <span className="text-xs opacity-60 ml-0.5">
+              {subAgents.length}
+            </span>
+          </button>
+        )}
+        {playbookRaci && (
+          <button
+            onClick={() => setActiveTab("playbooks")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === "playbooks"
+                ? "bg-orange-500/15 text-orange-400 shadow-sm"
+                : "text-muted-foreground hover:text-orange-400"
+            }`}
+          >
+            <BookOpen className="h-4 w-4" />
+            Playbooks
+          </button>
+        )}
+        {(deferTo || provideTo || escalation) && (
+          <button
+            onClick={() => setActiveTab("collaboration")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === "collaboration"
+                ? "bg-rose-500/15 text-rose-400 shadow-sm"
+                : "text-muted-foreground hover:text-rose-400"
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            Collaboration
+          </button>
+        )}
+        {hasRunbooks && (
+          <button
+            onClick={() => setActiveTab("runbooks")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === "runbooks"
+                ? "bg-violet-500/15 text-violet-400 shadow-sm"
+                : "text-muted-foreground hover:text-violet-400"
+            }`}
+          >
+            <Workflow className="h-4 w-4" />
+            Runbooks
+            <span className="text-xs opacity-60 ml-0.5">
+              {def.flows.length}
+            </span>
+          </button>
+        )}
+        <button
+          onClick={() => setActiveTab("definition")}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+            activeTab === "definition"
+              ? "bg-slate-500/15 text-slate-400 shadow-sm"
+              : "text-muted-foreground hover:text-slate-400"
+          }`}
+        >
+          <FileCode2 className="h-4 w-4" />
+          Agent Definition
+        </button>
+      </div>
+
+      {/* Overview tab */}
+      {activeTab === "overview" && (
+        <div className="space-y-6">
+          {/* Bento grid: Why + About | Goals + Human | Responsibilities */}
+          <div className="space-y-6">
+            {/* Row 1: About This Role + Why */}
+            {(profileWhy || roleContext) && (
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                {roleContext && (
+                  <Card className={`${profileWhy ? "md:col-span-2" : "md:col-span-5"} border-l-4 ${teamStyle ? teamStyle.border + "/50" : "border-l-muted-foreground/50"}`}>
+                    <CardContent className="p-7">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Users className={`h-4 w-4 ${teamStyle?.color ?? "text-muted-foreground"}`} />
+                        <h3 className={`text-xs font-semibold uppercase tracking-wider ${teamStyle?.color ?? "text-muted-foreground"}`}>
+                          About This Role
+                        </h3>
+                      </div>
+                      <div className="space-y-3 text-[15px] leading-[1.8] text-foreground/80">
+                        {roleContext.split("\n").filter(Boolean).map((para, i) => (
+                          <p key={i}>{para.trim()}</p>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                {profileWhy && (
+                  <Card className="md:col-span-3 border-l-4 border-l-blue-500/50 bg-blue-500/[0.03]">
+                    <CardContent className="p-7">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Sparkles className="h-4 w-4 text-blue-400" />
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-blue-400">
+                          Why This Agent Exists
+                        </h3>
+                      </div>
+                      <p className="text-[15px] leading-[1.8] text-foreground/90 mb-5">
+                        {profileWhy}
+                      </p>
+                      <ul className="space-y-3">
+                        {String(def.description).trim()
+                          .split(/\.\s+/)
+                          .filter(Boolean)
+                          .map((point, i) => (
+                          <li key={i} className="flex items-start gap-2.5 text-[15px]">
+                            <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />
+                            <span className="text-foreground/85 leading-[1.7]">
+                              {point.charAt(0).toUpperCase() + point.slice(1).replace(/\.$/, "")}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {/* Row 2: Goals + Why Human Matters */}
+            {(profileGoals.length > 0 || isHumanPaired) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {profileGoals.length > 0 && (
+                  <Card className="border-l-4 border-l-emerald-500/50">
+                    <CardContent className="p-7">
+                      <div className="flex items-center gap-2 mb-4">
+                        <Crosshair className="h-4 w-4 text-emerald-400" />
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+                          Goals
+                        </h3>
+                      </div>
+                      <ul className="space-y-3">
+                        {profileGoals.map((goal, i) => (
+                          <li key={i} className="flex items-start gap-2.5 text-[15px]">
+                            <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+                            <span className="text-foreground/90">{goal}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )}
+                {isHumanPaired && (
+                  <Card className="border-l-4 border-l-purple-500/50">
+                    <CardContent className="p-7">
+                      <div className="flex items-center gap-2 mb-4">
+                        <UserCheck className="h-4 w-4 text-purple-400" />
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-purple-400">
+                          Why the Human Matters
+                        </h3>
+                      </div>
+                      <p className="text-[15px] leading-[1.8] text-foreground/90 mb-4">
+                        The agent handles data gathering, analysis, and preparation, but the
+                        human brings judgment, relationships, and strategic decisions that no
+                        model can replace.
+                      </p>
+                      {escalation && escalation.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2.5">
+                            The agent escalates when
+                          </p>
+                          <ul className="space-y-2">
+                            {escalation.map((trigger, i) => (
+                              <li key={i} className="flex items-start gap-2.5 text-sm">
+                                <AlertTriangle className="h-3.5 w-3.5 mt-[3px] text-amber-400 shrink-0" />
+                                <span className="text-foreground/80">{trigger}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {/* Row 3: Key Responsibilities (full-width horizontal grid) */}
+            {activityMap && activityMap.domains.length > 0 && (
+              <Card>
+                <CardContent className="p-7">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-5">
+                    Key Responsibilities
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                    {activityMap.domains.map((d) => (
+                      <div
+                        key={d.domain}
+                        className="rounded-lg border border-border/50 p-4 hover:border-border transition-colors"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`h-2 w-2 rounded-full ${dotColor} shrink-0`} />
+                          <span className="text-sm font-medium text-foreground">
+                            {d.domain}
+                          </span>
+                        </div>
+                        <p className="text-xs leading-relaxed text-muted-foreground">
+                          {d.why}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Role tab */}
+      {activeTab === "role" && (
+        <div className="space-y-6">
+          {/* Challenges + Admin overhead side by side */}
+          {(challenges.length > 0 || adminOverhead.length > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {challenges.length > 0 && (
+                <Card className="border-l-4 border-l-amber-500/40">
+                  <CardContent className="p-6">
+                    <Section
+                      icon={ListChecks}
+                      title="Role Challenges"
+                      color="text-amber-400"
+                    >
+                      <div className="space-y-2.5">
+                        {Object.entries(
+                          challenges.reduce<Record<string, string[]>>((groups, item) => {
+                            const agent = challengeAgent(item) ?? "_ungrouped";
+                            if (!groups[agent]) groups[agent] = [];
+                            groups[agent].push(challengeText(item));
+                            return groups;
+                          }, {})
+                        ).map(([agent, items]) => (
+                          <div key={agent} className="rounded-lg border border-border/50 p-4">
+                            {agent !== "_ungrouped" && (
+                              <div className="mb-2.5">
+                                <AgentBadge agentId={agent} />
+                              </div>
+                            )}
+                            <ul className="space-y-2.5">
+                              {items.map((text, i) => (
+                                <li key={i} className="flex items-start gap-2.5 text-[15px]">
+                                  <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                                  <span className="text-foreground/80 leading-relaxed">{text}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    </Section>
+                  </CardContent>
+                </Card>
+              )}
+
+              {adminOverhead.length > 0 && (
+                <Card className="border-l-4 border-l-rose-500/40">
+                  <CardContent className="p-6">
+                    <Section
+                      icon={ClipboardList}
+                      title="Administrative Overhead"
+                      color="text-rose-400"
+                    >
+                      <div className="space-y-2.5">
+                        {Object.entries(
+                          adminOverhead.reduce<Record<string, string[]>>((groups, item) => {
+                            const agent = overheadAgent(item) ?? "_ungrouped";
+                            if (!groups[agent]) groups[agent] = [];
+                            groups[agent].push(overheadText(item));
+                            return groups;
+                          }, {})
+                        ).map(([agent, items]) => (
+                          <div key={agent} className="rounded-lg border border-border/50 p-4">
+                            {agent !== "_ungrouped" && (
+                              <div className="mb-2.5">
+                                <AgentBadge agentId={agent} />
+                              </div>
+                            )}
+                            <ul className="space-y-2.5">
+                              {items.map((text, i) => (
+                                <li key={i} className="flex items-start gap-2.5 text-[15px]">
+                                  <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-rose-400 shrink-0" />
+                                  <span className="text-foreground/80 leading-relaxed">{text}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    </Section>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* Stakeholder Landscape */}
+          {stakeholders && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {stakeholders.customer_side && stakeholders.customer_side.length > 0 && (
+                <Card className="border-l-4 border-l-blue-500/40">
+                  <CardContent className="p-6">
+                    <Section
+                      icon={Network}
+                      title="Customer Stakeholders"
+                      color="text-blue-400"
+                    >
+                      <ul className="space-y-3">
+                        {stakeholders.customer_side.map((s, i) => (
+                          <li key={i} className="flex items-start gap-2.5 text-[15px]">
+                            <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-blue-400/60 shrink-0" />
+                            <div>
+                              <span>{stakeholderText(s)}</span>
+                              {stakeholderAgent(s) && (
+                                <div className="mt-1">
+                                  <AgentBadge agentId={stakeholderAgent(s)!} />
+                                </div>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </Section>
+                  </CardContent>
+                </Card>
+              )}
+              {stakeholders.internal_team && stakeholders.internal_team.length > 0 && (
+                <Card className="border-l-4 border-l-purple-500/40">
+                  <CardContent className="p-6">
+                    <Section
+                      icon={Network}
+                      title="Internal Team"
+                      color="text-purple-400"
+                    >
+                      <ul className="space-y-3">
+                        {stakeholders.internal_team.map((s, i) => (
+                          <li key={i} className="flex items-start gap-2.5 text-[15px]">
+                            <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-purple-400/60 shrink-0" />
+                            <div>
+                              <span>{stakeholderText(s)}</span>
+                              {stakeholderAgent(s) && (
+                                <div className="mt-1">
+                                  <AgentBadge agentId={stakeholderAgent(s)!} />
+                                </div>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </Section>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Operations tab */}
+      {activeTab === "operations" && (capabilities.length > 0 || activityMap) && (
+        <div className="space-y-6">
+          {capabilities.length > 0 && (
+            <Card
+              className={`border-l-4 ${teamStyle ? teamStyle.border + "/50" : "border-l-muted-foreground/50"}`}
+            >
+              <CardContent className="p-6">
+                <Section
+                  icon={Bot}
+                  title="With This Agent You Can"
+                  color={teamStyle?.color ?? "text-muted-foreground"}
+                >
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5">
+                    {capabilities.map((cap) => (
+                      <li
+                        key={cap}
+                        className="flex items-start gap-2.5 text-[15px]"
+                      >
+                        <span
+                          className={`mt-[8px] h-1.5 w-1.5 rounded-full ${dotColor} shrink-0`}
+                        />
+                        <span>{cap}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Section>
+              </CardContent>
+            </Card>
+          )}
+
+          {activityMap && (
+            <Card>
+              <CardContent className="p-5">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {activityMap.purpose}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {activityMap && activityMap.domains.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {activityMap.domains.map((d) => {
+              const contributors = d.contributing_agents ?? [];
+              return (
+                <Card
+                  key={d.domain}
+                  className="border-l-4 border-l-purple-400/50 cursor-pointer hover:border-l-purple-400 transition-colors"
+                  onClick={() => router.push(`/agents/profiles/${d.agent}`)}
+                >
+                  <CardContent className="p-5 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-medium">{d.domain}</h3>
+                      <span className="text-xs text-muted-foreground/60 shrink-0">{d.cadence}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{d.why}</p>
+                    <ul className="space-y-1.5">
+                      {d.activities.map((a) => (
+                        <li key={a} className="flex items-start gap-2 text-sm">
+                          <span className={`mt-[7px] h-1.5 w-1.5 rounded-full ${dotColor} shrink-0`} />
+                          <span>{a}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="flex items-center gap-1.5 text-xs text-purple-400 pt-1">
+                      <Bot className="h-3 w-3" />
+                      <span className="font-medium">{formatAgentName(d.agent)}</span>
+                      <ArrowRight className="h-3 w-3" />
+                    </div>
+                    {contributors.length > 0 && (
+                      <div className="border-t border-border/50 pt-2 space-y-1">
+                        {contributors.map((c) => (
+                          <div key={c.agent} className="flex items-start gap-2 text-xs text-muted-foreground/70">
+                            <span className="shrink-0 mt-px">+</span>
+                            <span>
+                              <span className="font-medium text-muted-foreground">{formatAgentName(c.agent)}</span>
+                              {" "}{c.provides}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+          )}
+
+        </div>
+      )}
+
+      {/* Knowledge tab */}
+      {activeTab === "knowledge" && (
+        <div className="space-y-6">
+          {qualFramework && (
+            <Card>
+              <CardContent className="p-5">
+                <Section
+                  icon={Library}
+                  title={qualFramework.name}
+                  color={teamStyle?.color ?? "text-muted-foreground"}
+                >
+                  {qualFramework.note && (
+                    <p className="text-xs text-muted-foreground mb-4">
+                      {qualFramework.note}
+                    </p>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {qualFramework.dimensions.map((dim) => (
+                      <div key={`${dim.letter}-${dim.name}`} className="bg-muted/30 rounded-md p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-mono font-bold text-muted-foreground">{dim.letter}</span>
+                          <span className="text-sm font-medium">{dim.name}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">{dim.description}</p>
+                        {dim.supported_by && (
+                          <p className="text-xs text-purple-400 mt-1">
+                            <Bot className="h-3 w-3 inline mr-1" />
+                            {formatAgentName(dim.supported_by)}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              </CardContent>
+            </Card>
+          )}
+
+          {stakeholders && (
+            <Card>
+              <CardContent className="p-5">
+                <Section
+                  icon={Network}
+                  title="Stakeholder Landscape"
+                  color="text-muted-foreground"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {stakeholders.customer_side && stakeholders.customer_side.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Customer Side</p>
+                        <ul className="space-y-1.5">
+                          {stakeholders.customer_side.map((s, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                              <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
+                              <span className="flex-1">
+                                <span>{stakeholderText(s)}</span>
+                                {stakeholderAgent(s) && (
+                                  <AgentBadge agentId={stakeholderAgent(s)!} />
+                                )}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {stakeholders.internal_team && stakeholders.internal_team.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Internal Team</p>
+                        <ul className="space-y-1.5">
+                          {stakeholders.internal_team.map((s, i) => (
+                            <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                              <span className={`mt-[7px] h-1.5 w-1.5 rounded-full ${dotColor}/50 shrink-0`} />
+                              <span className="flex-1">
+                                <span>{stakeholderText(s)}</span>
+                                {stakeholderAgent(s) && (
+                                  <AgentBadge agentId={stakeholderAgent(s)!} />
+                                )}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </Section>
+              </CardContent>
+            </Card>
+          )}
+
+          {publicResources.length > 0 && (
+            <Card className="border-l-4 border-l-cyan-500/40">
+              <CardContent className="p-5">
+                <Section
+                  icon={BookOpen}
+                  title="Public Resources"
+                  color="text-cyan-400"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {publicResources.map((r, i) => (
+                      <a
+                        key={i}
+                        href={r.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group rounded-lg border border-border/50 p-4 hover:border-cyan-500/40 hover:bg-cyan-500/[0.03] transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <span className="text-sm font-medium text-foreground group-hover:text-cyan-400 transition-colors">
+                            {r.title}
+                          </span>
+                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-cyan-400 shrink-0 mt-0.5 transition-colors" />
+                        </div>
+                        {r.context && (
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            {r.context}
+                          </p>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                </Section>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Sub-agents tab */}
+      {activeTab === "sub-agents" && subAgents.length > 0 && (
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="p-5">
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                Each agent is atomic and self-contained: it carries its own domain
+                knowledge, tools, runbooks, and boundaries. Described in YAML
+                specifications, not coded, making them portable across runtimes
+                and platforms.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {[
+                  { label: "Atomic", detail: "Smallest indivisible unit of its business domain" },
+                  { label: "Self-Contained", detail: "Carries own knowledge, tools, prompts, and memory" },
+                  { label: "Independently Deployable", detail: "Own YAML spec, updatable without touching others" },
+                  { label: "Loosely Coupled", detail: "Communicates through orchestrator and defined handoffs" },
+                  { label: "Single Responsibility", detail: "Owns one business domain end-to-end" },
+                  { label: "Business Capability", detail: "Maps to a business function, not a technical layer" },
+                ].map((p) => (
+                  <div key={p.label} className="bg-muted/30 rounded-md p-2.5">
+                    <p className="text-xs font-medium">{p.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{p.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {subAgents.map((sa) => {
+              const meta = sa.id ? subAgentLookup[sa.id] : undefined;
+              return (
+                <Card
+                  key={sa.name}
+                  className={`border-l-4 border-l-purple-400/50 ${sa.id ? "cursor-pointer hover:border-l-purple-400 transition-colors" : ""}`}
+                  onClick={() => {
+                    if (sa.id) router.push(`/agents/profiles/${sa.id}`);
+                  }}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <Bot className="h-4 w-4 text-purple-400 shrink-0" />
+                        <h3 className="font-medium">{sa.name}</h3>
+                      </div>
+                      {sa.id && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />}
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {sa.purpose}
+                    </p>
+                    {meta && (
+                      <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/50">
+                        {meta.flow_count > 0 && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-400/10 text-blue-400">
+                            {meta.flow_count} flow{meta.flow_count > 1 ? "s" : ""}
+                          </span>
+                        )}
+                        {meta.tool_count > 0 && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-400">
+                            {meta.tool_count} tool{meta.tool_count > 1 ? "s" : ""}
+                          </span>
+                        )}
+                        {meta.prompt_count > 0 && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-400">
+                            {meta.prompt_count} prompt{meta.prompt_count > 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Playbooks tab */}
+      {activeTab === "playbooks" && playbookRaci && (() => {
+        const RaciEntry = ({ p }: { p: ProfilePlaybookEntry }) => {
+          const isClickable = p.team && p.file;
+          const content = (
+            <div className={`bg-muted/30 rounded-md p-3 ${isClickable ? "hover:bg-muted/50 transition-colors" : ""}`}>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">{p.playbook}</p>
+                {isClickable && <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">{p.scope}</p>
+            </div>
+          );
+          if (isClickable) {
+            return (
+              <Link href={`/playbooks/view?team=${encodeURIComponent(p.team!)}&file=${encodeURIComponent(p.file!)}`}>
+                {content}
+              </Link>
+            );
+          }
+          return content;
+        };
+
+        const RaciSection = ({ title, description, entries, borderColor, textColor }: {
+          title: string; description: string; entries: ProfilePlaybookEntry[];
+          borderColor: string; textColor: string;
+        }) => (
+          <Card className={`border-l-4 ${borderColor}`}>
+            <CardContent className="p-5">
+              <Section icon={BookOpen} title={title} color={textColor}>
+                <p className="text-xs text-muted-foreground mb-3">{description}</p>
+                <div className="space-y-2">
+                  {entries.map((p) => <RaciEntry key={p.playbook} p={p} />)}
+                </div>
+              </Section>
+            </CardContent>
+          </Card>
+        );
+
+        return (
+          <div className="space-y-6">
+            {playbookRaci.context && (
+              <Card>
+                <CardContent className="p-5">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {playbookRaci.context}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {playbookRaci.responsible && playbookRaci.responsible.length > 0 && (
+                <RaciSection
+                  title="Responsible"
+                  description="Owns execution and delivers the outcome"
+                  entries={playbookRaci.responsible}
+                  borderColor="border-l-blue-400/50"
+                  textColor="text-blue-400"
+                />
+              )}
+              {playbookRaci.accountable && playbookRaci.accountable.length > 0 && (
+                <RaciSection
+                  title="Accountable"
+                  description="Approves the outcome, ultimate decision authority"
+                  entries={playbookRaci.accountable}
+                  borderColor="border-l-green-400/50"
+                  textColor="text-green-400"
+                />
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {playbookRaci.consulted && playbookRaci.consulted.length > 0 && (
+                <RaciSection
+                  title="Consulted"
+                  description="Provides input before decisions are made"
+                  entries={playbookRaci.consulted}
+                  borderColor="border-l-amber-400/50"
+                  textColor="text-amber-400"
+                />
+              )}
+              {playbookRaci.informed && playbookRaci.informed.length > 0 && (
+                <RaciSection
+                  title="Informed"
+                  description="Notified of outcomes for downstream actions"
+                  entries={playbookRaci.informed}
+                  borderColor="border-l-muted-foreground/30"
+                  textColor="text-muted-foreground"
+                />
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Collaboration tab */}
+      {activeTab === "collaboration" && (
+        <div className="space-y-6">
+          {/* Escalation triggers */}
+          {escalation && escalation.length > 0 && (
+            <Card className="border-l-4 border-l-amber-400/50">
+              <CardContent className="p-5">
+                <Section
+                  icon={Zap}
+                  title={`Escalation Triggers${humanEscalation ? ` (default: ${humanEscalation})` : ""}`}
+                  color="text-amber-400"
+                >
+                  <ul className="space-y-2">
+                    {escalation.map((e, i) => {
+                      const text =
+                        typeof e === "string" ? e : JSON.stringify(e);
+                      return (
+                        <li
+                          key={i}
+                          className="flex items-start gap-2.5 text-sm"
+                        >
+                          <Zap className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                          <span>{text}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Section>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Defers to + Provides to side by side */}
+          {(deferTo || provideTo) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {deferTo && Object.keys(deferTo).length > 0 && (
+                <Card className="border-l-4 border-l-purple-400/50">
+                  <CardContent className="p-5">
+                    <Section
+                      icon={ArrowRight}
+                      title="Defers To"
+                      color="text-purple-400"
+                    >
+                      <div className="space-y-3">
+                        {Object.entries(deferTo).map(([agent, val]) => {
+                          const info = val as unknown as Record<string, unknown>;
+                          const scope = typeof val === "string" ? val : (info?.scope as string) ?? "";
+                          const scenarios = (info?.scenarios as Array<Record<string, string>>) ?? [];
+                          return (
+                            <div
+                              key={agent}
+                              className="text-sm bg-muted/30 rounded-md p-4"
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <ArrowRight className="h-3.5 w-3.5 text-purple-400 shrink-0" />
+                                <span className="font-medium">
+                                  {formatAgentName(agent.replace(/_/g, "-"))}
+                                </span>
+                              </div>
+                              {scope && (
+                                <p className="text-muted-foreground ml-[22px] mb-2">{scope}</p>
+                              )}
+                              {scenarios.length > 0 && (
+                                <ul className="ml-[22px] space-y-1.5">
+                                  {scenarios.map((s, i) => (
+                                    <li key={i} className="flex items-start gap-2 text-xs text-muted-foreground">
+                                      <Zap className="h-3 w-3 text-amber-400/60 shrink-0 mt-0.5" />
+                                      <span>{s.trigger}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </Section>
+                  </CardContent>
+                </Card>
+              )}
+              {provideTo && Object.keys(provideTo).length > 0 && (
+                <Card className="border-l-4 border-l-teal-400/50">
+                  <CardContent className="p-5">
+                    <Section
+                      icon={ArrowRight}
+                      title="Provides To"
+                      color="text-teal-400"
+                    >
+                      <div className="space-y-2">
+                        {Object.entries(provideTo).map(([agent, val]) => {
+                          const scope = typeof val === "string" ? val : ((val as Record<string, unknown>)?.scope as string) ?? "";
+                          return (
+                            <div
+                              key={agent}
+                              className="flex items-start gap-2.5 text-sm bg-muted/30 rounded-md p-3"
+                            >
+                              <ArrowRight className="h-3.5 w-3.5 text-teal-400 shrink-0 mt-0.5" />
+                              <div>
+                                <span className="font-medium">
+                                  {formatAgentName(agent.replace(/_/g, "-"))}
+                                </span>
+                                {scope && (
+                                  <span className="text-muted-foreground">
+                                    {" "}, {scope}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </Section>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Runbooks tab */}
+      {activeTab === "runbooks" && hasRunbooks && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {def.flows.map((flow) => {
+            const flowAny = flow as unknown as Record<string, unknown>;
+            const flowExt = (flowAny["x-ea-agent"] ?? {}) as Record<
+              string,
+              unknown
+            >;
+            const steps = flowExt.workflow_shorthand as
+              | WorkflowStep[]
+              | undefined;
+            const isExpanded = expandedFlow === flow.id;
+            const hasSteps = steps && steps.length > 0;
+
+            return (
+              <Card
+                key={flow.id}
+                className={`border-l-4 border-l-blue-400/50 transition-colors ${hasSteps ? "cursor-pointer hover:border-l-blue-400" : ""}`}
+                onClick={() => {
+                  if (hasSteps) {
+                    setExpandedFlow(isExpanded ? null : flow.id);
+                  }
+                }}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-medium mb-1">{flow.name}</h3>
+                    {hasSteps &&
+                      (isExpanded ? (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                      ))}
+                  </div>
+                  {flow.description && (
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {flow.description}
+                    </p>
+                  )}
+                  {hasSteps && !isExpanded && (
+                    <p className="text-xs text-muted-foreground/60 mt-2">
+                      {steps.length} steps
+                    </p>
+                  )}
+                  {hasSteps && isExpanded && (
+                    <div className="mt-3 border-t border-border/50 pt-3 space-y-2">
+                      {steps.map((step) => (
+                        <div key={step.step} className="flex gap-3 text-sm">
+                          <span className="text-xs font-mono text-blue-400/70 mt-0.5 shrink-0 w-4 text-right">
+                            {step.step}
+                          </span>
+                          <div>
+                            <span>{step.description}</span>
+                            {step.input && (
+                              <span className="text-muted-foreground/50 text-xs ml-1">
+                                ({step.input})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Definition tab */}
+      {activeTab === "definition" && (
+        <div className="space-y-6">
+          {/* Spec summary bar */}
+          <div className="flex items-center gap-6 text-sm">
+            <span className="text-muted-foreground">
+              {specVersion && <>Spec {specVersion} · </>}
+              {flowCount} runbook{flowCount !== 1 ? "s" : ""} · {toolCount} tool{toolCount !== 1 ? "s" : ""} · {promptCount} prompt{promptCount !== 1 ? "s" : ""}
+            </span>
+            <Link
+              href={`/agents/definitions?agent=${agentId}`}
+              className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors ml-auto"
+            >
+              <FileCode2 className="h-3.5 w-3.5" />
+              Open Definition
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+
+          {/* Permissions + Boundaries */}
+          {(permissions || boundaries) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {permissions && permissions.length > 0 && (
+                <Card className="border-l-4 border-l-green-400/50">
+                  <CardContent className="p-5">
+                    <Section
+                      icon={ShieldCheck}
+                      title="Permissions"
+                      color="text-green-400"
+                    >
+                      <ul className="space-y-2">
+                        {permissions.map((p, i) => (
+                          <li
+                            key={i}
+                            className="flex items-start gap-2.5 text-sm"
+                          >
+                            <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-green-400 shrink-0" />
+                            <span>{p}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </Section>
+                  </CardContent>
+                </Card>
+              )}
+              {boundaries && boundaries.length > 0 && (
+                <Card className="border-l-4 border-l-red-400/50">
+                  <CardContent className="p-5">
+                    <Section
+                      icon={ShieldOff}
+                      title="Boundaries"
+                      color="text-red-400"
+                    >
+                      <ul className="space-y-2">
+                        {boundaries.map((b, i) => {
+                          const text =
+                            typeof b === "string" ? b : JSON.stringify(b);
+                          const handoffMatch =
+                            text.match(/\(handoff to (.+?)\)/);
+                          return (
+                            <li
+                              key={i}
+                              className="flex items-start gap-2.5 text-sm"
+                            >
+                              <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
+                              <span>
+                                {handoffMatch
+                                  ? text.replace(/\(handoff to .+?\)/, "")
+                                  : text}
+                                {handoffMatch && (
+                                  <span className="text-muted-foreground/60">
+                                    {" "}
+                                    → {handoffMatch[1]}
+                                  </span>
+                                )}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </Section>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
+          {/* Specialized agents / related definitions */}
+          {specializedAgents.length > 0 && (
+            <Section
+              icon={Bot}
+              title="Related Agent Definitions"
+              color="text-purple-400"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {specializedAgents.map((sa) => {
+                  const saId = (sa.id ?? sa.agent_id ?? "") as string;
+                  const saName = (sa.name ?? saId) as string;
+                  const saDesc = (sa.description ?? sa.purpose ?? "") as string;
+
+                  return (
+                    <Card
+                      key={saId}
+                      className="border-l-4 border-l-purple-400/50 hover:border-l-purple-400 transition-colors cursor-pointer"
+                      onClick={() => {
+                        if (saId) router.push(`/agents/definitions?agent=${saId}`);
+                      }}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <h3 className="font-medium text-sm">
+                            {saName.replace(/ Agent$/, "")}
+                          </h3>
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                        </div>
+                        {saDesc && (
+                          <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                            {saDesc}
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
+
+          {/* Tools + Prompts side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Tools */}
+            {toolCount > 0 && (
+              <Card>
+                <CardContent className="p-5">
+                  <Section icon={Wrench} title="Tools" color="text-amber-400">
+                    <ul className="space-y-3">
+                      {(def.tools ?? []).map((tool) => {
+                        const t = tool as unknown as Record<string, unknown>;
+                        const tExt = (t["x-ea-agent"] ?? {}) as Record<string, unknown>;
+                        return (
+                          <li key={String(t.id)} className="text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{String(t.name)}</span>
+                              {Boolean(t.requires_confirmation) && (
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400">
+                                  confirmation
+                                </span>
+                              )}
+                              {Boolean(tExt.risk) && (
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                  tExt.risk === "high"
+                                    ? "bg-red-400/10 text-red-400"
+                                    : tExt.risk === "medium"
+                                      ? "bg-amber-400/10 text-amber-400"
+                                      : "bg-green-400/10 text-green-400"
+                                }`}>
+                                  {String(tExt.risk)}
+                                </span>
+                              )}
+                            </div>
+                            {Boolean(t.description) && (
+                              <p className="text-muted-foreground mt-0.5">
+                                {String(t.description)}
+                              </p>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </Section>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Prompt Registry */}
+            {promptCount > 0 && (
+              <Card>
+                <CardContent className="p-5">
+                  <Section icon={FileCode2} title="Prompt Registry" color="text-cyan-400">
+                    <ul className="space-y-3">
+                      {Object.entries(
+                        (ext?.prompt_registry ?? {}) as Record<string, Record<string, unknown>>
+                      ).map(([key, entry]) => (
+                        <li key={key} className="text-sm">
+                          <span className="font-medium font-mono text-xs">{key}</span>
+                          {Boolean(entry.description) && (
+                            <p className="text-muted-foreground mt-0.5">
+                              {String(entry.description)}
+                            </p>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </Section>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Handoffs + Escalation (shown when no prompts) */}
+            {promptCount === 0 && (deferTo || provideTo || escalation) && (
+              <div className="space-y-6">
+                {(deferTo || provideTo) && (
+                  <Card className="border-l-4 border-l-blue-500/40">
+                    <CardContent className="p-5">
+                      <Section icon={Network} title="Agent Handoffs" color="text-blue-400">
+                        <div className="space-y-4">
+                          {deferTo && Object.keys(deferTo).length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-blue-400/70 mb-2 uppercase tracking-wide">Defers To</p>
+                              <ul className="space-y-2">
+                                {Object.entries(deferTo).map(([agentKey, scope]) => (
+                                  <li key={agentKey} className="text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <ArrowRight className="h-3 w-3 text-blue-400/60 shrink-0" />
+                                      <span className="font-medium">{agentKey.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                                    </div>
+                                    <p className="text-muted-foreground ml-5 mt-0.5">{scope}</p>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {provideTo && Object.keys(provideTo).length > 0 && (
+                            <div>
+                              <p className="text-xs font-medium text-emerald-400/70 mb-2 uppercase tracking-wide">Provides To</p>
+                              <ul className="space-y-2">
+                                {Object.entries(provideTo).map(([agentKey, scope]) => (
+                                  <li key={agentKey} className="text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <ArrowRight className="h-3 w-3 text-emerald-400/60 shrink-0" />
+                                      <span className="font-medium">{agentKey.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                                    </div>
+                                    <p className="text-muted-foreground ml-5 mt-0.5">{scope}</p>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {humanEscalation && (
+                            <div className="pt-2 border-t border-border/50">
+                              <p className="text-xs text-muted-foreground">
+                                <span className="font-medium text-amber-400">Escalates to:</span> {humanEscalation}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </Section>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {escalation && escalation.length > 0 && (
+                  <Card className="border-l-4 border-l-amber-500/40">
+                    <CardContent className="p-5">
+                      <Section icon={AlertTriangle} title="Escalation Triggers" color="text-amber-400">
+                        <ul className="space-y-2">
+                          {escalation.map((e, i) => (
+                            <li key={i} className="flex items-start gap-2.5 text-sm">
+                              <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                              <span>{typeof e === "string" ? e : String(e)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </Section>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
