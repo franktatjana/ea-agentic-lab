@@ -33,18 +33,12 @@ interface HandoffFlow {
   steps: HandoffStep[];
 }
 
-const AGENT_SHORT_NAMES: Record<string, string> = {
-  sa_agent: "SA",
-  delivery_agent: "Delivery",
-  pm_agent: "PM",
-  ci_agent: "CI",
-  ve_agent: "VE",
-  partner_agent: "Partner",
-  rfp_agent: "RFP",
-  poc_agent: "POC",
-  infosec_agent: "InfoSec",
-  senior_manager_agent: "SM",
-};
+function agentKeyToShortName(key: string): string {
+  const name = key.replace(/_agent$/, "").replace(/_/g, " ");
+  const words = name.split(" ");
+  if (words.length === 1) return words[0].charAt(0).toUpperCase() + words[0].slice(1);
+  return words.map(w => w.charAt(0).toUpperCase()).join("");
+}
 
 function buildPreSalesFlows(
   deferTo: Record<string, unknown> | undefined,
@@ -52,7 +46,7 @@ function buildPreSalesFlows(
   if (!deferTo) return [];
   const steps: HandoffStep[] = [];
   for (const [agentKey, entry] of Object.entries(deferTo)) {
-    const to = AGENT_SHORT_NAMES[agentKey] ?? agentKey;
+    const to = agentKeyToShortName(agentKey);
     const e = entry as Record<string, unknown> | undefined;
     const scenarios = e?.scenarios as Array<Record<string, string>> | undefined;
     if (!scenarios) continue;
@@ -68,19 +62,31 @@ function buildPreSalesFlows(
   return steps;
 }
 
-const POST_SALES_STEPS: HandoffStep[] = [
-  { from: "AE", to: "Delivery", trigger: "Contract signed", description: "Deal closes. AE hands off the complete deal context (commitments, SLAs, stakeholder map) to Delivery for implementation planning." },
-  { from: "Delivery", to: "PS", trigger: "Implementation start", description: "Delivery agent engages Professional Services for hands-on implementation, scoping workshops, and resource allocation." },
-  { from: "Delivery", to: "CA", trigger: "Go-live complete", description: "System is live. Customer Architect takes over for ongoing adoption tracking, health monitoring, and expansion identification." },
-];
+// TODO: Move post-sales and governance handoff chains to YAML specs
+// and fetch via API. Currently static until playbook-level handoffs are specced.
+function buildPostSalesFlows(defs: Array<{ id: string; name: string }> | undefined): HandoffStep[] {
+  if (!defs) return [];
+  const has = (id: string) => defs.some(d => d.id === id);
+  const steps: HandoffStep[] = [];
+  if (has("delivery-agent")) steps.push({ from: "AE", to: "Delivery", trigger: "Contract signed", description: "Deal closes. AE hands off deal context (commitments, SLAs, stakeholder map) to Delivery for implementation planning." });
+  if (has("delivery-agent") && has("ps-agent")) steps.push({ from: "Delivery", to: "PS", trigger: "Implementation start", description: "Delivery agent engages Professional Services for hands-on implementation and resource allocation." });
+  if (has("delivery-agent") && has("ca-agent")) steps.push({ from: "Delivery", to: "CA", trigger: "Go-live complete", description: "System is live. Customer Architect takes over for adoption tracking, health monitoring, and expansion." });
+  return steps;
+}
 
-const GOVERNANCE_STEPS: HandoffStep[] = [
-  { from: "Meeting Notes", to: "Task Shepherd", trigger: "Actions extracted", description: "Meeting Notes agent extracts action items. Task Shepherd ensures each has a single owner, due date, and clear done-criteria." },
-  { from: "Meeting Notes", to: "Decision Registrar", trigger: "Decisions extracted", description: "Decisions mentioned in meetings are captured. Decision Registrar documents context, rationale, alternatives considered." },
-  { from: "Meeting Notes", to: "Risk Radar", trigger: "Risks identified", description: "Meeting surfaces new risks. Risk Radar classifies severity, assigns owners, and determines if escalation is needed." },
-  { from: "Risk Radar", to: "Nudger", trigger: "Escalations", description: "Risk owners have overdue mitigations. Nudger sends targeted reminders (max 1 per action per day) to drive resolution." },
-  { from: "Nudger", to: "SM", trigger: "Overdue > 5 days", description: "Action remains unresolved after 5 days of reminders. Senior Manager is escalated to intervene and unblock." },
-];
+function buildGovernanceFlows(defs: Array<{ id: string; name: string }> | undefined): HandoffStep[] {
+  if (!defs) return [];
+  const gov = defs.filter(d => d.name?.toLowerCase().includes("meeting notes") || d.name?.toLowerCase().includes("task shepherd") || d.name?.toLowerCase().includes("decision") || d.name?.toLowerCase().includes("risk radar") || d.name?.toLowerCase().includes("nudger") || d.name?.toLowerCase().includes("senior manager"));
+  if (gov.length === 0) return [];
+  const steps: HandoffStep[] = [];
+  const has = (substr: string) => gov.some(d => d.name?.toLowerCase().includes(substr));
+  if (has("meeting notes") && has("task shepherd")) steps.push({ from: "Meeting Notes", to: "Task Shepherd", trigger: "Actions extracted", description: "Meeting Notes agent extracts action items. Task Shepherd ensures each has owner, due date, and done-criteria." });
+  if (has("meeting notes") && has("decision")) steps.push({ from: "Meeting Notes", to: "Decision Registrar", trigger: "Decisions extracted", description: "Decisions from meetings are captured with context, rationale, and alternatives considered." });
+  if (has("meeting notes") && has("risk radar")) steps.push({ from: "Meeting Notes", to: "Risk Radar", trigger: "Risks identified", description: "New risks are classified by severity, assigned owners, and evaluated for escalation." });
+  if (has("risk radar") && has("nudger")) steps.push({ from: "Risk Radar", to: "Nudger", trigger: "Escalations", description: "Overdue risk mitigations trigger targeted reminders (max 1 per action per day)." });
+  if (has("nudger") && has("senior manager")) steps.push({ from: "Nudger", to: "SM", trigger: "Overdue > 5 days", description: "Unresolved actions after 5 days escalate to Senior Manager to intervene." });
+  return steps;
+}
 
 export default function AgentsHubPage() {
   const { data: playbooks } = useQuery({
@@ -103,20 +109,25 @@ export default function AgentsHubPage() {
     const handoffs = ext?.handoffs as Record<string, unknown> | undefined;
     const deferTo = handoffs?.defer_to as Record<string, unknown> | undefined;
     const preSalesSteps = buildPreSalesFlows(deferTo);
+    const postSalesSteps = buildPostSalesFlows(definitions);
+    const governanceSteps = buildGovernanceFlows(definitions);
     return [
       { label: "Pre-Sales", color: "text-blue-400", steps: preSalesSteps },
-      { label: "Post-Sales", color: "text-teal-400", steps: POST_SALES_STEPS },
-      { label: "Governance", color: "text-green-400", steps: GOVERNANCE_STEPS },
+      { label: "Post-Sales", color: "text-teal-400", steps: postSalesSteps },
+      { label: "Governance", color: "text-green-400", steps: governanceSteps },
     ];
-  }, [aeDefinition]);
+  }, [aeDefinition, definitions]);
+
+  const profileCount = definitions?.filter(d => d.has_profile && d.category !== "Governance").length ?? 0;
+  const totalAgentCount = definitions?.length ?? 0;
 
   const NAV_CARDS: { href: string; icon: LucideIcon; title: string; count: number | string; description: string; color: string; bg: string; border: string }[] = [
     {
       href: "/agents/profiles",
       icon: Bot,
       title: "Agent Profiles",
-      count: "20 roles",
-      description: "20 roles across 7 areas owning 35 agents. Each profile covers purpose, sub-agents, runbooks, and escalation rules.",
+      count: profileCount > 0 ? `${profileCount} roles` : "–",
+      description: `${profileCount || "–"} roles across teams. Each profile covers purpose, sub-agents, runbooks, and escalation rules.`,
       color: "text-amber-400",
       bg: "bg-amber-600/10",
       border: "border-amber-600/20 hover:border-amber-500/40",
@@ -135,7 +146,7 @@ export default function AgentsHubPage() {
       href: "/orchestration",
       icon: Network,
       title: "Orchestration",
-      count: 4,
+      count: "4 tools",
       description: "Parse, analyze, and validate multi-agent process definitions. Detect conflicts between agents, identify handoff gaps, and map playbook involvement.",
       color: "text-cyan-400",
       bg: "bg-cyan-600/10",
@@ -172,7 +183,7 @@ export default function AgentsHubPage() {
           </HelpPopover>
         </div>
         <p className="text-muted-foreground mt-1">
-          20 roles, 35 agents. Each role is a digital twin of a human function, owning runbooks, tools, and playbook contributions.
+          {profileCount > 0 ? `${profileCount} roles, ${totalAgentCount} agents.` : "Loading..."} Each role is a digital twin of a human function, owning runbooks, tools, and playbook contributions.
         </p>
       </div>
 

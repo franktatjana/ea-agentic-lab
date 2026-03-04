@@ -79,65 +79,7 @@ function formatLabel(s: string): string {
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-const ROLE_DESCRIPTIONS: Record<string, string> = {
-  ae: "Commercial strategy, account planning, stakeholder management, value articulation",
-  sa: "Technical architecture, decision documentation, risk management, solution design",
-  ca: "Customer success, solution adoption, retention management, health monitoring",
-  ci: "Competitive monitoring, market analysis, win/loss tracking",
-  poc: "POC execution, evaluation criteria, success tracking, conversion",
-  ve: "ROI modeling, business case development, value articulation",
-  governance: "Process enforcement, playbook curation, retrospectives, reporting",
-  leadership: "Strategic oversight, executive sponsorship, escalation resolution",
-  specialist: "Deep technical expertise and domain specialization",
-  pm: "Product roadmap alignment, feature gap tracking, feasibility assessment",
-  delivery: "Project execution, delivery tracking, program management, change management",
-  partner: "Partner coordination, ecosystem management, joint delivery",
-};
-
-const ROLE_LABELS: Record<string, string> = {
-  ae: "Account Executive",
-  sa: "Solution Architect",
-  ca: "Customer Architect",
-  ci: "Competitive Intel",
-  poc: "POC",
-  ve: "Value Engineering",
-  governance: "Governance",
-  leadership: "Leadership",
-  delivery: "Delivery",
-  specialist: "Specialist",
-  pm: "Product Manager",
-  partner: "Partner",
-};
-
-const ROLE_COLORS: Record<string, string> = {
-  ae: "border-blue-600/30 hover:border-blue-500/50",
-  sa: "border-purple-600/30 hover:border-purple-500/50",
-  ca: "border-green-600/30 hover:border-green-500/50",
-  ci: "border-orange-600/30 hover:border-orange-500/50",
-  poc: "border-sky-600/30 hover:border-sky-500/50",
-  ve: "border-emerald-600/30 hover:border-emerald-500/50",
-  governance: "border-lime-600/30 hover:border-lime-500/50",
-  leadership: "border-yellow-600/30 hover:border-yellow-500/50",
-  delivery: "border-teal-600/30 hover:border-teal-500/50",
-  specialist: "border-indigo-600/30 hover:border-indigo-500/50",
-  pm: "border-pink-600/30 hover:border-pink-500/50",
-  partner: "border-amber-600/30 hover:border-amber-500/50",
-};
-
-const ROLE_ACTIVE_COLORS: Record<string, string> = {
-  ae: "border-blue-500/60 bg-blue-600/5",
-  sa: "border-purple-500/60 bg-purple-600/5",
-  ca: "border-green-500/60 bg-green-600/5",
-  ci: "border-orange-500/60 bg-orange-600/5",
-  poc: "border-sky-500/60 bg-sky-600/5",
-  ve: "border-emerald-500/60 bg-emerald-600/5",
-  governance: "border-lime-500/60 bg-lime-600/5",
-  leadership: "border-yellow-500/60 bg-yellow-600/5",
-  delivery: "border-teal-500/60 bg-teal-600/5",
-  specialist: "border-indigo-500/60 bg-indigo-600/5",
-  pm: "border-pink-500/60 bg-pink-600/5",
-  partner: "border-amber-500/60 bg-amber-600/5",
-};
+import { ROLE_STYLES, getRoleStyle, getRoleLabel } from "@/lib/role-config";
 
 
 function PlaybookCard({ playbook }: { playbook: Playbook }) {
@@ -455,22 +397,19 @@ export default function PlaybookCatalogPage() {
                   key={role}
                   className={`cursor-pointer transition-colors ${
                     roleFilter === role
-                      ? ROLE_ACTIVE_COLORS[role] || "border-primary/60 bg-primary/5"
-                      : ROLE_COLORS[role] || "hover:border-primary/30"
+                      ? getRoleStyle(role).activeBorderColor
+                      : getRoleStyle(role).borderColor
                   }`}
                   onClick={() => handleRoleClick(role)}
                 >
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium">{ROLE_LABELS[role] || formatLabel(role)}</span>
+                      <span className="text-sm font-medium">{getRoleLabel(role) || formatLabel(role)}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <Badge variant="secondary" className="text-[10px]">{count}</Badge>
                         <ArrowRight className="h-3 w-3 text-muted-foreground" />
                       </div>
                     </div>
-                    <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">
-                      {ROLE_DESCRIPTIONS[role] || ""}
-                    </p>
                   </CardContent>
                 </Card>
               ))}
@@ -596,7 +535,7 @@ export default function PlaybookCatalogPage() {
               className="cursor-pointer hover:bg-destructive/20"
               onClick={() => setRoleFilter("all")}
             >
-              Role: {ROLE_LABELS[roleFilter] || formatLabel(roleFilter)}
+              Role: {getRoleLabel(roleFilter) || formatLabel(roleFilter)}
               <X className="h-3 w-3 ml-1" />
             </Badge>
           )}

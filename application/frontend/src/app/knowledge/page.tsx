@@ -174,17 +174,13 @@ function renderInlineMarkdown(text: string): React.ReactNode[] {
   return parts.length > 0 ? parts : [text];
 }
 
-const AGENT_ROLE_INFO: Record<string, { label: string; team: string; color: string }> = {
-  solution_architect: { label: "Solution Architect", team: "Solution Architecture", color: "text-blue-400" },
-  account_executive: { label: "Account Executive", team: "Account Management", color: "text-emerald-400" },
-  customer_architect: { label: "Customer Architect", team: "Customer Architecture", color: "text-purple-400" },
-  specialist: { label: "Domain Specialist", team: "Specialists", color: "text-amber-400" },
-  poc_agent: { label: "POC Agent", team: "POC Execution", color: "text-cyan-400" },
-  competitive_intelligence: { label: "CI Agent", team: "Competitive Intelligence", color: "text-red-400" },
-  governance: { label: "Governance Agent", team: "Governance", color: "text-orange-400" },
-  leadership: { label: "Senior Manager", team: "Leadership", color: "text-pink-400" },
-  product_manager: { label: "Product Manager", team: "Product Management", color: "text-indigo-400" },
-};
+import { getRoleKey, getRoleStyle } from "@/lib/role-config";
+
+function getAgentRoleInfo(role: string): { label: string; team: string; color: string } {
+  const key = getRoleKey(role);
+  const style = getRoleStyle(key);
+  return { label: style.label === "Other" ? formatLabel(role) : style.label, team: style.label, color: style.textColor };
+}
 
 function getPhaseLabel(phase: string): string {
   const map: Record<string, string> = {
@@ -206,7 +202,7 @@ function getInjectionContext(item: KnowledgeItem): string {
 }
 
 function KnowledgeIntelligence({ item }: { item: KnowledgeItem }) {
-  const roles = item.relevance.map((r) => AGENT_ROLE_INFO[r] || { label: formatLabel(r), team: "Unknown", color: "text-muted-foreground" });
+  const roles = item.relevance.map((r) => getAgentRoleInfo(r));
 
   return (
     <div className="rounded-lg border border-primary/20 bg-primary/[0.02] px-4 py-3 space-y-2.5">

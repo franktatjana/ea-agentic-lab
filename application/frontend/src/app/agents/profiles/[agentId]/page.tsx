@@ -65,15 +65,13 @@ function Section({
   );
 }
 
-const ABBREVIATIONS = new Set(["sa", "ci", "ca", "pm", "ve", "ps", "ae", "ii", "aci", "mna", "qbr", "crm", "rfp", "poc"]);
-
-function formatAgentName(id: string): string {
+function formatAgentId(id: string): string {
   return id
     .replace(/-agent$/, "")
     .replace(/^ae-/, "")
     .replace(/-/g, " ")
     .split(" ")
-    .map((w) => (ABBREVIATIONS.has(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+    .map((w) => w.length <= 3 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
 
@@ -104,7 +102,7 @@ function AgentBadge({ agentId }: { agentId: string }) {
       onClick={(e) => e.stopPropagation()}
     >
       <Bot className="h-3 w-3" />
-      {formatAgentName(agentId)}
+      {formatAgentId(agentId)}
     </Link>
   );
 }
@@ -248,7 +246,7 @@ export default function AgentProfileDetailPage({
                 href={`/agents/profiles/${parentAgent}`}
                 className="hover:text-foreground transition-colors"
               >
-                {formatAgentName(parentAgent)}
+                {formatAgentId(parentAgent)}
               </Link>
             </>
           )}
@@ -765,7 +763,7 @@ export default function AgentProfileDetailPage({
                     </ul>
                     <div className="flex items-center gap-1.5 text-xs text-purple-400 pt-1">
                       <Bot className="h-3 w-3" />
-                      <span className="font-medium">{formatAgentName(d.agent)}</span>
+                      <span className="font-medium">{formatAgentId(d.agent)}</span>
                       <ArrowRight className="h-3 w-3" />
                     </div>
                     {contributors.length > 0 && (
@@ -774,7 +772,7 @@ export default function AgentProfileDetailPage({
                           <div key={c.agent} className="flex items-start gap-2 text-xs text-muted-foreground/70">
                             <span className="shrink-0 mt-px">+</span>
                             <span>
-                              <span className="font-medium text-muted-foreground">{formatAgentName(c.agent)}</span>
+                              <span className="font-medium text-muted-foreground">{formatAgentId(c.agent)}</span>
                               {" "}{c.provides}
                             </span>
                           </div>
@@ -818,7 +816,7 @@ export default function AgentProfileDetailPage({
                         {dim.supported_by && (
                           <p className="text-xs text-purple-400 mt-1">
                             <Bot className="h-3 w-3 inline mr-1" />
-                            {formatAgentName(dim.supported_by)}
+                            {formatAgentId(dim.supported_by)}
                           </p>
                         )}
                       </div>
@@ -1148,7 +1146,7 @@ export default function AgentProfileDetailPage({
                               <div className="flex items-center gap-2 mb-1">
                                 <ArrowRight className="h-3.5 w-3.5 text-purple-400 shrink-0" />
                                 <span className="font-medium">
-                                  {formatAgentName(agent.replace(/_/g, "-"))}
+                                  {formatAgentId(agent.replace(/_/g, "-"))}
                                 </span>
                               </div>
                               {scope && (
@@ -1191,7 +1189,7 @@ export default function AgentProfileDetailPage({
                               <ArrowRight className="h-3.5 w-3.5 text-teal-400 shrink-0 mt-0.5" />
                               <div>
                                 <span className="font-medium">
-                                  {formatAgentName(agent.replace(/_/g, "-"))}
+                                  {formatAgentId(agent.replace(/_/g, "-"))}
                                 </span>
                                 {scope && (
                                   <span className="text-muted-foreground">
