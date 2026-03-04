@@ -135,7 +135,9 @@ export default function AgentProfilesPage() {
 
       {activeStyle && !isGovernance && (
         <div>
-          <p className="text-muted-foreground mb-5">{activeStyle.summary}</p>
+          <div className={`rounded-lg border ${activeStyle.border} bg-muted/50 px-4 py-3 mb-5`}>
+            <p className={`text-sm ${activeStyle.color}`}>{activeStyle.summary}</p>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {activeAgents.map((agent) => (
               <Link key={agent.id} href={`/agents/profiles/${agent.id}`}>
@@ -143,38 +145,28 @@ export default function AgentProfilesPage() {
                   className={`h-full border-l-4 ${activeStyle.border} hover:border-accent hover:border-l-4 transition-colors`}
                 >
                   <CardContent className="p-6">
-                    <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-start justify-between gap-3 mb-2">
                       <h3 className="text-lg font-semibold">
                         {stripAgentSuffix(agent.name)}
                       </h3>
                       <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
                     </div>
-                    <div className="text-muted-foreground leading-relaxed mb-4 space-y-2">
-                      {String(agent.description).split("\n").filter(Boolean).map((para, i) => (
-                        <p key={i}>{para.trim()}</p>
-                      ))}
-                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+                      {String(agent.description).split(".").filter(Boolean).slice(0, 2).join(".").trim()}.
+                    </p>
                     {agent.capabilities.length > 0 && (
-                      <>
-                      <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                        With this agent you can
-                      </p>
-                      <ul className="space-y-1.5 mb-4">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
                         {agent.capabilities.map((cap) => (
-                          <li
+                          <span
                             key={cap}
-                            className="flex items-start gap-2.5 text-sm"
+                            className="text-sm text-muted-foreground"
                           >
-                            <span
-                              className={`mt-[7px] h-1.5 w-1.5 rounded-full ${activeStyle.dot} shrink-0`}
-                            />
-                            <span>{cap}</span>
-                          </li>
+                            {cap}
+                          </span>
                         ))}
-                      </ul>
-                      </>
+                      </div>
                     )}
-                    <p className="text-sm text-muted-foreground/50">
+                    <p className="text-xs text-muted-foreground/50">
                       {buildMeta(agent)}
                     </p>
                   </CardContent>

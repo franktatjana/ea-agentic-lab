@@ -277,3 +277,49 @@ x-ea-agent:
       - path: references/meddpicc-framework.yaml
         description: MEDDPICC dimension definitions, scoring rubric (STRONG/ADEQUATE/WEAK/UNKNOWN), evidence requirements per dimension
         load_when: Running qualification assessment or producing scorecards
+
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: ae-agent
+        description: AE orchestrator routes qualification and MEDDPICC requests
+      - type: event
+        source: crm_webhook
+        condition: opportunity.stage_transition OR forecast_commit_pending
+        description: Auto-qualifies before stage transitions and forecast commits
+      - type: downstream
+        source: ae-deal-diagnosis-agent
+        condition: deal_health.score < 40
+        description: Critical deal health triggers full re-qualification
+      - type: downstream
+        source: ae-signal-detection-agent
+        condition: new_pain_point_detected == true OR budget_signal.type == constraint
+        description: New pain points or budget constraints update qualification evidence
+    outputs:
+      - type: parent_return
+        target: ae-agent
+        payload: [qualification_scorecard, gap_analysis, recommended_actions]
+        description: Qualification results back to orchestrator
+      - type: trigger_agent
+        target: ae-stakeholder-agent
+        condition: champion_dimension.score IN [WEAK, UNKNOWN]
+        payload: [gap_analysis, champion_evidence]
+        description: Champion gap triggers stakeholder deep-dive and mapping
+      - type: trigger_agent
+        target: ae-meeting-prep-agent
+        condition: unknown_dimensions >= 3
+        payload: [gap_analysis, discovery_targets]
+        description: Multiple unknown dimensions trigger discovery meeting preparation
+      - type: notify_human
+        condition: overall_confidence < 60
+        channel: alert
+        description: Deals below 60% confidence flagged for immediate AE attention
+    dependencies:
+      - agent: ae-signal-detection-agent
+        toolbox: signal-intelligence
+        tools: [get-commercial-signals]
+        purpose: Latest signals as evidence for qualification dimension scoring
+      - agent: ae-deal-diagnosis-agent
+        toolbox: deal-intelligence
+        tools: [get-deal-health]
+        purpose: Deal health context for qualification assessment

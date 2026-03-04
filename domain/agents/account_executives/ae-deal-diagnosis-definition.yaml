@@ -350,3 +350,49 @@ x-ea-agent:
       - path: references/competitive-displacement.yaml
         description: Incumbent analysis, competitive positioning, switching cost narrative, FUD defense
         load_when: Diagnosing deals with active competitive threats or displacement scenarios
+
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: ae-agent
+        description: AE orchestrator routes deal health and diagnosis requests
+      - type: event
+        source: crm_webhook
+        condition: opportunity.stage_change OR opportunity.amount_change
+        description: Auto-runs when deal stage or amount changes in CRM
+      - type: downstream
+        source: ae-signal-detection-agent
+        condition: competitive_threat.severity >= HIGH
+        description: Competitive threat triggers automatic deal health reassessment
+      - type: downstream
+        source: ae-opportunity-hygiene-agent
+        condition: stale_alert.level == CRITICAL
+        description: Critically stale deal triggers full health check
+    outputs:
+      - type: parent_return
+        target: ae-agent
+        payload: [deal_health_assessment, stall_diagnosis, loss_analysis, resurrection_candidates]
+        description: Deal diagnosis results back to orchestrator
+      - type: trigger_agent
+        target: ae-qualification-agent
+        condition: deal_health.score < 40
+        payload: [deal_health_assessment, affected_opportunity]
+        description: Critical deal health forces re-qualification
+      - type: trigger_agent
+        target: ae-pipeline-mgmt-agent
+        condition: deal_health.classification == RED
+        payload: [deal_health_assessment, risk_impact_on_forecast]
+        description: RED deal triggers pipeline reprioritization
+      - type: notify_human
+        condition: deal_health.classification == RED OR resurrection_candidate == true
+        channel: alert
+        description: RED deals and resurrection candidates surface for AE review
+    dependencies:
+      - agent: ae-signal-detection-agent
+        toolbox: signal-intelligence
+        tools: [get-commercial-signals, get-risk-signals]
+        purpose: Latest commercial signals as context for deal health scoring
+      - agent: ae-qualification-agent
+        toolbox: qualification-data
+        tools: [get-qualification-scorecard]
+        purpose: Current qualification state for deal diagnosis context

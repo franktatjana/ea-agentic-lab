@@ -569,6 +569,7 @@ export interface AgentProfile {
   challenges: ChallengeEntry[];
   administrative_overhead: OverheadEntry[];
   capabilities: string[];
+  with_this_agent?: string[];
   key_metrics?: string[];
   qualification_framework?: QualificationFramework;
   stakeholder_landscape?: StakeholderLandscape;

@@ -2,7 +2,7 @@
 
 import { use, useState, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, redirect } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -99,7 +99,7 @@ function stakeholderAgent(entry: StakeholderEntry): string | undefined {
 function AgentBadge({ agentId }: { agentId: string }) {
   return (
     <Link
-      href={`/agents/profiles/${agentId}`}
+      href={`/agents/definitions?agent=${agentId}`}
       className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 transition-colors whitespace-nowrap shrink-0"
       onClick={(e) => e.stopPropagation()}
     >
@@ -182,6 +182,7 @@ export default function AgentProfileDetailPage({
   const challenges = profile?.challenges ?? [];
   const adminOverhead = profile?.administrative_overhead ?? [];
   const capabilities = profile?.capabilities ?? [];
+  const withThisAgent = profile?.with_this_agent ?? [];
   const keyMetrics = profile?.key_metrics ?? [];
   const activityMap = profile?.activity_map;
   const qualFramework = profile?.qualification_framework;
@@ -201,6 +202,12 @@ export default function AgentProfileDetailPage({
 
   const responsibility = def.metadata?.responsibility as string | undefined;
   const parentAgent = def.metadata?.parent_agent as string | undefined;
+
+  // Sub-agents don't have profiles, redirect to definitions
+  if (parentAgent) {
+    redirect(`/agents/definitions?agent=${agentId}`);
+  }
+
   const isHumanPaired = def.human_in_the_loop;
   const roleName = def.name.replace(/ Agent$/, "");
 
@@ -298,7 +305,7 @@ export default function AgentProfileDetailPage({
             Role
           </button>
         )}
-        {(capabilities.length > 0 || (activityMap && activityMap.domains.length > 0)) && (
+        {(withThisAgent.length > 0 || capabilities.length > 0 || (activityMap && activityMap.domains.length > 0)) && (
           <button
             onClick={() => setActiveTab("operations")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
@@ -403,146 +410,143 @@ export default function AgentProfileDetailPage({
       {/* Overview tab */}
       {activeTab === "overview" && (
         <div className="space-y-6">
-          {/* Bento grid: Why + About | Goals + Human | Responsibilities */}
-          <div className="space-y-6">
-            {/* Row 1: About This Role + Why */}
-            {(profileWhy || roleContext) && (
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-                {roleContext && (
-                  <Card className={`${profileWhy ? "md:col-span-2" : "md:col-span-5"} border-l-4 ${teamStyle ? teamStyle.border + "/50" : "border-l-muted-foreground/50"}`}>
-                    <CardContent className="p-7">
-                      <div className="flex items-center gap-2 mb-4">
-                        <Users className={`h-4 w-4 ${teamStyle?.color ?? "text-muted-foreground"}`} />
-                        <h3 className={`text-xs font-semibold uppercase tracking-wider ${teamStyle?.color ?? "text-muted-foreground"}`}>
-                          About This Role
-                        </h3>
-                      </div>
-                      <div className="space-y-3 text-[15px] leading-[1.8] text-foreground/80">
-                        {roleContext.split("\n").filter(Boolean).map((para, i) => (
-                          <p key={i}>{para.trim()}</p>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-                {profileWhy && (
-                  <Card className="md:col-span-3 border-l-4 border-l-blue-500/50 bg-blue-500/[0.03]">
-                    <CardContent className="p-7">
-                      <div className="flex items-center gap-2 mb-4">
-                        <Sparkles className="h-4 w-4 text-blue-400" />
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-blue-400">
-                          Why This Agent Exists
-                        </h3>
-                      </div>
-                      <p className="text-[15px] leading-[1.8] text-foreground/90 mb-5">
-                        {profileWhy}
-                      </p>
-                      <ul className="space-y-3">
-                        {String(def.description).trim()
-                          .split(/\.\s+/)
-                          .filter(Boolean)
-                          .map((point, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-[15px]">
-                            <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />
-                            <span className="text-foreground/85 leading-[1.7]">
-                              {point.charAt(0).toUpperCase() + point.slice(1).replace(/\.$/, "")}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            )}
-
-            {/* Row 2: Goals + Why Human Matters */}
-            {(profileGoals.length > 0 || isHumanPaired) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {profileGoals.length > 0 && (
-                  <Card className="border-l-4 border-l-emerald-500/50">
-                    <CardContent className="p-7">
-                      <div className="flex items-center gap-2 mb-4">
-                        <Crosshair className="h-4 w-4 text-emerald-400" />
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
-                          Goals
-                        </h3>
-                      </div>
-                      <ul className="space-y-3">
-                        {profileGoals.map((goal, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-[15px]">
-                            <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
-                            <span className="text-foreground/90">{goal}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                )}
-                {isHumanPaired && (
-                  <Card className="border-l-4 border-l-purple-500/50">
-                    <CardContent className="p-7">
-                      <div className="flex items-center gap-2 mb-4">
-                        <UserCheck className="h-4 w-4 text-purple-400" />
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-purple-400">
-                          Why the Human Matters
-                        </h3>
-                      </div>
-                      <p className="text-[15px] leading-[1.8] text-foreground/90 mb-4">
-                        The agent handles data gathering, analysis, and preparation, but the
-                        human brings judgment, relationships, and strategic decisions that no
-                        model can replace.
-                      </p>
-                      {escalation && escalation.length > 0 && (
-                        <div>
-                          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2.5">
-                            The agent escalates when
-                          </p>
-                          <ul className="space-y-2">
-                            {escalation.map((trigger, i) => (
-                              <li key={i} className="flex items-start gap-2.5 text-sm">
-                                <AlertTriangle className="h-3.5 w-3.5 mt-[3px] text-amber-400 shrink-0" />
-                                <span className="text-foreground/80">{trigger}</span>
-                              </li>
-                            ))}
-                          </ul>
+          {/* Row 1: About This Role + Why */}
+              {(profileWhy || roleContext) && (
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+                  {roleContext && (
+                    <Card className={`${profileWhy ? "md:col-span-2" : "md:col-span-5"} border-l-4 ${teamStyle ? teamStyle.border + "/50" : "border-l-muted-foreground/50"}`}>
+                      <CardContent className="p-7">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Users className={`h-4 w-4 ${teamStyle?.color ?? "text-muted-foreground"}`} />
+                          <h3 className={`text-xs font-semibold uppercase tracking-wider ${teamStyle?.color ?? "text-muted-foreground"}`}>
+                            About This Role
+                          </h3>
                         </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            )}
-
-            {/* Row 3: Key Responsibilities (full-width horizontal grid) */}
-            {activityMap && activityMap.domains.length > 0 && (
-              <Card>
-                <CardContent className="p-7">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-5">
-                    Key Responsibilities
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                    {activityMap.domains.map((d) => (
-                      <div
-                        key={d.domain}
-                        className="rounded-lg border border-border/50 p-4 hover:border-border transition-colors"
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`h-2 w-2 rounded-full ${dotColor} shrink-0`} />
-                          <span className="text-sm font-medium text-foreground">
-                            {d.domain}
-                          </span>
+                        <div className="space-y-3 text-[15px] leading-[1.8] text-foreground/80">
+                          {roleContext.split("\n").filter(Boolean).map((para, i) => (
+                            <p key={i}>{para.trim()}</p>
+                          ))}
                         </div>
-                        <p className="text-xs leading-relaxed text-muted-foreground">
-                          {d.why}
+                      </CardContent>
+                    </Card>
+                  )}
+                  {profileWhy && (
+                    <Card className="md:col-span-3 border-l-4 border-l-blue-500/50 bg-blue-500/[0.03]">
+                      <CardContent className="p-7">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Sparkles className="h-4 w-4 text-blue-400" />
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-blue-400">
+                            Why This Agent Exists
+                          </h3>
+                        </div>
+                        <p className="text-[15px] leading-[1.8] text-foreground/90 mb-5">
+                          {profileWhy}
                         </p>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                        <ul className="space-y-3">
+                          {String(def.description).trim()
+                            .split(/\.\s+/)
+                            .filter(Boolean)
+                            .map((point, i) => (
+                            <li key={i} className="flex items-start gap-2.5 text-[15px]">
+                              <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />
+                              <span className="text-foreground/85 leading-[1.7]">
+                                {point.charAt(0).toUpperCase() + point.slice(1).replace(/\.$/, "")}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+
+              {/* Row 2: Goals + Why Human Matters */}
+              {(profileGoals.length > 0 || isHumanPaired) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {profileGoals.length > 0 && (
+                    <Card className="border-l-4 border-l-emerald-500/50">
+                      <CardContent className="p-7">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Crosshair className="h-4 w-4 text-emerald-400" />
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
+                            Goals
+                          </h3>
+                        </div>
+                        <ul className="space-y-3">
+                          {profileGoals.map((goal, i) => (
+                            <li key={i} className="flex items-start gap-2.5 text-[15px]">
+                              <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+                              <span className="text-foreground/90">{goal}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </CardContent>
+                    </Card>
+                  )}
+                  {isHumanPaired && (
+                    <Card className="border-l-4 border-l-purple-500/50">
+                      <CardContent className="p-7">
+                        <div className="flex items-center gap-2 mb-4">
+                          <UserCheck className="h-4 w-4 text-purple-400" />
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-purple-400">
+                            Why the Human Matters
+                          </h3>
+                        </div>
+                        <p className="text-[15px] leading-[1.8] text-foreground/90 mb-4">
+                          The agent handles data gathering, analysis, and preparation, but the
+                          human brings judgment, relationships, and strategic decisions that no
+                          model can replace.
+                        </p>
+                        {escalation && escalation.length > 0 && (
+                          <div>
+                            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2.5">
+                              The agent escalates when
+                            </p>
+                            <ul className="space-y-2">
+                              {escalation.map((trigger, i) => (
+                                <li key={i} className="flex items-start gap-2.5 text-sm">
+                                  <AlertTriangle className="h-3.5 w-3.5 mt-[3px] text-amber-400 shrink-0" />
+                                  <span className="text-foreground/80">{trigger}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+
+              {/* Row 3: Key Responsibilities (full-width horizontal grid) */}
+              {activityMap && activityMap.domains.length > 0 && (
+                <Card>
+                  <CardContent className="p-7">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-5">
+                      Key Responsibilities
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                      {activityMap.domains.map((d) => (
+                        <div
+                          key={d.domain}
+                          className="rounded-lg border border-border/50 p-4 hover:border-border transition-colors"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`h-2 w-2 rounded-full ${dotColor} shrink-0`} />
+                            <span className="text-sm font-medium text-foreground">
+                              {d.domain}
+                            </span>
+                          </div>
+                          <p className="text-xs leading-relaxed text-muted-foreground">
+                            {d.why}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
         </div>
       )}
 
@@ -695,9 +699,9 @@ export default function AgentProfileDetailPage({
       )}
 
       {/* Operations tab */}
-      {activeTab === "operations" && (capabilities.length > 0 || activityMap) && (
+      {activeTab === "operations" && (withThisAgent.length > 0 || capabilities.length > 0 || activityMap) && (
         <div className="space-y-6">
-          {capabilities.length > 0 && (
+          {(withThisAgent.length > 0 || capabilities.length > 0) && (
             <Card
               className={`border-l-4 ${teamStyle ? teamStyle.border + "/50" : "border-l-muted-foreground/50"}`}
             >
@@ -708,7 +712,7 @@ export default function AgentProfileDetailPage({
                   color={teamStyle?.color ?? "text-muted-foreground"}
                 >
                   <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5">
-                    {capabilities.map((cap) => (
+                    {(withThisAgent.length > 0 ? withThisAgent : capabilities).map((cap: string) => (
                       <li
                         key={cap}
                         className="flex items-start gap-2.5 text-[15px]"

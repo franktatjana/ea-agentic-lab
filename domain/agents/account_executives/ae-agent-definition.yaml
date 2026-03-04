@@ -542,6 +542,16 @@ x-ea-agent:
         automated_by: ae-pipeline-gen-agent
 
     capabilities:
+      - "Deal health diagnosis"
+      - "Pipeline forecasting"
+      - "Stakeholder intelligence"
+      - "Commercial signal detection"
+      - "MEDDPICC qualification"
+      - "Meeting preparation"
+      - "CRM hygiene automation"
+      - "Pipeline generation"
+
+    with_this_agent:
       - "Know which deals are healthy and which need intervention right now"
       - "Forecast with evidence, not gut feel, and see coverage gaps before quarter end"
       - "Track who holds influence, whether champions are engaged, and where relationships are cooling"
@@ -1056,3 +1066,91 @@ x-ea-agent:
     - Every risk has a mitigation suggestion
     - No assumed motivations or sentiments
     - Health scores supported by specific evidence
+
+  autonomy:
+    role: orchestrator
+    description: >
+      Watches sub-agent outputs and routes follow-up actions.
+      Sub-agents declare triggers and outputs in their own specs.
+      The orchestrator enforces the routing contracts.
+
+    reactive_routing:
+      - watch: ae-signal-detection-agent
+        on: competitive_threat.severity >= HIGH
+        route_to: ae-deal-diagnosis-agent
+        context_forward: [signal_assessment, threat_details, affected_opportunity]
+        description: Competitive threat triggers deal health reassessment
+
+      - watch: ae-signal-detection-agent
+        on: org_change_detected == true OR champion_risk_signals > 0
+        route_to: ae-stakeholder-agent
+        context_forward: [signal_assessment, change_details, affected_contacts]
+        description: Org changes trigger relationship map update
+
+      - watch: ae-signal-detection-agent
+        on: new_pain_point_detected == true OR budget_signal.type == constraint
+        route_to: ae-qualification-agent
+        context_forward: [signal_assessment, pain_details, budget_context]
+        description: New pain or budget constraint triggers re-qualification
+
+      - watch: ae-deal-diagnosis-agent
+        on: deal_health.score < 40
+        route_to: ae-qualification-agent
+        context_forward: [deal_health_assessment, affected_opportunity]
+        description: Critical deal health forces re-qualification
+
+      - watch: ae-deal-diagnosis-agent
+        on: deal_health.classification == RED
+        route_to: ae-pipeline-mgmt-agent
+        context_forward: [deal_health_assessment, risk_impact_on_forecast]
+        description: RED deal triggers pipeline reprioritization
+
+      - watch: ae-qualification-agent
+        on: champion_dimension.score IN [WEAK, UNKNOWN]
+        route_to: ae-stakeholder-agent
+        context_forward: [gap_analysis, champion_evidence]
+        description: Champion gap triggers stakeholder deep-dive
+
+      - watch: ae-qualification-agent
+        on: unknown_dimensions >= 3
+        route_to: ae-meeting-prep-agent
+        context_forward: [gap_analysis, discovery_targets]
+        description: Multiple unknowns trigger discovery meeting prep
+
+      - watch: ae-stakeholder-agent
+        on: new_executive_identified == true
+        route_to: ae-meeting-prep-agent
+        context_forward: [executive_profile, relationship_context]
+        description: New executive triggers introductory meeting briefing
+
+      - watch: ae-meeting-prep-agent
+        on: post_call_summary.generated == true
+        route_to: ae-opportunity-hygiene-agent
+        context_forward: [post_call_summary, crm_update_recommendations]
+        description: Post-call summary triggers CRM hygiene update
+
+      - watch: ae-opportunity-hygiene-agent
+        on: stale_alert.level == CRITICAL
+        route_to: ae-deal-diagnosis-agent
+        context_forward: [stale_alert, opportunity_context]
+        description: Critically stale deal triggers full health check
+
+      - watch: ae-opportunity-hygiene-agent
+        on: hygiene_report.generated == true
+        route_to: ae-pipeline-mgmt-agent
+        context_forward: [hygiene_report, pipeline_health_metrics]
+        description: Hygiene report feeds pipeline health context
+
+      - watch: ae-pipeline-mgmt-agent
+        on: coverage_ratio < 3.0 OR pipeline_gap > 0
+        route_to: ae-pipeline-gen-agent
+        context_forward: [coverage_analysis, gap_details, territory_context]
+        description: Coverage gap triggers prospecting
+
+    cascade_limits:
+      max_depth: 3
+      max_agents_per_chain: 4
+      circuit_breaker: Stop chain if same agent triggered twice in one cascade
+      description: >
+        Prevents infinite loops. A signal can trigger at most 3 downstream
+        hops before requiring human review of the accumulated results.

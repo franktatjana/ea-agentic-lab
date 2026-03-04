@@ -313,3 +313,50 @@ x-ea-agent:
       - path: references/roi-methodology.yaml
         description: ROI model structure, TCO comparison, business case format, sensitivity analysis, value realization timeline
         load_when: Preparing business case presentations, executive value meetings, or QBR value sections
+
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: ae-agent
+        description: AE orchestrator routes meeting prep and debrief requests
+      - type: event
+        source: calendar_api
+        condition: meeting.time - now <= 24h AND meeting.type IN [customer, prospect]
+        description: Auto-generates call brief 24h before customer meetings
+      - type: downstream
+        source: ae-stakeholder-agent
+        condition: new_executive_identified == true
+        payload_expected: [executive_profile, relationship_context]
+        description: New executive triggers introductory meeting briefing
+      - type: downstream
+        source: ae-qualification-agent
+        condition: unknown_dimensions >= 3
+        payload_expected: [gap_analysis, discovery_targets]
+        description: Qualification gaps trigger discovery meeting preparation
+    outputs:
+      - type: parent_return
+        target: ae-agent
+        payload: [call_brief, qbr_materials, post_call_summary, discovery_plan]
+        description: Meeting materials back to orchestrator
+      - type: trigger_agent
+        target: ae-opportunity-hygiene-agent
+        condition: post_call_summary.generated == true
+        payload: [post_call_summary, crm_update_recommendations]
+        description: Post-call summary triggers CRM hygiene update
+      - type: notify_human
+        condition: call_brief.ready == true
+        channel: notification
+        description: Call brief ready notification sent to AE before meeting
+    dependencies:
+      - agent: ae-stakeholder-agent
+        toolbox: stakeholder-intelligence
+        tools: [get-stakeholder-map, get-champion-status]
+        purpose: Attendee relationships and champion health for meeting context
+      - agent: ae-signal-detection-agent
+        toolbox: signal-intelligence
+        tools: [get-commercial-signals]
+        purpose: Latest signals to include in call briefs and talking points
+      - agent: ae-qualification-agent
+        toolbox: qualification-data
+        tools: [get-qualification-gaps]
+        purpose: Qualification gaps to address during meetings

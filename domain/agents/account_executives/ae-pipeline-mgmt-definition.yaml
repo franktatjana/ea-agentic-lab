@@ -289,3 +289,50 @@ x-ea-agent:
       - path: references/account-planning.yaml
         description: Strategic account planning, whitespace mapping, land-and-expand motions, multi-year growth planning
         load_when: Territory planning, account tiering, or identifying expansion pipeline opportunities
+
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: ae-agent
+        description: AE orchestrator routes pipeline, forecast, and territory requests
+      - type: schedule
+        cadence: weekly
+        window: monday 08:00-09:00
+        description: Weekly pipeline review with forecast confidence and coverage analysis
+      - type: schedule
+        cadence: quarterly
+        window: first_week
+        description: Quarterly territory planning and account re-tiering
+      - type: downstream
+        source: ae-deal-diagnosis-agent
+        condition: deal_health.classification == RED
+        payload_expected: [deal_health_assessment, risk_impact_on_forecast]
+        description: RED deal triggers forecast and priority recalculation
+      - type: downstream
+        source: ae-opportunity-hygiene-agent
+        condition: hygiene_report.generated == true
+        payload_expected: [hygiene_report, pipeline_health_metrics]
+        description: Hygiene report feeds pipeline health context
+    outputs:
+      - type: parent_return
+        target: ae-agent
+        payload: [forecast_risk_assessment, coverage_analysis, priority_actions]
+        description: Pipeline analysis back to orchestrator
+      - type: trigger_agent
+        target: ae-pipeline-gen-agent
+        condition: coverage_ratio < 3.0 OR pipeline_gap > 0
+        payload: [coverage_analysis, gap_details, territory_context]
+        description: Coverage gap triggers prospecting and pipeline generation
+      - type: notify_human
+        condition: forecast_variance > 15 OR coverage_ratio < 2.0
+        channel: alert
+        description: Forecast risk or critical coverage gap surfaces for AE review
+    dependencies:
+      - agent: ae-deal-diagnosis-agent
+        toolbox: deal-intelligence
+        tools: [get-deal-health]
+        purpose: Deal-level risk data for portfolio forecast confidence
+      - agent: ae-opportunity-hygiene-agent
+        toolbox: hygiene-reports
+        tools: [get-hygiene-report]
+        purpose: Pipeline cleanliness metrics for accurate forecasting

@@ -302,3 +302,46 @@ x-ea-agent:
       - path: references/hygiene-sla.yaml
         description: Paper process SLAs (legal, security, procurement), stale deal thresholds, hygiene scoring formula
         load_when: Running weekly hygiene checks or tracking paper process milestones
+
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: ae-agent
+        description: AE orchestrator routes hygiene check requests
+      - type: schedule
+        cadence: weekly
+        window: friday 16:00-17:00
+        description: Weekly full hygiene run across all active opportunities
+      - type: schedule
+        cadence: daily
+        window: 07:00-07:30
+        description: Daily stale deal check for WARNING and CRITICAL thresholds
+      - type: downstream
+        source: ae-meeting-prep-agent
+        condition: post_call_summary.generated == true
+        payload_expected: [post_call_summary, crm_update_recommendations]
+        description: Post-call summaries trigger CRM field update checklists
+    outputs:
+      - type: parent_return
+        target: ae-agent
+        payload: [hygiene_report, stale_alerts, crm_checklist]
+        description: Hygiene results back to orchestrator
+      - type: trigger_agent
+        target: ae-deal-diagnosis-agent
+        condition: stale_alert.level == CRITICAL
+        payload: [stale_alert, opportunity_context]
+        description: Critically stale deal triggers full health diagnosis
+      - type: trigger_agent
+        target: ae-pipeline-mgmt-agent
+        condition: hygiene_report.generated == true
+        payload: [hygiene_report, pipeline_health_metrics]
+        description: Hygiene report feeds pipeline health and forecast accuracy
+      - type: notify_human
+        condition: stale_alert.level == CRITICAL OR hygiene_score.trend == declining
+        channel: alert
+        description: Critical stale deals and declining hygiene trends surface for AE review
+    dependencies:
+      - agent: ae-meeting-prep-agent
+        toolbox: meeting-intelligence
+        tools: [get-post-call-summary]
+        purpose: Latest meeting outcomes for CRM update accuracy
