@@ -1,429 +1,779 @@
-# AE Deal Diagnosis Agent
-# Sub-agent of Account Executive Agent (ae-agent)
-# Owns: individual deal health scoring, stall analysis, loss review, resurrection
-#
-# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
-
-agentspec_version: "26.1.0"
+agentspec_version: 26.1.0
 component_type: Agent
-
 id: ae-deal-diagnosis-agent
 name: AE Deal Diagnosis Agent
-description: >
-  Every deal has a story the CRM doesn't tell. This agent reads between the
-  lines, scoring deal health from actual engagement signals, diagnosing why
-  deals stall before the AE notices, extracting learnings from losses, and
-  finding deals worth resurrecting when conditions change.
+description: 'Every deal has a story the CRM doesn''t tell. This agent reads between the lines, scoring deal health from actual
+  engagement signals, diagnosing why deals stall before the AE notices, extracting learnings from losses, and finding deals
+  worth resurrecting when conditions change.
 
+  '
 metadata:
-  definition_version: "0.1.0"
+  definition_version: 0.1.0
   parent_agent: ae-agent
   tags:
-    - deal-health
-    - stall-analysis
-    - loss-review
-    - resurrection
-    - commercial
-  responsibility: >
-    Provide accurate, evidence-based deal health assessments with specific
-    risk classifications, stall diagnoses, and actionable mitigation steps.
+  - deal-health
+  - stall-analysis
+  - loss-review
+  - resurrection
+  - commercial
+  responsibility: 'Provide accurate, evidence-based deal health assessments with specific risk classifications, stall diagnoses,
+    and actionable mitigation steps.
 
-system_prompt: |
-  You are a Deal Diagnosis Agent, part of the Account Executive intelligence
+    '
+system_prompt: 'You are a Deal Diagnosis Agent, part of the Account Executive intelligence
+
   system. Your job is to assess individual deal health with precision.
 
+
   You MUST:
+
   - Score deal health as RED/YELLOW/GREEN with specific evidence
+
   - Diagnose stall causes with contributing factors and unstall actions
+
   - Analyze lost deals for warning signs, competitor impact, and learnings
+
   - Identify resurrection candidates based on changed conditions
+
   - Quantify with dates, values (EUR/USD), and percentages
+
   - Every risk must suggest a mitigation action
 
+
   You MUST NOT:
-  - Analyze portfolio-level metrics (Pipeline Management Agent's domain)
-  - Prepare meeting materials (Meeting Preparation Agent's domain)
-  - Run scheduled hygiene checks (Opportunity Hygiene Agent's domain)
+
+  - Analyze portfolio-level metrics (Pipeline Management Agent''s domain)
+
+  - Prepare meeting materials (Meeting Preparation Agent''s domain)
+
+  - Run scheduled hygiene checks (Opportunity Hygiene Agent''s domain)
+
   - Invent stakeholder sentiments not expressed in source content
+
   - Assume budget amounts not explicitly mentioned
 
+
   When uncertain: use "appears delayed" not "is delayed", add
+
   [NEEDS VERIFICATION] for unclear situations. Omit rather than guess.
 
+  '
 human_in_the_loop: true
-
 tools:
-  - component_type: ClientTool
-    id: read-crm-data
-    name: Read CRM Data
-    description: Access CRM fields, opportunity data, stage history
-    requires_confirmation: false
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM fields, opportunity data, stage history
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, and meeting notes for signal detection
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+- component_type: ClientTool
+  id: write-risk-alert
+  name: Write Risk Alert
+  description: Save deal-level risk alert to InfoHub risk register
+  requires_confirmation: true
+  inputs:
+  - title: risk
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+- component_type: ClientTool
+  id: save-deal-intelligence
+  name: Save Deal Intelligence
+  description: Persist deal assessment to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: opportunity_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from account executive
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+toolboxes:
+- component_type: Toolbox
+  id: deal-intelligence
+  name: Deal Intelligence
+  description: Deal health assessments and close plan status available to peer agents
+  tools:
+  - id: get-deal-health
+    name: Get Deal Health
+    description: Returns RED/YELLOW/GREEN health score with risk factors and mitigation actions
     inputs:
-      - title: query
-        type: string
+    - title: opportunity_name
+      type: string
     outputs:
-      - title: crm_data
-        type: object
-    x-ea-agent:
-      risk: low
-
-  - component_type: ClientTool
-    id: read-communications
-    name: Read Communications
-    description: Access Slack threads, email content, and meeting notes for signal detection
-    requires_confirmation: false
+    - title: deal_health
+      type: object
+  - id: get-close-plan-status
+    name: Get Close Plan Status
+    description: Returns mutual action plan health with milestone tracking and stall risks
     inputs:
-      - title: source_type
-        type: string
+    - title: opportunity_name
+      type: string
+    outputs:
+    - title: close_plan_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: deal-diagnosis
+  name: Deal Diagnosis
+  description: Diagnose deal health, identify stall causes, analyze losses, and find resurrection opportunities.
+  inputs:
+  - title: account_context
+    type: object
+  - title: opportunity_name
+    type: string
+  - title: current_stage
+    type: string
+  - title: days_in_stage
+    type: integer
+  outputs:
+  - title: deal_health_assessment
+    type: object
+  - title: stall_diagnosis
+    type: object
+  - title: loss_analysis
+    type: object
+  - title: resurrection_candidates
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ae-analyze-deal-health
+      input: account_context, opportunity_name, time_period
+      tools:
+      - read-crm-data
+      - read-communications
+      description: Identify top risks and positive signals, assign health score (RED/YELLOW/GREEN)
+    - step: 2
+      prompt: ae-diagnose-stalled-deal
+      input: current_stage, days_in_stage
+      tools:
+      - read-crm-data
+      description: Identify stall cause, contributing factors, unstall actions
+    - step: 3
+      prompt: ae-loss-analysis
+      input: opportunity_name
+      tools:
+      - read-crm-data
+      - read-communications
+      description: Timeline of key moments, warning signs, competitor analysis, learnings
+    - step: 4
+      prompt: ae-resurrect-dead-deal
+      input: time_period
+      tools:
+      - read-crm-data
+      description: Identify resurrection candidates with changed conditions and triggers
+    - step: 5
+      action: persist
+      tools:
+      - save-deal-intelligence
+      - write-risk-alert
+      condition: write-risk-alert triggers when deal_health == RED
+      description: Save deal assessment to InfoHub, write risk alert for RED deals
+- component_type: Flow
+  id: close-plan-management
+  name: Close Plan Management
+  description: Create, track, and assess mutual action plan health for deals in proposal stage or later.
+  inputs:
+  - title: opportunity_name
+    type: string
+  - title: current_stage
+    type: string
+  - title: stakeholder_map
+    type: object
+  outputs:
+  - title: close_plan
+    type: object
+  - title: plan_health
+    type: object
+  - title: stall_risks
+    type: array
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ae-close-plan-create
+      input: opportunity_name, current_stage, stakeholder_map
+      tools:
+      - read-crm-data
+      description: Build mutual action plan with phases, milestones, owners, and target dates
+    - step: 2
+      prompt: ae-close-plan-health
+      input: close_plan, milestone_status
+      tools:
+      - read-crm-data
+      description: Assess close plan health (GREEN/YELLOW/RED), identify stall patterns and mitigations
+    - step: 3
+      action: persist
+      tools:
+      - save-deal-intelligence
+      description: Save close plan and health assessment to InfoHub
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - deal-health-scoring
+    - stall-diagnosis
+    - loss-analysis
+    - close-plan-management
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  prompt_registry:
+    ae-analyze-deal-health:
+      description: Diagnose current deal health based on recent signals, risks, and positive indicators
+      source: prompts/tasks.yaml#deal_diagnosis.analyze_deal_health
+      inputs:
       - title: account_name
         type: string
-    outputs:
-      - title: content
-        type: string
-    x-ea-agent:
-      risk: low
-
-  - component_type: ClientTool
-    id: write-risk-alert
-    name: Write Risk Alert
-    description: Save deal-level risk alert to InfoHub risk register
-    requires_confirmation: true
-    inputs:
-      - title: risk
-        type: object
-      - title: destination_path
-        type: string
-    outputs:
-      - title: status
-        type: string
-    x-ea-agent:
-      risk: medium
-
-  - component_type: ClientTool
-    id: save-deal-intelligence
-    name: Save Deal Intelligence
-    description: Persist deal assessment to InfoHub, making results queryable via toolbox
-    requires_confirmation: false
-    inputs:
-      - title: assessment
-        type: object
       - title: opportunity_name
         type: string
-    outputs:
-      - title: status
+      - title: time_period
         type: string
-    x-ea-agent:
-      risk: low
-
-  - component_type: ClientTool
-    id: ask-user
-    name: Ask User
-    description: Request clarification from account executive
-    requires_confirmation: false
-    inputs:
-      - title: question
-        type: string
-    outputs:
-      - title: answer
-        type: string
-    x-ea-agent:
-      risk: low
-
-toolboxes:
-  - component_type: Toolbox
-    id: deal-intelligence
-    name: Deal Intelligence
-    description: Deal health assessments and close plan status available to peer agents
-    tools:
-      - id: get-deal-health
-        name: Get Deal Health
-        description: Returns RED/YELLOW/GREEN health score with risk factors and mitigation actions
-        inputs:
-          - title: opportunity_name
-            type: string
-        outputs:
-          - title: deal_health
-            type: object
-      - id: get-close-plan-status
-        name: Get Close Plan Status
-        description: Returns mutual action plan health with milestone tracking and stall risks
-        inputs:
-          - title: opportunity_name
-            type: string
-        outputs:
-          - title: close_plan_status
-            type: object
-specialized_agents: []
-
-flows:
-  - component_type: Flow
-    id: deal-diagnosis
-    name: Deal Diagnosis
-    description: Diagnose deal health, identify stall causes, analyze losses, and find resurrection opportunities.
-    inputs:
-      - title: account_context
+      outputs:
+      - title: deal_health_assessment
         type: object
-      - title: opportunity_name
-        type: string
+    ae-diagnose-stalled-deal:
+      description: Understand why a deal has stopped progressing with stall cause analysis
+      source: prompts/tasks.yaml#deal_diagnosis.diagnose_stalled_deal
+      inputs:
       - title: current_stage
         type: string
       - title: days_in_stage
         type: integer
-    outputs:
-      - title: deal_health_assessment
-        type: object
+      outputs:
       - title: stall_diagnosis
         type: object
+    ae-loss-analysis:
+      description: Analyze a lost deal to extract learnings, warning signs, and resurrection potential
+      source: prompts/tasks.yaml#deal_diagnosis.loss_analysis
+      inputs:
+      - title: opportunity_name
+        type: string
+      outputs:
       - title: loss_analysis
         type: object
+    ae-resurrect-dead-deal:
+      description: Find opportunities to re-engage lost or stalled deals based on changed conditions
+      source: prompts/tasks.yaml#deal_diagnosis.resurrect_dead_deal
+      inputs:
+      - title: time_period
+        type: string
+      - title: account_name
+        type: string
+      outputs:
       - title: resurrection_candidates
         type: object
-    x-ea-agent:
-      workflow_shorthand:
-        - step: 1
-          prompt: ae-analyze-deal-health
-          input: account_context, opportunity_name, time_period
-          tools: [read-crm-data, read-communications]
-          description: Identify top risks and positive signals, assign health score (RED/YELLOW/GREEN)
-        - step: 2
-          prompt: ae-diagnose-stalled-deal
-          input: current_stage, days_in_stage
-          tools: [read-crm-data]
-          description: Identify stall cause, contributing factors, unstall actions
-        - step: 3
-          prompt: ae-loss-analysis
-          input: opportunity_name
-          tools: [read-crm-data, read-communications]
-          description: Timeline of key moments, warning signs, competitor analysis, learnings
-        - step: 4
-          prompt: ae-resurrect-dead-deal
-          input: time_period
-          tools: [read-crm-data]
-          description: Identify resurrection candidates with changed conditions and triggers
-        - step: 5
-          action: persist
-          tools: [save-deal-intelligence, write-risk-alert]
-          condition: write-risk-alert triggers when deal_health == RED
-          description: Save deal assessment to InfoHub, write risk alert for RED deals
-
-  - component_type: Flow
-    id: close-plan-management
-    name: Close Plan Management
-    description: Create, track, and assess mutual action plan health for deals in proposal stage or later.
-    inputs:
+    ae-close-plan-create:
+      description: Build mutual action plan with milestone phases, owners, and customer-confirmed dates
+      source: prompts/tasks.yaml#deal_diagnosis.close_plan_create
+      inputs:
       - title: opportunity_name
         type: string
       - title: current_stage
         type: string
       - title: stakeholder_map
         type: object
-    outputs:
+      outputs:
       - title: close_plan
         type: object
-      - title: plan_health
-        type: object
-      - title: stall_risks
-        type: array
-    x-ea-agent:
-      workflow_shorthand:
-        - step: 1
-          prompt: ae-close-plan-create
-          input: opportunity_name, current_stage, stakeholder_map
-          tools: [read-crm-data]
-          description: Build mutual action plan with phases, milestones, owners, and target dates
-        - step: 2
-          prompt: ae-close-plan-health
-          input: close_plan, milestone_status
-          tools: [read-crm-data]
-          description: Assess close plan health (GREEN/YELLOW/RED), identify stall patterns and mitigations
-        - step: 3
-          action: persist
-          tools: [save-deal-intelligence]
-          description: Save close plan and health assessment to InfoHub
-
-a2a:
-  agent_url: null
-  connection_config: null
-  agent_card:
-    protocol_version: "0.1"
-    capabilities:
-      - deal-health-scoring
-      - stall-diagnosis
-      - loss-analysis
-      - close-plan-management
-    input_modes:
-      - text/plain
-      - application/json
-    output_modes:
-      - application/json
-      - text/markdown
-
-x-ea-agent:
-
-  prompt_registry:
-    ae-analyze-deal-health:
-      description: Diagnose current deal health based on recent signals, risks, and positive indicators
-      source: prompts/tasks.yaml#deal_diagnosis.analyze_deal_health
-      inputs:
-        - title: account_name
-          type: string
-        - title: opportunity_name
-          type: string
-        - title: time_period
-          type: string
-      outputs:
-        - title: deal_health_assessment
-          type: object
-
-    ae-diagnose-stalled-deal:
-      description: Understand why a deal has stopped progressing with stall cause analysis
-      source: prompts/tasks.yaml#deal_diagnosis.diagnose_stalled_deal
-      inputs:
-        - title: current_stage
-          type: string
-        - title: days_in_stage
-          type: integer
-      outputs:
-        - title: stall_diagnosis
-          type: object
-
-    ae-loss-analysis:
-      description: Analyze a lost deal to extract learnings, warning signs, and resurrection potential
-      source: prompts/tasks.yaml#deal_diagnosis.loss_analysis
-      inputs:
-        - title: opportunity_name
-          type: string
-      outputs:
-        - title: loss_analysis
-          type: object
-
-    ae-resurrect-dead-deal:
-      description: Find opportunities to re-engage lost or stalled deals based on changed conditions
-      source: prompts/tasks.yaml#deal_diagnosis.resurrect_dead_deal
-      inputs:
-        - title: time_period
-          type: string
-        - title: account_name
-          type: string
-      outputs:
-        - title: resurrection_candidates
-          type: object
-
-    ae-close-plan-create:
-      description: Build mutual action plan with milestone phases, owners, and customer-confirmed dates
-      source: prompts/tasks.yaml#deal_diagnosis.close_plan_create
-      inputs:
-        - title: opportunity_name
-          type: string
-        - title: current_stage
-          type: string
-        - title: stakeholder_map
-          type: object
-      outputs:
-        - title: close_plan
-          type: object
-
     ae-close-plan-health:
       description: Assess close plan health against milestone tracking, identify stall patterns
       source: prompts/tasks.yaml#deal_diagnosis.close_plan_health
       inputs:
-        - title: close_plan
-          type: object
-        - title: milestone_status
-          type: object
+      - title: close_plan
+        type: object
+      - title: milestone_status
+        type: object
       outputs:
-        - title: plan_health
-          type: object
-
+      - title: plan_health
+        type: object
   boundaries:
-    - Single deal scope only, does not analyze portfolio-level metrics
-    - Does not prepare meeting materials or QBR content
-    - Does not run scheduled hygiene checks
-    - Does not make pricing decisions or negotiate terms
-    - Does not invent stakeholder sentiments not expressed in source content
-
+  - Single deal scope only, does not analyze portfolio-level metrics
+  - Does not prepare meeting materials or QBR content
+  - Does not run scheduled hygiene checks
+  - Does not make pricing decisions or negotiate terms
+  - Does not invent stakeholder sentiments not expressed in source content
   permissions:
-    - Read CRM data for specific opportunities
-    - Read communications for deal-related signals
-    - Score deal health with RED/YELLOW/GREEN classification
-    - Write deal-level risk alerts to InfoHub
-    - Diagnose stall causes and recommend unstall actions
-
+  - Read CRM data for specific opportunities
+  - Read communications for deal-related signals
+  - Score deal health with RED/YELLOW/GREEN classification
+  - Write deal-level risk alerts to InfoHub
+  - Diagnose stall causes and recommend unstall actions
   guardrails:
     input_validation:
-      - Reject deal health requests without opportunity name or account context
-      - Reject loss analysis without confirmed closed-lost status
+    - Reject deal health requests without opportunity name or account context
+    - Reject loss analysis without confirmed closed-lost status
     output_checks:
-      - Health score must cite specific evidence for RED/YELLOW/GREEN classification
-      - Every risk must include severity classification and mitigation action
-      - Loss analysis must include actionable learnings, not just event timeline
-      - All assessments traceable to source data with dates and values
+    - Health score must cite specific evidence for RED/YELLOW/GREEN classification
+    - Every risk must include severity classification and mitigation action
+    - Loss analysis must include actionable learnings, not just event timeline
+    - All assessments traceable to source data with dates and values
     signal_validation:
-      - Never invent stakeholder opinions not stated in source content
-      - Never assume budget amounts not explicitly mentioned
-      - Use qualifiers ("appears delayed") when evidence is indirect
-      - Add [NEEDS VERIFICATION] marker when uncertain
-
+    - Never invent stakeholder opinions not stated in source content
+    - Never assume budget amounts not explicitly mentioned
+    - Use qualifiers ("appears delayed") when evidence is indirect
+    - Add [NEEDS VERIFICATION] marker when uncertain
   knowledge:
     references:
-      - path: references/signal-detection.yaml
-        description: Commercial risk keywords, severity indicators, relationship health signals
-        load_when: Analyzing deal signals from communications or CRM data
-      - path: references/risk-classification.yaml
-        description: Severity definitions (HIGH/MEDIUM/LOW) and escalation criteria
-        load_when: Classifying deal risks or recommending escalation
-      - path: references/close-plan-methodology.yaml
-        description: Mutual action plan structure, milestone phases, close plan health indicators, stall patterns
-        load_when: Creating or assessing close plans for deals in proposal stage or later
-      - path: references/negotiation-framework.yaml
-        description: Negotiation preparation, pricing strategy, concession trading, customer tactics and responses
-        load_when: Assessing deals in negotiation stage or diagnosing stalls related to commercial terms
-      - path: references/competitive-displacement.yaml
-        description: Incumbent analysis, competitive positioning, switching cost narrative, FUD defense
-        load_when: Diagnosing deals with active competitive threats or displacement scenarios
+    - name: Signal Detection
+      description: Commercial risk keywords, severity indicators, relationship health signals
+      load_when: Analyzing deal signals from communications or CRM data
+      content:
+        commercial_risks:
+          keywords:
+          - budget review
+          - decision delayed
+          - approval pending
+          - procurement process
+          - legal review
+          - contract negotiation
+          - pricing concern
+          - competitor evaluation
+          - scope reduction
+          severity_indicators:
+            high:
+            - deal at risk
+            - pulling out
+            - cancellation
+            - lost
+            - chose competitor
+            medium:
+            - delayed
+            - postponed
+            - reviewing options
+            - budget cut
+            low:
+            - clarification needed
+            - questions about pricing
+        relationship_health:
+          positive_signals:
+          - executive sponsor engaged
+          - expansion discussed
+          - reference customer
+          - success story
+          - champion identified
+          negative_signals:
+          - unresponsive
+          - missed meetings
+          - escalation
+          - dissatisfaction
+          - churn risk
+        pipeline_signals:
+          stage_changes:
+          - moved to
+          - advanced to
+          - returned to
+          - stuck in
+          timeline_mentions:
+          - close date
+          - signature expected
+          - Q1/Q2/Q3/Q4
+          value_mentions:
+          - ARR
+          - ACV
+          - contract value
+          - expansion opportunity
+        signal_patterns:
+          description: 'Individual keywords are weak signals. Pattern combinations produce reliable intelligence. Always evaluate
+            signal clusters, not isolated words.
 
+            '
+          compound_patterns:
+            budget_risk:
+              signals:
+              - budget review
+              - delayed
+              - declining response frequency
+              interpretation: Active budget threat, likely reallocation under consideration
+              confidence: HIGH when 3+ signals co-occur within 14-day window
+              action: Escalate to champion for internal budget status confirmation
+            competitive_displacement:
+              signals:
+              - evaluating options
+              - competitor name mentioned
+              - new stakeholder introduced
+              interpretation: Active competitive evaluation, deal at risk of displacement
+              confidence: HIGH when competitor is named, MEDIUM when implied
+              action: 'Activate competitive response: differentiation, executive alignment, champion coaching'
+            champion_erosion:
+              signals:
+              - declining contact frequency
+              - shorter responses
+              - meeting cancellations
+              interpretation: Champion engagement weakening, may indicate internal pressure or loss of influence
+              confidence: MEDIUM after 14 days, HIGH after 21 days of declining pattern
+              action: Direct conversation with champion about changes, begin multi-threading
+            expansion_opportunity:
+              signals:
+              - new team
+              - additional use cases
+              - other departments interested
+              interpretation: Organic expansion signal from successful adoption
+              confidence: HIGH when stated by multiple stakeholders
+              action: Map whitespace, prepare expansion proposal, engage additional stakeholders
+            stall_formation:
+              signals:
+              - no stage movement
+              - contact frequency stable but no decisions
+              - repeated 'we need more time'
+              interpretation: Deal entering stall, likely internal blocker or competing priority
+              confidence: MEDIUM at 21 days, HIGH at 30 days with no milestone progress
+              action: Diagnose stall root cause, engage champion on internal dynamics
+            urgency_acceleration:
+              signals:
+              - board meeting
+              - fiscal year end
+              - executive mandate
+              - compressed timelines
+              interpretation: Compelling event creating genuine urgency, deal may accelerate
+              confidence: HIGH when event has a specific date
+              action: Align close plan to compelling event, confirm with economic buyer
+        contextual_interpretation:
+          description: 'The same keyword means different things in different contexts. Always evaluate signals against the
+            current deal stage, time of year, and relationship history before classifying.
+
+            '
+          context_modifiers:
+            fiscal_calendar:
+            - signal: budget review
+              during_q4_planning: Normal process, LOW severity
+              during_active_deal: Potential risk, MEDIUM severity
+              after_verbal_commit: Serious risk, HIGH severity
+            - signal: delayed
+              during_holidays: Expected, reduce severity by one level
+              during_active_evaluation: Concerning, maintain severity
+              post_decision: Critical, escalate
+            deal_stage:
+            - signal: evaluating options
+              in_discovery: Normal buyer behavior, LOW severity
+              in_proposal: Competitive risk, MEDIUM severity
+              in_negotiation: Deal at risk, HIGH severity
+            - signal: need to involve more people
+              in_discovery: Positive (access expanding), treat as buying signal
+              in_negotiation: Negative (decision process expanding), treat as stall risk
+            relationship_baseline:
+              rule: Measure change from established pattern, not absolute behavior
+              examples:
+              - Weekly contact dropping to bi-weekly is a signal. Monthly contact staying monthly is not.
+              - Short replies from a typically brief communicator are normal. From a previously detailed communicator, it's
+                a risk signal.
+        false_positives:
+          description: 'Not every keyword match is a real signal. These patterns commonly produce false positives that waste
+            AE attention.
+
+            '
+          common_false_positives:
+          - pattern: Budget mentioned in casual conversation
+            reality: Customer discussing general business context, not signaling budget risk
+            filter: Only flag budget signals when tied to specific deal or procurement action
+          - pattern: Competitor name in industry discussion
+            reality: Customer comparing industry landscape, not actively evaluating
+            filter: Only flag when competitor is mentioned in context of evaluation, RFP, or feature comparison
+          - pattern: Meeting rescheduled once
+            reality: Normal calendar management
+            filter: Only flag when pattern of 2+ reschedules or cancellations within 30 days
+          - pattern: New stakeholder CC'd on email
+            reality: May be FYI inclusion, not decision process expansion
+            filter: Flag only when new stakeholder asks questions or takes actions in the deal
+          - pattern: Response time slightly longer than usual
+            reality: Travel, vacation, busy week
+            filter: Measure over 14-day rolling average, not individual responses
+        signal_freshness:
+          description: 'Signals lose relevance over time. A competitive mention from 6 months ago is not equivalent to one
+            from last week.
+
+            '
+          decay_rules:
+          - age: 0-7 days
+            weight: 100%, full relevance
+            label: Current
+          - age: 8-21 days
+            weight: 75%, still actionable
+            label: Recent
+          - age: 22-45 days
+            weight: 50%, context has likely shifted
+            label: Aging
+          - age: 46-90 days
+            weight: 25%, historical context only
+            label: Stale
+          - age: '>90 days'
+            weight: 10%, background reference only
+            label: Archived
+          refresh_triggers:
+          - New communication from the same stakeholder on the same topic refreshes the signal
+          - Stage change resets all signal weights for the deal to current
+          - Contradictory signal from a more senior stakeholder supersedes earlier signals
+    - name: Risk Classification
+      description: Severity definitions (HIGH/MEDIUM/LOW) and escalation criteria
+      load_when: Classifying deal risks or recommending escalation
+      content:
+        severity_classification:
+          HIGH:
+          - Deal at risk of being lost
+          - Customer escalation to executive level
+          - Budget eliminated or significantly cut
+          - Competitor displacing vendor
+          - Key champion departed
+          MEDIUM:
+          - Decision timeline pushed >30 days
+          - Budget approval delayed
+          - New stakeholders with unknown stance
+          - Scope reduction discussed
+          LOW:
+          - Pricing questions
+          - Procurement process clarifications
+          - Contract terms negotiation
+        escalation_triggers:
+          immediate:
+          - HIGH severity commercial risk
+          - Customer threatens to cancel
+          - Competitor mentioned as preferred choice
+          within_24h:
+          - Deal stuck in same stage >45 days
+          - Multiple meeting cancellations
+          - Unresponsive champion
+        composite_risk_scoring:
+          description: 'Individual risks rarely tell the full story. A single MEDIUM risk is manageable. Three MEDIUM risks
+            on the same deal create a HIGH composite risk. Always assess risk as a portfolio of factors, not isolated items.
+
+            '
+          methodology:
+            score_mapping:
+              HIGH: 3
+              MEDIUM: 2
+              LOW: 1
+            composite_formula: Sum of all active risk scores for a deal
+            thresholds:
+              critical: '>= 7 (immediate escalation required)'
+              elevated: 5-6 (management review within 48 hours)
+              moderate: 3-4 (monitor closely, update in next pipeline review)
+              low: <= 2 (standard monitoring)
+          compound_risk_patterns:
+          - name: Triple Threat
+            components:
+            - Champion gone dark
+            - Close date pushed
+            - New stakeholder introduced
+            composite_score: 7
+            interpretation: Internal dynamics have shifted. Champion may have lost influence or been reassigned.
+            action: Immediate outreach to champion for status. Activate secondary contacts. Prepare contingency.
+          - name: Silent Stall
+            components:
+            - No stage movement >30 days
+            - Contact frequency declining
+            - Next steps vague
+            composite_score: 6
+            interpretation: Deal is stalling without explicit rejection. Often means competing priority won internally.
+            action: Create a reason to re-engage. Bring new value (insight, reference, event). Ask directly about timeline.
+          - name: Budget Squeeze
+            components:
+            - Budget review mentioned
+            - Scope reduction discussed
+            - Decision delayed
+            composite_score: 7
+            interpretation: Budget is under pressure. Deal may survive but at reduced scope or pushed timeline.
+            action: Prepare phased approach. Quantify cost of delay. Engage economic buyer on minimum viable scope.
+          - name: Competitive Ambush
+            components:
+            - Competitor mentioned
+            - New evaluation criteria introduced
+            - Champion less responsive
+            composite_score: 8
+            interpretation: Active competitive evaluation underway. Champion may be losing the internal argument.
+            action: Activate competitive displacement playbook. Arm champion with differentiation. Request executive meeting.
+        risk_trending:
+          description: 'A static risk is less dangerous than a worsening trend. Track risk direction over time, not just current
+            state.
+
+            '
+          trend_classification:
+            improving:
+              definition: Composite risk score decreased by 2+ points in last 14 days
+              indicators:
+              - Risk factors resolved
+              - Champion re-engaged
+              - New positive signals
+              action: Maintain current approach. Document what worked for future reference.
+            stable:
+              definition: Composite risk score unchanged for 14+ days
+              indicators:
+              - Same risks persist
+              - No new factors
+              - Engagement pattern steady
+              action: Proactive intervention needed. Stability in risk is not the same as safety.
+            worsening:
+              definition: Composite risk score increased by 2+ points in last 14 days
+              indicators:
+              - New risk factors appearing
+              - Existing risks escalating
+              - Engagement declining
+              action: Immediate review. If worsening for 2 consecutive periods, escalate to management.
+          measurement:
+            cadence: Assess risk trend at every pipeline review (minimum weekly)
+            lookback: Compare current composite score to 14-day and 30-day prior
+            visualization: Track as directional arrow (up/down/stable) alongside health score
+        de_escalation:
+          description: 'Risks should be downgraded when evidence supports improvement, not when time passes without new bad
+            news. Absence of signal is not the same as resolution.
+
+            '
+          criteria:
+            high_to_medium:
+            - Customer re-engages with specific next steps and dates
+            - Champion confirms budget is secured and timeline is intact
+            - Competitive evaluation concluded in our favor (confirmed by customer)
+            - New executive sponsor actively engaged in deal
+            medium_to_low:
+            - Root cause of risk is documented as resolved
+            - Customer-confirmed milestone achieved
+            - Engagement pattern returned to pre-risk baseline for 14+ days
+            remove_risk:
+            - Risk factor no longer applies (e.g., departing blocker left the organization)
+            - Deal advanced past the stage where the risk was relevant
+            - Customer explicitly addressed the concern in writing
+          anti_patterns:
+          - Never de-escalate because 'it's been a while since we heard bad news'
+          - Never de-escalate based on seller optimism without customer evidence
+          - Never de-escalate because a meeting went well without concrete outcomes
+        mitigation_framework:
+          description: 'Every risk must have a specific mitigation action. Generic "monitor closely" is not mitigation. Mitigation
+            must change the trajectory.
+
+            '
+          mitigation_types:
+            resolve:
+              definition: Eliminate the risk factor entirely
+              example: Budget risk resolved by economic buyer confirming allocation in writing
+              when_to_use: When the root cause can be directly addressed
+            transfer:
+              definition: Shift responsibility for risk resolution to someone with more leverage
+              example: Champion cannot access economic buyer, engage executive sponsor to facilitate
+              when_to_use: When the AE lacks the access or authority to resolve directly
+            mitigate:
+              definition: Reduce the probability or impact of the risk
+              example: Competitive threat mitigated by delivering a differentiated POC result
+              when_to_use: When risk cannot be eliminated but can be contained
+            accept:
+              definition: Acknowledge the risk and proceed with awareness
+              example: Procurement timeline is 6 weeks with no way to accelerate
+              when_to_use: When risk is real but outside anyone's control. Document and plan accordingly.
+          quality_rules:
+          - Every mitigation must name a specific person who will take a specific action by a specific date
+          - Mitigation that requires customer action must be confirmed with customer, not assumed
+          - If mitigation is 'wait and see,' it is not mitigation. Reclassify as 'accept.'
+          - Review mitigation effectiveness at next pipeline review. If risk persists, escalate approach.
+    - path: references/close-plan-methodology.yaml
+      description: Mutual action plan structure, milestone phases, close plan health indicators, stall patterns
+      load_when: Creating or assessing close plans for deals in proposal stage or later
+    - path: references/negotiation-framework.yaml
+      description: Negotiation preparation, pricing strategy, concession trading, customer tactics and responses
+      load_when: Assessing deals in negotiation stage or diagnosing stalls related to commercial terms
+    - path: references/competitive-displacement.yaml
+      description: Incumbent analysis, competitive positioning, switching cost narrative, FUD defense
+      load_when: Diagnosing deals with active competitive threats or displacement scenarios
   autonomy:
     triggers:
-      - type: parent_dispatch
-        source: ae-agent
-        description: AE orchestrator routes deal health and diagnosis requests
-      - type: event
-        source: crm_webhook
-        condition: opportunity.stage_change OR opportunity.amount_change
-        description: Auto-runs when deal stage or amount changes in CRM
-      - type: downstream
-        source: ae-signal-detection-agent
-        condition: competitive_threat.severity >= HIGH
-        description: Competitive threat triggers automatic deal health reassessment
-      - type: downstream
-        source: ae-opportunity-hygiene-agent
-        condition: stale_alert.level == CRITICAL
-        description: Critically stale deal triggers full health check
+    - type: parent_dispatch
+      source: ae-agent
+      description: AE orchestrator routes deal health and diagnosis requests
+    - type: event
+      source: crm_webhook
+      condition: opportunity.stage_change OR opportunity.amount_change
+      description: Auto-runs when deal stage or amount changes in CRM
+    - type: downstream
+      source: ae-signal-detection-agent
+      condition: competitive_threat.severity >= HIGH
+      description: Competitive threat triggers automatic deal health reassessment
+    - type: downstream
+      source: ae-opportunity-hygiene-agent
+      condition: stale_alert.level == CRITICAL
+      description: Critically stale deal triggers full health check
     outputs:
-      - type: parent_return
-        target: ae-agent
-        payload: [deal_health_assessment, stall_diagnosis, loss_analysis, resurrection_candidates]
-        description: Deal diagnosis results back to orchestrator
-      - type: trigger_agent
-        target: ae-qualification-agent
-        condition: deal_health.score < 40
-        payload: [deal_health_assessment, affected_opportunity]
-        description: Critical deal health forces re-qualification
-      - type: trigger_agent
-        target: ae-pipeline-mgmt-agent
-        condition: deal_health.classification == RED
-        payload: [deal_health_assessment, risk_impact_on_forecast]
-        description: RED deal triggers pipeline reprioritization
-      - type: notify_human
-        condition: deal_health.classification == RED OR resurrection_candidate == true
-        channel: alert
-        description: RED deals and resurrection candidates surface for AE review
+    - type: parent_return
+      target: ae-agent
+      payload:
+      - deal_health_assessment
+      - stall_diagnosis
+      - loss_analysis
+      - resurrection_candidates
+      description: Deal diagnosis results back to orchestrator
+    - type: trigger_agent
+      target: ae-qualification-agent
+      condition: deal_health.score < 40
+      payload:
+      - deal_health_assessment
+      - affected_opportunity
+      description: Critical deal health forces re-qualification
+    - type: trigger_agent
+      target: ae-pipeline-mgmt-agent
+      condition: deal_health.classification == RED
+      payload:
+      - deal_health_assessment
+      - risk_impact_on_forecast
+      description: RED deal triggers pipeline reprioritization
+    - type: notify_human
+      condition: deal_health.classification == RED OR resurrection_candidate == true
+      channel: alert
+      description: RED deals and resurrection candidates surface for AE review
     dependencies:
-      - agent: ae-signal-detection-agent
-        toolbox: signal-intelligence
-        tools: [get-commercial-signals, get-risk-signals]
-        purpose: Latest commercial signals as context for deal health scoring
-      - agent: ae-qualification-agent
-        toolbox: qualification-data
-        tools: [get-qualification-scorecard]
-        purpose: Current qualification state for deal diagnosis context
+    - agent: ae-signal-detection-agent
+      toolbox: signal-intelligence
+      tools:
+      - get-commercial-signals
+      - get-risk-signals
+      purpose: Latest commercial signals as context for deal health scoring
+    - agent: ae-qualification-agent
+      toolbox: qualification-data
+      tools:
+      - get-qualification-scorecard
+      purpose: Current qualification state for deal diagnosis context

@@ -101,6 +101,7 @@ class DefinitionsService:
                     continue
                 if data.get("id") == agent_id:
                     data["_category"] = self._derive_category(def_file)
+                    self._resolve_knowledge_paths(data, def_file.parent)
                     return data
             except Exception:
                 continue
@@ -116,11 +117,36 @@ class DefinitionsService:
                         sa["_category"] = self._derive_category(def_file)
                         sa["_parent_id"] = data.get("id")
                         sa["_parent_name"] = data.get("name")
+                        self._resolve_knowledge_paths(sa, def_file.parent)
                         return sa
             except Exception:
                 continue
 
         return None
+
+    def _resolve_knowledge_paths(self, data: dict, agent_dir: Path) -> None:
+        """Resolve path: references in knowledge.references by loading the YAML content."""
+        ext = data.get("x-ea-agent", {})
+        knowledge = ext.get("knowledge", {})
+        if not isinstance(knowledge, dict):
+            return
+        refs = knowledge.get("references", [])
+        if not isinstance(refs, list):
+            return
+        for ref in refs:
+            if not isinstance(ref, dict):
+                continue
+            path_val = ref.get("path")
+            if not path_val or ref.get("content"):
+                continue
+            ref_file = agent_dir / path_val
+            if ref_file.is_file():
+                try:
+                    content = yaml.safe_load(ref_file.read_text(encoding="utf-8"))
+                    if isinstance(content, dict):
+                        ref["content"] = content
+                except Exception:
+                    pass
 
     def get_raw_yaml(self, agent_id: str) -> Optional[tuple[str, str]]:
         """Return raw YAML text and filename for an agent definition."""

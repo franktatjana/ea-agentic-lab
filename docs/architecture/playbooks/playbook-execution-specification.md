@@ -500,7 +500,7 @@ class PlaybookRouter:
 2. Rewrite decision logic conditions in standard DLL syntax
 3. Add `evidence: []` fields to all output schemas
 4. Standardize field names (plurals, optional blocks)
-5. Update `intended_agent_role` to match 24-agent system
+5. Update `intended_agent_role` to match 41-agent system
 
 ### Phase 3 - Create Remaining Playbooks
 1. Use standardized schema from Phase 2

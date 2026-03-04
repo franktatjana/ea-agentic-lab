@@ -8,17 +8,18 @@ Step-by-step guide for running agents in the EA Agentic Lab.
 
 ## Agent Overview
 
-The system includes 24 agents in three categories:
+The system includes 41 agents across three layers:
 
 | Category | Count | Purpose |
 |----------|-------|---------|
 | Leadership Agents | 2 | Strategic oversight, product alignment |
-| Sales Agents | 4 | Commercial strategy, competitive intel, value, partners |
-| Architecture Agents | 3 | Solution design, customer architecture, domain expertise |
+| Sales Agents | 4 (+8 AE sub-agents) | Commercial strategy, competitive intel, value, partners |
+| Architecture Agents | 3 (+3 specialist sub-agents) | Solution design, customer architecture, domain expertise |
 | Deal Execution Agents | 3 | RFP orchestration, POC validation, security clearance |
-| Delivery Agents | 3 | Implementation handoff, services, support |
-| Governance Agents | 8 | Enforce process, maintain artifacts |
-| Orchestration Agent | 1 | Coordinate multi-agent workflows |
+| Delivery Agents | 2 | Implementation handoff, professional services |
+| Governance Agents | 10 | Enforce process, maintain artifacts |
+| Intelligence Agents | 5 | Signal processing, market news, trend detection |
+| Other | 1 | Retrospective agent |
 
 ## Currently Implemented Agents
 

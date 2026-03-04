@@ -116,6 +116,16 @@ Blueprints reference playbooks, never agents directly. Playbooks reference runbo
 
 When Knowledge Curators detect patterns from outcomes in InfoHub, they suggest changes at the most specific layer that addresses the issue. A prompt reword is cheaper than a new skill, which is cheaper than a new runbook, which is cheaper than a new agent. Changes propagate upward naturally.
 
+**11. Sub-agents declare autonomy contracts.**
+
+Every sub-agent specifies its activation triggers, output types, and peer dependencies as part of its definition. Four trigger types define how a sub-agent activates: `parent_dispatch` (orchestrator routes a request), `event` (external system webhook fires the agent), `schedule` (time-based cadence), and `downstream` (peer sub-agent's output condition fires this agent). Three output types define where results flow: `parent_return` (back to orchestrator), `trigger_agent` (condition-based cascade to a peer), and `notify_human` (threshold alert for human review).
+
+When a role uses holonic decomposition, the parent agent becomes a routing orchestrator that declares reactive routing rules (watch + condition + route_to + context_forward) and cascade limits (max_depth, max_agents_per_chain, circuit_breaker) to prevent infinite loops.
+
+This makes the activation model explicit. A sub-agent that supports `event` or `schedule` triggers can operate independently of the orchestrator. The orchestrator handles routing and aggregation, but sub-agents are not dependent on it for every activation.
+
+The full autonomy model specification is documented in [domain-model.md, Agent Autonomy Model](../architecture/system/domain-model.md#agent-autonomy-model).
+
 ### Terminology Mapping
 
 | Domain Model | Current Codebase | Location |
@@ -151,6 +161,7 @@ v3.0 restores Skills as a distinct layer and adds Runbooks alongside them. A Ski
 - **Knowledge is mandatory.** Every agent and sub-agent must declare domain knowledge references. An agent without knowledge is an LLM guessing.
 - **Guardrails are mandatory.** Every agent and sub-agent must define input validation, output checks, and signal validation rules. Not just the parent orchestrator.
 - **Sub-agents are atomic and self-contained.** Each sub-agent carries its own skills, runbooks, tools, knowledge, and guardrails. It is independently deployable and loosely coupled.
+- **Autonomy contracts introduced.** Sub-agents declare triggers (4 types), outputs (3 types), and peer dependencies. The parent orchestrator declares reactive routing rules and cascade limits. This formalizes what was implicit in holonic decomposition.
 
 ### What Stays from v2.0
 

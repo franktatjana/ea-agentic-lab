@@ -8,7 +8,7 @@ last_updated: "2026-03-01"
 
 # Agent Profiles
 
-The EA Agentic Lab has 33 agent definitions organized under 12 human roles. Each role is a digital twin of a real job function. Some roles operate as a single agent, others decompose into sub-agents when the process requires different tools, guardrails, or autonomy (per DDR-019 holonic criteria). Profiles represent roles. Definitions represent agents.
+The EA Agentic Lab has 41 agent definitions organized under 12 human roles. Each role is a digital twin of a real job function. Some roles operate as a single agent, others decompose into sub-agents when the process requires different tools, guardrails, or autonomy (per DDR-019 holonic criteria). Profiles represent roles. Definitions represent agents.
 
 For design rationale, see [DDR-021: Agent Taxonomy](../../decisions/DDR_021_agent_taxonomy.md). For architecture details, see [Agent Architecture](../../architecture/agents/agent-architecture.md).
 
@@ -124,15 +124,15 @@ Nudger -> SM                      (overdue > 5 days)
 
 | Category | Roles | Agents | Sub-agents |
 |----------|-------|--------|------------|
-| Sales | 4 | 4 | 0 |
-| Architecture | 2 | 2 | 7 |
+| Sales | 4 | 4 | 8 |
+| Architecture | 2 | 2 | 8 |
 | Intelligence | 1 | 0 | 5 |
 | Leadership | 2 | 2 | 0 |
 | Delivery | 2 | 2 | 0 |
 | Governance | 0 | 0 | 10 |
-| **Total** | **11** | **10** | **22** |
+| **Total** | **11** | **10** | **31** |
 
-11 roles + 1 system function = 12 categories. 10 role agents + 22 sub-agents + 1 system function (10 agents) = 33 definitions total. Orchestration Agent exists as a [legacy meta-agent](meta/orchestration-agent.md) outside the taxonomy.
+11 roles + 1 system function = 12 categories. 10 role agents + 31 sub-agents = 41 definitions total. Orchestration Agent exists as a [legacy meta-agent](meta/orchestration-agent.md) outside the taxonomy.
 
 ---
 

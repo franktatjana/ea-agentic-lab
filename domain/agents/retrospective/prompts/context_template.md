@@ -17,8 +17,8 @@ deal_context:
     sales_cycle_days: "{number}"
 
 team:
-  ae: "{name}"
-  sa: "{name}"
+  AE: "{name}"
+  SA: "{name}"
   specialists: ["{names}"]
 
 competitive_context:

@@ -25,13 +25,14 @@ Enterprise account management suffers from:
 
 A structured governance system with three layers:
 
-### 1. Multi-Agent Architecture (31 Agents)
+### 1. Multi-Agent Architecture (41 Agents)
 
 | Layer | Agents | Purpose |
 |-------|--------|---------|
-| Strategic | 19 | Apply judgment, use frameworks, make recommendations |
+| Strategic | 18 | Apply judgment, use frameworks, make recommendations |
+| AE Sub-Agents | 8 | Specialized functions within the AE orchestrator |
 | Governance | 10 | Enforce process, maintain artifacts, reduce entropy |
-| Intelligence | 3 | Signal processing, market news analysis, trend detection |
+| Intelligence | 5 | Signal processing, market news analysis, trend detection |
 
 ### 2. Playbook Engine
 
@@ -59,7 +60,7 @@ Three design choices separate this system from traditional account management to
 
 **Documents for machines, artifacts for humans.** Everything is stored as structured, machine-readable YAML with schema validation. Canvases, reports, and dashboards are rendered from that data on demand. This inverts the traditional approach where humans write documents that machines cannot parse. When data is machine-readable first, agents can validate it, gap-scan it, cross-reference it, and render it into any format a stakeholder needs.
 
-**Personalizable AI agent teams.** The 31 agents are not a monolithic system. Each Account Executive gets their own agent team configured for their accounts, domains, and engagement patterns. One AE running three security deals and a search expansion gets a team weighted toward security and search specialists with competitive displacement playbooks loaded. Another AE managing strategic renewals gets retention-focused agents with health monitoring and champion mapping. The agent team adapts to how each person works, not the other way around.
+**Personalizable AI agent teams.** The 41 agents are not a monolithic system. Each Account Executive gets their own agent team configured for their accounts, domains, and engagement patterns. One AE running three security deals and a search expansion gets a team weighted toward security and search specialists with competitive displacement playbooks loaded. Another AE managing strategic renewals gets retention-focused agents with health monitoring and champion mapping. The agent team adapts to how each person works, not the other way around.
 
 **Customer-facing knowledge as a deliverable.** When the system works on a customer engagement, it does not just track internal notes. It creates a structured Customer InfoHub for that customer, organized by initiative, with every architecture decision, POC plan, and learning path captured with full provenance. This means the engagement itself produces a curated knowledge repository that can be shared with the customer, handed off to a new team member, or audited years later. Knowledge sharing is not a side effect, it is the primary output.
 
@@ -85,7 +86,7 @@ Three design choices separate this system from traditional account management to
 
 | Metric | Value |
 |--------|-------|
-| Agents Defined | 31 |
+| Agents Defined | 41 |
 | Strategic Playbooks | 65 |
 | Operational Playbooks | 7 |
 | Canvas Types | 8 |

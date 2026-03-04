@@ -41,7 +41,7 @@ Defines who is responsible for what, during which phase of an engagement. Covers
 
 ## Architecture
 
-The system implements a 33-agent model for strategic account management across three layers: 18 strategic agents that exercise judgment and make recommendations, 10 governance agents that enforce process and maintain artifacts, and 5 intelligence agents that gather and analyze external signals. These documents describe the design.
+The system implements a 41-agent model for strategic account management across three layers: 18 strategic agents that exercise judgment and make recommendations (including 8 AE sub-agents operating under a routing orchestrator), 10 governance agents that enforce process and maintain artifacts, and 5 intelligence agents that gather and analyze external signals. These documents describe the design.
 
 ### Agents
 
@@ -125,7 +125,7 @@ Static lookup materials: catalogs, quick-reference cards, and terminology. These
 
 | Document | Description |
 |----------|-------------|
-| [agent-quick-reference.md](architecture/agents/agent-quick-reference.md) | Quick reference for all 24 agents |
+| [agent-quick-reference.md](architecture/agents/agent-quick-reference.md) | Quick reference for all agents |
 | [playbook-catalog.md](reference/playbook-catalog.md) | Catalog of all playbooks |
 | [signal-catalog.md](reference/signal-catalog.md) | Signal definitions and routing |
 | [skill-catalog.md](reference/skill-catalog.md) | Skill definitions: composable workflows, cross-agent imports |

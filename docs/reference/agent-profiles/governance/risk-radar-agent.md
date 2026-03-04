@@ -77,7 +77,6 @@ Other agents route relevant signals to this agent for processing.
 | Source Agent | Trigger |
 |-------------|---------|
 | Meeting Notes Agent | Risks mentioned in meetings |
-| Support Agent | Support-identified risks |
 | Delivery Agent | Delivery risks |
 
 

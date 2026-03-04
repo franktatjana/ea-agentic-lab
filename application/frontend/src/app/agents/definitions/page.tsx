@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ReactFlow,
@@ -18,6 +18,7 @@ import "@xyflow/react/dist/style.css";
 import {
   Bot,
   ArrowLeft,
+  ArrowRight,
   FileCode2,
   Workflow,
   Wrench,
@@ -35,6 +36,7 @@ import {
   Sparkles,
   UserCheck,
   ShieldOff,
+  Zap,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { api } from "@/lib/api";
@@ -52,8 +54,13 @@ import {
 import { MetricCard } from "@/components/metric-card";
 import { HelpPopover } from "@/components/help-popover";
 import { nodeTypes } from "@/components/flow/nodes";
-import { buildFlowGraph } from "@/lib/flow/transform-definition";
+import { buildFlowGraph, buildOrchestrationGraph, classifyRoutingSeverity, type RoutingRule } from "@/lib/flow/transform-definition";
 import type { AgentDefinition, AgentDefinitionSummary } from "@/types";
+
+const ROLE_ACRONYMS = /\b(Ae|Sa|Ca|Pm|Ve|Ci|Rfp|Poc)\b/g;
+function titleCase(s: string): string {
+  return s.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()).replace(ROLE_ACRONYMS, m => m.toUpperCase());
+}
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -206,6 +213,285 @@ function PromptFlyoutContent({
   );
 }
 
+const severityColor: Record<string, string> = {
+  high: "text-red-400 bg-red-400/10 border-red-400/20",
+  medium: "text-amber-400 bg-amber-400/10 border-amber-400/20",
+  low: "text-blue-400 bg-blue-400/10 border-blue-400/20",
+  critical: "text-red-400",
+  elevated: "text-amber-400",
+  moderate: "text-blue-400",
+  immediate: "text-red-400 bg-red-400/10 border-red-400/20",
+  within_24h: "text-amber-400 bg-amber-400/10 border-amber-400/20",
+};
+
+function isSeverityKey(key: string): boolean {
+  return key.toLowerCase() in severityColor;
+}
+
+function getSeverityDot(key: string): string {
+  const k = key.toLowerCase();
+  if (k === "high" || k === "critical" || k === "immediate") return "bg-red-400";
+  if (k === "medium" || k === "elevated" || k === "within_24h") return "bg-amber-400";
+  if (k === "low" || k === "moderate") return "bg-blue-400";
+  return "bg-muted-foreground/40";
+}
+
+function isStringArray(val: unknown): val is string[] {
+  return Array.isArray(val) && val.length > 0 && typeof val[0] === "string";
+}
+
+function isShortStringArray(val: unknown): boolean {
+  return isStringArray(val) && val.every((s) => s.length < 50);
+}
+
+function hasNameField(val: unknown): val is Record<string, unknown> & { name: string } {
+  return typeof val === "object" && val !== null && "name" in val && typeof (val as Record<string, unknown>).name === "string";
+}
+
+function renderChips(items: string[]) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {items.map((item, i) => (
+        <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-muted/80 text-muted-foreground border border-border/50">
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function renderSeverityBlock(obj: Record<string, unknown>) {
+  return (
+    <div className="space-y-2">
+      {Object.entries(obj).map(([level, items]) => (
+        <div key={level} className={`rounded-md border p-2.5 ${severityColor[level.toLowerCase()] ?? "border-border/50"}`}>
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className={`h-2 w-2 rounded-full ${getSeverityDot(level)} shrink-0`} />
+            <span className="text-xs font-semibold uppercase tracking-wider">{level}</span>
+          </div>
+          {isStringArray(items) ? (
+            <ul className="space-y-0.5 ml-3.5">
+              {items.map((item, i) => (
+                <li key={i} className="text-xs opacity-80">{item}</li>
+              ))}
+            </ul>
+          ) : typeof items === "string" ? (
+            <p className="text-xs opacity-80 ml-3.5">{items}</p>
+          ) : (
+            renderKnowledgeValue(items, 1)
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function renderNamedCard(item: Record<string, unknown>, idx: number) {
+  const name = String(item.name);
+  const rest = Object.entries(item).filter(([k]) => k !== "name");
+  return (
+    <div key={idx} className="rounded-md border border-border/50 bg-muted/30 overflow-hidden">
+      <div className="px-3 py-2 border-b border-border/30 bg-muted/50">
+        <p className="text-xs font-semibold text-foreground">{name}</p>
+      </div>
+      <div className="px-3 py-2 space-y-1.5">
+        {rest.map(([k, v]) => (
+          <div key={k} className="flex gap-2">
+            <span className="text-xs text-muted-foreground/60 shrink-0 min-w-[80px] capitalize">{k.replace(/_/g, " ")}</span>
+            {isStringArray(v) ? (
+              <div className="flex flex-wrap gap-1">
+                {v.map((s, i) => (
+                  <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground">{s}</span>
+                ))}
+              </div>
+            ) : typeof v === "number" ? (
+              <span className="text-xs font-mono text-foreground">{v}</span>
+            ) : (
+              <span className="text-xs text-muted-foreground">{String(v)}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function renderKnowledgeValue(value: unknown, depth = 0): React.ReactNode {
+  if (value === null || value === undefined) return null;
+
+  if (typeof value === "string") {
+    return <p className="text-xs text-muted-foreground leading-relaxed">{value}</p>;
+  }
+
+  if (typeof value === "number") {
+    return <span className="text-xs font-mono text-foreground">{value}</span>;
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return null;
+
+    if (isShortStringArray(value)) return renderChips(value);
+    if (isStringArray(value)) {
+      return (
+        <ul className="space-y-0.5">
+          {value.map((item, i) => (
+            <li key={i} className="text-xs text-muted-foreground flex items-baseline gap-1.5">
+              <span className="text-muted-foreground/40 shrink-0">&#x2022;</span>
+              {item}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+
+    if (value.every((v) => hasNameField(v))) {
+      return (
+        <div className="space-y-2">
+          {value.map((item, i) => renderNamedCard(item as Record<string, unknown>, i))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        {value.map((item, i) => (
+          <div key={i} className="bg-muted/30 rounded-md p-2.5 space-y-1.5">
+            {typeof item === "object" && item !== null
+              ? Object.entries(item as Record<string, unknown>).map(([k, v]) => (
+                  <div key={k} className="flex gap-2">
+                    <span className="text-xs text-muted-foreground/60 shrink-0 min-w-[80px] capitalize">{k.replace(/_/g, " ")}</span>
+                    {typeof v === "string" ? (
+                      <span className="text-xs text-muted-foreground">{v}</span>
+                    ) : isStringArray(v) ? (
+                      <div className="flex flex-wrap gap-1">
+                        {v.map((s, i2) => (
+                          <span key={i2} className="text-xs px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground">{s}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">{JSON.stringify(v)}</span>
+                    )}
+                  </div>
+                ))
+              : <p className="text-xs text-muted-foreground">{JSON.stringify(item)}</p>}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj);
+
+    if (keys.every((k) => isSeverityKey(k))) {
+      return renderSeverityBlock(obj);
+    }
+
+    return (
+      <div className={depth > 0 ? "space-y-2.5" : "space-y-3"}>
+        {Object.entries(obj).map(([key, val]) => {
+          const label = key.replace(/_/g, " ");
+
+          if (key === "description" && typeof val === "string") {
+            return (
+              <div key={key} className="bg-muted/40 rounded-md px-3 py-2 border-l-2 border-amber-400/40">
+                <p className="text-xs text-muted-foreground leading-relaxed">{val}</p>
+              </div>
+            );
+          }
+
+          if (typeof val === "string" && depth > 0) {
+            return (
+              <div key={key} className="flex gap-2">
+                <span className="text-xs text-muted-foreground/60 shrink-0 min-w-[80px] capitalize">{label}</span>
+                <span className="text-xs text-muted-foreground">{val}</span>
+              </div>
+            );
+          }
+
+          return (
+            <div key={key}>
+              <p className={`text-xs font-medium capitalize mb-1.5 ${depth === 0 ? "text-foreground" : "text-foreground/80"}`}>{label}</p>
+              {renderKnowledgeValue(val, depth + 1)}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return <p className="text-xs text-muted-foreground">{String(value)}</p>;
+}
+
+function KnowledgeFlyoutContent({ knowledgeRef }: { knowledgeRef: Record<string, unknown> }) {
+  const content = knowledgeRef.content as Record<string, unknown> | undefined;
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
+    const keys = Object.keys(content ?? {});
+    return new Set(keys.slice(0, 2));
+  });
+
+  const toggleSection = useCallback((key: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  return (
+    <>
+      <SheetHeader>
+        <SheetTitle className="flex items-center gap-2 text-sm">
+          <BookText className="h-4 w-4 text-amber-400 shrink-0" />
+          {String(knowledgeRef.name ?? knowledgeRef.path)}
+        </SheetTitle>
+        {knowledgeRef.description ? (
+          <SheetDescription>{String(knowledgeRef.description)}</SheetDescription>
+        ) : null}
+      </SheetHeader>
+
+      <div className="px-4 pb-6 space-y-1">
+        {knowledgeRef.load_when ? (
+          <div className="flex items-center gap-1.5 text-xs text-amber-400/70 mb-2">
+            <Zap className="h-3 w-3 shrink-0" />
+            {String(knowledgeRef.load_when)}
+          </div>
+        ) : null}
+
+        {content ? (
+          Object.entries(content).map(([sectionKey, sectionVal]) => {
+            const isOpen = expandedSections.has(sectionKey);
+            return (
+              <div key={sectionKey} className="border border-border/40 rounded-md overflow-hidden">
+                <button
+                  onClick={() => toggleSection(sectionKey)}
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/50 transition-colors text-left"
+                >
+                  {isOpen ? (
+                    <ChevronDown className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3 text-muted-foreground/60 shrink-0" />
+                  )}
+                  <span className="text-xs font-semibold text-foreground capitalize">{sectionKey.replace(/_/g, " ")}</span>
+                </button>
+                {isOpen ? (
+                  <div className="px-3 pb-3 pt-0.5">
+                    {renderKnowledgeValue(sectionVal)}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })
+        ) : (
+          <p className="text-xs text-muted-foreground py-2">No content available</p>
+        )}
+      </div>
+    </>
+  );
+}
+
 function DefinitionCard({
   def,
   onSelect,
@@ -298,11 +584,13 @@ function FlowGraph({
   def,
   expandedFlowId,
   onFlowClick,
+  onPromptClick,
   colorMode,
 }: {
   def: AgentDefinition;
   expandedFlowId: string | null;
   onFlowClick: (flowId: string | null) => void;
+  onPromptClick?: (promptKey: string) => void;
   colorMode: "dark" | "light";
 }) {
   const { fitView } = useReactFlow();
@@ -324,8 +612,11 @@ function FlowGraph({
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
     if (node.type === "flowNode") {
       onFlowClick(expandedFlowId === node.id ? null : node.id);
+    } else if (node.type === "promptNode" && onPromptClick) {
+      const promptKey = (node.data as Record<string, unknown>)?.promptKey as string | undefined;
+      if (promptKey) onPromptClick(promptKey);
     }
-  }, [expandedFlowId, onFlowClick]);
+  }, [expandedFlowId, onFlowClick, onPromptClick]);
 
   return (
     <ReactFlow
@@ -353,6 +644,78 @@ function FlowGraph({
   );
 }
 
+function OrchestrationGraph({
+  def,
+  routingRules,
+  colorMode,
+  subAgentMeta,
+  severityFilter,
+}: {
+  def: AgentDefinition;
+  routingRules: RoutingRule[];
+  colorMode: "dark" | "light";
+  subAgentMeta?: { id: string; flow_count: number }[];
+  severityFilter: string | null;
+}) {
+  const { fitView } = useReactFlow();
+  const router = useRouter();
+
+  const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
+    const agentId = (node.data as Record<string, unknown>)?.agentId as string | undefined;
+    if (agentId) router.push(`/agents/definitions?agent=${agentId}`);
+  }, [router]);
+
+  const { nodes: initialNodes, edges: initialEdges } = useMemo(
+    () => buildOrchestrationGraph(def, routingRules, subAgentMeta),
+    [def, routingRules, subAgentMeta],
+  );
+
+  const filteredEdges = useMemo(() => {
+    if (!severityFilter) return initialEdges;
+    return initialEdges.map((edge) => {
+      const sev = (edge.data as Record<string, unknown> | undefined)?.severity;
+      if (!sev || sev === severityFilter) return edge;
+      return { ...edge, style: { ...edge.style, opacity: 0.1 }, animated: false };
+    });
+  }, [initialEdges, severityFilter]);
+
+  const [nodes, , onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  useEffect(() => {
+    setEdges(filteredEdges);
+  }, [filteredEdges, setEdges]);
+
+  useEffect(() => {
+    setTimeout(() => fitView({ padding: 0.15, duration: 300 }), 50);
+  }, [fitView]);
+
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onNodeClick={onNodeClick}
+      nodeTypes={nodeTypes}
+      fitView
+      fitViewOptions={{ padding: 0.15 }}
+      nodesDraggable
+      nodesConnectable={false}
+      elementsSelectable
+      zoomOnScroll
+      panOnDrag
+      minZoom={0.3}
+      maxZoom={2}
+      proOptions={{ hideAttribution: false }}
+      colorMode={colorMode}
+    >
+      <Background gap={20} size={1} />
+      <Controls showInteractive={false} />
+    </ReactFlow>
+  );
+}
+
 function DefinitionDetail({
   agentId,
   onBack,
@@ -362,12 +725,19 @@ function DefinitionDetail({
 }) {
   const [activeFlowId, setActiveFlowId] = useState<string | null>(null);
   const [activePromptKey, setActivePromptKey] = useState<string | null>(null);
+  const [activeKnowledgeIdx, setActiveKnowledgeIdx] = useState<number | null>(null);
+  const [severityFilter, setSeverityFilter] = useState<string | null>(null);
   const { resolvedTheme } = useTheme();
   const flowColorMode = resolvedTheme === "light" ? "light" : "dark";
 
   const { data: def, isLoading } = useQuery({
     queryKey: ["definition", agentId],
     queryFn: () => api.getDefinition(agentId),
+  });
+
+  const { data: allDefinitions } = useQuery({
+    queryKey: ["definitions"],
+    queryFn: () => api.listDefinitions(),
   });
 
   if (isLoading) {
@@ -398,6 +768,20 @@ function DefinitionDetail({
   const knowledge = ext?.knowledge as Record<string, unknown> | undefined;
   const knowledgeRefs = (knowledge as Record<string, unknown>)?.references as Array<Record<string, unknown>> | undefined;
   const context = ext?.context as Record<string, unknown> | undefined;
+  const autonomy = ext?.autonomy as Record<string, unknown> | undefined;
+  const isOrchestrator = autonomy?.role === "orchestrator";
+  const routingRules = (autonomy?.reactive_routing ?? []) as RoutingRule[];
+  const cascadeLimits = autonomy?.cascade_limits as Record<string, unknown> | undefined;
+
+  const handoffs = ext?.handoffs as Record<string, unknown> | undefined;
+  const deferTo = handoffs?.defer_to as Record<string, unknown> | undefined;
+  const provideTo = handoffs?.provide_to as Record<string, unknown> | undefined;
+  const humanEscalation = handoffs?.human_escalation as string | undefined;
+  const assets = ext?.assets as Array<Record<string, unknown>> | undefined;
+  const validation = ext?.validation as Record<string, unknown> | undefined;
+  const outputConstraints = validation?.output_constraints as Record<string, unknown> | undefined;
+  const humanInTheLoopConditions = ext?.human_in_the_loop_conditions as string[] | undefined;
+  const subAgentsDef = ext?.sub_agents as Array<Record<string, unknown>> | undefined;
 
   const parentAgent = def.metadata?.parent_agent as string | undefined;
   const isHumanPaired = def.human_in_the_loop;
@@ -427,7 +811,7 @@ function DefinitionDetail({
               href={`/agents/profiles/${parentAgent}`}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              {parentAgent.replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()).replace(/ Agent$/, "")} Profile
+              {titleCase(parentAgent).replace(/ Agent$/, "")} Profile
             </Link>
           </>
         )}
@@ -517,10 +901,12 @@ function DefinitionDetail({
       </div>
 
       {/* Tabs: Runbooks (hero) | Capabilities | Guardrails | System Prompt */}
-      <Tabs defaultValue="runbooks" className="w-full">
+      <Tabs defaultValue={isOrchestrator && routingRules.length > 0 ? "orchestration" : flowCount > 0 ? "runbooks" : "capabilities"} className="w-full">
         <TabsList className="w-full justify-start">
+          {isOrchestrator && routingRules.length > 0 && <TabsTrigger value="orchestration">Orchestration</TabsTrigger>}
           {flowCount > 0 && <TabsTrigger value="runbooks">Runbooks</TabsTrigger>}
           <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
+          {(deferTo || provideTo) && <TabsTrigger value="interactions">Interactions</TabsTrigger>}
           <TabsTrigger value="guardrails">Guardrails</TabsTrigger>
           <TabsTrigger value="system-prompt">System Prompt</TabsTrigger>
           <button
@@ -544,49 +930,49 @@ function DefinitionDetail({
               <div className="flex items-center justify-end mb-2">
                 <span className="text-xs text-muted-foreground">Click a runbook to expand its prompt chain</span>
               </div>
-              <div className="flex gap-3">
-                {/* Permissions & Boundaries panel */}
-                {(permissions?.length || boundaries?.length) ? (
-                  <div className="w-64 shrink-0 space-y-3">
-                    {permissions && permissions.length > 0 && (
-                      <div className="bg-muted/50 rounded-xl border border-green-500/20 p-3">
-                        <h4 className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                          <ShieldCheck className="h-3 w-3" /> Permissions
-                        </h4>
-                        <ul className="space-y-2.5">
-                          {permissions.map((p, i) => (
-                            <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                              <span className="text-green-400/50 shrink-0 mt-0.5">&#10003;</span>
-                              {p}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {boundaries && boundaries.length > 0 && (
-                      <div className="bg-muted/50 rounded-xl border border-red-500/20 p-3">
-                        <h4 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                          <ShieldOff className="h-3 w-3" /> Boundaries
-                        </h4>
-                        <ul className="space-y-2.5">
-                          {boundaries.map((b, i) => (
-                            <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                              <span className="text-red-400/50 shrink-0 mt-0.5">&#8226;</span>
-                              {typeof b === "string" ? b : String((b as Record<string, unknown>).rule ?? b)}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-
-                {/* Flow canvas */}
-                <div className="flex-1 h-[500px] rounded-xl border border-border bg-background overflow-hidden">
-                  <ReactFlowProvider>
-                    <FlowGraph def={def} expandedFlowId={activeFlowId} onFlowClick={setActiveFlowId} colorMode={flowColorMode} />
-                  </ReactFlowProvider>
+              {/* Permissions & Boundaries */}
+              {(permissions?.length || boundaries?.length) ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {permissions && permissions.length > 0 && (
+                    <div className="bg-muted/50 rounded-xl border border-green-500/20 p-3">
+                      <h4 className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <ShieldCheck className="h-3 w-3" /> Permissions
+                        <HelpPopover title="Permissions">Actions and data access this agent is explicitly authorized to perform within its scope.</HelpPopover>
+                      </h4>
+                      <ul className="space-y-2.5">
+                        {permissions.map((p, i) => (
+                          <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                            <span className="text-green-400/50 shrink-0 mt-0.5">&#10003;</span>
+                            {p}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {boundaries && boundaries.length > 0 && (
+                    <div className="bg-muted/50 rounded-xl border border-red-500/20 p-3">
+                      <h4 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <ShieldOff className="h-3 w-3" /> Boundaries
+                        <HelpPopover title="Boundaries">Hard constraints the agent must never cross, regardless of instructions or context.</HelpPopover>
+                      </h4>
+                      <ul className="space-y-2.5">
+                        {boundaries.map((b, i) => (
+                          <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                            <span className="text-red-400/50 shrink-0 mt-0.5">&#8226;</span>
+                            {typeof b === "string" ? b : String((b as Record<string, unknown>).rule ?? b)}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
+              ) : null}
+
+              {/* Flow canvas */}
+              <div className="h-[500px] rounded-xl border border-border bg-background overflow-hidden">
+                <ReactFlowProvider>
+                  <FlowGraph def={def} expandedFlowId={activeFlowId} onFlowClick={setActiveFlowId} onPromptClick={(key) => { if (promptRegistry?.[key]) setActivePromptKey(key); }} colorMode={flowColorMode} />
+                </ReactFlowProvider>
               </div>
             </div>
 
@@ -623,9 +1009,19 @@ function DefinitionDetail({
                               <div className="min-w-0">
                                 <span className="font-medium">{String(step.description ?? step.action ?? "")}</span>
                                 {step.prompt ? (
-                                  <p className="text-muted-foreground font-mono text-xs truncate">
+                                  <button
+                                    type="button"
+                                    className="text-muted-foreground hover:text-amber-400 font-mono text-xs truncate block transition-colors"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (promptRegistry && promptRegistry[String(step.prompt)]) {
+                                        setActivePromptKey(String(step.prompt));
+                                      }
+                                    }}
+                                    title="Click to view prompt"
+                                  >
                                     {String(step.prompt)}
-                                  </p>
+                                  </button>
                                 ) : null}
                               </div>
                             </div>
@@ -640,13 +1036,119 @@ function DefinitionDetail({
           </TabsContent>
         )}
 
-        {/* Capabilities tab: Tools + Prompts + Knowledge */}
-        <TabsContent value="capabilities" className="space-y-4 mt-3">
+        {/* Orchestration tab: routing diagram + rule cards */}
+        {isOrchestrator && routingRules.length > 0 && (
+          <TabsContent value="orchestration" className="space-y-4 mt-3">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1 text-xs">
+                  {([
+                    { key: "info", label: "Info flow", color: "bg-blue-500", text: "text-blue-400" },
+                    { key: "warning", label: "Gap/risk", color: "bg-amber-500", text: "text-amber-400" },
+                    { key: "critical", label: "Critical", color: "bg-red-500", text: "text-red-400" },
+                  ] as const).map(({ key, label, color, text }) => (
+                    <button
+                      key={key}
+                      onClick={() => setSeverityFilter((prev) => prev === key ? null : key)}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${
+                        severityFilter === key
+                          ? `${text} bg-muted border border-current/20`
+                          : severityFilter === null
+                            ? "text-muted-foreground hover:text-foreground"
+                            : "text-muted-foreground/40 hover:text-muted-foreground"
+                      }`}
+                    >
+                      <span className={`w-2 h-0.5 ${color} inline-block rounded ${severityFilter && severityFilter !== key ? "opacity-30" : ""}`} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {cascadeLimits && (
+                  <span className="text-xs text-muted-foreground">
+                    Max depth: {String(cascadeLimits.max_depth)}, max agents/chain: {String(cascadeLimits.max_agents_per_chain)}
+                  </span>
+                )}
+              </div>
+              <div className="h-[550px] rounded-xl border border-border bg-background overflow-hidden">
+                <ReactFlowProvider>
+                  <OrchestrationGraph
+                    def={def}
+                    routingRules={routingRules}
+                    colorMode={flowColorMode}
+                    subAgentMeta={allDefinitions?.map((d) => ({ id: d.id, flow_count: d.flow_count }))}
+                    severityFilter={severityFilter}
+                  />
+                </ReactFlowProvider>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Workflow className="h-3 w-3" /> Routing Rules
+                <HelpPopover title="Routing Rules">Reactive rules that fire when a sub-agent detects a signal. Each rule defines a source, target, trigger condition, and context to forward.</HelpPopover>
+                <Badge variant="secondary" className="text-xs ml-1">{routingRules.length}</Badge>
+              </h3>
+              <div className="rounded-md border border-border/50 overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-muted/50 text-muted-foreground">
+                      <th className="text-left px-3 py-1.5 font-medium">Source</th>
+                      <th className="text-left px-3 py-1.5 font-medium w-6" />
+                      <th className="text-left px-3 py-1.5 font-medium">Target</th>
+                      <th className="text-left px-3 py-1.5 font-medium">Condition</th>
+                      <th className="text-left px-3 py-1.5 font-medium hidden lg:table-cell">Context</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {routingRules.map((rule, i) => {
+                      const sev = classifyRoutingSeverity(rule);
+                      const dimmed = severityFilter !== null && sev !== severityFilter;
+                      const sourceName = titleCase(rule.watch.replace(/-agent$/, "").replace(/^ae-/, ""));
+                      const targetName = titleCase(rule.route_to.replace(/-agent$/, "").replace(/^ae-/, ""));
+                      return (
+                        <tr key={i} className={`border-t border-border/30 transition-colors ${dimmed ? "opacity-20" : "hover:bg-muted/30"}`}>
+                          <td className="px-3 py-1.5 font-medium text-blue-400 whitespace-nowrap">{sourceName}</td>
+                          <td className="px-0 py-1.5 text-muted-foreground/40"><ArrowRight className="h-3 w-3" /></td>
+                          <td className="px-3 py-1.5 font-medium text-emerald-400 whitespace-nowrap">{targetName}</td>
+                          <td className="px-3 py-1.5 text-muted-foreground">
+                            <span className="font-mono text-amber-400/80">{rule.true}</span>
+                          </td>
+                          <td className="px-3 py-1.5 hidden lg:table-cell">
+                            {rule.context_forward.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {rule.context_forward.map((ctx, j) => (
+                                  <span key={j} className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                    {ctx.replace(/_/g, " ")}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </TabsContent>
+        )}
+
+        {/* Capabilities tab */}
+        <TabsContent value="capabilities" className="space-y-6 mt-3">
+
+          {/* ── Execution ── */}
+          <div className="space-y-4">
+            <h2 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-[0.15em] flex items-center gap-1.5">Execution
+              <HelpPopover title="Execution">Tools, sub-agents, and generated assets the agent uses to take action and produce deliverables.</HelpPopover>
+            </h2>
+
           {/* Tools */}
           {toolCount > 0 && (
             <div>
               <h3 className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <Wrench className="h-3 w-3" /> Tools
+                <HelpPopover title="Tools">External integrations the agent can invoke: CRM queries, APIs, document generation, or data lookups. Risk level indicates confirmation requirements.</HelpPopover>
                 <Badge variant="secondary" className="text-xs ml-1">{toolCount}</Badge>
               </h3>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
@@ -678,11 +1180,67 @@ function DefinitionDetail({
             </div>
           )}
 
+          {/* Sub-agents (from x-ea-agent) */}
+          {subAgentsDef && subAgentsDef.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Bot className="h-3 w-3" /> Sub-agents
+                <HelpPopover title="Sub-agents">Dedicated child agents that handle specific sub-tasks. Each carries its own skills, knowledge, and guardrails. Click to navigate to their definition.</HelpPopover>
+                <Badge variant="secondary" className="text-xs ml-1">{subAgentsDef.length}</Badge>
+              </h3>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                {subAgentsDef.map((sa, i) => (
+                  <Link
+                    key={i}
+                    href={`/agents/definitions?agent=${sa.id ?? ""}`}
+                    className="bg-muted/50 rounded-md p-2.5 hover:bg-muted/80 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Bot className="h-3 w-3 text-purple-400 shrink-0" />
+                      <span className="text-xs font-medium truncate">{String(sa.name ?? sa.id ?? "")}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{String(sa.purpose ?? "")}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Assets */}
+          {assets && assets.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Download className="h-3 w-3" /> Generated Assets
+                <HelpPopover title="Generated Assets">Deliverables the agent produces as output: reports, summaries, scorecards, or structured documents.</HelpPopover>
+                <Badge variant="secondary" className="text-xs ml-1">{assets.length}</Badge>
+              </h3>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                {assets.map((asset, i) => (
+                  <div key={i} className="bg-muted/50 rounded-md p-2.5">
+                    <span className="text-xs font-medium font-mono">{String(asset.id ?? asset.name ?? "")}</span>
+                    {asset.description ? (
+                      <p className="text-xs text-muted-foreground mt-0.5">{String(asset.description)}</p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          </div>
+
+          {/* ── Intelligence ── */}
+          <div className="space-y-4">
+            <h2 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-[0.15em] flex items-center gap-1.5">Intelligence
+              <HelpPopover title="Intelligence">Prompts, knowledge, context, and memory that inform the agent&apos;s reasoning and decision-making.</HelpPopover>
+            </h2>
+
           {/* Prompts */}
           {promptCount > 0 && (
             <div>
               <h3 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <FileCode2 className="h-3 w-3" /> Prompt Registry
+                <HelpPopover title="Prompt Registry">Named prompt templates used across runbooks. Each prompt has defined inputs, outputs, and a source file. Click a card to view the resolved prompt content.</HelpPopover>
                 <Badge variant="secondary" className="text-xs ml-1">{promptCount}</Badge>
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -696,13 +1254,6 @@ function DefinitionDetail({
                   />
                 ))}
               </div>
-              <Sheet open={activePromptKey !== null} onOpenChange={(open) => { if (!open) setActivePromptKey(null); }}>
-                <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
-                  {activePromptKey && promptRegistry![activePromptKey] ? (
-                    <PromptFlyoutContent agentId={def.id} promptKey={activePromptKey} entry={promptRegistry![activePromptKey]} />
-                  ) : null}
-                </SheetContent>
-              </Sheet>
             </div>
           )}
 
@@ -711,72 +1262,52 @@ function DefinitionDetail({
             <div>
               <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <BookText className="h-3 w-3" /> Knowledge References
+                <HelpPopover title="Knowledge References">Domain knowledge files loaded into context when needed. Contain frameworks, patterns, and reference data that ground the agent&apos;s reasoning.</HelpPopover>
                 <Badge variant="secondary" className="text-xs ml-1">{knowledgeRefs.length}</Badge>
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {knowledgeRefs.map((ref, i) => (
-                  <div key={i} className="bg-muted/50 rounded-md p-2.5 flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-xs font-medium font-mono">{String(ref.path ?? ref.name)}</p>
-                      <p className="text-xs text-muted-foreground">{String(ref.description ?? "")}</p>
+                  <button
+                    key={i}
+                    onClick={() => setActiveKnowledgeIdx(i)}
+                    className="bg-muted/50 rounded-md p-3 text-left hover:bg-muted/80 hover:border-amber-500/30 border border-transparent transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-start gap-2">
+                      <BookText className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground group-hover:text-amber-400 transition-colors">
+                          {String(ref.name ?? ref.path)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{String(ref.description ?? "")}</p>
+                        {ref.load_when ? (
+                          <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground/60">
+                            <Zap className="h-2.5 w-2.5" />
+                            {String(ref.load_when)}
+                          </div>
+                        ) : null}
+                      </div>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-amber-400 shrink-0 mt-0.5 transition-colors" />
                     </div>
-                    {ref.load_when ? (
-                      <Badge variant="outline" className="text-xs shrink-0">{String(ref.load_when)}</Badge>
-                    ) : null}
-                  </div>
+                  </button>
                 ))}
               </div>
+              <Sheet open={activeKnowledgeIdx !== null} onOpenChange={(open) => { if (!open) setActiveKnowledgeIdx(null); }}>
+                <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
+                  {activeKnowledgeIdx !== null && knowledgeRefs[activeKnowledgeIdx] ? (
+                    <KnowledgeFlyoutContent knowledgeRef={knowledgeRefs[activeKnowledgeIdx]} />
+                  ) : null}
+                </SheetContent>
+              </Sheet>
             </div>
           )}
 
-          {/* LLM + Context + Memory (collapsed details) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-            <div className="bg-muted/50 rounded-lg border border-cyan-500/20 p-3">
-              <h3 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Brain className="h-3 w-3" /> LLM Configuration
-              </h3>
-              {(() => {
-                const helpMap: Record<string, string> = {
-                  model_id: "Which LLM to use. 'auto' = platform chooses best available model",
-                  temperature: "Creativity vs precision. 0.0 = deterministic, 1.0 = creative",
-                  max_tokens: "Max output length per response",
-                };
-                return (
-                  <div className="space-y-2">
-                    {Object.entries(llm).map(([key, value]) => {
-                      if (value && typeof value === "object") {
-                        return (
-                          <div key={key}>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">{key.replace(/_/g, " ")}</p>
-                            <div className="space-y-1.5">
-                              {Object.entries(value as Record<string, unknown>).map(([k, v]) => (
-                                <div key={k} className="flex items-baseline gap-1.5">
-                                  <span className="text-xs text-muted-foreground">{k.replace(/_/g, " ")}:</span>
-                                  <span className="text-xs font-medium">{v === null ? "auto" : String(v)}</span>
-                                  {helpMap[k] ? <HelpPopover title={k.replace(/_/g, " ")}>{helpMap[k]}</HelpPopover> : null}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div key={key} className="flex items-baseline gap-1.5">
-                          <span className="text-xs text-muted-foreground">{key.replace(/_/g, " ")}:</span>
-                          <span className="text-xs font-medium">{value === null ? "auto" : String(value)}</span>
-                          {helpMap[key] ? <HelpPopover title={key.replace(/_/g, " ")}>{helpMap[key]}</HelpPopover> : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-            </div>
-
+          {/* Context + Specialized Agents */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {context ? (
               <div className="bg-muted/50 rounded-lg border border-indigo-500/20 p-3">
                 <h3 className="text-xs font-semibold text-indigo-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Brain className="h-3 w-3" /> Context Window
+                  <HelpPopover title="Context Window">Token budget and loading strategy. Controls how much information fits in a single interaction and how references are prioritized.</HelpPopover>
                 </h3>
                 <div className="space-y-2.5">
                   {context.token_budget ? (
@@ -805,6 +1336,7 @@ function DefinitionDetail({
               <div className="bg-muted/50 rounded-lg border border-purple-500/20 p-3">
                 <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Users className="h-3 w-3" /> Specialized Agents
+                  <HelpPopover title="Specialized Agents">Variant agents defined inline in the spec. They inherit the parent&apos;s configuration but serve a narrower purpose or persona.</HelpPopover>
                   <Badge variant="secondary" className="text-xs ml-auto">{variantCount}</Badge>
                 </h3>
                 <div className="space-y-2">
@@ -820,13 +1352,17 @@ function DefinitionDetail({
                 </div>
               </div>
             ) : null}
+          </div>
 
+          {/* Memory + HITL */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {memory ? (
-              <div className="bg-muted/50 rounded-lg border border-teal-500/20 p-3">
+              <div className="bg-muted/50 rounded-lg border border-teal-500/20 p-3 lg:col-span-2">
                 <h3 className="text-xs font-semibold text-teal-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <Brain className="h-3 w-3" /> Memory
+                  <HelpPopover title="Memory">What the agent remembers across interactions: deal context, previous analyses, learned patterns, and accumulated intelligence.</HelpPopover>
                 </h3>
-                <div className="space-y-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5">
                   {Object.entries(memory).map(([key, val]) => (
                     <div key={key}>
                       <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">{key.replace(/_/g, " ")}</p>
@@ -849,8 +1385,85 @@ function DefinitionDetail({
                 </div>
               </div>
             ) : null}
+
+          </div>
+
+          </div>
+
+        </TabsContent>
+
+        {/* Interactions tab: handoffs */}
+        {(deferTo || provideTo) && (
+        <TabsContent value="interactions" className="space-y-4 mt-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {deferTo && Object.keys(deferTo).length > 0 && (
+              <div className="bg-muted/50 rounded-lg border border-blue-500/20 p-3">
+                <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <ArrowRight className="h-3 w-3" /> Defers To
+                  <HelpPopover title="Defers To">Agents this one routes work to when a task falls outside its expertise. Includes trigger scenarios that initiate the handoff.</HelpPopover>
+                  <Badge variant="secondary" className="text-xs ml-auto">{Object.keys(deferTo).length}</Badge>
+                </h3>
+                <div className="space-y-2">
+                  {Object.entries(deferTo).map(([agentKey, val]) => {
+                    const info = val as Record<string, unknown>;
+                    const scope = typeof val === "string" ? val : (info?.scope as string) ?? "";
+                    const scenarios = (info?.scenarios as Array<Record<string, string>>) ?? [];
+                    return (
+                      <div key={agentKey} className="text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <ArrowRight className="h-3 w-3 text-blue-400/60 shrink-0" />
+                          <span className="font-medium">{titleCase(agentKey.replace(/_/g, "-"))}</span>
+                        </div>
+                        {scope && <p className="text-muted-foreground ml-[18px] mt-0.5">{scope}</p>}
+                        {scenarios.length > 0 && (
+                          <ul className="ml-[18px] mt-1 space-y-0.5">
+                            {scenarios.map((s, si) => (
+                              <li key={si} className="text-muted-foreground flex items-start gap-1">
+                                <span className="text-amber-400/60 shrink-0 mt-0.5">&#8226;</span>
+                                {s.trigger}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {provideTo && Object.keys(provideTo).length > 0 && (
+              <div className="bg-muted/50 rounded-lg border border-teal-500/20 p-3">
+                <h3 className="text-xs font-semibold text-teal-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <ArrowRight className="h-3 w-3" /> Provides To
+                  <HelpPopover title="Provides To">Agents this one shares outputs with, enriching their context with analysis results, signals, or recommendations.</HelpPopover>
+                  <Badge variant="secondary" className="text-xs ml-auto">{Object.keys(provideTo).length}</Badge>
+                </h3>
+                <div className="space-y-2">
+                  {Object.entries(provideTo).map(([agentKey, val]) => {
+                    const scope = typeof val === "string" ? val : ((val as Record<string, unknown>)?.scope as string) ?? "";
+                    return (
+                      <div key={agentKey} className="text-xs">
+                        <div className="flex items-center gap-1.5">
+                          <ArrowRight className="h-3 w-3 text-teal-400/60 shrink-0" />
+                          <span className="font-medium">{titleCase(agentKey.replace(/_/g, "-"))}</span>
+                        </div>
+                        {scope && <p className="text-muted-foreground ml-[18px] mt-0.5">{scope}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+                {humanEscalation && (
+                  <div className="mt-2 pt-2 border-t border-border/50">
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-medium text-amber-400">Escalates to:</span> {humanEscalation}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </TabsContent>
+        )}
 
         {/* Guardrails tab: validations + quality + escalation */}
         <TabsContent value="guardrails" className="space-y-3 mt-3">
@@ -889,6 +1502,22 @@ function DefinitionDetail({
                   </div>
                 );
               })}
+              {isHumanPaired && humanInTheLoopConditions && humanInTheLoopConditions.length > 0 && (
+                <div className="bg-muted/50 rounded-lg border border-blue-500/20 p-3 md:col-span-2">
+                  <h4 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <UserCheck className="h-3 w-3" /> Human-in-the-Loop
+                    <HelpPopover title="Human-in-the-Loop">Conditions that require human review before the agent proceeds. These are mandatory escalation points where judgment, relationships, or strategic decisions matter.</HelpPopover>
+                  </h4>
+                  <ul className="space-y-1">
+                    {humanInTheLoopConditions.map((cond, i) => (
+                      <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                        <span className="text-blue-400/50 shrink-0 mt-0.5">&#8226;</span>
+                        {cond}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           ) : null}
 
@@ -896,7 +1525,10 @@ function DefinitionDetail({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {quality ? (
                 <div className="bg-muted/50 rounded-lg border border-purple-500/20 p-3">
-                  <h4 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-2">Quality Criteria</h4>
+                  <h4 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    Quality Criteria
+                    <HelpPopover title="Quality Criteria">Standards the agent&apos;s output must meet before being considered complete. Acts as a self-check gate.</HelpPopover>
+                  </h4>
                   {Array.isArray(quality) ? (
                     <ul className="space-y-1">
                       {(quality as string[]).map((q, i) => (
@@ -913,7 +1545,10 @@ function DefinitionDetail({
               ) : null}
               {escalation && escalation.length > 0 ? (
                 <div className="bg-muted/50 rounded-lg border border-amber-500/20 p-3">
-                  <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-2">Escalation Triggers</h4>
+                  <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    Escalation Triggers
+                    <HelpPopover title="Escalation Triggers">Conditions that force the agent to pause and escalate to a human or another agent. Prevents autonomous action on high-stakes decisions.</HelpPopover>
+                  </h4>
                   <ul className="space-y-1">
                     {escalation.map((e, i) => (
                       <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
@@ -935,6 +1570,62 @@ function DefinitionDetail({
               ) : null}
             </div>
           ) : null}
+
+          {/* Permissions + Boundaries */}
+          {(permissions?.length || boundaries?.length) ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {permissions && permissions.length > 0 && (
+                <div className="bg-muted/50 rounded-lg border border-green-500/20 p-3">
+                  <h4 className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <ShieldCheck className="h-3 w-3" /> Permissions
+                    <HelpPopover title="Permissions">Actions and data access this agent is explicitly authorized to perform within its scope.</HelpPopover>
+                  </h4>
+                  <ul className="space-y-1">
+                    {permissions.map((p, i) => (
+                      <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                        <span className="text-green-400/50 shrink-0 mt-0.5">&#10003;</span>
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {boundaries && boundaries.length > 0 && (
+                <div className="bg-muted/50 rounded-lg border border-red-500/20 p-3">
+                  <h4 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <ShieldOff className="h-3 w-3" /> Boundaries
+                    <HelpPopover title="Boundaries">Hard constraints the agent must never cross, regardless of instructions or context.</HelpPopover>
+                  </h4>
+                  <ul className="space-y-1">
+                    {boundaries.map((b, i) => (
+                      <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                        <span className="text-red-400/50 shrink-0 mt-0.5">&#8226;</span>
+                        {typeof b === "string" ? b : String((b as Record<string, unknown>).rule ?? b)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {/* Validation / Output Constraints */}
+          {outputConstraints && Object.keys(outputConstraints).length > 0 && (
+            <div className="bg-muted/50 rounded-lg border border-cyan-500/20 p-3">
+              <h4 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <ShieldCheck className="h-3 w-3" /> Output Constraints
+                <HelpPopover title="Output Constraints">Structural rules for the agent&apos;s output format: max length, required sections, formatting standards.</HelpPopover>
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {Object.entries(outputConstraints).map(([key, val]) => (
+                  <div key={key} className="text-xs">
+                    <span className="text-muted-foreground">{key.replace(/_/g, " ")}:</span>{" "}
+                    <span className="font-medium">{String(val)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         {/* System Prompt tab */}
@@ -943,6 +1634,7 @@ function DefinitionDetail({
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                 <MessageSquare className="h-3.5 w-3.5" /> System Prompt
+                <HelpPopover title="System Prompt">The base instructions given to the LLM. Defines the agent&apos;s persona, responsibilities, and behavioral rules.</HelpPopover>
               </h3>
               <CopyButton text={def.system_prompt} />
             </div>
@@ -952,6 +1644,17 @@ function DefinitionDetail({
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Prompt flyout (shared across tabs) */}
+      {promptRegistry && (
+        <Sheet open={activePromptKey !== null} onOpenChange={(open) => { if (!open) setActivePromptKey(null); }}>
+          <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+            {activePromptKey && promptRegistry[activePromptKey] ? (
+              <PromptFlyoutContent agentId={def.id} promptKey={activePromptKey} entry={promptRegistry[activePromptKey]} />
+            ) : null}
+          </SheetContent>
+        </Sheet>
+      )}
     </div>
   );
 }
@@ -984,8 +1687,13 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 function DefinitionsPageInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const agentFromUrl = searchParams.get("agent");
   const [selectedAgent, setSelectedAgent] = useState<string | null>(agentFromUrl);
+
+  useEffect(() => {
+    setSelectedAgent(agentFromUrl);
+  }, [agentFromUrl]);
 
   const { data: definitions, isLoading } = useQuery({
     queryKey: ["definitions"],
@@ -1010,7 +1718,13 @@ function DefinitionsPageInner() {
       <div className="max-w-6xl mx-auto">
         <DefinitionDetail
           agentId={selectedAgent}
-          onBack={() => setSelectedAgent(null)}
+          onBack={() => {
+            if (agentFromUrl) {
+              router.back();
+            } else {
+              setSelectedAgent(null);
+            }
+          }}
         />
       </div>
     );

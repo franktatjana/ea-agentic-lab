@@ -50,7 +50,6 @@
 |-------|---------|-------|--------------|
 | **Delivery** | Implementation | Sales → delivery handoff | SM (HIGH impl risk) |
 | **PS** | Services bridge | Pre/post-sales services | SM (scope issues) |
-| **Support** | Support coordination | Ticket patterns, DSE | SM (Critical/Sev1) |
 
 ---
 

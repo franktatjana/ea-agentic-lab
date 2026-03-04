@@ -10,24 +10,21 @@ order: 1
 
 ## Overview
 
-The EA Agentic Lab implements a multi-agent governance system for strategic account management. Agents are organized into functional categories: **Leadership** (2), **Sales** (4), **Architecture** (3), **Deal Execution** (3), and **Delivery** (3) agents that exercise judgment, plus **Governance Agents** (9) that enforce process.
+The EA Agentic Lab implements a 41-agent governance system for strategic account management across three layers: 18 strategic agents that exercise judgment and make recommendations (including 8 AE sub-agents operating under a routing orchestrator), 10 governance agents that enforce process and maintain artifacts, and 5 intelligence agents that gather and analyze external signals.
 
-All agents operate at **Node level** within the Realm/Node hierarchy. See [core-entities.md](../system/core-entities.md) for entity definitions.
+All agents operate at **Node level** within the Realm/Node hierarchy. See [core-entities.md](../system/core-entities.md) for entity definitions. For the full domain model, see [domain-model.md](../system/domain-model.md).
 
 ---
 
 ## Agent Landscape
 
-| Category | Count | Purpose |
-|----------|-------|---------|
-| Leadership Agents | 2 | Strategic oversight, product alignment |
-| Sales Agents | 4 | Commercial strategy, competitive intel, value, partners |
-| Architecture Agents | 3 | Solution design, customer architecture, domain expertise |
-| Deal Execution Agents | 3 | RFP orchestration, POC validation, security clearance |
-| Delivery Agents | 3 | Implementation handoff, services, support |
-| Governance Agents | 9 | Enforce process, maintain artifacts, reduce entropy |
-| Orchestration Agent | 1 | Meta-layer process management |
-| **Total** | **25** | |
+| Layer | Count | Purpose |
+|-------|-------|---------|
+| Strategic Agents | 18 | Apply judgment, use frameworks, make recommendations |
+| AE Sub-Agents | 8 | Specialized functions within the AE orchestrator |
+| Governance Agents | 10 | Enforce process, maintain artifacts, reduce entropy |
+| Intelligence Agents | 5 | Signal processing, market news, trend detection |
+| **Total** | **41** | |
 
 ```mermaid
 flowchart TB
@@ -126,10 +123,27 @@ Drive commercial strategy, competitive positioning, value quantification, and pa
 
 | Agent | Team | Purpose | Status |
 |-------|------|---------|--------|
-| AE Agent | account_executives | Account strategy, commercial decisions | Configured |
+| AE Agent | account_executives | Account strategy orchestrator (8 sub-agents) | Configured |
 | CI Agent | competitive_intelligence | Competitive intelligence | Configured |
 | VE Agent | value_engineering | Business value quantification | Configured |
 | Partner Agent | partners | Partner ecosystem coordination | Configured |
+
+### AE Sub-Agent Decomposition
+
+The AE Agent is the first role to use holonic decomposition (DDR-019 decision #4). It operates as a routing orchestrator that delegates all domain work to 8 specialized sub-agents. Each sub-agent owns its own tools, runbooks, knowledge, and guardrails. Sub-agents activate independently via events, schedules, and peer triggers, not only through orchestrator dispatch.
+
+| Sub-Agent | Domain |
+|---|---|
+| Deal Diagnosis | Deal health scoring, stall analysis, loss review, resurrection |
+| Pipeline Management | Forecast accuracy, coverage gaps, next-best-action prioritization |
+| Stakeholder Intelligence | Relationship mapping, champion health, executive briefings |
+| Signal Detection | Budget signals, competitive threats, expansion opportunities |
+| Qualification | MEDDPICC assessment, gap analysis, deal readiness scorecards |
+| Meeting Preparation | Call briefs, QBR materials, post-call summaries, discovery plans |
+| Opportunity Hygiene | CRM health checks, stale alerts, paper process tracking |
+| Pipeline Generation | Prospecting, outreach strategy, SDR coordination, conversion tracking |
+
+The orchestrator defines 13 reactive routing rules that cascade outputs between sub-agents (e.g., competitive threat from Signal Detection triggers Deal Diagnosis reassessment). For the full autonomy model (triggers, outputs, routing, cascade limits), see [Agent Autonomy Model](../system/domain-model.md#agent-autonomy-model).
 
 ## Architecture Agents (3)
 
@@ -151,7 +165,7 @@ Handle structured processes that convert opportunities into wins.
 | POC Agent | poc | Proof of concept execution | Configured |
 | InfoSec Agent | infosec | Security/compliance enablement | Configured |
 
-## Delivery Agents (3)
+## Delivery Agents (2)
 
 Bridge what was sold with what gets implemented.
 
@@ -162,7 +176,7 @@ Bridge what was sold with what gets implemented.
 
 ---
 
-## Governance Agents (9)
+## Governance Agents (10)
 
 Enforce process, maintain artifacts, reduce entropy.
 
@@ -394,7 +408,7 @@ Agents communicate via the **InfoHub** at Node level. There is no direct agent-t
 
 ```text
 ea-agentic-lab/
-├── teams/                                   # Agent definitions (24 agents)
+├── teams/                                   # Agent definitions (41 agents)
 │   ├── governance/                          # 8 governance agents
 │   │   └── agents/
 │   │       ├── meeting_notes_agent.yaml
@@ -470,7 +484,7 @@ Both categories execute at **Node level only**.
 |----------|-------|---------|--------------|
 | **Leadership** | Senior Manager | Oversight, coaching, escalation resolution | VP/C-Level |
 | **Leadership** | PM Agent | Product roadmap alignment | Senior Manager |
-| **Sales** | AE Agent | Account strategy, commercial decisions | Senior Manager |
+| **Sales** | AE Agent | Account strategy orchestrator (8 sub-agents) | Senior Manager |
 | **Sales** | CI Agent | Competitive intelligence | Senior Manager |
 | **Sales** | VE Agent | Business value quantification & tracking | Senior Manager |
 | **Sales** | Partner Agent | Partner ecosystem | Senior Manager |

@@ -7,8 +7,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Workflow,
-  ShieldCheck,
-  ShieldOff,
   ArrowRight,
   Users,
   FileCode2,
@@ -16,7 +14,6 @@ import {
   ChevronDown,
   ChevronRight,
   Bot,
-  Wrench,
   LayoutList,
   ClipboardList,
   ListChecks,
@@ -114,7 +111,7 @@ interface WorkflowStep {
   description: string;
 }
 
-type ProfileTab = "overview" | "role" | "operations" | "knowledge" | "sub-agents" | "playbooks" | "collaboration" | "runbooks" | "definition";
+type ProfileTab = "overview" | "role" | "operations" | "knowledge" | "sub-agents" | "playbooks" | "collaboration" | "runbooks";
 
 export default function AgentProfileDetailPage({
   params,
@@ -181,7 +178,6 @@ export default function AgentProfileDetailPage({
   const adminOverhead = profile?.administrative_overhead ?? [];
   const capabilities = profile?.capabilities ?? [];
   const withThisAgent = profile?.with_this_agent ?? [];
-  const keyMetrics = profile?.key_metrics ?? [];
   const activityMap = profile?.activity_map;
   const qualFramework = profile?.qualification_framework;
   const stakeholders = profile?.stakeholder_landscape;
@@ -190,8 +186,6 @@ export default function AgentProfileDetailPage({
   const playbookRaci = profile?.playbook_raci;
 
   // Agent operational data
-  const boundaries = ext?.boundaries as string[] | undefined;
-  const permissions = ext?.permissions as string[] | undefined;
   const escalation = ext?.escalation_triggers as string[] | undefined;
   const handoffs = ext?.handoffs as Record<string, unknown> | undefined;
   const deferTo = handoffs?.defer_to as Record<string, string> | undefined;
@@ -218,14 +212,6 @@ export default function AgentProfileDetailPage({
 
   const hasRunbooks = def.flows && def.flows.length > 0;
 
-  // Definition tab data
-  const specVersion = def.agentspec_version;
-  const toolCount = def.tools?.length ?? 0;
-  const flowCount = def.flows?.length ?? 0;
-  const promptCount = ext?.prompt_registry
-    ? Object.keys(ext.prompt_registry as Record<string, unknown>).length
-    : 0;
-  const specializedAgents = def.specialized_agents ?? [];
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-8">
@@ -392,17 +378,14 @@ export default function AgentProfileDetailPage({
             </span>
           </button>
         )}
-        <button
-          onClick={() => setActiveTab("definition")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-            activeTab === "definition"
-              ? "bg-slate-500/15 text-slate-400 shadow-sm"
-              : "text-muted-foreground hover:text-slate-400"
-          }`}
+        <Link
+          href={`/agents/definitions?agent=${agentId}`}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors text-muted-foreground hover:text-slate-400"
         >
           <FileCode2 className="h-4 w-4" />
           Agent Definition
-        </button>
+          <ArrowRight className="h-3 w-3" />
+        </Link>
       </div>
 
       {/* Overview tab */}
@@ -761,19 +744,18 @@ export default function AgentProfileDetailPage({
                         </li>
                       ))}
                     </ul>
-                    <div className="flex items-center gap-1.5 text-xs text-purple-400 pt-1">
-                      <Bot className="h-3 w-3" />
-                      <span className="font-medium">{formatAgentId(d.agent)}</span>
-                      <ArrowRight className="h-3 w-3" />
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <AgentBadge agentId={d.agent} />
+                      <ArrowRight className="h-3 w-3 text-purple-400" />
                     </div>
                     {contributors.length > 0 && (
                       <div className="border-t border-border/50 pt-2 space-y-1">
                         {contributors.map((c) => (
                           <div key={c.agent} className="flex items-start gap-2 text-xs text-muted-foreground/70">
                             <span className="shrink-0 mt-px">+</span>
-                            <span>
-                              <span className="font-medium text-muted-foreground">{formatAgentId(c.agent)}</span>
-                              {" "}{c.provides}
+                            <span className="flex items-center gap-1.5 flex-wrap">
+                              <AgentBadge agentId={c.agent} />
+                              <span>{c.provides}</span>
                             </span>
                           </div>
                         ))}
@@ -814,10 +796,9 @@ export default function AgentProfileDetailPage({
                         </div>
                         <p className="text-xs text-muted-foreground">{dim.description}</p>
                         {dim.supported_by && (
-                          <p className="text-xs text-purple-400 mt-1">
-                            <Bot className="h-3 w-3 inline mr-1" />
-                            {formatAgentId(dim.supported_by)}
-                          </p>
+                          <div className="mt-1">
+                            <AgentBadge agentId={dim.supported_by} />
+                          </div>
                         )}
                       </div>
                     ))}
@@ -1144,13 +1125,10 @@ export default function AgentProfileDetailPage({
                               className="text-sm bg-muted/30 rounded-md p-4"
                             >
                               <div className="flex items-center gap-2 mb-1">
-                                <ArrowRight className="h-3.5 w-3.5 text-purple-400 shrink-0" />
-                                <span className="font-medium">
-                                  {formatAgentId(agent.replace(/_/g, "-"))}
-                                </span>
+                                <AgentBadge agentId={agent.replace(/_/g, "-")} />
                               </div>
                               {scope && (
-                                <p className="text-muted-foreground ml-[22px] mb-2">{scope}</p>
+                                <p className="text-muted-foreground ml-0 mb-2">{scope}</p>
                               )}
                               {scenarios.length > 0 && (
                                 <ul className="ml-[22px] space-y-1.5">
@@ -1186,14 +1164,11 @@ export default function AgentProfileDetailPage({
                               key={agent}
                               className="flex items-start gap-2.5 text-sm bg-muted/30 rounded-md p-3"
                             >
-                              <ArrowRight className="h-3.5 w-3.5 text-teal-400 shrink-0 mt-0.5" />
-                              <div>
-                                <span className="font-medium">
-                                  {formatAgentId(agent.replace(/_/g, "-"))}
-                                </span>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <AgentBadge agentId={agent.replace(/_/g, "-")} />
                                 {scope && (
-                                  <span className="text-muted-foreground">
-                                    {" "}, {scope}
+                                  <span className="text-muted-foreground text-sm">
+                                    {scope}
                                   </span>
                                 )}
                               </div>
@@ -1281,278 +1256,6 @@ export default function AgentProfileDetailPage({
         </div>
       )}
 
-      {/* Definition tab */}
-      {activeTab === "definition" && (
-        <div className="space-y-6">
-          {/* Spec summary bar */}
-          <div className="flex items-center gap-6 text-sm">
-            <span className="text-muted-foreground">
-              {specVersion && <>Spec {specVersion} · </>}
-              {flowCount} runbook{flowCount !== 1 ? "s" : ""} · {toolCount} tool{toolCount !== 1 ? "s" : ""} · {promptCount} prompt{promptCount !== 1 ? "s" : ""}
-            </span>
-            <Link
-              href={`/agents/definitions?agent=${agentId}`}
-              className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground transition-colors ml-auto"
-            >
-              <FileCode2 className="h-3.5 w-3.5" />
-              Open Definition
-              <ArrowRight className="h-3 w-3" />
-            </Link>
-          </div>
-
-          {/* Permissions + Boundaries */}
-          {(permissions || boundaries) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {permissions && permissions.length > 0 && (
-                <Card className="border-l-4 border-l-green-400/50">
-                  <CardContent className="p-5">
-                    <Section
-                      icon={ShieldCheck}
-                      title="Permissions"
-                      color="text-green-400"
-                    >
-                      <ul className="space-y-2">
-                        {permissions.map((p, i) => (
-                          <li
-                            key={i}
-                            className="flex items-start gap-2.5 text-sm"
-                          >
-                            <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-green-400 shrink-0" />
-                            <span>{p}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </Section>
-                  </CardContent>
-                </Card>
-              )}
-              {boundaries && boundaries.length > 0 && (
-                <Card className="border-l-4 border-l-red-400/50">
-                  <CardContent className="p-5">
-                    <Section
-                      icon={ShieldOff}
-                      title="Boundaries"
-                      color="text-red-400"
-                    >
-                      <ul className="space-y-2">
-                        {boundaries.map((b, i) => {
-                          const text =
-                            typeof b === "string" ? b : JSON.stringify(b);
-                          const handoffMatch =
-                            text.match(/\(handoff to (.+?)\)/);
-                          return (
-                            <li
-                              key={i}
-                              className="flex items-start gap-2.5 text-sm"
-                            >
-                              <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
-                              <span>
-                                {handoffMatch
-                                  ? text.replace(/\(handoff to .+?\)/, "")
-                                  : text}
-                                {handoffMatch && (
-                                  <span className="text-muted-foreground/60">
-                                    {" "}
-                                    → {handoffMatch[1]}
-                                  </span>
-                                )}
-                              </span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </Section>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
-
-          {/* Specialized agents / related definitions */}
-          {specializedAgents.length > 0 && (
-            <Section
-              icon={Bot}
-              title="Related Agent Definitions"
-              color="text-purple-400"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {specializedAgents.map((sa) => {
-                  const saId = (sa.id ?? sa.agent_id ?? "") as string;
-                  const saName = (sa.name ?? saId) as string;
-                  const saDesc = (sa.description ?? sa.purpose ?? "") as string;
-
-                  return (
-                    <Card
-                      key={saId}
-                      className="border-l-4 border-l-purple-400/50 hover:border-l-purple-400 transition-colors cursor-pointer"
-                      onClick={() => {
-                        if (saId) router.push(`/agents/definitions?agent=${saId}`);
-                      }}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-medium text-sm">
-                            {saName.replace(/ Agent$/, "")}
-                          </h3>
-                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                        </div>
-                        {saDesc && (
-                          <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                            {saDesc}
-                          </p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </Section>
-          )}
-
-          {/* Tools + Prompts side by side */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Tools */}
-            {toolCount > 0 && (
-              <Card>
-                <CardContent className="p-5">
-                  <Section icon={Wrench} title="Tools" color="text-amber-400">
-                    <ul className="space-y-3">
-                      {(def.tools ?? []).map((tool) => {
-                        const t = tool as unknown as Record<string, unknown>;
-                        const tExt = (t["x-ea-agent"] ?? {}) as Record<string, unknown>;
-                        return (
-                          <li key={String(t.id)} className="text-sm">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{String(t.name)}</span>
-                              {Boolean(t.requires_confirmation) && (
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400">
-                                  confirmation
-                                </span>
-                              )}
-                              {Boolean(tExt.risk) && (
-                                <span className={`text-xs px-1.5 py-0.5 rounded ${
-                                  tExt.risk === "high"
-                                    ? "bg-red-400/10 text-red-400"
-                                    : tExt.risk === "medium"
-                                      ? "bg-amber-400/10 text-amber-400"
-                                      : "bg-green-400/10 text-green-400"
-                                }`}>
-                                  {String(tExt.risk)}
-                                </span>
-                              )}
-                            </div>
-                            {Boolean(t.description) && (
-                              <p className="text-muted-foreground mt-0.5">
-                                {String(t.description)}
-                              </p>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </Section>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Prompt Registry */}
-            {promptCount > 0 && (
-              <Card>
-                <CardContent className="p-5">
-                  <Section icon={FileCode2} title="Prompt Registry" color="text-cyan-400">
-                    <ul className="space-y-3">
-                      {Object.entries(
-                        (ext?.prompt_registry ?? {}) as Record<string, Record<string, unknown>>
-                      ).map(([key, entry]) => (
-                        <li key={key} className="text-sm">
-                          <span className="font-medium font-mono text-xs">{key}</span>
-                          {Boolean(entry.description) && (
-                            <p className="text-muted-foreground mt-0.5">
-                              {String(entry.description)}
-                            </p>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </Section>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Handoffs + Escalation (shown when no prompts) */}
-            {promptCount === 0 && (deferTo || provideTo || escalation) && (
-              <div className="space-y-6">
-                {(deferTo || provideTo) && (
-                  <Card className="border-l-4 border-l-blue-500/40">
-                    <CardContent className="p-5">
-                      <Section icon={Network} title="Agent Handoffs" color="text-blue-400">
-                        <div className="space-y-4">
-                          {deferTo && Object.keys(deferTo).length > 0 && (
-                            <div>
-                              <p className="text-xs font-medium text-blue-400/70 mb-2 uppercase tracking-wide">Defers To</p>
-                              <ul className="space-y-2">
-                                {Object.entries(deferTo).map(([agentKey, scope]) => (
-                                  <li key={agentKey} className="text-sm">
-                                    <div className="flex items-center gap-2">
-                                      <ArrowRight className="h-3 w-3 text-blue-400/60 shrink-0" />
-                                      <span className="font-medium">{agentKey.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
-                                    </div>
-                                    <p className="text-muted-foreground ml-5 mt-0.5">{scope}</p>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                          {provideTo && Object.keys(provideTo).length > 0 && (
-                            <div>
-                              <p className="text-xs font-medium text-emerald-400/70 mb-2 uppercase tracking-wide">Provides To</p>
-                              <ul className="space-y-2">
-                                {Object.entries(provideTo).map(([agentKey, scope]) => (
-                                  <li key={agentKey} className="text-sm">
-                                    <div className="flex items-center gap-2">
-                                      <ArrowRight className="h-3 w-3 text-emerald-400/60 shrink-0" />
-                                      <span className="font-medium">{agentKey.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
-                                    </div>
-                                    <p className="text-muted-foreground ml-5 mt-0.5">{scope}</p>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                          {humanEscalation && (
-                            <div className="pt-2 border-t border-border/50">
-                              <p className="text-xs text-muted-foreground">
-                                <span className="font-medium text-amber-400">Escalates to:</span> {humanEscalation}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </Section>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {escalation && escalation.length > 0 && (
-                  <Card className="border-l-4 border-l-amber-500/40">
-                    <CardContent className="p-5">
-                      <Section icon={AlertTriangle} title="Escalation Triggers" color="text-amber-400">
-                        <ul className="space-y-2">
-                          {escalation.map((e, i) => (
-                            <li key={i} className="flex items-start gap-2.5 text-sm">
-                              <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
-                              <span>{typeof e === "string" ? e : String(e)}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </Section>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

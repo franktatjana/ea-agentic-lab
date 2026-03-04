@@ -473,6 +473,72 @@ role: solution_architect
         - migration_planning
 ```
 
+### Runtime Orchestrator Pattern
+
+When a role decomposes into sub-agents, the parent agent becomes a routing orchestrator. The orchestrator does not execute domain tasks directly. It routes incoming requests to the appropriate sub-agent based on task type, aggregates cross-domain results when a request spans multiple sub-agents, and watches sub-agent outputs for conditions that should trigger follow-up work in a peer sub-agent.
+
+This runtime orchestration is distinct from the design-time [Orchestration Agent](../agents/orchestration-agent.md), which helps humans create and govern agent definitions and playbooks. The runtime orchestrator is a role execution pattern that emerges from holonic decomposition. The design-time Orchestration Agent is a system governance function that operates across all roles.
+
+The AE Agent (`domain/agents/account_executives/ae-agent-definition.yaml`) is the reference implementation of this pattern, with 8 sub-agents, 13 reactive routing rules, and cascade limits preventing infinite routing loops.
+
+---
+
+## Agent Autonomy Model
+
+Agents don't just wait for dispatch. They respond to external events, scheduled cadences, and peer outputs. When a role decomposes into sub-agents, each sub-agent declares an autonomy contract specifying how it activates, what it produces, and where results flow. This makes the activation model explicit and allows sub-agents to operate independently of the orchestrator when appropriate.
+
+The AE role's 8 sub-agents implement this model fully. Every pattern described here is extracted from those definitions.
+
+### Trigger Taxonomy
+
+Sub-agents declare which activation paths they support. Four trigger types exist, and most sub-agents support two or more, making them independently activatable rather than dependent on the orchestrator for every execution.
+
+| Type | Source | Activation | Example |
+|---|---|---|---|
+| `parent_dispatch` | Orchestrator | Orchestrator routes a request based on task type | AE Agent routes deal health request to Deal Diagnosis |
+| `event` | External system | Webhook or data feed fires the agent automatically | CRM stage change triggers Qualification before commit |
+| `schedule` | Time-based | Recurring cadence (daily, weekly, monthly, quarterly) | Weekly full hygiene check across all active opportunities |
+| `downstream` | Peer sub-agent | Output condition from another sub-agent fires this one | Competitive threat from Signal Detection triggers Deal Diagnosis |
+
+Every sub-agent in the AE reference implementation declares `parent_dispatch` as one trigger (maintaining orchestrator routing). Most also declare at least one `event`, `schedule`, or `downstream` trigger, giving them autonomous activation paths.
+
+### Output Taxonomy
+
+Sub-agents produce three types of output. Each output type has a clear destination and purpose, creating a predictable data flow pattern.
+
+| Type | Target | Purpose |
+|---|---|---|
+| `parent_return` | Orchestrator | Results returned for aggregation or human delivery |
+| `trigger_agent` | Peer sub-agent | Condition-based cascade with context forward (payload array) |
+| `notify_human` | Human (AE) | Threshold condition surfaces alert for human review |
+
+The `trigger_agent` output type carries a condition predicate and a payload array. When the condition evaluates to true (e.g., `deal_health.score < 40`), the specified peer agent is triggered with the forwarded context. This creates direct sub-agent-to-sub-agent activation without requiring the orchestrator to mediate every handoff.
+
+### Reactive Routing
+
+When a role uses holonic decomposition, the parent orchestrator can define reactive routing rules that watch sub-agent outputs and route follow-ups to the appropriate peer. Each routing rule specifies four fields:
+
+- **watch**: the source sub-agent whose output is monitored
+- **on**: the condition predicate that triggers the route
+- **route_to**: the target sub-agent that receives the work
+- **context_forward**: the payload array passed to the target
+
+Reactive routing complements the `trigger_agent` output type. The difference: `trigger_agent` is declared by the producing sub-agent (it knows who needs its output), while reactive routing is declared by the orchestrator (it enforces routing contracts that sub-agents may not be aware of). Both mechanisms coexist.
+
+The AE orchestrator defines 13 reactive routing rules covering signal cascades (competitive threat to deal reassessment), health escalations (RED deals to pipeline reprioritization), and data flow (hygiene reports to pipeline context).
+
+### Cascade Limits
+
+Sub-agents triggering each other creates the potential for cascading chains: Signal Detection triggers Deal Diagnosis, which triggers Qualification, which triggers Stakeholder, which triggers Meeting Prep. Without limits, a single event could cascade indefinitely.
+
+The orchestrator declares cascade limits to prevent runaway chains:
+
+- **max_depth**: maximum number of routing hops in a single cascade (default: 3)
+- **max_agents_per_chain**: maximum distinct agents in one cascade (default: 4)
+- **circuit_breaker**: stops the cascade if the same agent is triggered twice in one chain
+
+These limits are enforced at the orchestrator level. Sub-agents don't need to be aware of them.
+
 ---
 
 ## Composition Rules
