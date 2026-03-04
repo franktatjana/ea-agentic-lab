@@ -10,7 +10,7 @@ order: 1
 
 ## Overview
 
-The EA Agentic Lab implements a 41-agent governance system for strategic account management across three layers: 18 strategic agents that exercise judgment and make recommendations (including 8 AE sub-agents operating under a routing orchestrator), 10 governance agents that enforce process and maintain artifacts, and 5 intelligence agents that gather and analyze external signals.
+The EA Agentic Lab implements a 47-agent governance system for strategic account management across three layers: 18 strategic agents that exercise judgment and make recommendations (with 8 AE sub-agents and 6 SA sub-agents operating under routing orchestrators), 10 governance agents that enforce process and maintain artifacts, and 5 intelligence agents that gather and analyze external signals.
 
 All agents operate at **Node level** within the Realm/Node hierarchy. See [core-entities.md](../system/core-entities.md) for entity definitions. For the full domain model, see [domain-model.md](../system/domain-model.md).
 
@@ -22,9 +22,10 @@ All agents operate at **Node level** within the Realm/Node hierarchy. See [core-
 |-------|-------|---------|
 | Strategic Agents | 18 | Apply judgment, use frameworks, make recommendations |
 | AE Sub-Agents | 8 | Specialized functions within the AE orchestrator |
+| SA Sub-Agents | 6 | Specialized functions within the SA orchestrator |
 | Governance Agents | 10 | Enforce process, maintain artifacts, reduce entropy |
 | Intelligence Agents | 5 | Signal processing, market news, trend detection |
-| **Total** | **41** | |
+| **Total** | **47** | |
 
 ```mermaid
 flowchart TB
@@ -154,6 +155,24 @@ Maintain technical integrity through solution design, customer architecture trac
 | SA Agent | solution_architects | Technical architecture, solution design | Implemented |
 | CA Agent | customer_architects | Customer architecture tracking | Configured |
 | Specialist Agent | specialists | Domain expertise | Configured |
+
+### SA Sub-Agent Decomposition
+
+The SA Agent operates as a near-pure router orchestrator (DDR-019 decision #4). It keeps 3 operational runbooks (meeting support, InfoHub validation, specialist engagement) and routes all domain work to 9 sub-agents. Six co-located sub-agents handle SA-domain work, three external sub-agents handle deal execution. The InfoSec Agent is a peer (separate role, separate person), not a sub-agent. Each sub-agent owns its own tools, runbooks, knowledge, guardrails, and autonomy contracts.
+
+| Sub-Agent | Location | Domain |
+|---|---|---|
+| SA Discovery Agent | Co-located | Technical discovery lifecycle, business outcomes, requirements |
+| SA Technical Risk Agent | Co-located | Architecture health, performance, capacity, integration risk |
+| SA Decision Capture Agent | Co-located | Decision extraction, architecture impact, ADR generation |
+| SA CSP Agent | Co-located | Customer Success Plan lifecycle, adoption, CA handoff |
+| SA Best Practices Agent | Co-located | Best practices creation, maintenance, gap analysis |
+| SA Journey Agent | Co-located | Customer journey mapping, touchpoints, CA handoff |
+| POC Agent | External (`poc/`) | POV qualification, execution, conversion |
+| RFP Agent | External (`rfp/`) | Bid decisions, response strategy, orchestration |
+| Specialist Agent | External (`specialists/`) | Domain expertise routing (security, observability, search) |
+
+The orchestrator defines 9 reactive routing rules that cascade outputs between sub-agents and peers (e.g., compliance blocker from InfoSec triggers SA Risk Agent, successful POC triggers SA CSP Agent, specialist handback triggers SA Decision Capture Agent). For the full autonomy model, see [Agent Autonomy Model](../system/domain-model.md#agent-autonomy-model).
 
 ## Deal Execution Agents (3)
 
@@ -408,7 +427,7 @@ Agents communicate via the **InfoHub** at Node level. There is no direct agent-t
 
 ```text
 ea-agentic-lab/
-├── teams/                                   # Agent definitions (41 agents)
+├── teams/                                   # Agent definitions (47 agents)
 │   ├── governance/                          # 8 governance agents
 │   │   └── agents/
 │   │       ├── meeting_notes_agent.yaml

@@ -1,15 +1,15 @@
 ---
 title: "InfoSec Agent"
-description: "Digital twin for questionnaires, gap analysis, risk translation"
+description: "Standalone agent for security questionnaires, compliance gaps, and risk translation"
 category: "reference"
-keywords: ["infosec_agent", "infosec", "agent", "profile", "digital_twin"]
-last_updated: "2026-03-01"
+keywords: ["infosec_agent", "infosec", "agent", "profile", "digital_twin", "standalone"]
+last_updated: "2026-03-04"
 ---
 
 
 # InfoSec Agent
 
-The InfoSec Agent is the digital twin of the InfoSec role. It operates as a single agent with 5 runbooks covering questionnaires, gap analysis, risk translation, deal enablement, and compliance tracking. The InfoSec Agent completes security questionnaires, assesses customer security requirements against vendor capabilities, and translates security concerns into business risk. It classifies compliance gaps using a four-tier framework (blocker, workaround, roadmap, compliant) and finds creative paths to resolve security blockers. The agent operates on the principle that transparency builds trust faster than perfection, and that compensating controls are valid solutions.
+The InfoSec Agent is the digital twin of the InfoSec role, a standalone agent with its own person and responsibility. It operates with 5 runbooks covering questionnaires, gap analysis, risk translation, deal enablement, and compliance tracking. The InfoSec Agent completes security questionnaires, assesses customer security requirements against vendor capabilities, and translates security concerns into business risk. It classifies compliance gaps using a four-tier framework (blocker, workaround, roadmap, compliant) and finds creative paths to resolve security blockers. The agent coordinates with the SA Agent as a peer for architecture context. It operates on the principle that transparency builds trust faster than perfection, and that compensating controls are valid solutions.
 
 Its operating principle: security enables business, doesn't block it.
 
@@ -18,12 +18,14 @@ Its operating principle: security enables business, doesn't block it.
 | Attribute | Value |
 |-----------|-------|
 | **Agent ID** | `infosec-agent` |
+| **Parent Agent** | None (standalone role) |
 | **Role** | InfoSec (Deal Execution) |
 | **Mode** | Human-paired |
 | **Runbooks** | 5 |
 | **Prompts** | 13 |
 | **Operating Modes** | Proactive, Analytical |
 | **Knowledge References** | 2 |
+| **Toolbox** | `compliance-intelligence` |
 
 
 ## Runbooks
@@ -119,6 +121,27 @@ The agent draws on reference knowledge that encodes domain expertise and decisio
 |-----------|---------|-----------|
 | `gap-classification.yaml` | Blocker, Workaround, Roadmap | Gap classification |
 | `signal-detection.yaml` | Security Concerns, Compliance Signals, Industry Specific | Signal detection |
+
+
+## Autonomy
+
+The InfoSec Agent operates as a standalone agent, coordinating with SA and RFP agents as peers.
+
+**Triggers:**
+
+- SA Agent requests security and compliance assessments (peer)
+- RFP Agent routes security requirement sections for completion (peer)
+- Security questionnaire received (SIG, CAIQ, custom)
+
+**Outputs:**
+
+- Returns compliance assessment and gap classification to requesting agent
+- Triggers SA Risk Agent when compliance blockers detected
+- Alerts for blockers and certification status changes
+
+**Dependencies:** None
+
+**Toolbox:** Exposes `get-compliance-status` and `get-gap-assessment` to peer agents via the `compliance-intelligence` toolbox.
 
 
 ## Source Files

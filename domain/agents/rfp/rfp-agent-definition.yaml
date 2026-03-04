@@ -40,7 +40,8 @@ description: The RFP agent orchestrates the full lifecycle of RFP responses, fro
   delivers compliant, compelling responses on deadline. The agent prioritizes winning the right deals
   over winning every deal.
 metadata:
-  definition_version: 0.1.0
+  definition_version: "0.2.0"
+  parent_agent: sa-agent
   disclaimer: This agent specification is a reference design for educational and demonstration purposes.
     It is not a production system. All examples, case studies, and scenarios are fictional.
   tags:
@@ -141,7 +142,34 @@ tools:
     type: string
   x-ea-agent:
     risk: low
-toolboxes: []
+toolboxes:
+  - component_type: Toolbox
+    id: rfp-intelligence
+    name: RFP Intelligence
+    description: RFP lifecycle data available to peer agents for bid context enrichment
+    tools:
+      - id: get-rfp-status
+        name: Get RFP Status
+        description: Returns current RFP response status, deadlines, and progress metrics
+        inputs:
+          - title: account_name
+            type: string
+          - title: rfp_id
+            type: string
+        outputs:
+          - title: rfp_status
+            type: object
+      - id: get-compliance-matrix
+        name: Get Compliance Matrix
+        description: Returns RFP compliance matrix with gap analysis and completion percentage
+        inputs:
+          - title: account_name
+            type: string
+          - title: rfp_id
+            type: string
+        outputs:
+          - title: compliance_matrix
+            type: object
 specialized_agents:
 - component_type: SpecializedAgent
   id: rfp-agent-proactive
@@ -638,11 +666,19 @@ x-ea-agent:
     total_word_limit: 350
     hard_rule: No claim without source evidence
   guardrails:
-    input:
-    - Reject requests without source content or evidence base
-    output:
-    - strict_rules
-    - verification_requirements
+    input_validation:
+    - rule: Reject requests without source content or evidence base
+    - rule: RFP analysis must reference the actual RFP document
+    - rule: Bid decisions require weighted scoring across all criteria
+    output_checks:
+    - rule: All capability claims are verifiable against product documentation
+    - rule: Every deadline includes timezone and buffer assessment
+    - rule: Compliance matrix must be 100% addressed (compliant, gap, or N/A)
+    - rule: Win themes appear consistently across all response sections
+    signal_validation:
+    - rule: Competitive signals must reference specific evidence
+    - rule: Deadline risk alerts require timeline calculation
+    - rule: Win probability changes cite triggering event
     resource:
     - max_tool_calls: 30
   boundaries:
@@ -728,3 +764,41 @@ x-ea-agent:
     - All gaps have mitigation strategies
     - Win themes appear consistently
     - Compliance matrix is complete
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sa-agent
+      description: SA orchestrator routes RFP lifecycle requests
+    - type: event
+      source: crm_webhook
+      condition: opportunity.rfp_received == true
+      description: Auto-activates when RFP is received on an opportunity
+    outputs:
+    - type: parent_return
+      target: sa-agent
+      payload: [bid_decision, win_probability, response_status, compliance_matrix]
+      description: Bid decision and response status back to SA orchestrator
+    - type: trigger_agent
+      target: infosec-agent
+      condition: rfp.has_security_requirements == true
+      payload: [security_questions, compliance_requirements, deadline]
+      description: Security sections of RFP routed to InfoSec for completion
+    - type: trigger_agent
+      target: specialist-agent
+      condition: rfp.technical_depth >= DEEP
+      payload: [technical_requirements, domain_area, response_sections]
+      description: Deep technical RFP sections routed to domain specialists
+    - type: trigger_agent
+      target: poc-agent
+      condition: rfp.requires_poc == true
+      payload: [poc_requirements, success_criteria, timeline]
+      description: RFP-mandated POC triggers POC agent activation
+    - type: notify_human
+      condition: bid_decision == CONDITIONAL OR deadline.buffer_days < 3
+      channel: alert
+      description: Conditional bids and tight deadlines surface for SA/AE review
+    dependencies:
+    - agent: infosec-agent
+      reason: Security and compliance section completion
+    - agent: specialist-agent
+      reason: Deep technical response sections requiring domain expertise

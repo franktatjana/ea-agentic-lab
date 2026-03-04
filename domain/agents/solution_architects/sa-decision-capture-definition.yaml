@@ -1,0 +1,198 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sa-decision-capture-agent
+name: SA Decision Capture Agent
+description: >
+  Captures technical decisions from meetings, frames their architecture impact,
+  and generates Architecture Decision Records (ADRs) when warranted. Ensures
+  every significant technical choice is documented with rationale, alternatives
+  considered, and consequences.
+metadata:
+  definition_version: "0.1.0"
+  parent_agent: sa-agent
+  tags:
+  - decisions
+  - adr
+  - architecture
+  - documentation
+  responsibility: Capture every technical decision with rationale and architecture impact
+system_prompt: |
+  You are a Decision Capture Agent, part of the Solution Architect intelligence
+  system. Your job is to ensure no technical decision goes undocumented.
+
+  You MUST:
+  - Extract decisions from meeting notes with exact attribution (who, what, when)
+  - Assess architecture impact for each decision (scope, reversibility)
+  - Generate ADRs for significant decisions (technology selection, pattern choice, breaking changes)
+  - Cross-reference with existing decision log for conflicts
+  - Separate technical decisions from business decisions
+
+  You MUST NOT:
+  - Generate ADRs for trivial decisions (formatting, naming conventions)
+  - Make technical decisions on behalf of humans
+  - Attribute decisions without clear evidence of who decided
+  - Skip alternatives consideration for significant decisions
+
+  When uncertain about significance: err on the side of documenting,
+  add [REVIEW SIGNIFICANCE] marker.
+
+  Tone: precise, factual, structured.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-sa-data
+  name: Read Solution Data
+  description: Access meeting notes, decision logs, architecture docs
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+- component_type: ClientTool
+  id: write-sa-artifact
+  name: Write Solution Artifact
+  description: Save decision logs and ADRs to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from solution architect
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+toolboxes:
+- component_type: Toolbox
+  id: decision-intelligence
+  name: Decision Intelligence
+  description: Technical decision data available to peer agents for context
+  tools:
+  - id: get-decision-log
+    name: Get Decision Log
+    description: Returns technical decisions for an account with impact classification
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: decisions
+      type: array
+  - id: get-adrs
+    name: Get ADRs
+    description: Returns Architecture Decision Records for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: adrs
+      type: array
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: decision-capture
+  name: Decision Capture
+  description: Capture technical decisions from meetings, frame architecture impact, generate ADRs
+  inputs:
+  - title: meeting_notes
+    type: string
+  - title: architecture_summary
+    type: object
+  - title: decision_log
+    type: array
+  outputs:
+  - title: technical_decisions
+    type: array
+  - title: adrs
+    type: array
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sa-decision-capture-analyze
+      input: meeting_notes
+      description: Extract raw decisions from meeting notes
+    - step: 2
+      prompt: sa-decision-capture-synthesize
+      input: raw_decisions, architecture_summary
+      description: Assess architecture impact of each decision
+    - step: 3
+      prompt: sa-decision-capture-output
+      input: decisions, impact_analysis
+      description: Generate ADRs for significant decisions
+    - step: 4
+      action: persist
+      tools:
+      - write-sa-artifact
+      description: Save decision log and ADRs to InfoHub
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - decision-capture
+    - adr-generation
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - text/markdown
+x-ea-agent:
+  prompt_registry:
+    sa-decision-capture-analyze:
+      description: Extract raw decisions from meeting notes
+      source: prompts/tasks.yaml#decision_capture.extract_decisions
+    sa-decision-capture-synthesize:
+      description: Assess architecture impact of each decision
+      source: prompts/tasks.yaml#decision_capture.decision_impact_analysis
+    sa-decision-capture-output:
+      description: Generate ADRs for significant decisions
+      source: prompts/tasks.yaml#decision_capture.adr_generation
+  guardrails:
+    input_validation:
+    - rule: Decision capture requires meeting notes or discussion content
+    - rule: Architecture impact requires current architecture context
+    output_checks:
+    - rule: Each decision has architecture impact assessment
+    - rule: ADR recommendation provided for each decision (YES/NO with rationale)
+    - rule: Alternatives documented for significant decisions
+    signal_validation:
+    - rule: Decision attribution must cite specific evidence
+    - rule: Conflict detection must reference existing decision log entries
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sa-agent
+      description: SA orchestrator routes decision capture requests
+    - type: event
+      source: meeting_ended
+      condition: meeting.type IN [technical_review, architecture_workshop, design_session]
+      description: Auto-activates after technical meetings to capture decisions
+    outputs:
+    - type: parent_return
+      target: sa-agent
+      payload: [technical_decisions, adrs, conflicts_detected]
+      description: Decision log and ADRs back to SA orchestrator
+    - type: notify_human
+      condition: decision.reversibility == IRREVERSIBLE OR decision.conflicts_existing == true
+      channel: alert
+      description: Irreversible decisions and conflicts surface for SA review
+    dependencies: []

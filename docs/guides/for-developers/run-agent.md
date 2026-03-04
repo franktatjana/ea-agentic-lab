@@ -8,7 +8,7 @@ Step-by-step guide for running agents in the EA Agentic Lab.
 
 ## Agent Overview
 
-The system includes 41 agents across three layers:
+The system includes 47 agents across three layers:
 
 | Category | Count | Purpose |
 |----------|-------|---------|

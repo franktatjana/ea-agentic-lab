@@ -1,0 +1,238 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sa-discovery-agent
+name: SA Discovery Agent
+description: >
+  Conducts structured technical discovery covering business outcomes, current state,
+  requirements, stakeholders, and timeline. Synthesizes findings into actionable
+  summaries that drive architecture recommendations and solution design.
+metadata:
+  definition_version: "0.1.0"
+  parent_agent: sa-agent
+  tags:
+  - discovery
+  - requirements
+  - architecture
+  - stakeholders
+  responsibility: Conduct thorough technical discovery and produce actionable synthesis
+system_prompt: |
+  You are a Technical Discovery Agent, part of the Solution Architect intelligence
+  system. Your job is to conduct structured discovery across five dimensions.
+
+  You MUST:
+  - Cover all discovery dimensions: business outcomes, current state, requirements, stakeholders, timeline
+  - Link every requirement to a business driver
+  - Identify red flags in current state and requirements
+  - Map stakeholder roles, influence, and engagement willingness
+  - Synthesize into actionable summary with recommended next steps
+  - Flag gaps that need follow-up discovery sessions
+
+  You MUST NOT:
+  - Assess commercial viability (AE Agent's domain)
+  - Design solutions during discovery (premature commitment)
+  - Skip stakeholder mapping even for "technical-only" engagements
+  - Assume requirements without customer validation
+
+  When uncertain: document the gap, suggest discovery questions to resolve it,
+  add [NEEDS DISCOVERY] marker.
+
+  Tone: curious, structured, thorough.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-sa-data
+  name: Read Solution Data
+  description: Access Slack technical channels, meeting notes, CRM data
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+- component_type: ClientTool
+  id: write-sa-artifact
+  name: Write Solution Artifact
+  description: Save discovery summaries and technical profiles to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from solution architect
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+toolboxes:
+- component_type: Toolbox
+  id: discovery-intelligence
+  name: Discovery Intelligence
+  description: Discovery findings available to peer agents for engagement context
+  tools:
+  - id: get-discovery-summary
+    name: Get Discovery Summary
+    description: Returns synthesized discovery findings for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: discovery_summary
+      type: object
+  - id: get-stakeholder-map
+    name: Get Stakeholder Map
+    description: Returns technical stakeholder map with roles and influence
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: stakeholder_map
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: technical-discovery
+  name: Technical Discovery
+  description: Conduct structured technical discovery covering business outcomes, current state, requirements,
+    stakeholders, and timeline
+  inputs:
+  - title: account_context
+    type: object
+  - title: meeting_agenda
+    type: string
+  - title: attendees
+    type: array
+  outputs:
+  - title: discovery_summary
+    type: object
+  - title: discovery_prep
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sa-discovery-preparation
+      input: account_name, opportunity_name
+      description: Prepare discovery session with account context and research
+    - step: 2
+      prompt: sa-business-outcomes-discovery
+      input: account_name
+      description: Discover business outcomes, success metrics, and drivers
+    - step: 3
+      prompt: sa-current-state-discovery
+      input: account_name
+      description: Map current technical landscape, pain points, and workarounds
+    - step: 4
+      prompt: sa-requirements-discovery
+      input: account_name
+      description: Gather and prioritize requirements using MoSCoW
+    - step: 5
+      prompt: sa-stakeholder-discovery
+      input: account_name, attendees
+      description: Map stakeholder roles, influence, and engagement willingness
+    - step: 6
+      prompt: sa-timeline-discovery
+      input: account_name
+      description: Establish milestones, dependencies, and deadline drivers
+    - step: 7
+      prompt: sa-discovery-synthesis
+      input: account_name
+      description: Synthesize all discovery dimensions into actionable summary
+    - step: 8
+      prompt: sa-discovery-debrief
+      input: account_name
+      description: Post-discovery debrief, gap analysis, and next steps
+    - step: 9
+      action: persist
+      tools:
+      - write-sa-artifact
+      description: Save discovery summary to InfoHub
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - technical-discovery
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - text/markdown
+x-ea-agent:
+  prompt_registry:
+    sa-discovery-preparation:
+      description: Prepare for structured technical discovery session
+      source: prompts/tasks.yaml#technical_discovery.discovery_preparation
+    sa-business-outcomes-discovery:
+      description: Discover business outcomes and success metrics
+      source: prompts/tasks.yaml#technical_discovery.business_outcomes_discovery
+    sa-current-state-discovery:
+      description: Map current technical landscape
+      source: prompts/tasks.yaml#technical_discovery.current_state_discovery
+    sa-requirements-discovery:
+      description: Gather and prioritize requirements
+      source: prompts/tasks.yaml#technical_discovery.requirements_discovery
+    sa-stakeholder-discovery:
+      description: Map stakeholder roles and influence
+      source: prompts/tasks.yaml#technical_discovery.stakeholder_discovery
+    sa-timeline-discovery:
+      description: Establish milestones and dependencies
+      source: prompts/tasks.yaml#technical_discovery.timeline_discovery
+    sa-discovery-synthesis:
+      description: Synthesize findings into actionable summary
+      source: prompts/tasks.yaml#technical_discovery.discovery_synthesis
+    sa-discovery-debrief:
+      description: Post-discovery debrief and next steps
+      source: prompts/tasks.yaml#technical_discovery.discovery_debrief
+  guardrails:
+    input_validation:
+    - rule: Discovery must reference a specific account and opportunity
+    - rule: Reject requests without meeting context or account background
+    output_checks:
+    - rule: Every requirement traces to a business driver
+    - rule: Stakeholder map covers all decision and influence roles
+    - rule: Timeline accounts for dependencies and resource constraints
+    signal_validation:
+    - rule: Red flags must reference specific evidence from discovery
+    - rule: Gap claims identify what information is missing and how to get it
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sa-agent
+      description: SA orchestrator routes discovery requests
+    - type: event
+      source: crm_webhook
+      condition: opportunity.stage == STAGE_1 AND opportunity.type == new_business
+      description: Auto-activates for new business opportunities entering pipeline
+    outputs:
+    - type: parent_return
+      target: sa-agent
+      payload: [discovery_summary, stakeholder_map, requirements, gaps]
+      description: Full discovery synthesis back to SA orchestrator
+    - type: trigger_agent
+      target: sa-csp-agent
+      condition: opportunity.stage >= STAGE_2 AND opportunity.arr >= 100000
+      payload: [discovery_summary, requirements, stakeholders]
+      description: Discovery completion triggers CSP initiation for qualifying deals
+    - type: notify_human
+      condition: discovery.critical_gaps > 0 OR discovery.red_flags > 2
+      channel: alert
+      description: Critical gaps or multiple red flags surface for SA review
+    dependencies: []

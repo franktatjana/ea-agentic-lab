@@ -769,7 +769,7 @@ function DefinitionDetail({
   const knowledgeRefs = (knowledge as Record<string, unknown>)?.references as Array<Record<string, unknown>> | undefined;
   const context = ext?.context as Record<string, unknown> | undefined;
   const autonomy = ext?.autonomy as Record<string, unknown> | undefined;
-  const isOrchestrator = autonomy?.role === "orchestrator";
+  const isOrchestrator = autonomy?.role === "orchestrator" || autonomy?.role === "near_pure_router";
   const routingRules = (autonomy?.reactive_routing ?? []) as RoutingRule[];
   const cascadeLimits = autonomy?.cascade_limits as Record<string, unknown> | undefined;
 
@@ -781,7 +781,9 @@ function DefinitionDetail({
   const validation = ext?.validation as Record<string, unknown> | undefined;
   const outputConstraints = validation?.output_constraints as Record<string, unknown> | undefined;
   const humanInTheLoopConditions = ext?.human_in_the_loop_conditions as string[] | undefined;
-  const subAgentsDef = ext?.sub_agents as Array<Record<string, unknown>> | undefined;
+  const profile = ext?.profile as Record<string, unknown> | undefined;
+  const subAgentsDef = (profile?.sub_agents ?? ext?.sub_agents) as Array<Record<string, unknown>> | undefined;
+  const peerAgentsDef = (profile?.peer_agents ?? ext?.peer_agents) as Array<Record<string, unknown>> | undefined;
 
   const parentAgent = def.metadata?.parent_agent as string | undefined;
   const isHumanPaired = def.human_in_the_loop;
@@ -930,8 +932,8 @@ function DefinitionDetail({
               <div className="flex items-center justify-end mb-2">
                 <span className="text-xs text-muted-foreground">Click a runbook to expand its prompt chain</span>
               </div>
-              {/* Permissions & Boundaries */}
-              {(permissions?.length || boundaries?.length) ? (
+              {/* Permissions & Boundaries (top-level agents only) */}
+              {!parentAgent && (permissions?.length || boundaries?.length) ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {permissions && permissions.length > 0 && (
                     <div className="bg-muted/50 rounded-xl border border-green-500/20 p-3">
@@ -1200,6 +1202,35 @@ function DefinitionDetail({
                       <span className="text-xs font-medium truncate">{String(sa.name ?? sa.id ?? "")}</span>
                     </div>
                     <p className="text-xs text-muted-foreground line-clamp-2">{String(sa.purpose ?? "")}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Peer Agents (from x-ea-agent.profile) */}
+          {peerAgentsDef && peerAgentsDef.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Bot className="h-3 w-3" /> Peer Agents
+                <HelpPopover title="Peer Agents">Independent agents representing separate roles that coordinate with this agent as equals. Each peer has its own person and responsibilities.</HelpPopover>
+                <Badge variant="secondary" className="text-xs ml-1">{peerAgentsDef.length}</Badge>
+              </h3>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                {peerAgentsDef.map((pa, i) => (
+                  <Link
+                    key={i}
+                    href={`/agents/definitions?agent=${pa.id ?? ""}`}
+                    className="bg-muted/50 rounded-md p-2.5 hover:bg-muted/80 transition-colors border border-blue-500/20"
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Bot className="h-3 w-3 text-blue-400 shrink-0" />
+                      <span className="text-xs font-medium truncate">{String(pa.name ?? pa.id ?? "")}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{String(pa.purpose ?? "")}</p>
+                    {pa.relationship ? (
+                      <p className="text-xs text-blue-400/70 mt-1 truncate">{String(pa.relationship)}</p>
+                    ) : null}
                   </Link>
                 ))}
               </div>

@@ -1,0 +1,211 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sa-csp-agent
+name: SA Customer Success Plan Agent
+description: >
+  Manages the Customer Success Plan lifecycle from initiation at Stage 2 through
+  technical evaluation, adoption planning, finalization, and handoff to Customer
+  Architect at deal close. Ensures every qualifying deal has a structured path
+  from purchase to value realization.
+metadata:
+  definition_version: "0.1.0"
+  parent_agent: sa-agent
+  tags:
+  - csp
+  - customer-success
+  - adoption
+  - handoff
+  responsibility: Build and maintain Customer Success Plans that bridge pre-sales to post-sales
+system_prompt: |
+  You are a Customer Success Plan Agent, part of the Solution Architect intelligence
+  system. Your job is to build success plans that survive the handoff.
+
+  You MUST:
+  - Initiate CSP when opportunity enters Stage 2 with ARR > $100K
+  - Include technical evaluation plan with measurable milestones
+  - Define phased adoption plan aligned to customer timeline
+  - Prepare for customer presentation with executive-appropriate language
+  - Prepare handoff package for CA with full context (no information loss)
+
+  You MUST NOT:
+  - Create CSPs for deals below $100K ARR (unless explicitly requested)
+  - Promise capabilities not validated during evaluation
+  - Skip adoption phasing (big-bang rollouts fail)
+  - Hand off without confirming CA availability and readiness
+
+  When uncertain about timeline or scope: document assumptions,
+  flag for customer validation in next meeting.
+
+  Tone: structured, outcome-focused, customer-ready.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-sa-data
+  name: Read Solution Data
+  description: Access opportunity data, discovery summaries, evaluation results
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+- component_type: ClientTool
+  id: write-sa-artifact
+  name: Write Solution Artifact
+  description: Save CSP documents and handoff packages to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from solution architect
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+toolboxes:
+- component_type: Toolbox
+  id: csp-intelligence
+  name: CSP Intelligence
+  description: Customer Success Plan data available to peer agents
+  tools:
+  - id: get-csp-status
+    name: Get CSP Status
+    description: Returns current CSP status, milestones, and readiness for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: csp_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: customer-success-plan
+  name: Customer Success Plan
+  description: Full CSP lifecycle from initiation through handoff to Customer Architect
+  inputs:
+  - title: account_name
+    type: string
+  - title: opportunity_name
+    type: string
+  - title: opportunity_arr
+    type: string
+  - title: discovery_summary
+    type: string
+  - title: ca_name
+    type: string
+  outputs:
+  - title: customer_success_plan_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sa-initiate-csp
+      input: opportunity_name, account_name, opportunity_arr, discovery_summary
+      description: Start CSP when opportunity enters Stage 2 with ARR > $100K
+    - step: 2
+      prompt: sa-develop-csp-technical
+      input: account_name, outcomes, technical_findings, vendor
+      description: Add technical evaluation plan to CSP
+    - step: 3
+      prompt: sa-develop-csp-adoption
+      input: account_name, use_cases, timeline
+      description: Define phased adoption plan in CSP
+    - step: 4
+      prompt: sa-finalize-csp
+      input: account_name, csp_summary, eval_status
+      description: Complete CSP and prepare for customer presentation
+    - step: 5
+      prompt: sa-csp-handoff-prep
+      input: account_name, csp_link, ca_name
+      description: Prepare CSP handoff from SA to CA at deal close
+    - step: 6
+      action: persist
+      tools:
+      - write-sa-artifact
+      description: Save CSP and handoff package to InfoHub
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - csp-initiation
+    - csp-development
+    - csp-handoff
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - text/markdown
+x-ea-agent:
+  prompt_registry:
+    sa-initiate-csp:
+      description: Start CSP when opportunity enters Stage 2
+      source: prompts/tasks.yaml#customer_success_plan.initiate_csp
+    sa-develop-csp-technical:
+      description: Add technical evaluation plan to CSP
+      source: prompts/tasks.yaml#customer_success_plan.develop_csp_technical
+    sa-develop-csp-adoption:
+      description: Define phased adoption plan in CSP
+      source: prompts/tasks.yaml#customer_success_plan.develop_csp_adoption
+    sa-finalize-csp:
+      description: Complete CSP and prepare for presentation
+      source: prompts/tasks.yaml#customer_success_plan.finalize_csp
+    sa-csp-handoff-prep:
+      description: Prepare CSP handoff from SA to CA
+      source: prompts/tasks.yaml#customer_success_plan.csp_handoff_prep
+  guardrails:
+    input_validation:
+    - rule: CSP initiation requires opportunity ARR and stage data
+    - rule: Technical plan requires validated discovery findings
+    output_checks:
+    - rule: Adoption plan includes phased rollout with milestones
+    - rule: Handoff package includes all context needed by CA
+    - rule: No capabilities promised that were not validated during evaluation
+    signal_validation:
+    - rule: Stage progression must reference CRM data
+    - rule: ARR threshold must be verified before CSP initiation
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sa-agent
+      description: SA orchestrator routes CSP lifecycle requests
+    - type: event
+      source: crm_webhook
+      condition: opportunity.stage == STAGE_2 AND opportunity.arr >= 100000
+      description: Auto-initiates CSP when qualifying deal reaches Stage 2
+    - type: downstream
+      source: poc-agent
+      condition: poc.outcome == SUCCESS
+      payload: [poc_results, customer_requirements]
+      description: Successful POC triggers CSP technical plan development
+    outputs:
+    - type: parent_return
+      target: sa-agent
+      payload: [csp_status, adoption_plan, handoff_readiness]
+      description: CSP status and readiness back to SA orchestrator
+    - type: notify_human
+      condition: csp.handoff_ready == true OR csp.blocker_detected == true
+      channel: alert
+      description: Handoff readiness and blockers surface for SA review
+    dependencies: []

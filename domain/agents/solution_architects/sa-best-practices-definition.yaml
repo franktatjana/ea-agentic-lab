@@ -1,0 +1,212 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sa-best-practices-agent
+name: SA Best Practices Agent
+description: >
+  Manages the best practices knowledge base: creates new practices from the standard
+  template, prepares meeting content from practices, generates Q&A sections, updates
+  existing practices with new information, and identifies gaps in coverage by solution area.
+metadata:
+  definition_version: "0.1.0"
+  parent_agent: sa-agent
+  tags:
+  - best-practices
+  - knowledge
+  - documentation
+  - gap-analysis
+  responsibility: Maintain a current, complete, and actionable best practices knowledge base
+system_prompt: |
+  You are a Best Practices Agent, part of the Solution Architect intelligence
+  system. Your job is to keep the knowledge base useful and current.
+
+  You MUST:
+  - Follow the standard template structure for all new best practices
+  - Ensure every recommendation cites product documentation or validated testing
+  - Include common pitfalls with specific symptoms and remediation
+  - Verify currency (compatible with current product version, no deprecated features)
+  - Prioritize gaps by customer frequency and deal impact
+
+  You MUST NOT:
+  - Create practices for deprecated features or versions
+  - Include unverified recommendations (every claim needs a source)
+  - Skip the Q&A section (customers always have questions)
+  - Duplicate content that exists in product documentation
+
+  When uncertain about a recommendation: add [NEEDS VALIDATION] marker,
+  cite the closest documentation reference.
+
+  Tone: instructional, practical, reproducible.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-sa-data
+  name: Read Solution Data
+  description: Access best practice library, product docs, customer feedback
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+- component_type: ClientTool
+  id: write-sa-artifact
+  name: Write Solution Artifact
+  description: Save best practices and gap reports to knowledge base
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from solution architect
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+toolboxes:
+- component_type: Toolbox
+  id: best-practices-intelligence
+  name: Best Practices Intelligence
+  description: Best practice content available to peer agents for meeting prep and customer guidance
+  tools:
+  - id: get-best-practice
+    name: Get Best Practice
+    description: Returns best practice content for a solution area or topic
+    inputs:
+    - title: topic
+      type: string
+    outputs:
+    - title: best_practice
+      type: object
+  - id: get-practice-gaps
+    name: Get Practice Gaps
+    description: Returns gap analysis showing missing best practices by solution area
+    inputs:
+    - title: solution_area
+      type: string
+    outputs:
+    - title: gaps
+      type: array
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: best-practices
+  name: Best Practices
+  description: Create, update, and maintain best practices knowledge base
+  inputs:
+  - title: best_practice_topic
+    type: string
+  - title: solution_area
+    type: string
+  - title: account_name
+    type: string
+  - title: customer_context
+    type: string
+  outputs:
+  - title: best_practices_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sa-create-best-practice
+      input: topic, solution_area, audience
+      description: Document a new best practice following the standard template
+    - step: 2
+      prompt: sa-meeting-prep-from-best-practice
+      input: account_name, meeting_topic, best_practice_name, customer_context
+      description: Prepare for customer meeting using best practice content
+    - step: 3
+      prompt: sa-generate-qa-content
+      input: best_practice_topic, existing_qa, recent_interactions
+      description: Create or update Q&A section for a best practice
+    - step: 4
+      prompt: sa-update-best-practice
+      input: topic, current_version_link, new_info
+      description: Refresh best practice with new information
+    - step: 5
+      prompt: sa-best-practice-gap-analysis
+      input: solution_area, existing_list, use_cases
+      description: Identify missing best practices for solution area
+    - step: 6
+      action: persist
+      tools:
+      - write-sa-artifact
+      description: Save best practice content to knowledge base
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - best-practice-creation
+    - best-practice-maintenance
+    - gap-analysis
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - text/markdown
+x-ea-agent:
+  prompt_registry:
+    sa-create-best-practice:
+      description: Document a new best practice
+      source: prompts/tasks.yaml#best_practices.create_best_practice
+    sa-meeting-prep-from-best-practice:
+      description: Prepare meeting content from best practices
+      source: prompts/tasks.yaml#best_practices.meeting_prep_from_best_practice
+    sa-generate-qa-content:
+      description: Create or update Q&A section
+      source: prompts/tasks.yaml#best_practices.generate_qa_content
+    sa-update-best-practice:
+      description: Refresh best practice with new information
+      source: prompts/tasks.yaml#best_practices.update_best_practice
+    sa-best-practice-gap-analysis:
+      description: Identify missing best practices
+      source: prompts/tasks.yaml#best_practices.best_practice_gap_analysis
+  guardrails:
+    input_validation:
+    - rule: New practices require solution area and target audience
+    - rule: Updates must reference the current version being modified
+    output_checks:
+    - rule: Every recommendation cites documentation or validated testing
+    - rule: Implementation steps are reproducible without vendor assistance
+    - rule: Pitfalls include specific symptoms and remediation
+    signal_validation:
+    - rule: Currency claims must reference product version compatibility
+    - rule: Gap prioritization must cite customer frequency data
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sa-agent
+      description: SA orchestrator routes best practice requests
+    - type: event
+      source: product_release
+      condition: release.has_breaking_changes == true
+      description: Product releases with breaking changes trigger practice review
+    outputs:
+    - type: parent_return
+      target: sa-agent
+      payload: [practice_content, gap_report, update_summary]
+      description: Best practice content back to SA orchestrator
+    - type: notify_human
+      condition: practice.has_deprecated_content == true OR gap.priority == HIGH
+      channel: alert
+      description: Deprecated content and high-priority gaps surface for SA review
+    dependencies: []

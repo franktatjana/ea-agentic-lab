@@ -1,0 +1,227 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sa-journey-agent
+name: SA Customer Journey Agent
+description: >
+  Maps the customer journey from first touch through deal close. Documents touchpoints
+  after discovery meetings, creates stakeholder-specific journey views, tracks POV/POC
+  evaluation touchpoints, captures qualitative feedback, and prepares journey map
+  handoff to Customer Architect at deal close.
+metadata:
+  definition_version: "0.1.0"
+  parent_agent: sa-agent
+  tags:
+  - customer-journey
+  - touchpoints
+  - feedback
+  - handoff
+  responsibility: Build and maintain customer journey maps that capture the full pre-sales experience
+system_prompt: |
+  You are a Customer Journey Agent, part of the Solution Architect intelligence
+  system. Your job is to map the customer experience through every touchpoint.
+
+  You MUST:
+  - Initiate journey mapping when opportunity enters Stage 2
+  - Document every touchpoint with date, participants, topics, and outcomes
+  - Create stakeholder-specific views showing their individual journey
+  - Capture qualitative feedback (sentiment, friction points, highlights)
+  - Prepare complete handoff to CA with no information gaps
+
+  You MUST NOT:
+  - Skip touchpoint documentation for "routine" meetings
+  - Fabricate feedback not expressed by the customer
+  - Merge stakeholder journeys (each person has a different experience)
+  - Hand off without journey completeness check
+
+  When uncertain about sentiment: quote the exact customer statement,
+  do not interpret mood or intent beyond what was said.
+
+  Tone: empathetic, observational, detail-oriented.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-sa-data
+  name: Read Solution Data
+  description: Access meeting notes, CRM activity, customer communications
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+- component_type: ClientTool
+  id: write-sa-artifact
+  name: Write Solution Artifact
+  description: Save journey maps and handoff packages to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from solution architect
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+toolboxes:
+- component_type: Toolbox
+  id: journey-intelligence
+  name: Journey Intelligence
+  description: Customer journey data available to peer agents for relationship context
+  tools:
+  - id: get-journey-map
+    name: Get Journey Map
+    description: Returns customer journey map with touchpoints and sentiment
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: journey_map
+      type: object
+  - id: get-stakeholder-journey
+    name: Get Stakeholder Journey
+    description: Returns journey view for a specific stakeholder
+    inputs:
+    - title: account_name
+      type: string
+    - title: stakeholder_name
+      type: string
+    outputs:
+    - title: stakeholder_journey
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: customer-journey
+  name: Customer Journey
+  description: Map customer journey from first touch through deal close and handoff
+  inputs:
+  - title: account_name
+    type: string
+  - title: attendees
+    type: string
+  - title: ca_name
+    type: string
+  - title: interactions
+    type: string
+  outputs:
+  - title: customer_journey_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sa-initiate-journey-map
+      input: opportunity_name, account_name, first_touch, stakeholders
+      description: Start journey mapping when opportunity enters Stage 2
+    - step: 2
+      prompt: sa-map-discovery-touchpoints
+      input: account_name, meeting_date, attendees, topics
+      description: Document touchpoints after discovery meetings
+    - step: 3
+      prompt: sa-map-stakeholder-journeys
+      input: account_name, stakeholders, interactions
+      description: Create detailed journey view per key stakeholder
+    - step: 4
+      prompt: sa-map-evaluation-journey
+      input: account_name, pov_type, start_date, end_date
+      description: Document POV/POC journey touchpoints
+    - step: 5
+      prompt: sa-journey-handoff-to-ca
+      input: account_name, ca_name, journey_map_link, csp_link
+      description: Prepare journey map handoff at deal close
+    - step: 6
+      prompt: sa-capture-presales-feedback
+      input: account_name, type, date, participants
+      description: Document qualitative feedback from customer interactions
+    - step: 7
+      action: persist
+      tools:
+      - write-sa-artifact
+      description: Save journey map and handoff package to InfoHub
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - journey-mapping
+    - touchpoint-documentation
+    - stakeholder-journeys
+    - journey-handoff
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - text/markdown
+x-ea-agent:
+  prompt_registry:
+    sa-initiate-journey-map:
+      description: Start journey mapping at Stage 2
+      source: prompts/tasks.yaml#customer_journey.initiate_journey_map
+    sa-map-discovery-touchpoints:
+      description: Document touchpoints after discovery
+      source: prompts/tasks.yaml#customer_journey.map_discovery_touchpoints
+    sa-map-stakeholder-journeys:
+      description: Create stakeholder-specific journey views
+      source: prompts/tasks.yaml#customer_journey.map_stakeholder_journeys
+    sa-map-evaluation-journey:
+      description: Document POV/POC evaluation touchpoints
+      source: prompts/tasks.yaml#customer_journey.map_evaluation_journey
+    sa-journey-handoff-to-ca:
+      description: Prepare journey map handoff at deal close
+      source: prompts/tasks.yaml#customer_journey.journey_handoff_to_ca
+    sa-capture-presales-feedback:
+      description: Capture qualitative feedback from customer interactions
+      source: prompts/tasks.yaml#customer_journey.capture_presales_feedback
+  guardrails:
+    input_validation:
+    - rule: Touchpoints require specific date, participants, and context
+    - rule: Journey initiation requires opportunity and stakeholder data
+    output_checks:
+    - rule: Every touchpoint has date, participants, topics, and outcomes
+    - rule: Stakeholder journeys are individual, not merged
+    - rule: Handoff package passes completeness check
+    signal_validation:
+    - rule: Sentiment claims quote exact customer statements
+    - rule: Friction points reference specific observed behavior
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sa-agent
+      description: SA orchestrator routes journey mapping requests
+    - type: event
+      source: crm_webhook
+      condition: opportunity.stage == STAGE_2
+      description: Journey mapping auto-initiates at Stage 2
+    - type: event
+      source: meeting_ended
+      condition: meeting.has_customer == true
+      description: Customer meetings trigger touchpoint documentation
+    outputs:
+    - type: parent_return
+      target: sa-agent
+      payload: [journey_map, touchpoints, feedback_summary]
+      description: Journey data back to SA orchestrator
+    - type: notify_human
+      condition: journey.handoff_ready == true OR journey.negative_feedback_count > 2
+      channel: alert
+      description: Handoff readiness and negative feedback patterns surface for SA review
+    dependencies: []

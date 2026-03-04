@@ -111,9 +111,9 @@ Detailed instructions: [How to Run a Playbook](guides/for-developers/run-playboo
 
 Agents operate within human-defined constraints. They have agency within their scope, but you make the decisions. Each agent has a personality definition that controls its behavior, thresholds, and escalation rules. You interact with agent outputs (alerts, summaries, canvases, prompts) rather than directing them step by step.
 
-The system has 41 agents across three layers:
+The system has 47 agents across three layers:
 
-- **Strategic agents (18)** handle customer-facing work: deal governance (AE), technical integrity (SA), customer architecture (CA), competitive intelligence (CI), value engineering (VE), and more. The AE Agent operates as a routing orchestrator with 8 specialized sub-agents (deal diagnosis, pipeline management, stakeholder intelligence, signal detection, qualification, meeting prep, opportunity hygiene, pipeline generation). Each agent has defined decision authority, for example the AE Agent handles deals up to $500K autonomously, escalating larger deals to the Senior Manager Agent
+- **Strategic agents (18)** handle customer-facing work: deal governance (AE), technical integrity (SA), customer architecture (CA), competitive intelligence (CI), value engineering (VE), and more. The AE Agent operates as a routing orchestrator with 8 specialized sub-agents. The SA Agent operates as a near-pure router with 9 sub-agents (6 co-located for discovery, risk, decisions, CSP, best practices, journey + 3 external for POC, RFP, specialist engagement). Each agent has defined decision authority, for example the AE Agent handles deals up to $500K autonomously, escalating larger deals to the Senior Manager Agent
 - **Governance agents (10)** reduce entropy: Meeting Notes Agent extracts structured artifacts from meeting notes, Task Shepherd validates every action has an owner and due date, Nudger follows up on overdue items with predictable escalation (Day +1 reminder, Day +3 to manager, Day +5 to governance lead), Risk Radar tracks risk state transitions within defined SLAs, plus Knowledge Vault Curator, InfoHub Curator, Playbook Curator, and Signal Matcher
 - **Intelligence agents (5)** gather and analyze external signals: Account Company Intelligence, Industry Intelligence, Market News Analysis, Tech Signal Scanner, and Tech Signal Analyzer
 

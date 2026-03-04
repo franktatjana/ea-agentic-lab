@@ -1,9 +1,9 @@
 ---
 title: "POC Agent"
-description: "Digital twin for pov qualification, pov kickoff, pov execution"
+description: "Sub-agent of SA for POV qualification, execution, and conversion"
 category: "reference"
-keywords: ["poc_agent", "poc", "agent", "profile", "digital_twin"]
-last_updated: "2026-03-01"
+keywords: ["poc_agent", "poc", "agent", "profile", "digital_twin", "sub-agent"]
+last_updated: "2026-03-04"
 ---
 
 
@@ -18,12 +18,14 @@ Its operating principle: poc is a buying process, not a science experiment.
 | Attribute | Value |
 |-----------|-------|
 | **Agent ID** | `poc-agent` |
+| **Parent Agent** | `sa-agent` (Solution Architect) |
 | **Role** | POC (Deal Execution) |
 | **Mode** | Human-paired |
 | **Runbooks** | 7 |
 | **Prompts** | 37 |
 | **Operating Modes** | Proactive, Analytical |
 | **Knowledge References** | 4 |
+| **Toolbox** | `poc-intelligence` |
 
 
 ## Runbooks
@@ -164,11 +166,33 @@ The agent draws on reference knowledge that encodes domain expertise and decisio
 | `target-metrics.yaml` | Conversion Rate, Avg Duration, Success Criteria Achievement | Target metrics |
 
 
+## Autonomy
+
+The POC Agent operates under the SA orchestrator with the following autonomy contract.
+
+**Triggers:**
+
+- SA orchestrator dispatches POC lifecycle requests
+- CRM webhook fires when POC is requested on an opportunity
+- RFP Agent identifies need for proof-of-concept validation
+
+**Outputs:**
+
+- Returns POC status and results to SA orchestrator
+- Triggers CSP initiation on SA when POC succeeds (ARR >= $100K)
+- Triggers Specialist Agent when technical risk is HIGH
+- Alerts SA for no-go decisions and high-risk POCs
+
+**Dependencies:** Specialist Agent (domain expertise), InfoSec Agent (compliance)
+
+**Toolbox:** Exposes `get-poc-status` and `get-poc-results` to peer agents via the `poc-intelligence` toolbox.
+
+
 ## Source Files
 
 | File | Purpose |
 |------|---------|
-| `domain/agents/poc/poc-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/poc/poc-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails, autonomy |
 | `domain/agents/poc/agents/poc_agent.yaml` | Agent configuration |
 | `domain/agents/poc/personalities/poc_personality.yaml` | Behavioral specification |
 | `domain/agents/poc/prompts/tasks.yaml` | 37 CAF prompts across 7 domains |

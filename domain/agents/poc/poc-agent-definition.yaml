@@ -38,7 +38,8 @@ description: The PoC agent owns the end-to-end lifecycle of proof-of-concept eva
   through decision. It treats every POC as a buying process, applying structured criteria to ensure only
   winnable evaluations consume resources and that each evaluation drives to a clear customer decision.
 metadata:
-  definition_version: 0.1.0
+  definition_version: "0.2.0"
+  parent_agent: sa-agent
   disclaimer: This agent specification is a reference design for educational and demonstration purposes.
     It is not a production system. All examples, case studies, and scenarios are fictional.
   tags:
@@ -139,7 +140,34 @@ tools:
     type: string
   x-ea-agent:
     risk: low
-toolboxes: []
+toolboxes:
+  - component_type: Toolbox
+    id: poc-intelligence
+    name: POC Intelligence
+    description: POC lifecycle data available to peer agents for deal context enrichment
+    tools:
+      - id: get-poc-status
+        name: Get POC Status
+        description: Returns current POC status, milestones, and health indicators for an account
+        inputs:
+          - title: account_name
+            type: string
+          - title: opportunity_id
+            type: string
+        outputs:
+          - title: poc_status
+            type: object
+      - id: get-poc-results
+        name: Get POC Results
+        description: Returns POC success criteria results and conversion readiness assessment
+        inputs:
+          - title: account_name
+            type: string
+          - title: opportunity_id
+            type: string
+        outputs:
+          - title: poc_results
+            type: object
 specialized_agents:
 - component_type: SpecializedAgent
   id: poc-agent-proactive
@@ -1097,11 +1125,19 @@ x-ea-agent:
     total_word_limit: 350
     hard_rule: No claim without source evidence
   guardrails:
-    input:
-    - Reject requests without source content or evidence base
-    output:
-    - strict_rules
-    - verification_requirements
+    input_validation:
+    - rule: Reject requests without source content or evidence base
+    - rule: POC scope must reference a specific opportunity
+    - rule: Success criteria must be measurable and time-bound
+    output_checks:
+    - rule: All qualification decisions cite specific go/no-go criteria
+    - rule: Every risk includes mitigation action and owner
+    - rule: POC timelines include all milestone dates
+    - rule: Conversion recommendations reference success criteria results
+    signal_validation:
+    - rule: POC health signals must reference observable evidence
+    - rule: Stall indicators require minimum 2 data points
+    - rule: Customer sentiment claims cite specific interactions
     resource:
     - max_tool_calls: 30
   boundaries:
@@ -1192,3 +1228,41 @@ x-ea-agent:
     - All stakeholders identified
     - Go/no-go rationale documented
     - Risks have mitigations
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sa-agent
+      description: SA orchestrator routes POC lifecycle requests
+    - type: event
+      source: crm_webhook
+      condition: opportunity.poc_requested == true
+      description: Auto-activates when POC is requested on an opportunity
+    - type: downstream
+      source: rfp-agent
+      condition: rfp.requires_poc == true
+      description: RFP process identifies need for proof-of-concept validation
+    outputs:
+    - type: parent_return
+      target: sa-agent
+      payload: [poc_status, qualification_decision, success_criteria_results, conversion_readiness]
+      description: Full POC status and results back to SA orchestrator
+    - type: trigger_agent
+      target: sa-agent
+      condition: poc.outcome == SUCCESS AND opportunity.arr >= 100000
+      payload: [poc_results, customer_requirements, technical_profile]
+      flow: customer-success-plan
+      description: Successful POC triggers CSP initiation on SA agent
+    - type: trigger_agent
+      target: specialist-agent
+      condition: poc.technical_risk >= HIGH
+      payload: [risk_details, domain_area, customer_context]
+      description: High technical risk during POC triggers specialist engagement
+    - type: notify_human
+      condition: poc.qualification == NO_GO OR poc.risk_level == HIGH
+      channel: alert
+      description: No-go decisions and high-risk POCs surface for SA review
+    dependencies:
+    - agent: specialist-agent
+      reason: Domain expertise for complex technical evaluation scenarios
+    - agent: infosec-agent
+      reason: Security assessment when POC involves sensitive data or compliance requirements

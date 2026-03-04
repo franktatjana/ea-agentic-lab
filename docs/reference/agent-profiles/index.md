@@ -8,7 +8,7 @@ last_updated: "2026-03-01"
 
 # Agent Profiles
 
-The EA Agentic Lab has 41 agent definitions organized under 12 human roles. Each role is a digital twin of a real job function. Some roles operate as a single agent, others decompose into sub-agents when the process requires different tools, guardrails, or autonomy (per DDR-019 holonic criteria). Profiles represent roles. Definitions represent agents.
+The EA Agentic Lab has 47 agent definitions organized under 12 human roles. Each role is a digital twin of a real job function. Some roles operate as a single agent, others decompose into sub-agents when the process requires different tools, guardrails, or autonomy (per DDR-019 holonic criteria). Profiles represent roles. Definitions represent agents.
 
 For design rationale, see [DDR-021: Agent Taxonomy](../../decisions/DDR_021_agent_taxonomy.md). For architecture details, see [Agent Architecture](../../architecture/agents/agent-architecture.md).
 
@@ -27,22 +27,33 @@ Sales roles drive commercial strategy, competitive positioning, value quantifica
 
 ---
 
-## Architecture (2 roles, 9 agents)
+## Architecture (2 roles, 15 agents)
 
-Architecture roles maintain technical integrity across engagements. The Solution Architect decomposes into 7 sub-agents for deal execution processes and domain specialist work.
+Architecture roles maintain technical integrity across engagements. The Solution Architect operates as a near-pure router with 9 sub-agents (6 co-located, 3 external) plus 3 domain specialists. The InfoSec Agent is a standalone peer agent with its own role.
 
 ### Solution Architect
 
 | Agent | Type | Purpose |
 |-------|------|---------|
-| [SA Agent](architecture/sa-agent.md) | Role | Technical integrity and risk visibility |
-| [POC Agent](deal-execution/poc-agent.md) | Sub-agent | Proof of concept execution and conversion |
-| [RFP Agent](deal-execution/rfp-agent.md) | Sub-agent | RFP bid strategy and response orchestration |
-| [InfoSec Agent](deal-execution/infosec-agent.md) | Sub-agent | Security and compliance enablement |
-| [Specialist Engagement Agent](architecture/specialist-agent.md) | Sub-agent | Domain expertise routing and coordination |
+| [SA Agent](architecture/sa-agent.md) | Role | Technical integrity and risk visibility (near-pure router) |
+| SA Discovery Agent | Co-located sub-agent | Technical discovery lifecycle |
+| SA Technical Risk Agent | Co-located sub-agent | Architecture health, capacity, integration risk |
+| SA Decision Capture Agent | Co-located sub-agent | Decision extraction, ADR generation |
+| SA CSP Agent | Co-located sub-agent | Customer Success Plan lifecycle |
+| SA Best Practices Agent | Co-located sub-agent | Best practices knowledge base |
+| SA Journey Agent | Co-located sub-agent | Customer journey mapping and handoff |
+| [POC Agent](deal-execution/poc-agent.md) | External sub-agent | Proof of concept execution and conversion |
+| [RFP Agent](deal-execution/rfp-agent.md) | External sub-agent | RFP bid strategy and response orchestration |
+| [Specialist Engagement Agent](architecture/specialist-agent.md) | External sub-agent | Domain expertise routing and coordination |
 | [Security Specialist](specialists/security-specialist-agent.md) | Sub-agent | SIEM, threat detection, MITRE ATT&CK |
 | [Observability Specialist](specialists/observability-specialist-agent.md) | Sub-agent | APM, SLO/SLI, distributed tracing |
 | [Search Specialist](specialists/search-specialist-agent.md) | Sub-agent | Relevance tuning, vector search, RAG |
+
+### InfoSec (standalone role)
+
+| Agent | Type | Purpose |
+|-------|------|---------|
+| [InfoSec Agent](deal-execution/infosec-agent.md) | Role | Security and compliance enablement (peer to SA) |
 
 ### Customer Architect
 
@@ -125,14 +136,15 @@ Nudger -> SM                      (overdue > 5 days)
 | Category | Roles | Agents | Sub-agents |
 |----------|-------|--------|------------|
 | Sales | 4 | 4 | 8 |
-| Architecture | 2 | 2 | 8 |
+| Architecture | 2 | 2 | 14 |
+| InfoSec | 1 | 1 | 0 |
 | Intelligence | 1 | 0 | 5 |
 | Leadership | 2 | 2 | 0 |
 | Delivery | 2 | 2 | 0 |
 | Governance | 0 | 0 | 10 |
-| **Total** | **11** | **10** | **31** |
+| **Total** | **12** | **11** | **37** |
 
-11 roles + 1 system function = 12 categories. 10 role agents + 31 sub-agents = 41 definitions total. Orchestration Agent exists as a [legacy meta-agent](meta/orchestration-agent.md) outside the taxonomy.
+12 roles + 1 system function = 13 categories. 11 role agents + 37 sub-agents = 47 definitions (+ Orchestration Agent as [legacy meta-agent](meta/orchestration-agent.md) outside the taxonomy).
 
 ---
 

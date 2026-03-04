@@ -1,9 +1,9 @@
 ---
 title: "Specialist Engagement Agent"
-description: "Digital twin for engagement triage, technical deep dive, rfp poc"
+description: "Sub-agent of SA for domain expertise routing and coordination"
 category: "reference"
-keywords: ["specialist_agent", "specialists", "agent", "profile", "digital_twin"]
-last_updated: "2026-03-01"
+keywords: ["specialist_agent", "specialists", "agent", "profile", "digital_twin", "sub-agent"]
+last_updated: "2026-03-04"
 ---
 
 
@@ -18,12 +18,14 @@ Its operating principle: early specialist engagement prevents late-stage rework.
 | Attribute | Value |
 |-----------|-------|
 | **Agent ID** | `specialist-agent` |
+| **Parent Agent** | `sa-agent` (Solution Architect) |
 | **Role** | Specialist Engagement (Architecture) |
 | **Mode** | Human-paired |
 | **Runbooks** | 4 |
 | **Prompts** | 11 |
 | **Operating Modes** | Proactive, Analytical |
 | **Knowledge References** | 0 |
+| **Toolbox** | `specialist-intelligence` |
 
 
 ## Runbooks
@@ -104,11 +106,32 @@ The agent produces artifact types stored per account in the Node's InfoHub.
 | Best Practice Alignment Reports | `{account}-best-practice-alignment-reports.md` | Best practice alignment reports |
 
 
+## Autonomy
+
+The Specialist Engagement Agent operates under the SA orchestrator with the following autonomy contract.
+
+**Triggers:**
+
+- SA orchestrator dispatches specialist engagement requests
+- POC Agent escalates high technical risk scenarios
+- RFP Agent routes deep technical sections requiring domain input
+
+**Outputs:**
+
+- Returns specialist findings and recommendations to SA orchestrator
+- Triggers SA decision capture flow when engagement completes
+- Alerts SA for high-complexity findings and blocked engagements
+
+**Dependencies:** Security Specialist (SIEM, MITRE ATT&CK), Observability Specialist (APM, SLO/SLI), Search Specialist (vector search, RAG)
+
+**Toolbox:** Exposes `get-engagement-status` and `get-specialist-findings` to peer agents via the `specialist-intelligence` toolbox.
+
+
 ## Source Files
 
 | File | Purpose |
 |------|---------|
-| `domain/agents/specialists/specialist-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/specialists/specialist-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails, autonomy |
 | `domain/agents/specialists/agents/specialist_agent.yaml` | Agent configuration |
 | `domain/agents/specialists/personalities/specialist_personality.yaml` | Behavioral specification |
 | `domain/agents/specialists/prompts/tasks.yaml` | 11 CAF prompts across 4 domains |

@@ -39,7 +39,8 @@ description: The Specialist Agent monitors RFP/POC stages and complex customer q
   the right domain specialist (Observability, Search, Security, or Data Management) is engaged at the
   right time. Early specialist involvement prevents late-stage rework and failed POCs.
 metadata:
-  definition_version: 0.1.0
+  definition_version: "0.2.0"
+  parent_agent: sa-agent
   disclaimer: This agent specification is a reference design for educational and demonstration purposes.
     It is not a production system. All examples, case studies, and scenarios are fictional.
   tags:
@@ -154,7 +155,34 @@ tools:
     type: string
   x-ea-agent:
     risk: low
-toolboxes: []
+toolboxes:
+  - component_type: Toolbox
+    id: specialist-intelligence
+    name: Specialist Intelligence
+    description: Specialist engagement data available to peer agents for technical context
+    tools:
+      - id: get-engagement-status
+        name: Get Engagement Status
+        description: Returns current specialist engagement status, domain area, and timeline
+        inputs:
+          - title: account_name
+            type: string
+          - title: engagement_id
+            type: string
+        outputs:
+          - title: engagement_status
+            type: object
+      - id: get-specialist-findings
+        name: Get Specialist Findings
+        description: Returns specialist findings, recommendations, and architecture impact assessment
+        inputs:
+          - title: account_name
+            type: string
+          - title: domain_area
+            type: string
+        outputs:
+          - title: specialist_findings
+            type: object
 specialized_agents:
 - component_type: SpecializedAgent
   id: specialist-agent-proactive
@@ -517,12 +545,19 @@ x-ea-agent:
     total_word_limit: 350
     hard_rule: No claim without source evidence
   guardrails:
-    input:
-    - Reject requests without source content or evidence base
-    output:
-    - NEVER route to specialist without clear trigger
-    - NEVER assess technical complexity beyond scope
-    - Quote exact customer requirement
+    input_validation:
+    - rule: Reject requests without source content or evidence base
+    - rule: Engagement requests must specify the domain area and customer context
+    - rule: Trigger assessment requires observable technical signals
+    output_checks:
+    - rule: Never route to specialist without clear, documented trigger
+    - rule: Never assess technical complexity beyond routing scope
+    - rule: Quote exact customer requirement in engagement requests
+    - rule: Specialist selection must match the domain taxonomy
+    signal_validation:
+    - rule: Specialist triggers must reference specific technical indicators
+    - rule: Complexity assessments require minimum 2 supporting data points
+    - rule: Domain classification must map to defined specialist categories
     resource:
     - max_tool_calls: 30
   boundaries:
@@ -587,3 +622,38 @@ x-ea-agent:
   - All claims supported by evidence
   - No assumed dynamics
   - Sources cited
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sa-agent
+      description: SA orchestrator routes specialist engagement requests
+    - type: downstream
+      source: poc-agent
+      condition: poc.technical_risk >= HIGH
+      description: High-risk POC scenarios trigger specialist assessment
+    - type: downstream
+      source: rfp-agent
+      condition: rfp.technical_depth >= DEEP
+      description: Deep technical RFP sections require specialist input
+    outputs:
+    - type: parent_return
+      target: sa-agent
+      payload: [engagement_status, specialist_findings, recommendations]
+      description: Specialist findings and recommendations back to SA orchestrator
+    - type: trigger_agent
+      target: sa-agent
+      condition: engagement.status == COMPLETE
+      payload: [findings, decisions, architecture_impact]
+      flow: decision-capture
+      description: Completed specialist engagement triggers SA decision capture
+    - type: notify_human
+      condition: complexity.level == HIGH OR engagement.blocked == true
+      channel: alert
+      description: High-complexity findings and blocked engagements surface for SA review
+    dependencies:
+    - agent: security-specialist-agent
+      reason: SIEM, threat detection, MITRE ATT&CK domain expertise
+    - agent: observability-specialist-agent
+      reason: APM, SLO/SLI, distributed tracing domain expertise
+    - agent: search-specialist-agent
+      reason: Relevance tuning, vector search, RAG domain expertise

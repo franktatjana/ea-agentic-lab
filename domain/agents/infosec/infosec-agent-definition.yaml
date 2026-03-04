@@ -40,7 +40,8 @@ description: The InfoSec Agent completes security questionnaires, assesses custo
   to resolve security blockers. The agent operates on the principle that transparency builds trust faster
   than perfection, and that compensating controls are valid solutions.
 metadata:
-  definition_version: 0.1.0
+  definition_version: "0.2.0"
+  parent_agent: null
   disclaimer: This agent specification is a reference design for educational and demonstration purposes.
     It is not a production system. All examples, case studies, and scenarios are fictional.
   tags:
@@ -141,7 +142,34 @@ tools:
     type: string
   x-ea-agent:
     risk: low
-toolboxes: []
+toolboxes:
+  - component_type: Toolbox
+    id: compliance-intelligence
+    name: Compliance Intelligence
+    description: Security and compliance data available to peer agents for deal risk assessment
+    tools:
+      - id: get-compliance-status
+        name: Get Compliance Status
+        description: Returns current compliance posture and certification status for an account context
+        inputs:
+          - title: account_name
+            type: string
+          - title: framework
+            type: string
+        outputs:
+          - title: compliance_status
+            type: object
+      - id: get-gap-assessment
+        name: Get Gap Assessment
+        description: Returns classified compliance gaps with tier assignments and mitigation paths
+        inputs:
+          - title: account_name
+            type: string
+          - title: requirement_area
+            type: string
+        outputs:
+          - title: gap_assessment
+            type: object
 specialized_agents:
 - component_type: SpecializedAgent
   id: infosec-agent-proactive
@@ -627,11 +655,20 @@ x-ea-agent:
     total_word_limit: 350
     hard_rule: No claim without source evidence
   guardrails:
-    input:
-    - Reject requests without source content or evidence base
-    output:
-    - strict_rules
-    - verification_requirements
+    input_validation:
+    - rule: Reject requests without source content or evidence base
+    - rule: Questionnaire responses must reference specific vendor documentation
+    - rule: Gap classifications require evidence for each tier assignment
+    output_checks:
+    - rule: All compliance claims reference current certification documentation
+    - rule: Every gap is classified using the four-tier framework
+    - rule: Blockers must include escalation path and timeline
+    - rule: Certification dates are verified current (not assumed)
+    - rule: No unverified compliance claims in any output
+    signal_validation:
+    - rule: Security concern severity must map to business impact
+    - rule: Compliance signals require regulatory framework reference
+    - rule: Industry-specific requirements cite the relevant standard
     resource:
     - max_tool_calls: 30
   boundaries:
@@ -714,3 +751,32 @@ x-ea-agent:
     - All blockers have escalation path
     - Certification dates are current
     - No unverified claims
+  autonomy:
+    triggers:
+    - type: peer_request
+      source: sa-agent
+      description: SA agent requests security and compliance assessments
+    - type: peer_request
+      source: rfp-agent
+      condition: rfp.has_security_requirements == true
+      description: RFP agent routes security sections for completion
+    - type: event
+      source: deal_event
+      condition: questionnaire.type IN [SIG, CAIQ, custom_security]
+      description: Auto-activates when security questionnaire is received
+    outputs:
+    - type: peer_response
+      target: sa-agent
+      payload: [compliance_assessment, gap_classification, questionnaire_responses]
+      description: Compliance status and gap analysis to requesting agent
+    - type: trigger_agent
+      target: sa-risk-agent
+      condition: gap.classification == BLOCKER
+      payload: [blocker_details, business_impact, mitigation_options]
+      flow: technical-risk
+      description: Compliance blockers trigger SA technical risk assessment
+    - type: notify_human
+      condition: gap.classification == BLOCKER OR certification.status_changed == true
+      channel: alert
+      description: Blockers and certification changes surface for immediate review
+    dependencies: []

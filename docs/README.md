@@ -41,7 +41,7 @@ Defines who is responsible for what, during which phase of an engagement. Covers
 
 ## Architecture
 
-The system implements a 41-agent model for strategic account management across three layers: 18 strategic agents that exercise judgment and make recommendations (including 8 AE sub-agents operating under a routing orchestrator), 10 governance agents that enforce process and maintain artifacts, and 5 intelligence agents that gather and analyze external signals. These documents describe the design.
+The system implements a 47-agent model for strategic account management across three layers: 18 strategic agents that exercise judgment and make recommendations (with 8 AE sub-agents and 6 SA sub-agents operating under routing orchestrators), 10 governance agents that enforce process and maintain artifacts, and 5 intelligence agents that gather and analyze external signals. These documents describe the design.
 
 ### Agents
 

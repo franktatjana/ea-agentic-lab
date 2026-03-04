@@ -1,9 +1,9 @@
 ---
 title: "RFP Agent"
-description: "Digital twin for bid decisions, response strategy, orchestration"
+description: "Sub-agent of SA for bid decisions, response strategy, and orchestration"
 category: "reference"
-keywords: ["rfp_agent", "rfp", "agent", "profile", "digital_twin"]
-last_updated: "2026-03-01"
+keywords: ["rfp_agent", "rfp", "agent", "profile", "digital_twin", "sub-agent"]
+last_updated: "2026-03-04"
 ---
 
 
@@ -18,12 +18,14 @@ Its operating principle: win the right deals, not every deal.
 | Attribute | Value |
 |-----------|-------|
 | **Agent ID** | `rfp-agent` |
+| **Parent Agent** | `sa-agent` (Solution Architect) |
 | **Role** | RFP (Deal Execution) |
 | **Mode** | Human-paired |
 | **Runbooks** | 5 |
 | **Prompts** | 14 |
 | **Operating Modes** | Proactive, Analytical |
 | **Knowledge References** | 2 |
+| **Toolbox** | `rfp-intelligence` |
 
 
 ## Runbooks
@@ -123,11 +125,33 @@ The agent draws on reference knowledge that encodes domain expertise and decisio
 | `signal-detection.yaml` | Bid Quality Signals, Deadline Signals, Competitive Signals | Signal detection |
 
 
+## Autonomy
+
+The RFP Agent operates under the SA orchestrator with the following autonomy contract.
+
+**Triggers:**
+
+- SA orchestrator dispatches RFP lifecycle requests
+- CRM webhook fires when RFP is received on an opportunity
+
+**Outputs:**
+
+- Returns bid decision and response status to SA orchestrator
+- Triggers InfoSec Agent for security requirement sections
+- Triggers Specialist Agent for deep technical response sections
+- Triggers POC Agent when RFP mandates proof-of-concept
+- Alerts SA/AE for conditional bids and tight deadlines (< 3 day buffer)
+
+**Dependencies:** InfoSec Agent (security sections), Specialist Agent (technical depth)
+
+**Toolbox:** Exposes `get-rfp-status` and `get-compliance-matrix` to peer agents via the `rfp-intelligence` toolbox.
+
+
 ## Source Files
 
 | File | Purpose |
 |------|---------|
-| `domain/agents/rfp/rfp-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails |
+| `domain/agents/rfp/rfp-agent-definition.yaml` | System view: runbooks, tools, prompts, guardrails, autonomy |
 | `domain/agents/rfp/agents/rfp_agent.yaml` | Agent configuration |
 | `domain/agents/rfp/personalities/rfp_personality.yaml` | Behavioral specification |
 | `domain/agents/rfp/prompts/tasks.yaml` | 14 CAF prompts across 5 domains |
