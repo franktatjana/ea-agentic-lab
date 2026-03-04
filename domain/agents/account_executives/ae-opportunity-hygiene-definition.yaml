@@ -89,6 +89,22 @@ tools:
       risk: medium
 
   - component_type: ClientTool
+    id: save-hygiene-report
+    name: Save Hygiene Report
+    description: Persist hygiene scores, health distribution, and CRM checklists to InfoHub
+    requires_confirmation: false
+    inputs:
+      - title: report
+        type: object
+      - title: review_date
+        type: string
+    outputs:
+      - title: status
+        type: string
+    x-ea-agent:
+      risk: low
+
+  - component_type: ClientTool
     id: ask-user
     name: Ask User
     description: Request clarification about opportunity status or CRM data
@@ -158,14 +174,17 @@ flows:
         - step: 1
           prompt: ae-weekly-hygiene-check
           input: pipeline_summary, review_date
+          tools: [read-crm-data]
           description: Check stage accuracy, close dates, next steps, last contact, risk status
         - step: 2
           prompt: ae-opportunity-health-indicators
           input: opportunity_name, current_stage, days_in_stage, last_contact_date
+          tools: [read-crm-data]
           description: Evaluate GREEN/YELLOW/RED criteria, identify concerns, improvement actions
         - step: 3
           prompt: ae-stale-opportunity-alert
           input: pipeline_data, current_date
+          tools: [read-crm-data]
           description: Detect stale opportunities with WARNING (14d) and CRITICAL (21d) alert levels
         - step: 4
           prompt: ae-hygiene-report
@@ -174,7 +193,13 @@ flows:
         - step: 5
           prompt: ae-crm-update-checklist
           input: opportunity_name, recent_activity, crm_state
+          tools: [read-crm-data]
           description: Generate CRM field updates, activity logging, and InfoHub update checklist
+        - step: 6
+          action: persist
+          tools: [save-hygiene-report, write-risk-alert]
+          condition: write-risk-alert triggers for CRITICAL stale alerts (21d+)
+          description: Save hygiene report and CRM checklist to InfoHub, write risk alerts for critical staleness
 
 a2a:
   agent_url: null

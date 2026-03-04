@@ -100,6 +100,22 @@ tools:
       risk: medium
 
   - component_type: ClientTool
+    id: save-deal-intelligence
+    name: Save Deal Intelligence
+    description: Persist deal assessment to InfoHub, making results queryable via toolbox
+    requires_confirmation: false
+    inputs:
+      - title: assessment
+        type: object
+      - title: opportunity_name
+        type: string
+    outputs:
+      - title: status
+        type: string
+    x-ea-agent:
+      risk: low
+
+  - component_type: ClientTool
     id: ask-user
     name: Ask User
     description: Request clarification from account executive
@@ -167,19 +183,28 @@ flows:
         - step: 1
           prompt: ae-analyze-deal-health
           input: account_context, opportunity_name, time_period
+          tools: [read-crm-data, read-communications]
           description: Identify top risks and positive signals, assign health score (RED/YELLOW/GREEN)
         - step: 2
           prompt: ae-diagnose-stalled-deal
           input: current_stage, days_in_stage
+          tools: [read-crm-data]
           description: Identify stall cause, contributing factors, unstall actions
         - step: 3
           prompt: ae-loss-analysis
           input: opportunity_name
+          tools: [read-crm-data, read-communications]
           description: Timeline of key moments, warning signs, competitor analysis, learnings
         - step: 4
           prompt: ae-resurrect-dead-deal
           input: time_period
+          tools: [read-crm-data]
           description: Identify resurrection candidates with changed conditions and triggers
+        - step: 5
+          action: persist
+          tools: [save-deal-intelligence, write-risk-alert]
+          condition: write-risk-alert triggers when deal_health == RED
+          description: Save deal assessment to InfoHub, write risk alert for RED deals
 
   - component_type: Flow
     id: close-plan-management
@@ -204,11 +229,17 @@ flows:
         - step: 1
           prompt: ae-close-plan-create
           input: opportunity_name, current_stage, stakeholder_map
+          tools: [read-crm-data]
           description: Build mutual action plan with phases, milestones, owners, and target dates
         - step: 2
           prompt: ae-close-plan-health
           input: close_plan, milestone_status
+          tools: [read-crm-data]
           description: Assess close plan health (GREEN/YELLOW/RED), identify stall patterns and mitigations
+        - step: 3
+          action: persist
+          tools: [save-deal-intelligence]
+          description: Save close plan and health assessment to InfoHub
 
 a2a:
   agent_url: null
