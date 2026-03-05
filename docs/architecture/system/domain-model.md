@@ -102,8 +102,11 @@ The smallest composable unit. A single instruction that produces a specific outp
 - Input parameters (typed)
 - Output format
 - Context requirements
+- Data dependencies (which tool data sources the prompt consumes, with field-level specificity and per-prompt priority)
 
 **Example:** `triage_escalation` takes escalation context, produces a triage assessment with decision and response plan.
+
+Data dependencies are declared in the `prompt_registry` (not in tasks.yaml) because the same prompt text may be used by different agents with different tools. See [DDR-023](../../decisions/DDR_023_prompt_data_dependencies.md).
 
 ---
 
@@ -117,10 +120,29 @@ A connector to an external system. Tools define how agents access information an
 - Input/output schema
 - Risk level (low, medium, high)
 - Confirmation requirement (true/false)
+- Resolver strategy (service-registry, agent-registry, inline)
 
 **Example:** `read-crm-data` accesses CRM fields and opportunity data. `write-risk-alert` saves a deal-level risk alert to InfoHub (requires confirmation).
 
 **Design principle:** Tools are reusable across agents. The same `read-crm-data` tool can appear in Deal Diagnosis, Pipeline Management, and Meeting Preparation agents. Each agent declares which tools it uses, but the tool definition is shared.
+
+#### Runtime Binding
+
+Agent definitions declare what a tool does (the contract) but not where the backing service lives (the binding). This separation keeps definitions deployment-agnostic. At runtime, the platform resolves each tool to an actual endpoint using the tool's declared `resolver` strategy.
+
+Three resolution strategies handle the full tool inventory:
+
+| Resolver | Tool patterns | Resolution source | Example |
+|----------|--------------|-------------------|---------|
+| `service-registry` | read-*, write-*, save-*, scan-*, get-* | `config/tool_resolver.yaml` | `read-crm-data` resolves to CRM connector endpoint |
+| `agent-registry` | invoke-* | `config/service_registry.yaml` | `invoke-rfp-agent` resolves to RFP agent's a2a endpoint |
+| `inline` | ask-user | Platform runtime | No external resolution needed |
+
+The contract layer (agent definition YAML) stays portable across environments. The binding layer (configuration templates) is environment-specific with profile-based selection via `EA_RUNTIME_PROFILE`.
+
+`$component_ref` references in specialized agent variants are resolved at compile time, not runtime. The platform's definition compiler replaces each reference with the full agent spec before runtime binding occurs.
+
+For the full decision record, see [DDR-024](../../decisions/DDR_024_runtime_binding_architecture.md).
 
 ---
 
@@ -676,6 +698,14 @@ The new role immediately benefits from existing knowledge infrastructure (InfoHu
 - Each skill references a valid prompt
 - Each skill declares which tools it uses
 - Skills within an agent must not have overlapping outputs
+
+### Prompt Data Dependency Validation
+
+- Every `requires_data.source` must reference a valid tool ID in the agent's tools block
+- Every `requires_data` entry must have at least one field
+- `requires_data.priority` must be one of: `critical`, `enrichment`
+- Prompts that reference data retrieval in their text should have `requires_data`
+- See [DDR-023](../../decisions/DDR_023_prompt_data_dependencies.md)
 
 ### Runbook Validation
 

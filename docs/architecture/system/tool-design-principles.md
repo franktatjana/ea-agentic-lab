@@ -561,6 +561,126 @@ Key sections:
 
 ---
 
+## 7. Prompt-Level Data Contracts
+
+Prompts declare their data dependencies in the `prompt_registry` using `requires_data`. This makes the contract between prompts and tools explicit, enabling the platform to pre-fetch data, detect missing sources before execution, and provide per-prompt priority granularity.
+
+### Format
+
+```yaml
+requires_data:
+- source: read-crm-data
+  fields: [stage_history, activity_log, next_steps]
+  priority: critical
+- source: read-infohub
+  fields: [stakeholder_map, risk_flags]
+  priority: enrichment
+```
+
+### Rules
+
+- `source` must reference a valid tool ID from the same agent's `tools:` block
+- `fields` names the conceptual data elements, not API response paths
+- `priority: critical` means the prompt cannot produce reliable output without this data
+- `priority: enrichment` means the prompt can proceed with degraded output if this source fails
+- Per-prompt priority overrides agent-level `error_handling.tool_failures` classification when they differ
+
+### Platform Behavior
+
+The platform uses `requires_data` for pre-fetch optimization (parallelize tool calls before prompt execution), missing-data detection (emit SIG_CRITICAL_DATA_MISSING before the prompt runs if a critical source is unavailable), and audit trails (log which sources informed each prompt execution).
+
+For the complete error handling validation checklist (tool-level, agent-level, flow-level), see [Error Handling Checklist](error-handling-checklist.md). For the decision record, see [DDR-023](../../decisions/DDR_023_prompt_data_dependencies.md).
+
+---
+
+## 8. Tool Runtime Resolution
+
+Tools declare what they do and what data they need, but not where the backing service lives. The `resolver` field in each tool's `x-ea-agent` block tells the platform which resolution strategy to use at deployment time, keeping agent definitions portable across environments.
+
+### Resolver Strategies
+
+Every ClientTool must declare exactly one resolver. The resolver determines how the platform discovers the tool's backing endpoint at runtime.
+
+| Resolver | When to use | Config source |
+|----------|------------|---------------|
+| `service-registry` | Data access and persistence tools that connect to external systems (CRM, InfoHub, communications) | `config/tool_resolver.yaml` |
+| `agent-registry` | Routing tools that delegate to another agent via A2A protocol | `config/service_registry.yaml` |
+| `inline` | Platform-intrinsic tools that need no external endpoint (human-in-the-loop) | None |
+
+### Declaration Format
+
+```yaml
+tools:
+- id: read-crm-data
+  component_type: ClientTool
+  description: Access CRM opportunity data and stage history
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - type: no_data
+      signal: SIG_CRM_UNAVAILABLE
+
+- id: invoke-rfp-agent
+  component_type: ClientTool
+  description: Route RFP response workflow to dedicated agent
+  x-ea-agent:
+    risk: low
+    resolver: agent-registry
+
+- id: ask-user
+  component_type: ClientTool
+  description: Request human input for decisions requiring judgment
+  x-ea-agent:
+    risk: low
+    resolver: inline
+```
+
+### Tool-to-Connector Mapping
+
+The `service-registry` resolver maps tool IDs to connector types defined in `connectors.yaml`. This mapping follows a pattern-based convention with explicit overrides.
+
+| Tool prefix | Default connector | Operation type |
+|------------|-------------------|----------------|
+| `read-crm-*` | crm | read |
+| `read-communications` | email + slack | read |
+| `read-infohub`, `read-*-data` | filesystem (InfoHub vault) | read |
+| `write-*-artifact`, `write-*-alert` | filesystem (InfoHub vault) | write |
+| `save-*-intelligence`, `save-*-data` | filesystem (InfoHub vault) | write |
+| `scan-content` | filesystem | read |
+| `get-*` | computed (agent-internal or InfoHub) | read |
+
+### Mock Binding Pattern
+
+Development and testing use the `mock` profile, which resolves all tools to local stub implementations. The mock binding pattern follows the same resolution path as production, the only difference is the endpoint each tool resolves to.
+
+```yaml
+# tool_resolver.yaml (mock profile)
+profiles:
+  mock:
+    connectors:
+      crm:
+        base_url: http://localhost:8000/mock/crm
+        mode: stub
+      infohub:
+        base_url: http://localhost:8000/mock/infohub
+        mode: file
+```
+
+This ensures that switching from mock to production requires changing the active profile, not the agent definitions or the resolution logic.
+
+### Validation Rules
+
+- Every ClientTool `x-ea-agent` block must include a `resolver` field
+- Resolver value must be one of: `service-registry`, `agent-registry`, `inline`
+- Tools with `resolver: service-registry` must have a corresponding entry in `tool_resolver.yaml`
+- Tools with `resolver: agent-registry` must reference an agent ID present in `service_registry.yaml`
+- Tools with `resolver: inline` must not appear in either configuration file
+
+For the decision record, see [DDR-024](../../decisions/DDR_024_runtime_binding_architecture.md).
+
+---
+
 ## Related Documentation
 
 - [Context Engineering](context-engineering.md) - Token budgets, freshness tracking

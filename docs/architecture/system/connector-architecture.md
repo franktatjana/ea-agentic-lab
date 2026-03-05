@@ -741,6 +741,42 @@ The Streamlit onboarding page presents connectors as cards. Each card shows:
 
 ---
 
+## Tool-to-Connector Mapping
+
+Agent definitions declare tools with a `resolver: service-registry` field, but the definition does not specify which connector backs the tool. The mapping between tool IDs and connector types lives in `config/tool_resolver.yaml`, keeping definitions portable and connector assignments environment-specific.
+
+Tool ID prefixes follow a consistent pattern that maps to connector types. The platform uses these mappings during runtime resolution to route tool calls to the correct connector endpoint.
+
+| Tool ID pattern | Connector type | Operation | Examples |
+|----------------|---------------|-----------|----------|
+| `read-crm-*` | crm (Salesforce) | Read opportunity, account, contact data | `read-crm-data` |
+| `read-communications` | email + slack | Read touchpoints, thread history | `read-communications` |
+| `read-infohub`, `read-*-data` | filesystem (InfoHub vault) | Read agent-specific vault data | `read-infohub`, `read-sa-data` |
+| `write-*-artifact` | filesystem (InfoHub vault) | Write structured artifacts | `write-sa-artifact`, `write-rfp-artifact` |
+| `write-*-alert` | filesystem (InfoHub vault) | Write alert/notification artifacts | `write-risk-alert` |
+| `save-*-intelligence` | filesystem (InfoHub vault) | Persist enriched intelligence | `save-deal-intelligence` |
+| `save-*-data` | filesystem (InfoHub vault) | Persist operational data | `save-qualification-data` |
+| `scan-content` | filesystem | Scan vault content for patterns | `scan-content` |
+| `get-*` | computed (internal) | Derive metrics from cached/vault data | `get-deal-health`, `get-forecast-confidence` |
+| `invoke-*` | agent-registry (A2A) | Route to target agent | `invoke-rfp-agent` |
+| `ask-user` | inline (platform) | Human-in-the-loop prompt | `ask-user` |
+
+### Resolution at Each Tier
+
+Each connector tier from the graduation path resolves through the same tool mapping, only the endpoint configuration changes per profile.
+
+| Tier | Connector endpoint | Auth | Use case |
+|------|-------------------|------|----------|
+| Mock | `http://localhost:8000/mock/{connector}` | None | Development, demos |
+| Sandbox | External sandbox API | Test credentials | Integration testing |
+| Production | Live system API | Production OAuth/API keys | Production deployment |
+
+The active tier is selected via `EA_RUNTIME_PROFILE` environment variable, which determines which profile block in `tool_resolver.yaml` provides the endpoint mappings.
+
+For the full decision record on runtime binding, see [DDR-024](../../decisions/DDR_024_runtime_binding_architecture.md).
+
+---
+
 ## Related Documents
 
 - [Core Entities](core-entities.md): Realm, Node, InfoHub definitions
@@ -749,3 +785,5 @@ The Streamlit onboarding page presents connectors as cards. Each card shows:
 - [Data Directory Guide](data-directory-guide.md): Vault directory structure
 - [Documentation Principles](../../DOCUMENTATION_PRINCIPLES.md): Artifact formatting standards
 - [Existing Connector Config](../../../domain/config/connectors.yaml): Current connector configuration
+- [Tool Resolver Config](../../../domain/config/tool_resolver.yaml): Tool-to-connector runtime mapping
+- [Service Registry Config](../../../domain/config/service_registry.yaml): Agent endpoint registry
