@@ -36,7 +36,7 @@ import {
   Sparkles,
   UserCheck,
   ShieldOff,
-  Zap,
+  FileText,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { api } from "@/lib/api";
@@ -213,233 +213,11 @@ function PromptFlyoutContent({
   );
 }
 
-const severityColor: Record<string, string> = {
-  high: "text-red-400 bg-red-400/10 border-red-400/20",
-  medium: "text-amber-400 bg-amber-400/10 border-amber-400/20",
-  low: "text-blue-400 bg-blue-400/10 border-blue-400/20",
-  critical: "text-red-400",
-  elevated: "text-amber-400",
-  moderate: "text-blue-400",
-  immediate: "text-red-400 bg-red-400/10 border-red-400/20",
-  within_24h: "text-amber-400 bg-amber-400/10 border-amber-400/20",
-};
 
-function isSeverityKey(key: string): boolean {
-  return key.toLowerCase() in severityColor;
-}
 
-function getSeverityDot(key: string): string {
-  const k = key.toLowerCase();
-  if (k === "high" || k === "critical" || k === "immediate") return "bg-red-400";
-  if (k === "medium" || k === "elevated" || k === "within_24h") return "bg-amber-400";
-  if (k === "low" || k === "moderate") return "bg-blue-400";
-  return "bg-muted-foreground/40";
-}
 
-function isStringArray(val: unknown): val is string[] {
-  return Array.isArray(val) && val.length > 0 && typeof val[0] === "string";
-}
-
-function isShortStringArray(val: unknown): boolean {
-  return isStringArray(val) && val.every((s) => s.length < 50);
-}
-
-function hasNameField(val: unknown): val is Record<string, unknown> & { name: string } {
-  return typeof val === "object" && val !== null && "name" in val && typeof (val as Record<string, unknown>).name === "string";
-}
-
-function renderChips(items: string[]) {
-  return (
-    <div className="flex flex-wrap gap-1">
-      {items.map((item, i) => (
-        <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-muted/80 text-muted-foreground border border-border/50">
-          {item}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function renderSeverityBlock(obj: Record<string, unknown>) {
-  return (
-    <div className="space-y-2">
-      {Object.entries(obj).map(([level, items]) => (
-        <div key={level} className={`rounded-md border p-2.5 ${severityColor[level.toLowerCase()] ?? "border-border/50"}`}>
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <span className={`h-2 w-2 rounded-full ${getSeverityDot(level)} shrink-0`} />
-            <span className="text-xs font-semibold uppercase tracking-wider">{level}</span>
-          </div>
-          {isStringArray(items) ? (
-            <ul className="space-y-0.5 ml-3.5">
-              {items.map((item, i) => (
-                <li key={i} className="text-xs opacity-80">{item}</li>
-              ))}
-            </ul>
-          ) : typeof items === "string" ? (
-            <p className="text-xs opacity-80 ml-3.5">{items}</p>
-          ) : (
-            renderKnowledgeValue(items, 1)
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function renderNamedCard(item: Record<string, unknown>, idx: number) {
-  const name = String(item.name);
-  const rest = Object.entries(item).filter(([k]) => k !== "name");
-  return (
-    <div key={idx} className="rounded-md border border-border/50 bg-muted/30 overflow-hidden">
-      <div className="px-3 py-2 border-b border-border/30 bg-muted/50">
-        <p className="text-xs font-semibold text-foreground">{name}</p>
-      </div>
-      <div className="px-3 py-2 space-y-1.5">
-        {rest.map(([k, v]) => (
-          <div key={k} className="flex gap-2">
-            <span className="text-xs text-muted-foreground/60 shrink-0 min-w-[80px] capitalize">{k.replace(/_/g, " ")}</span>
-            {isStringArray(v) ? (
-              <div className="flex flex-wrap gap-1">
-                {v.map((s, i) => (
-                  <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground">{s}</span>
-                ))}
-              </div>
-            ) : typeof v === "number" ? (
-              <span className="text-xs font-mono text-foreground">{v}</span>
-            ) : (
-              <span className="text-xs text-muted-foreground">{String(v)}</span>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function renderKnowledgeValue(value: unknown, depth = 0): React.ReactNode {
-  if (value === null || value === undefined) return null;
-
-  if (typeof value === "string") {
-    return <p className="text-xs text-muted-foreground leading-relaxed">{value}</p>;
-  }
-
-  if (typeof value === "number") {
-    return <span className="text-xs font-mono text-foreground">{value}</span>;
-  }
-
-  if (Array.isArray(value)) {
-    if (value.length === 0) return null;
-
-    if (isShortStringArray(value)) return renderChips(value);
-    if (isStringArray(value)) {
-      return (
-        <ul className="space-y-0.5">
-          {value.map((item, i) => (
-            <li key={i} className="text-xs text-muted-foreground flex items-baseline gap-1.5">
-              <span className="text-muted-foreground/40 shrink-0">&#x2022;</span>
-              {item}
-            </li>
-          ))}
-        </ul>
-      );
-    }
-
-    if (value.every((v) => hasNameField(v))) {
-      return (
-        <div className="space-y-2">
-          {value.map((item, i) => renderNamedCard(item as Record<string, unknown>, i))}
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-2">
-        {value.map((item, i) => (
-          <div key={i} className="bg-muted/30 rounded-md p-2.5 space-y-1.5">
-            {typeof item === "object" && item !== null
-              ? Object.entries(item as Record<string, unknown>).map(([k, v]) => (
-                  <div key={k} className="flex gap-2">
-                    <span className="text-xs text-muted-foreground/60 shrink-0 min-w-[80px] capitalize">{k.replace(/_/g, " ")}</span>
-                    {typeof v === "string" ? (
-                      <span className="text-xs text-muted-foreground">{v}</span>
-                    ) : isStringArray(v) ? (
-                      <div className="flex flex-wrap gap-1">
-                        {v.map((s, i2) => (
-                          <span key={i2} className="text-xs px-1.5 py-0.5 rounded bg-muted/80 text-muted-foreground">{s}</span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">{JSON.stringify(v)}</span>
-                    )}
-                  </div>
-                ))
-              : <p className="text-xs text-muted-foreground">{JSON.stringify(item)}</p>}
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (typeof value === "object") {
-    const obj = value as Record<string, unknown>;
-    const keys = Object.keys(obj);
-
-    if (keys.every((k) => isSeverityKey(k))) {
-      return renderSeverityBlock(obj);
-    }
-
-    return (
-      <div className={depth > 0 ? "space-y-2.5" : "space-y-3"}>
-        {Object.entries(obj).map(([key, val]) => {
-          const label = key.replace(/_/g, " ");
-
-          if (key === "description" && typeof val === "string") {
-            return (
-              <div key={key} className="bg-muted/40 rounded-md px-3 py-2 border-l-2 border-amber-400/40">
-                <p className="text-xs text-muted-foreground leading-relaxed">{val}</p>
-              </div>
-            );
-          }
-
-          if (typeof val === "string" && depth > 0) {
-            return (
-              <div key={key} className="flex gap-2">
-                <span className="text-xs text-muted-foreground/60 shrink-0 min-w-[80px] capitalize">{label}</span>
-                <span className="text-xs text-muted-foreground">{val}</span>
-              </div>
-            );
-          }
-
-          return (
-            <div key={key}>
-              <p className={`text-xs font-medium capitalize mb-1.5 ${depth === 0 ? "text-foreground" : "text-foreground/80"}`}>{label}</p>
-              {renderKnowledgeValue(val, depth + 1)}
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-
-  return <p className="text-xs text-muted-foreground">{String(value)}</p>;
-}
 
 function KnowledgeFlyoutContent({ knowledgeRef }: { knowledgeRef: Record<string, unknown> }) {
-  const content = knowledgeRef.content as Record<string, unknown> | undefined;
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
-    const keys = Object.keys(content ?? {});
-    return new Set(keys.slice(0, 2));
-  });
-
-  const toggleSection = useCallback((key: string) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  }, []);
-
   return (
     <>
       <SheetHeader>
@@ -452,41 +230,14 @@ function KnowledgeFlyoutContent({ knowledgeRef }: { knowledgeRef: Record<string,
         ) : null}
       </SheetHeader>
 
-      <div className="px-4 pb-6 space-y-1">
-        {knowledgeRef.load_when ? (
-          <div className="flex items-center gap-1.5 text-xs text-amber-400/70 mb-2">
-            <Zap className="h-3 w-3 shrink-0" />
-            {String(knowledgeRef.load_when)}
+      <div className="px-4 pb-6">
+        {knowledgeRef.path ? (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-2">
+            <FileText className="h-3 w-3 shrink-0" />
+            <span className="font-mono">{String(knowledgeRef.path)}</span>
           </div>
         ) : null}
-
-        {content ? (
-          Object.entries(content).map(([sectionKey, sectionVal]) => {
-            const isOpen = expandedSections.has(sectionKey);
-            return (
-              <div key={sectionKey} className="border border-border/40 rounded-md overflow-hidden">
-                <button
-                  onClick={() => toggleSection(sectionKey)}
-                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/50 transition-colors text-left"
-                >
-                  {isOpen ? (
-                    <ChevronDown className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-                  ) : (
-                    <ChevronRight className="h-3 w-3 text-muted-foreground/60 shrink-0" />
-                  )}
-                  <span className="text-xs font-semibold text-foreground capitalize">{sectionKey.replace(/_/g, " ")}</span>
-                </button>
-                {isOpen ? (
-                  <div className="px-3 pb-3 pt-0.5">
-                    {renderKnowledgeValue(sectionVal)}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })
-        ) : (
-          <p className="text-xs text-muted-foreground py-2">No content available</p>
-        )}
+        <p className="text-xs text-muted-foreground/60 mt-3">Content served by the Knowledge Q&amp;A Service at retrieval time based on agent scope and workflow step context.</p>
       </div>
     </>
   );
@@ -760,12 +511,19 @@ function DefinitionDetail({
   const ext = (def as any)["x-ea-agent"] as Record<string, unknown> | undefined;
   const promptRegistry = ext?.prompt_registry as Record<string, Record<string, unknown>> | undefined;
   const guardrails = ext?.guardrails as Record<string, unknown> | undefined;
+  const errorHandling = ext?.error_handling as Record<string, unknown> | undefined;
+  const toolFailures = errorHandling?.tool_failures as Record<string, unknown> | undefined;
+  const criticalTools = (toolFailures?.critical ?? []) as string[];
+  const enrichmentTools = (toolFailures?.enrichment ?? []) as string[];
   const boundaries = ext?.boundaries as Array<string | Record<string, unknown>> | undefined;
   const permissions = ext?.permissions as string[] | undefined;
   const escalation = ext?.escalation_triggers as Array<string | Record<string, unknown>> | undefined;
   const memory = ext?.memory as Record<string, unknown> | undefined;
   const quality = ext?.quality as Record<string, unknown> | undefined;
   const knowledge = ext?.knowledge as Record<string, unknown> | undefined;
+  const knowledgeScope = knowledge?.scope as Record<string, unknown> | undefined;
+  const knowledgeDomains = (knowledgeScope?.domains ?? []) as string[];
+  const knowledgeArchetypes = (knowledgeScope?.archetypes ?? []) as string[];
   const knowledgeRefs = (knowledge as Record<string, unknown>)?.references as Array<Record<string, unknown>> | undefined;
   const context = ext?.context as Record<string, unknown> | undefined;
   const autonomy = ext?.autonomy as Record<string, unknown> | undefined;
@@ -1008,8 +766,17 @@ function DefinitionDetail({
                               <Badge variant="outline" className="text-xs shrink-0 mt-0.5">
                                 {String(step.step)}
                               </Badge>
-                              <div className="min-w-0">
-                                <span className="font-medium">{String(step.description ?? step.action ?? "")}</span>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-medium">{String(step.description ?? step.action ?? "")}</span>
+                                  {step.on_failure ? (
+                                    <span className={`text-[10px] px-1 py-0 rounded shrink-0 ${
+                                      step.on_failure === "stop"
+                                        ? "bg-red-400/10 text-red-400"
+                                        : "bg-amber-400/10 text-amber-400"
+                                    }`}>{String(step.on_failure).replace(/_/g, " ")}</span>
+                                  ) : null}
+                                </div>
                                 {step.prompt ? (
                                   <button
                                     type="button"
@@ -1163,7 +930,7 @@ function DefinitionDetail({
                         <span className="text-xs font-medium truncate">{tool.name}</span>
                       </div>
                       <p className="text-xs text-muted-foreground line-clamp-2">{tool.description ?? ""}</p>
-                      <div className="flex gap-1 mt-1">
+                      <div className="flex flex-wrap gap-1 mt-1">
                         {Boolean((tool as unknown as Record<string, unknown>).requires_confirmation) && (
                           <span className="text-xs px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400">confirmation</span>
                         )}
@@ -1173,6 +940,12 @@ function DefinitionDetail({
                               : tExt.risk === "medium" ? "bg-amber-400/10 text-amber-400"
                               : "bg-green-400/10 text-green-400"
                           }`}>{String(tExt.risk)}</span>
+                        )}
+                        {criticalTools.includes(tool.id) && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-red-400/10 text-red-400">critical</span>
+                        )}
+                        {enrichmentTools.includes(tool.id) && (
+                          <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-400/10 text-cyan-400">enrichment</span>
                         )}
                       </div>
                     </div>
@@ -1289,13 +1062,24 @@ function DefinitionDetail({
           )}
 
           {/* Knowledge References */}
-          {knowledgeRefs && knowledgeRefs.length > 0 && (
+          {(knowledgeDomains.length > 0 || (knowledgeRefs && knowledgeRefs.length > 0)) && (
             <div>
               <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <BookText className="h-3 w-3" /> Knowledge References
-                <HelpPopover title="Knowledge References">Domain knowledge files loaded into context when needed. Contain frameworks, patterns, and reference data that ground the agent&apos;s reasoning.</HelpPopover>
-                <Badge variant="secondary" className="text-xs ml-1">{knowledgeRefs.length}</Badge>
+                <BookText className="h-3 w-3" /> Knowledge
+                <HelpPopover title="Knowledge">Domain knowledge the agent reasons against. The platform&apos;s Q&amp;A service retrieves and synthesizes relevant knowledge based on the agent&apos;s scope and current workflow step.</HelpPopover>
+                {knowledgeRefs && knowledgeRefs.length > 0 && <Badge variant="secondary" className="text-xs ml-1">{knowledgeRefs.length} refs</Badge>}
               </h3>
+              {knowledgeDomains.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {knowledgeDomains.map((d) => (
+                    <span key={d} className="text-[11px] px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20">{d}</span>
+                  ))}
+                  {knowledgeArchetypes.map((a) => (
+                    <span key={a} className="text-[11px] px-2 py-0.5 rounded-full bg-amber-400/5 text-amber-400/60 border border-amber-400/10">{a}</span>
+                  ))}
+                </div>
+              )}
+              {knowledgeRefs && knowledgeRefs.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {knowledgeRefs.map((ref, i) => (
                   <button
@@ -1310,21 +1094,16 @@ function DefinitionDetail({
                           {String(ref.name ?? ref.path)}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{String(ref.description ?? "")}</p>
-                        {ref.load_when ? (
-                          <div className="flex items-center gap-1 mt-1.5 text-xs text-muted-foreground/60">
-                            <Zap className="h-2.5 w-2.5" />
-                            {String(ref.load_when)}
-                          </div>
-                        ) : null}
                       </div>
                       <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-amber-400 shrink-0 mt-0.5 transition-colors" />
                     </div>
                   </button>
                 ))}
               </div>
+              )}
               <Sheet open={activeKnowledgeIdx !== null} onOpenChange={(open) => { if (!open) setActiveKnowledgeIdx(null); }}>
                 <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
-                  {activeKnowledgeIdx !== null && knowledgeRefs[activeKnowledgeIdx] ? (
+                  {activeKnowledgeIdx !== null && knowledgeRefs?.[activeKnowledgeIdx] ? (
                     <KnowledgeFlyoutContent knowledgeRef={knowledgeRefs[activeKnowledgeIdx]} />
                   ) : null}
                 </SheetContent>
@@ -1551,6 +1330,67 @@ function DefinitionDetail({
               )}
             </div>
           ) : null}
+
+          {/* Error Handling */}
+          {errorHandling && (
+            <div className="bg-muted/50 rounded-lg border border-orange-500/20 p-3">
+              <h4 className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <AlertTriangle className="h-3 w-3" /> Error Handling
+                <HelpPopover title="Error Handling">How the agent behaves when data sources are unavailable or return stale data. Critical tools stop the workflow on failure, enrichment tools allow graceful degradation.</HelpPopover>
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                {criticalTools.length > 0 && (
+                  <div>
+                    <span className="text-[10px] text-red-400 font-medium uppercase tracking-wider">Critical (stop on failure)</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {criticalTools.map((t, i) => (
+                        <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-red-400/10 text-red-400">{t}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {enrichmentTools.length > 0 && (
+                  <div>
+                    <span className="text-[10px] text-cyan-400 font-medium uppercase tracking-wider">Enrichment (degrade gracefully)</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {enrichmentTools.map((t, i) => (
+                        <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-cyan-400/10 text-cyan-400">{t}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1.5 border-t border-border/30 pt-2">
+                {errorHandling.on_critical_failure ? (
+                  <div className="flex items-start gap-2 text-xs">
+                    <span className="text-red-400 shrink-0 mt-0.5">&#9632;</span>
+                    <div>
+                      <span className="font-medium text-red-400">Critical failure: </span>
+                      <span className="text-muted-foreground">{String((errorHandling.on_critical_failure as Record<string, unknown>).guidance ?? "")}</span>
+                    </div>
+                  </div>
+                ) : null}
+                {errorHandling.on_enrichment_failure ? (
+                  <div className="flex items-start gap-2 text-xs">
+                    <span className="text-cyan-400 shrink-0 mt-0.5">&#9632;</span>
+                    <div>
+                      <span className="font-medium text-cyan-400">Enrichment failure: </span>
+                      <span className="text-muted-foreground">{String((errorHandling.on_enrichment_failure as Record<string, unknown>).guidance ?? "")}</span>
+                    </div>
+                  </div>
+                ) : null}
+                {errorHandling.on_stale_data ? (
+                  <div className="flex items-start gap-2 text-xs">
+                    <span className="text-amber-400 shrink-0 mt-0.5">&#9632;</span>
+                    <div>
+                      <span className="font-medium text-amber-400">Stale data: </span>
+                      <span className="text-muted-foreground">{String((errorHandling.on_stale_data as Record<string, unknown>).guidance ?? "")}</span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          )}
 
           {(quality || escalation?.length) ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">

@@ -318,6 +318,31 @@ pull_delivery:
 
 ### 2. Contextual Push: In-Workflow Suggestions
 
+Contextual delivery operates in two modes: trigger-based suggestions (reactive) and Q&A retrieval (active). Both use the agent's declared knowledge scope to focus results.
+
+**Q&A Retrieval (active mode):** The platform formulates step-specific questions from the workflow step's intent combined with the agent's knowledge scope. Instead of dumping reference files, the knowledge enricher retrieves and synthesizes answers relevant to the current task. This is analogous to a corporate RAG service where the agent asks "What do I need to know for this step?" and gets a contextual answer.
+
+```yaml
+qa_retrieval:
+  trigger: "workflow_step_started"
+  process:
+    - "Read step intent and description from workflow definition"
+    - "Read agent knowledge scope (domains, archetypes)"
+    - "Formulate retrieval query: step intent within agent scope"
+    - "Retrieve relevant passages from reference corpus"
+    - "Synthesize into step-specific knowledge context"
+    - "Inject into agent context alongside step prompt"
+  scope_filtering:
+    domains: "Only retrieve from domains declared in agent scope"
+    archetypes: "Prioritize references matching current customer archetype"
+  output:
+    format: "Synthesized knowledge context, not raw file content"
+    max_tokens: "Proportional to step complexity"
+    attribution: "Each fact traces back to source reference file"
+```
+
+**Trigger-based suggestions (reactive mode):**
+
 ```yaml
 contextual_delivery:
   triggers:
@@ -355,6 +380,8 @@ contextual_delivery:
       format: "Expandable panel with full knowledge item"
       includes: ["summary", "key_points", "source", "related"]
 ```
+
+See [DDR-022](../../decisions/DDR_022_knowledge_qa_service_evolution.md) for the scope-based retrieval model.
 
 ### 3. Proactive Alerts: New Knowledge Notifications
 

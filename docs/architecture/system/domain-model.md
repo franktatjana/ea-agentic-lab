@@ -194,24 +194,27 @@ Domain theory and reference material the agent reasons against. Knowledge preven
 
 **Properties:**
 
-- Reference path (file location)
-- Description (what this knowledge covers)
-- Load condition (when to inject into context)
+- Scope: domains the agent reasons within, archetypes it applies to
+- Reference path (file location in knowledge corpus)
+- Description (what this knowledge covers, used for search indexing)
 
 **Example:**
 
 ```yaml
 knowledge:
+  scope:
+    domains: [signal-detection, risk-assessment]
+    archetypes: [enterprise, regulated-industries]
   references:
     - path: references/signal-detection.yaml
       description: Commercial risk keywords, severity indicators, relationship health signals
-      load_when: Analyzing deal signals from communications or CRM data
     - path: references/risk-classification.yaml
       description: Severity definitions (HIGH/MEDIUM/LOW) and escalation criteria
-      load_when: Classifying deal risks or recommending escalation
 ```
 
-**Design principle:** Every agent and sub-agent must declare its knowledge references. An agent without domain knowledge is an LLM guessing. Knowledge is loaded at reasoning time, not baked into prompts, so it can be updated independently.
+The platform uses the agent's scope combined with the current workflow step context to retrieve and synthesize relevant knowledge. Agents do not specify when to load each reference; the platform determines this contextually (see [DDR-022](../../decisions/DDR_022_knowledge_qa_service_evolution.md)).
+
+**Design principle:** Every agent and sub-agent must declare its knowledge scope and references. An agent without domain knowledge is an LLM guessing. Knowledge is retrieved at reasoning time via the platform's Q&A service, not baked into prompts, so it can be updated independently.
 
 ---
 
@@ -683,9 +686,11 @@ The new role immediately benefits from existing knowledge infrastructure (InfoHu
 
 ### Knowledge Validation
 
+- Every agent and sub-agent must declare a knowledge block with scope (domains and archetypes)
 - Every agent and sub-agent must declare at least one knowledge reference
-- Each reference must specify a load condition (when to inject into context)
+- Each reference must have a path and description (no `load_when` or inline `content`)
 - Knowledge files must exist at the declared path
+- See [DDR-022](../../decisions/DDR_022_knowledge_qa_service_evolution.md) for scope-based retrieval model
 
 ### Guardrails Validation
 

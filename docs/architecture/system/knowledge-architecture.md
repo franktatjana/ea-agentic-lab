@@ -57,6 +57,40 @@ Engagement
 
 Knowledge flows in one direction: engagements produce account-level knowledge, and account-level knowledge feeds (after anonymization) into company-level knowledge. The Customer InfoHub is a separate output stream, never derived from internal content.
 
+## Knowledge Q&A Service
+
+Agents declare knowledge as scope (domains and archetypes) combined with reference file paths. The platform provides a Q&A service that retrieves and synthesizes relevant knowledge contextually during workflow execution, similar to a corporate RAG system.
+
+Each agent definition declares what it reasons about, not when to load specific files. The platform uses the agent's scope and the current workflow step context to formulate retrieval queries against the reference corpus.
+
+### Retrieval Modes
+
+The knowledge enricher (`platform/knowledge/knowledge_enricher.py`) supports three retrieval modes, each building on the previous:
+
+| Mode | Trigger | Behavior |
+|------|---------|----------|
+| **Metadata match** | Agent scope + step context | Match domain tags and descriptions to find relevant references. Baseline mode, always available |
+| **Q&A retrieval** | Step intent + agent scope | Platform formulates step-specific questions, retrieves and synthesizes answers from reference corpus. Returns contextual knowledge, not raw files |
+| **Proactive push** | Engagement context changes | Platform monitors engagement signals and surfaces relevant knowledge before the agent requests it. Subscription-based delivery |
+
+### Agent Knowledge Declaration
+
+```yaml
+knowledge:
+  scope:
+    domains: [signal-detection, risk-assessment]
+    archetypes: [enterprise, regulated-industries]
+  references:
+    - path: references/signal-detection.yaml
+      description: "Commercial risk keywords, severity indicators"
+    - path: references/risk-classification.yaml
+      description: "Severity definitions and escalation criteria"
+```
+
+The `scope.domains` field tells the platform which knowledge domains this agent reasons within. The `scope.archetypes` field narrows retrieval to customer contexts the agent applies to. References provide the corpus, with `description` serving as the search index entry.
+
+See [DDR-022](../../decisions/DDR_022_knowledge_qa_service_evolution.md) for the full decision record.
+
 ## Current Repo Mapping
 
 | Vault | Location | Contents |
