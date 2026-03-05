@@ -76,6 +76,11 @@ tools:
         type: object
     x-ea-agent:
       risk: low
+      error_responses:
+      - error_code: SOURCE_UNAVAILABLE
+        guidance: CRM unavailable, cannot proceed with pipeline data
+      - error_code: RECORD_NOT_FOUND
+        guidance: Record not found in CRM, verify identifiers with user
 
   - component_type: ClientTool
     id: read-market-intelligence
@@ -90,6 +95,39 @@ tools:
         type: object
     x-ea-agent:
       risk: low
+      error_responses:
+      - error_code: SOURCE_UNAVAILABLE
+        guidance: Market intelligence unavailable, skip market enrichment
+      - error_code: NO_RESULTS
+        guidance: No market data found for criteria, broaden search or note gap
+
+  - component_type: ClientTool
+    id: read-intelligence
+    name: Read Intelligence
+    description: >
+      Access intelligence layer data for a realm. Sections: account (company profile,
+      organigram, opportunity map), industry (profile, regulatory, trends),
+      market (news digest), technology (current map, vendor landscape).
+    requires_confirmation: false
+    inputs:
+      - title: realm_id
+        type: string
+      - title: section
+        type: string
+      - title: detail_level
+        type: string
+    outputs:
+      - title: intelligence_data
+        type: object
+    x-ea-agent:
+      risk: low
+      error_responses:
+      - error_code: SOURCE_UNAVAILABLE
+        guidance: Skip intelligence enrichment, proceed with core data
+      - error_code: SECTION_NOT_FOUND
+        guidance: Intelligence section unavailable, note gap in output
+      - error_code: STALE_DATA
+        guidance: Intelligence may be outdated, flag for refresh
 
   - component_type: ClientTool
     id: save-prospecting-intelligence
@@ -173,20 +211,24 @@ flows:
           input: territory_context, coverage_gap
           tools: [read-crm-data, read-market-intelligence]
           description: Research prospects matching ICP, identify trigger events and timing signals
+          on_failure: stop
         - step: 2
           prompt: ae-outreach-strategy
           input: prospect_list, market_intelligence
           tools: [read-market-intelligence]
           description: Develop personalized multi-channel outreach plan per prospect
+          on_failure: skip_with_warning
         - step: 3
           prompt: ae-pipe-gen-tracking
           input: outreach_plan, conversion_data
           tools: [read-crm-data]
           description: Track pipe gen cadence, measure conversion rates, identify improvement areas
+          on_failure: skip_with_warning
         - step: 4
           action: persist
           tools: [save-prospecting-intelligence]
           description: Save prospect list, outreach plan, and pipe gen metrics to InfoHub
+          on_failure: stop
 
 a2a:
   agent_url: null
@@ -273,15 +315,32 @@ x-ea-agent:
       - ICP fit based on documented criteria, not assumed similarity
       - Contact data verified against CRM before inclusion in outreach plans
       - Mark prospect intelligence as [UNVERIFIED] when source is indirect
+  error_handling:
+    tool_failures:
+      critical: [read-crm-data]
+      enrichment: [read-market-intelligence, read-intelligence]
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
 
   knowledge:
+    scope:
+      domains: [pipeline-generation, prospecting]
+      archetypes: [enterprise, mid-market]
     references:
       - path: references/prospecting-methodology.yaml
         description: ICP criteria, prospecting cadence targets, outreach channel best practices, conversion benchmarks
-        load_when: Researching prospects or developing outreach strategies
       - path: references/account-planning.yaml
         description: Whitespace mapping within accounts, land-and-expand motions, expansion triggers
-        load_when: Prospecting within existing accounts or identifying expansion-driven pipeline opportunities
 
   autonomy:
     triggers:

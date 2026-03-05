@@ -102,18 +102,61 @@ outputs:
   description: Agent output
 tools:
 - component_type: ClientTool
-  id: read-infosec-data
-  name: Read InfoSec Data
-  description: 'Access data sources: domain data'
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: risks, decisions, stakeholders, competitive,
+    governance, value, journey, opportunities, context, or frameworks.
   requires_confirmation: false
   inputs:
-  - title: query
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
     type: string
   outputs:
-  - title: data
+  - title: infohub_data
     type: object
   x-ea-agent:
     risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: >
+    Access intelligence layer data for a realm. Sections: account (company profile,
+    organigram, opportunity map), industry (profile, regulatory, trends),
+    market (news digest), technology (current map, vendor landscape).
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
 - component_type: ClientTool
   id: write-infosec-artifact
   name: Write InfoSec Artifact
@@ -227,15 +270,19 @@ flows:
     - step: 1
       prompt: infosec-process-questionnaire
       input: customer_name, type, count, due_date
+      tools: [read-infohub, read-intelligence]
       description: Complete security questionnaire for customer
+      on_failure: stop
     - step: 2
       prompt: infosec-answer-question
       input: question_text, category, customer_context, question_text
       description: Draft answer to specific security question
+      on_failure: stop
     - step: 3
       prompt: infosec-bulk-questionnaire-response
       input: customer_name, question_list, customer_name, q1
       description: Generate responses for multiple questions
+      on_failure: stop
 - component_type: Flow
   id: gap-analysis
   name: Gap Analysis
@@ -265,15 +312,19 @@ flows:
     - step: 1
       prompt: infosec-assess-customer-requirements
       input: customer_name, requirements_list, industry, customer_name
+      tools: [read-infohub, read-intelligence]
       description: Analyze customer security requirements vs capabilities
+      on_failure: stop
     - step: 2
       prompt: infosec-compliance-gap-assessment
       input: customer_name, framework, current_certification_status, framework
       description: Assess gaps for specific compliance framework
+      on_failure: stop
     - step: 3
       prompt: infosec-data-residency-assessment
       input: customer_name, regions, data_types, customer_name
       description: Assess data residency requirements and options
+      on_failure: stop
 - component_type: Flow
   id: risk-translation
   name: Risk Translation
@@ -303,11 +354,14 @@ flows:
     - step: 1
       prompt: infosec-translate-security-concern
       input: security_concern, customer_name, deal_context
+      tools: [read-infohub]
       description: Convert security concern to business impact
+      on_failure: stop
     - step: 2
       prompt: infosec-prepare-security-briefing
       input: customer_name, attendees, topics_to_cover, concerns
       description: Prepare security briefing for customer meeting
+      on_failure: stop
 - component_type: Flow
   id: deal-enablement
   name: Deal Enablement
@@ -337,15 +391,19 @@ flows:
     - step: 1
       prompt: infosec-unblock-security-issue
       input: customer_name, blocker_description, deal_value, timeline
+      tools: [read-infohub, read-intelligence]
       description: Find path to resolve security blocker
+      on_failure: stop
     - step: 2
       prompt: infosec-expedite-questionnaire
       input: customer_name, type, count, deadline
       description: Fast-track questionnaire completion
+      on_failure: stop
     - step: 3
       prompt: infosec-certification-roadmap
       input: customer_name, certification_name, when_they_need_it, current_status
       description: Provide certification roadmap for customer
+      on_failure: stop
 - component_type: Flow
   id: compliance-tracking
   name: Compliance Tracking
@@ -375,11 +433,14 @@ flows:
     - step: 1
       prompt: infosec-certification-status-update
       input: certification_name, status, date, certification_name
+      tools: [read-infohub]
       description: Update on certification status
+      on_failure: stop
     - step: 2
       prompt: infosec-evidence-library-update
       input: category, document_list, date, category
       description: Update evidence library for compliance
+      on_failure: stop
 a2a:
   agent_url: null
   connection_config: null
@@ -671,11 +732,27 @@ x-ea-agent:
     - rule: Industry-specific requirements cite the relevant standard
     resource:
     - max_tool_calls: 30
+  error_handling:
+    tool_failures:
+      critical: [read-infohub]
+      enrichment: [read-intelligence]
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
   boundaries:
   - Does not make exceptions to security policies (handoff to Leadership)
   - Does not commit to certification timelines not confirmed (handoff to Leadership)
   - Does not downplay legitimate security gaps (handoff to Leadership)
-  - Does not design customer security architecture (SA Agent's domain) (handoff to Sa Agent)
+  - Does not design customer security architecture (SA Agent's domain) (handoff to SA Agent)
   - Does not negotiate security contract terms (Legal's domain) (handoff to Leadership)
   - Does not fabricate compliance status (handoff to Leadership)
   permissions:
@@ -686,8 +763,8 @@ x-ea-agent:
   - Provide security architecture guidance
   - Coordinate with internal security teams
   escalation_triggers:
-  - Customer security architecture design (to Sa Agent)
-  - Feature roadmap timelines (to Pm Agent)
+  - Customer security architecture design (to SA Agent)
+  - Feature roadmap timelines (to PM Agent)
   - Critical accurate compliance status exceeding agent authority (to Leadership)
   handoffs:
     human_escalation: Leadership
@@ -733,13 +810,14 @@ x-ea-agent:
     - Generic advice without evidence
     - Content outside agent scope
   knowledge:
+    scope:
+      domains: [security-compliance, gap-analysis, risk-assessment]
+      archetypes: [enterprise, regulated-industries]
     references:
     - path: references/gap-classification.yaml
       description: Blocker, Workaround, Roadmap
-      load_when: Performing tasks related to gap classification
     - path: references/signal-detection.yaml
       description: Security Concerns, Compliance Signals, Industry Specific
-      load_when: Performing tasks related to signal detection
   assets:
   - name: analysis
     filename: '{account}-analysis.md'
@@ -779,4 +857,9 @@ x-ea-agent:
       condition: gap.classification == BLOCKER OR certification.status_changed == true
       channel: alert
       description: Blockers and certification changes surface for immediate review
+    consumes_toolboxes:
+    - toolbox: risk-intelligence
+      agent: sa-risk-agent
+      tools: [get-architecture-health]
+      reason: Architecture context for security assessment alignment
     dependencies: []

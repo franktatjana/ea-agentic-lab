@@ -275,6 +275,8 @@ truncation_pattern:
 
 ## 4. Error Handling Patterns
 
+For the complete error handling validation checklist (tool-level, agent-level, flow-level), see [Error Handling Checklist](error-handling-checklist.md).
+
 ### Actionable Error Messages
 
 **Before (Opaque):**

@@ -96,6 +96,11 @@ tools:
     type: object
   x-ea-agent:
     risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with pipeline data
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify identifiers with user
 - component_type: ClientTool
   id: read-communications
   name: Read Communications
@@ -109,6 +114,40 @@ tools:
     type: string
   x-ea-agent:
     risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: risks, decisions, stakeholders, competitive,
+    governance, value, journey, opportunities, context, or frameworks.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
 - component_type: ClientTool
   id: save-qualification-data
   name: Save Qualification Data
@@ -189,24 +228,30 @@ flows:
       tools:
       - read-crm-data
       - read-communications
+      - read-infohub
       description: Collect evidence for each MEDDPICC dimension from CRM and communications
+      on_failure: stop
     - step: 2
       prompt: ae-meddpicc-dimension-scoring
       input: dimension_evidence
       description: Score each dimension as STRONG/ADEQUATE/WEAK/UNKNOWN with evidence citations
+      on_failure: stop
     - step: 3
       prompt: ae-meddpicc-gap-analysis
       input: dimension_scores
       description: Identify top gaps, calculate overall confidence, recommend actions to close gaps
+      on_failure: stop
     - step: 4
       prompt: ae-meddpicc-scorecard
       input: dimension_scores, gap_analysis, opportunity_context
       description: Produce formatted qualification scorecard with scores, evidence, gaps, and next steps
+      on_failure: skip_with_warning
     - step: 5
       action: persist
       tools:
       - save-qualification-data
       description: Save qualification scorecard and gap analysis to InfoHub
+      on_failure: stop
 a2a:
   agent_url: null
   connection_config: null
@@ -294,171 +339,29 @@ x-ea-agent:
     - Champion assessment based on contact frequency data, not assumptions
     - Paper process status from milestone tracking, not estimated timelines
     - Mark dimension UNKNOWN when evidence is insufficient, not ADEQUATE
+  error_handling:
+    tool_failures:
+      critical: [read-crm-data, read-communications]
+      enrichment: [read-infohub]
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
   knowledge:
+    scope:
+      domains: [qualification, meddpicc]
+      archetypes: [enterprise, mid-market]
     references:
-    - name: Risk Classification
-      description: Qualification confidence thresholds, dimension scoring criteria
-      load_when: Scoring MEDDPICC dimensions or calculating confidence
-      content:
-        severity_classification:
-          HIGH:
-          - Deal at risk of being lost
-          - Customer escalation to executive level
-          - Budget eliminated or significantly cut
-          - Competitor displacing vendor
-          - Key champion departed
-          MEDIUM:
-          - Decision timeline pushed >30 days
-          - Budget approval delayed
-          - New stakeholders with unknown stance
-          - Scope reduction discussed
-          LOW:
-          - Pricing questions
-          - Procurement process clarifications
-          - Contract terms negotiation
-        escalation_triggers:
-          immediate:
-          - HIGH severity commercial risk
-          - Customer threatens to cancel
-          - Competitor mentioned as preferred choice
-          within_24h:
-          - Deal stuck in same stage >45 days
-          - Multiple meeting cancellations
-          - Unresponsive champion
-        composite_risk_scoring:
-          description: 'Individual risks rarely tell the full story. A single MEDIUM risk is manageable. Three MEDIUM risks
-            on the same deal create a HIGH composite risk. Always assess risk as a portfolio of factors, not isolated items.
-
-            '
-          methodology:
-            score_mapping:
-              HIGH: 3
-              MEDIUM: 2
-              LOW: 1
-            composite_formula: Sum of all active risk scores for a deal
-            thresholds:
-              critical: '>= 7 (immediate escalation required)'
-              elevated: 5-6 (management review within 48 hours)
-              moderate: 3-4 (monitor closely, update in next pipeline review)
-              low: <= 2 (standard monitoring)
-          compound_risk_patterns:
-          - name: Triple Threat
-            components:
-            - Champion gone dark
-            - Close date pushed
-            - New stakeholder introduced
-            composite_score: 7
-            interpretation: Internal dynamics have shifted. Champion may have lost influence or been reassigned.
-            action: Immediate outreach to champion for status. Activate secondary contacts. Prepare contingency.
-          - name: Silent Stall
-            components:
-            - No stage movement >30 days
-            - Contact frequency declining
-            - Next steps vague
-            composite_score: 6
-            interpretation: Deal is stalling without explicit rejection. Often means competing priority won internally.
-            action: Create a reason to re-engage. Bring new value (insight, reference, event). Ask directly about timeline.
-          - name: Budget Squeeze
-            components:
-            - Budget review mentioned
-            - Scope reduction discussed
-            - Decision delayed
-            composite_score: 7
-            interpretation: Budget is under pressure. Deal may survive but at reduced scope or pushed timeline.
-            action: Prepare phased approach. Quantify cost of delay. Engage economic buyer on minimum viable scope.
-          - name: Competitive Ambush
-            components:
-            - Competitor mentioned
-            - New evaluation criteria introduced
-            - Champion less responsive
-            composite_score: 8
-            interpretation: Active competitive evaluation underway. Champion may be losing the internal argument.
-            action: Activate competitive displacement playbook. Arm champion with differentiation. Request executive meeting.
-        risk_trending:
-          description: 'A static risk is less dangerous than a worsening trend. Track risk direction over time, not just current
-            state.
-
-            '
-          trend_classification:
-            improving:
-              definition: Composite risk score decreased by 2+ points in last 14 days
-              indicators:
-              - Risk factors resolved
-              - Champion re-engaged
-              - New positive signals
-              action: Maintain current approach. Document what worked for future reference.
-            stable:
-              definition: Composite risk score unchanged for 14+ days
-              indicators:
-              - Same risks persist
-              - No new factors
-              - Engagement pattern steady
-              action: Proactive intervention needed. Stability in risk is not the same as safety.
-            worsening:
-              definition: Composite risk score increased by 2+ points in last 14 days
-              indicators:
-              - New risk factors appearing
-              - Existing risks escalating
-              - Engagement declining
-              action: Immediate review. If worsening for 2 consecutive periods, escalate to management.
-          measurement:
-            cadence: Assess risk trend at every pipeline review (minimum weekly)
-            lookback: Compare current composite score to 14-day and 30-day prior
-            visualization: Track as directional arrow (up/down/stable) alongside health score
-        de_escalation:
-          description: 'Risks should be downgraded when evidence supports improvement, not when time passes without new bad
-            news. Absence of signal is not the same as resolution.
-
-            '
-          criteria:
-            high_to_medium:
-            - Customer re-engages with specific next steps and dates
-            - Champion confirms budget is secured and timeline is intact
-            - Competitive evaluation concluded in our favor (confirmed by customer)
-            - New executive sponsor actively engaged in deal
-            medium_to_low:
-            - Root cause of risk is documented as resolved
-            - Customer-confirmed milestone achieved
-            - Engagement pattern returned to pre-risk baseline for 14+ days
-            remove_risk:
-            - Risk factor no longer applies (e.g., departing blocker left the organization)
-            - Deal advanced past the stage where the risk was relevant
-            - Customer explicitly addressed the concern in writing
-          anti_patterns:
-          - Never de-escalate because 'it's been a while since we heard bad news'
-          - Never de-escalate based on seller optimism without customer evidence
-          - Never de-escalate because a meeting went well without concrete outcomes
-        mitigation_framework:
-          description: 'Every risk must have a specific mitigation action. Generic "monitor closely" is not mitigation. Mitigation
-            must change the trajectory.
-
-            '
-          mitigation_types:
-            resolve:
-              definition: Eliminate the risk factor entirely
-              example: Budget risk resolved by economic buyer confirming allocation in writing
-              when_to_use: When the root cause can be directly addressed
-            transfer:
-              definition: Shift responsibility for risk resolution to someone with more leverage
-              example: Champion cannot access economic buyer, engage executive sponsor to facilitate
-              when_to_use: When the AE lacks the access or authority to resolve directly
-            mitigate:
-              definition: Reduce the probability or impact of the risk
-              example: Competitive threat mitigated by delivering a differentiated POC result
-              when_to_use: When risk cannot be eliminated but can be contained
-            accept:
-              definition: Acknowledge the risk and proceed with awareness
-              example: Procurement timeline is 6 weeks with no way to accelerate
-              when_to_use: When risk is real but outside anyone's control. Document and plan accordingly.
-          quality_rules:
-          - Every mitigation must name a specific person who will take a specific action by a specific date
-          - Mitigation that requires customer action must be confirmed with customer, not assumed
-          - If mitigation is 'wait and see,' it is not mitigation. Reclassify as 'accept.'
-          - Review mitigation effectiveness at next pipeline review. If risk persists, escalate approach.
     - path: references/meddpicc-framework.yaml
-      description: MEDDPICC dimension definitions, scoring rubric (STRONG/ADEQUATE/WEAK/UNKNOWN), evidence requirements per
-        dimension
-      load_when: Running qualification assessment or producing scorecards
+      description: MEDDPICC dimension definitions, scoring rubric (STRONG/ADEQUATE/WEAK/UNKNOWN), evidence requirements per dimension
   autonomy:
     triggers:
     - type: parent_dispatch
@@ -502,6 +405,15 @@ x-ea-agent:
       condition: overall_confidence < 60
       channel: alert
       description: Deals below 60% confidence flagged for immediate AE attention
+    consumes_toolboxes:
+    - toolbox: risk-intelligence
+      agent: sa-risk-agent
+      tools: [get-architecture-health]
+      reason: Technical readiness is MEDDPICC input
+    - toolbox: compliance-intelligence
+      agent: infosec-agent
+      tools: [get-compliance-status]
+      reason: Compliance posture affects qualification
     dependencies:
     - agent: ae-signal-detection-agent
       toolbox: signal-intelligence

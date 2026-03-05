@@ -64,6 +64,11 @@ tools:
         type: object
     x-ea-agent:
       risk: low
+      error_responses:
+      - error_code: SOURCE_UNAVAILABLE
+        guidance: CRM unavailable, cannot proceed with pipeline data
+      - error_code: RECORD_NOT_FOUND
+        guidance: Record not found in CRM, verify identifiers with user
 
   - component_type: ClientTool
     id: read-communications
@@ -80,6 +85,69 @@ tools:
         type: string
     x-ea-agent:
       risk: low
+      error_responses:
+      - error_code: SOURCE_UNAVAILABLE
+        guidance: Cannot access communications, flag as data gap
+      - error_code: NO_RECORDS
+        guidance: No communications found for period, expand search or note gap
+
+  - component_type: ClientTool
+    id: read-infohub
+    name: Read InfoHub
+    description: >
+      Access structured account data from the InfoHub vault. Use section parameter
+      to target specific data: risks, decisions, stakeholders, competitive,
+      governance, value, journey, opportunities, context, or frameworks.
+    requires_confirmation: false
+    inputs:
+      - title: realm_id
+        type: string
+      - title: node_id
+        type: string
+      - title: section
+        type: string
+      - title: detail_level
+        type: string
+    outputs:
+      - title: infohub_data
+        type: object
+    x-ea-agent:
+      risk: low
+      error_responses:
+      - error_code: SOURCE_UNAVAILABLE
+        guidance: Proceed with other data sources, flag output as incomplete
+      - error_code: SECTION_NOT_FOUND
+        guidance: Section does not exist for this account, skip and note gap
+      - error_code: STALE_DATA
+        guidance: Data exceeds freshness threshold, flag for human verification
+
+  - component_type: ClientTool
+    id: read-intelligence
+    name: Read Intelligence
+    description: >
+      Access intelligence layer data for a realm. Sections: account (company profile,
+      organigram, opportunity map), industry (profile, regulatory, trends),
+      market (news digest), technology (current map, vendor landscape).
+    requires_confirmation: false
+    inputs:
+      - title: realm_id
+        type: string
+      - title: section
+        type: string
+      - title: detail_level
+        type: string
+    outputs:
+      - title: intelligence_data
+        type: object
+    x-ea-agent:
+      risk: low
+      error_responses:
+      - error_code: SOURCE_UNAVAILABLE
+        guidance: Skip intelligence enrichment, proceed with core data
+      - error_code: SECTION_NOT_FOUND
+        guidance: Intelligence section unavailable, note gap in output
+      - error_code: STALE_DATA
+        guidance: Intelligence may be outdated, flag for refresh
 
   - component_type: ClientTool
     id: save-meeting-intelligence
@@ -167,21 +235,25 @@ flows:
         - step: 1
           prompt: ae-call-prep
           input: account_context, meeting_date, attendees, meeting_purpose
-          tools: [read-crm-data, read-communications]
+          tools: [read-crm-data, read-communications, read-infohub, read-intelligence]
           description: Last interaction summary, open items, objectives, questions, risks
+          on_failure: stop
         - step: 2
           prompt: ae-qbr-prep
           input: account_context, arr, qbr_type
           tools: [read-crm-data]
           description: Value delivered, adoption metrics, health scorecard, expansion points
+          on_failure: skip_with_warning
         - step: 3
           prompt: ae-post-call-summary
           input: call_notes
           description: Executive summary, decisions, action items with owners, follow-up, CRM updates
+          on_failure: skip_with_warning
         - step: 4
           action: persist
           tools: [save-meeting-intelligence]
           description: Save call brief, QBR materials, and post-call summary to InfoHub
+          on_failure: stop
 
   - component_type: Flow
     id: discovery-preparation
@@ -208,10 +280,12 @@ flows:
           input: account_context, attendee_roles, known_pain_points
           tools: [read-crm-data, read-communications]
           description: Build discovery plan with persona-specific questions, MEDDPICC mapping, and objection preparation
+          on_failure: stop
         - step: 2
           action: persist
           tools: [save-meeting-intelligence]
           description: Save discovery plan to InfoHub
+          on_failure: stop
 
 a2a:
   agent_url: null
@@ -316,30 +390,42 @@ x-ea-agent:
       - Post-call sentiment based on stated content, not assumed mood
       - Discussion points must be grounded in account data
       - CRM update recommendations are suggestions, not automatic changes
+  error_handling:
+    tool_failures:
+      critical: [read-crm-data, read-communications]
+      enrichment: [read-infohub, read-intelligence]
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
 
   knowledge:
+    scope:
+      domains: [meeting-preparation, account-context]
+      archetypes: [enterprise, mid-market]
     references:
       - path: references/meeting-standards.yaml
         description: Call brief structure, QBR format and sections, post-call summary template, action item standards
-        load_when: Preparing call briefs, QBR materials, or post-call summaries
       - path: references/discovery-framework.yaml
         description: Discovery question hierarchy (situation/problem/implication/need-payoff), per-persona focus areas, MEDDPICC evidence mapping
-        load_when: Preparing discovery calls or structuring qualification-focused meetings
       - path: references/objection-handling.yaml
         description: Objection handling process (acknowledge/clarify/respond/confirm), common objection categories with response strategies
-        load_when: Preparing for meetings where objections are expected or value justification is needed
       - path: references/value-framework.yaml
         description: Value articulation structure (why now, value driver, why us, cost of inaction), before/after scenario format
-        load_when: Preparing value-focused meetings, executive presentations, or business case discussions
       - path: references/negotiation-framework.yaml
         description: Negotiation preparation, pricing strategy, concession trading rules, customer tactics
-        load_when: Preparing for negotiation meetings or commercial term discussions
       - path: references/competitive-displacement.yaml
         description: Incumbent analysis, positioning strategies, FUD defense, competitive traps
-        load_when: Preparing for meetings where competitive positioning or displacement is expected
       - path: references/roi-methodology.yaml
         description: ROI model structure, TCO comparison, business case format, sensitivity analysis, value realization timeline
-        load_when: Preparing business case presentations, executive value meetings, or QBR value sections
 
   autonomy:
     triggers:
@@ -374,6 +460,19 @@ x-ea-agent:
         condition: call_brief.ready == true
         channel: notification
         description: Call brief ready notification sent to AE before meeting
+    consumes_toolboxes:
+      - toolbox: risk-intelligence
+        agent: sa-risk-agent
+        tools: [get-risk-register]
+        reason: Risk context for meeting prep
+      - toolbox: poc-intelligence
+        agent: poc-agent
+        tools: [get-poc-status]
+        reason: POC status for QBR/discovery prep
+      - toolbox: discovery-intelligence
+        agent: sa-discovery-agent
+        tools: [get-discovery-summary]
+        reason: Discovery context for follow-up meetings
     dependencies:
       - agent: ae-stakeholder-agent
         toolbox: stakeholder-intelligence

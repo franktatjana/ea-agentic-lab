@@ -159,7 +159,7 @@ export default function AgentProfilesPage() {
                         {agent.capabilities.map((cap) => (
                           <span
                             key={cap}
-                            className="text-sm text-muted-foreground"
+                            className="text-sm text-foreground"
                           >
                             {cap}
                           </span>

@@ -65,6 +65,41 @@ tools:
         type: object
     x-ea-agent:
       risk: low
+      error_responses:
+      - error_code: SOURCE_UNAVAILABLE
+        guidance: CRM unavailable, cannot proceed with pipeline data
+      - error_code: RECORD_NOT_FOUND
+        guidance: Record not found in CRM, verify identifiers with user
+
+  - component_type: ClientTool
+    id: read-infohub
+    name: Read InfoHub
+    description: >
+      Access structured account data from the InfoHub vault. Use section parameter
+      to target specific data: risks, decisions, stakeholders, competitive,
+      governance, value, journey, opportunities, context, or frameworks.
+    requires_confirmation: false
+    inputs:
+      - title: realm_id
+        type: string
+      - title: node_id
+        type: string
+      - title: section
+        type: string
+      - title: detail_level
+        type: string
+    outputs:
+      - title: infohub_data
+        type: object
+    x-ea-agent:
+      risk: low
+      error_responses:
+      - error_code: SOURCE_UNAVAILABLE
+        guidance: Proceed with other data sources, flag output as incomplete
+      - error_code: SECTION_NOT_FOUND
+        guidance: Section does not exist for this account, skip and note gap
+      - error_code: STALE_DATA
+        guidance: Data exceeds freshness threshold, flag for human verification
 
   - component_type: ClientTool
     id: save-pipeline-intelligence
@@ -150,21 +185,25 @@ flows:
         - step: 1
           prompt: ae-forecast-accuracy
           input: pipeline_deals, quarter
-          tools: [read-crm-data]
+          tools: [read-crm-data, read-infohub]
           description: Assess commit confidence per deal based on engagement and signals
+          on_failure: stop
         - step: 2
           prompt: ae-pipeline-coverage
           input: pipeline_value, target_value, win_rate
           tools: [read-crm-data]
           description: Calculate coverage ratio, identify gap, recommend pipeline generation
+          on_failure: stop
         - step: 3
           prompt: ae-next-best-action
           input: active_opportunities, recent_signals
           description: Top 5 priority actions ranked by deal impact and urgency
+          on_failure: skip_with_warning
         - step: 4
           action: persist
           tools: [save-pipeline-intelligence]
           description: Save forecast assessment and coverage analysis to InfoHub
+          on_failure: stop
 
   - component_type: Flow
     id: territory-planning
@@ -191,14 +230,17 @@ flows:
           input: territory_accounts, quota_target, current_pipeline
           tools: [read-crm-data]
           description: Tier accounts by revenue potential and engagement, identify coverage gaps
+          on_failure: stop
         - step: 2
           prompt: ae-horizon-plan
           input: account_tiers, whitespace_analysis
           description: Build three-horizon plan (close now, qualify next quarter, prospect for future)
+          on_failure: skip_with_warning
         - step: 3
           action: persist
           tools: [save-pipeline-intelligence]
           description: Save territory plan and account tiers to InfoHub
+          on_failure: stop
 
 a2a:
   agent_url: null
@@ -304,18 +346,34 @@ x-ea-agent:
       - All dates must be specific, reject "soon" or "next quarter"
       - Flag when underlying data is stale (>7 days) or incomplete
       - Confidence percentages must cite engagement signals as evidence
+  error_handling:
+    tool_failures:
+      critical: [read-crm-data]
+      enrichment: [read-infohub]
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
 
   knowledge:
+    scope:
+      domains: [pipeline-management, forecasting]
+      archetypes: [enterprise, mid-market]
     references:
       - path: references/pipeline-methodology.yaml
         description: Forecast methodology, stage progression criteria, coverage ratio benchmarks, commit confidence scoring
-        load_when: Assessing forecast accuracy, calculating coverage, or prioritizing actions
       - path: references/roi-methodology.yaml
         description: Business case strength indicators, value realization phases, ROI as forecast confidence input
-        load_when: Assessing forecast confidence for deals where business case maturity affects close probability
       - path: references/account-planning.yaml
         description: Strategic account planning, whitespace mapping, land-and-expand motions, multi-year growth planning
-        load_when: Territory planning, account tiering, or identifying expansion pipeline opportunities
 
   autonomy:
     triggers:
@@ -354,6 +412,11 @@ x-ea-agent:
         condition: forecast_variance > 15 OR coverage_ratio < 2.0
         channel: alert
         description: Forecast risk or critical coverage gap surfaces for AE review
+    consumes_toolboxes:
+      - toolbox: poc-intelligence
+        agent: poc-agent
+        tools: [get-poc-status]
+        reason: POC status affects deal confidence
     dependencies:
       - agent: ae-deal-diagnosis-agent
         toolbox: deal-intelligence

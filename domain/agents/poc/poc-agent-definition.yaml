@@ -100,18 +100,82 @@ outputs:
   description: Agent output
 tools:
 - component_type: ClientTool
-  id: read-poc-data
-  name: Read POC Data
-  description: 'Access data sources: domain data'
+  id: read-crm-data
+  name: Read CRM Data
+  description: >
+    Access CRM opportunity data: stage, ARR, close date, contacts, and activity
+    history. For structured internal data, use read-infohub instead.
   requires_confirmation: false
   inputs:
-  - title: query
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: fields
     type: string
   outputs:
-  - title: data
+  - title: crm_data
     type: object
   x-ea-agent:
     risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with pipeline data
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: >
+    Access Slack threads, email content, and meeting transcripts for
+    POC request details, stakeholder feedback, and evaluation progress signals.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: source_type
+    type: string
+  - title: time_period
+    type: string
+  outputs:
+  - title: communications
+    type: object
+  x-ea-agent:
+    risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: risks, decisions, stakeholders, competitive,
+    governance, value, journey, opportunities, context, or frameworks.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
 - component_type: ClientTool
   id: write-poc-artifact
   name: Write POC Artifact
@@ -225,19 +289,25 @@ flows:
     - step: 1
       prompt: poc-pov-type-recommendation
       input: account_name, opportunity_arr, use_cases, engagement_level
+      tools: [read-crm-data, read-infohub]
       description: Recommend appropriate POV type based on opportunity
+      on_failure: stop
     - step: 2
       prompt: poc-pov-qualification-assessment
       input: account_name, opportunity_details, stage, arr
+      tools: [read-crm-data, read-communications]
       description: Qualify opportunity for POV engagement
+      on_failure: stop
     - step: 3
       prompt: poc-success-criteria-design
       input: account_name, use_cases, business_outcomes, priorities
       description: Design measurable success criteria with customer
+      on_failure: stop
     - step: 4
       prompt: poc-blocker-analysis
       input: account_name, findings, constraints
       description: Identify and address POV blockers
+      on_failure: stop
 - component_type: Flow
   id: pov-kickoff
   name: Pov Kickoff
@@ -267,15 +337,19 @@ flows:
     - step: 1
       prompt: poc-internal-kickoff-prep
       input: account_name, pov_type, success_criteria, start_date
+      tools: [read-crm-data, read-infohub]
       description: Prepare for internal team alignment before customer kickoff
+      on_failure: stop
     - step: 2
       prompt: poc-external-kickoff-prep
       input: account_name, internal_summary, customer_attendees, success_criteria
       description: Prepare for customer POV kickoff meeting
+      on_failure: stop
     - step: 3
       prompt: poc-mutual-action-plan
       input: account_name, success_criteria, timeline, resources
       description: Create mutual action plan for POV execution
+      on_failure: stop
 - component_type: Flow
   id: pov-execution
   name: Pov Execution
@@ -305,23 +379,29 @@ flows:
     - step: 1
       prompt: poc-daily-status-update
       input: account_name, day_number, total_days, activities
+      tools: [read-crm-data, read-communications]
       description: Generate daily POV status update
+      on_failure: skip_with_warning
     - step: 2
       prompt: poc-weekly-retrospective
       input: week_number, account_name, week_summary, criteria_status
       description: Conduct weekly POV retrospective
+      on_failure: skip_with_warning
     - step: 3
       prompt: poc-midpoint-checkpoint
       input: account_name, days_completed, total_days, criteria_status
       description: Conduct POV midpoint review
+      on_failure: skip_with_warning
     - step: 4
       prompt: poc-scope-change-assessment
       input: account_name, original_scope, change_request, remaining_days
       description: Assess and respond to scope change request
+      on_failure: stop
     - step: 5
       prompt: poc-risk-mitigation
       input: account_name, risk_description, impact, status
       description: Address identified POV risk
+      on_failure: stop
 - component_type: Flow
   id: pov-conclusion
   name: Pov Conclusion
@@ -351,19 +431,24 @@ flows:
     - step: 1
       prompt: poc-results-documentation
       input: account_name, start_date, end_date, success_criteria
+      tools: [read-crm-data, read-infohub]
       description: Document POV results and outcomes
+      on_failure: stop
     - step: 2
       prompt: poc-customer-feedback-session
       input: account_name, results_summary, attendees
       description: Prepare for and capture customer feedback
+      on_failure: stop
     - step: 3
       prompt: poc-go-no-go-recommendation
       input: account_name, results_summary, sentiment, commercial_context
       description: Provide clear recommendation based on POV
+      on_failure: stop
     - step: 4
       prompt: poc-pov-summary-presentation
       input: account_name, audience, results, presentation_objective
       description: Create POV summary for stakeholder presentation
+      on_failure: stop
 - component_type: Flow
   id: pov-conversion
   name: Pov Conversion
@@ -393,15 +478,19 @@ flows:
     - step: 1
       prompt: poc-conversion-readiness
       input: account_name, outcome, dm_engagement, signals
+      tools: [read-crm-data, read-communications, read-infohub]
       description: Assess readiness to convert POV to deal
+      on_failure: stop
     - step: 2
       prompt: poc-ae-handoff-brief
       input: account_name, results, readiness, contacts
       description: Prepare POV handoff to AE for commercial
+      on_failure: skip_with_warning
     - step: 3
       prompt: poc-loss-analysis
       input: account_name, outcome_type, loss_reason, competitor_if_any
       description: Analyze POV loss for learnings
+      on_failure: skip_with_warning
 - component_type: Flow
   id: pov-metrics
   name: Pov Metrics
@@ -429,11 +518,14 @@ flows:
     - step: 1
       prompt: poc-pov-health-assessment
       input: account_name, status, days_elapsed, total_days
+      tools: [read-crm-data, read-communications, read-infohub]
       description: Assess overall POV health
+      on_failure: skip_with_warning
     - step: 2
       prompt: poc-portfolio-status
       input: pov_list, period
       description: Summary status of all active POVs
+      on_failure: skip_with_warning
 - component_type: Flow
   id: poc-success-plan
   name: Poc Success Plan
@@ -463,67 +555,84 @@ flows:
     - step: 1
       prompt: poc-create-success-plan
       input: account_name, opportunity_name, opportunity_arr, poc_type
+      tools: [read-crm-data, read-infohub]
       description: Initialize POC Success Plan for new evaluation
+      on_failure: stop
     - step: 2
       prompt: poc-capture-customer-commitments
       input: account_name, plan_link, contacts
       description: Document and verify customer commitments
+      on_failure: stop
     - step: 3
       prompt: poc-design-success-criteria
       input: account_name, business_outcomes, use_cases, priorities
       description: Collaboratively design SMART success criteria
+      on_failure: stop
     - step: 4
       prompt: poc-validate-commitments
       input: account_name, plan_link, start_date
       description: Verify all commitments before POC start
+      on_failure: stop
     - step: 5
       prompt: poc-conduct-internal-kickoff
       input: account_name, plan_link, sa_name, ae_name
       description: Align internal team before customer kickoff
+      on_failure: stop
     - step: 6
       prompt: poc-conduct-customer-kickoff
       input: account_name, attendees, plan_link
       description: Launch POC with customer stakeholders
+      on_failure: stop
     - step: 7
       prompt: poc-track-daily-status
       input: account_name, day_number, total_days, yesterday_summary
       description: Document daily POC progress
+      on_failure: skip_with_warning
     - step: 8
       prompt: poc-conduct-midpoint-review
       input: account_name, plan_link, days_completed, total_days
       description: Mid-POC checkpoint with customer
+      on_failure: skip_with_warning
     - step: 9
       prompt: poc-manage-scope-change
       input: account_name, original_scope, change_request, requestor
       description: Process scope change request
+      on_failure: stop
     - step: 10
       prompt: poc-escalate-poc-risk
       input: account_name, risk_description, impact, status
       description: Escalate critical POC risk or blocker
+      on_failure: stop
     - step: 11
       prompt: poc-document-poc-results
       input: account_name, plan_link, start_date, end_date
       description: Compile final POC results
+      on_failure: stop
     - step: 12
       prompt: poc-prepare-decision-presentation
       input: account_name, results_summary, decision_maker, attendees
       description: Create presentation for decision makers
+      on_failure: stop
     - step: 13
       prompt: poc-drive-poc-decision
       input: account_name, results_summary, decision_maker, deadline
       description: Facilitate decision from customer
+      on_failure: stop
     - step: 14
       prompt: poc-handle-poc-win
       input: account_name, results_summary, opportunity_name
       description: Process successful POC outcome
+      on_failure: stop
     - step: 15
       prompt: poc-handle-poc-loss
       input: account_name, results_summary, reason
       description: Process unsuccessful POC outcome
+      on_failure: stop
     - step: 16
       prompt: poc-transition-to-csp
       input: account_name, poc_plan_link, csp_link
       description: Transfer POC success to Customer Success Plan
+      on_failure: stop
 a2a:
   agent_url: null
   connection_config: null
@@ -1140,9 +1249,25 @@ x-ea-agent:
     - rule: Customer sentiment claims cite specific interactions
     resource:
     - max_tool_calls: 30
+  error_handling:
+    tool_failures:
+      critical: [read-crm-data]
+      enrichment: [read-communications, read-infohub]
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
   boundaries:
-  - Does not execute technical implementation (SA/Specialist domain) (handoff to Sa Agent)
-  - Does not negotiate commercial terms (AE Agent's domain) (handoff to Ae Agent)
+  - Does not execute technical implementation (SA/Specialist domain) (handoff to SA Agent)
+  - Does not negotiate commercial terms (AE Agent's domain) (handoff to AE Agent)
   - Does not commit to product features (PM Agent's domain) (handoff to Leadership)
   - Does not extend POC timelines without approval (handoff to Leadership)
   - Does not guarantee outcomes not validated (handoff to Leadership)
@@ -1155,8 +1280,8 @@ x-ea-agent:
   - Coordinate cross-functional POC resources
   - Drive POC-to-close conversion
   escalation_triggers:
-  - Technical execution, architecture decisions (to Sa Agent)
-  - Commercial discussions, conversion negotiations (to Ae Agent)
+  - Technical execution, architecture decisions (to SA Agent)
+  - Commercial discussions, conversion negotiations (to AE Agent)
   - Deep technical implementation (to Specialist Agent)
   - Critical poc qualification quality exceeding agent authority (to Leadership)
   handoffs:
@@ -1204,19 +1329,18 @@ x-ea-agent:
     - Generic advice without evidence
     - Content outside agent scope
   knowledge:
+    scope:
+      domains: [poc-evaluation, qualification, signal-detection]
+      archetypes: [enterprise, mid-market]
     references:
     - path: references/qualification-criteria.yaml
       description: Go Criteria, No Go Criteria, Conditional Go
-      load_when: Performing tasks related to qualification criteria
     - path: references/signal-detection.yaml
       description: Poc Health Signals, Qualification Signals, Conversion Signals
-      load_when: Performing tasks related to signal detection
     - path: references/success-criteria-design.yaml
       description: Principles, Anti Patterns
-      load_when: Performing tasks related to success criteria design
     - path: references/target-metrics.yaml
       description: Conversion Rate, Avg Duration, Success Criteria Achievement
-      load_when: Performing tasks related to target metrics
   assets:
   - name: analysis
     filename: '{account}-analysis.md'
@@ -1261,6 +1385,15 @@ x-ea-agent:
       condition: poc.qualification == NO_GO OR poc.risk_level == HIGH
       channel: alert
       description: No-go decisions and high-risk POCs surface for SA review
+    consumes_toolboxes:
+    - toolbox: discovery-intelligence
+      agent: sa-discovery-agent
+      tools: [get-discovery-summary, get-stakeholder-map]
+      reason: Discovery findings inform POC scope and success criteria
+    - toolbox: risk-intelligence
+      agent: sa-risk-agent
+      tools: [get-architecture-health]
+      reason: Architecture health context for POC risk assessment
     dependencies:
     - agent: specialist-agent
       reason: Domain expertise for complex technical evaluation scenarios

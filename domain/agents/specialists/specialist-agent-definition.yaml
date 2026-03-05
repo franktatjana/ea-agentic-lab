@@ -114,18 +114,85 @@ outputs:
   description: Best practice alignment reports
 tools:
 - component_type: ClientTool
-  id: read-specialist-data
-  name: Read Specialist Data
-  description: 'Access data sources: POC/RFP documents, Slack deep-dive threads, Architecture notes'
+  id: read-communications
+  name: Read Communications
+  description: >
+    Access Slack deep-dive threads, architecture discussion notes, and
+    POC/RFP documents shared for specialist technical analysis.
   requires_confirmation: false
   inputs:
-  - title: query
+  - title: realm_id
+    type: string
+  - title: source_type
+    type: string
+  - title: time_period
     type: string
   outputs:
-  - title: data
+  - title: communications
     type: object
   x-ea-agent:
     risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: risks, decisions, stakeholders, competitive,
+    governance, value, journey, opportunities, context, or frameworks.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: >
+    Access intelligence layer data for a realm. Sections: account (company profile,
+    organigram, opportunity map), industry (profile, regulatory, trends),
+    market (news digest), technology (current map, vendor landscape).
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
 - component_type: ClientTool
   id: write-specialist-artifact
   name: Write Specialist Artifact
@@ -240,15 +307,19 @@ flows:
     - step: 1
       prompt: specialist-request-qualification
       input: requester_name, account_name, request_description, urgency
+      tools: [read-communications, read-infohub]
       description: Qualify incoming specialist engagement request
+      on_failure: stop
     - step: 2
       prompt: specialist-prioritization
       input: request_list, capacity
       description: Prioritize multiple specialist requests
+      on_failure: skip_with_warning
     - step: 3
       prompt: specialist-scope-definition
       input: account_name, engagement_topic, sa_provided_context
       description: Define clear scope for specialist engagement
+      on_failure: stop
 - component_type: Flow
   id: technical-deep-dive
   name: Technical Deep Dive
@@ -278,15 +349,19 @@ flows:
     - step: 1
       prompt: specialist-architecture-review
       input: account_name, use_case, architecture_summary, stated_concerns
+      tools: [read-infohub, read-intelligence]
       description: Conduct deep architecture review
+      on_failure: stop
     - step: 2
       prompt: specialist-sizing-deep-dive
       input: account_name, use_case, scale_requirements, constraints
       description: Perform detailed sizing for complex scenario
+      on_failure: stop
     - step: 3
       prompt: specialist-performance-analysis
       input: account_name, symptom_description, environment_details, data_available
       description: Analyze complex performance issue
+      on_failure: stop
 - component_type: Flow
   id: rfp-poc
   name: Rfp Poc
@@ -316,15 +391,19 @@ flows:
     - step: 1
       prompt: specialist-rfp-technical-response
       input: account_name, rfp_section, questions
+      tools: [read-communications, read-infohub, read-intelligence]
       description: Prepare technical content for RFP response
+      on_failure: stop
     - step: 2
       prompt: specialist-poc-design
       input: account_name, use_case, customer_criteria, poc_timeline
       description: Design POC architecture and success criteria
+      on_failure: stop
     - step: 3
       prompt: specialist-poc-review
       input: account_name, poc_results, criteria
       description: Review POC results and prepare customer presentation
+      on_failure: skip_with_warning
 - component_type: Flow
   id: knowledge-transfer
   name: Knowledge Transfer
@@ -348,11 +427,14 @@ flows:
     - step: 1
       prompt: specialist-sa-handback
       input: account_name, scope, deliverables
+      tools: [read-infohub]
       description: Prepare handback to SA after specialist engagement
+      on_failure: stop
     - step: 2
       prompt: specialist-best-practice-doc
       input: account_name, topic, key_learnings
       description: Document best practices from engagement
+      on_failure: skip_with_warning
 a2a:
   agent_url: null
   connection_config: null
@@ -560,6 +642,22 @@ x-ea-agent:
     - rule: Domain classification must map to defined specialist categories
     resource:
     - max_tool_calls: 30
+  error_handling:
+    tool_failures:
+      critical: []
+      enrichment: [read-communications, read-infohub, read-intelligence]
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
   boundaries:
   - Does not provide specialist-level technical guidance (handoff to Specialist Lead)
   - Does not make decisions on specialist's behalf (handoff to Specialist Lead)
@@ -607,7 +705,12 @@ x-ea-agent:
     - Generic advice without evidence
     - Content outside agent scope
   knowledge:
-    references: []
+    scope:
+      domains: [specialist-engagement, knowledge-transfer]
+      archetypes: [enterprise, mid-market]
+    references:
+    - path: references/specialist-triggers.yaml
+      description: When To Flag, Domains
   assets:
   - name: tech-summary
     filename: '{account}-tech-summary.md'
@@ -650,6 +753,15 @@ x-ea-agent:
       condition: complexity.level == HIGH OR engagement.blocked == true
       channel: alert
       description: High-complexity findings and blocked engagements surface for SA review
+    consumes_toolboxes:
+    - toolbox: risk-intelligence
+      agent: sa-risk-agent
+      tools: [get-risk-register]
+      reason: Risk context for domain-specific assessment
+    - toolbox: best-practices-intelligence
+      agent: sa-best-practices-agent
+      tools: [get-best-practice]
+      reason: Best practices inform specialist recommendations
     dependencies:
     - agent: security-specialist-agent
       reason: SIEM, threat detection, MITRE ATT&CK domain expertise

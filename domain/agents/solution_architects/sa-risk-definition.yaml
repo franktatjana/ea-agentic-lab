@@ -40,18 +40,61 @@ system_prompt: |
 human_in_the_loop: true
 tools:
 - component_type: ClientTool
-  id: read-sa-data
-  name: Read Solution Data
-  description: Access deployment data, monitoring metrics, architecture docs
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: risks, decisions, stakeholders, competitive,
+    governance, value, journey, opportunities, context, or frameworks.
   requires_confirmation: false
   inputs:
-  - title: query
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
     type: string
   outputs:
-  - title: data
+  - title: infohub_data
     type: object
   x-ea-agent:
     risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: >
+    Access intelligence layer data for a realm. Sections: account (company profile,
+    organigram, opportunity map), industry (profile, regulatory, trends),
+    market (news digest), technology (current map, vendor landscape).
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
 - component_type: ClientTool
   id: write-risk-alert
   name: Write Risk Alert
@@ -136,24 +179,29 @@ flows:
       prompt: sa-architecture-health-check
       input: account_name
       description: Evaluate current deployment health and identify risks
+      on_failure: stop
     - step: 2
       prompt: sa-performance-investigation
       input: issue_description, environment_details
       description: Diagnose reported performance issues
+      on_failure: stop
     - step: 3
       prompt: sa-capacity-planning
       input: account_name, current_volume, target_volume, target_date
       description: Assess capacity for planned growth
+      on_failure: stop
     - step: 4
       prompt: sa-integration-risk-assessment
       input: account_name, vendor, systems
       description: Evaluate risks in proposed or existing integrations
+      on_failure: stop
     - step: 5
       action: persist
       tools:
       - write-risk-alert
       condition: write-risk-alert triggers when any risk severity >= HIGH
       description: Save risk assessment to InfoHub, alert for HIGH+ risks
+      on_failure: stop
 a2a:
   agent_url: null
   connection_config: null
@@ -195,6 +243,35 @@ x-ea-agent:
     signal_validation:
     - rule: Risk severity must use the four-tier framework consistently
     - rule: Trending claims require minimum 2 consecutive assessments
+  knowledge:
+    scope:
+      domains: [risk-assessment, architecture, capacity-planning]
+      archetypes: [enterprise, regulated-industries]
+    references:
+    - path: references/technical-risk-framework.yaml
+      description: Severity classification, escalation triggers, composite risk scoring, trending
+    - path: references/architecture-patterns.yaml
+      description: Deployment models, data architecture, integration approaches, scaling strategies
+    - path: references/capacity-planning.yaml
+      description: Sizing methodologies, performance baselines, growth modeling
+    - path: references/integration-patterns.yaml
+      description: Common integration approaches, anti-patterns, complexity indicators
+  error_handling:
+    tool_failures:
+      critical: [read-infohub]
+      enrichment: [read-intelligence]
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
   autonomy:
     triggers:
     - type: parent_dispatch
@@ -222,6 +299,11 @@ x-ea-agent:
       condition: risk.severity == CRITICAL OR risk.count_high >= 3
       channel: alert
       description: CRITICAL risks or 3+ HIGH risks surface for immediate SA review
+    consumes_toolboxes:
+    - toolbox: compliance-intelligence
+      agent: infosec-agent
+      tools: [get-compliance-status]
+      reason: Compliance posture affects architecture risk classification
     dependencies:
     - agent: specialist-agent
       reason: Domain expertise for complex risk scenarios

@@ -40,18 +40,85 @@ system_prompt: |
 human_in_the_loop: true
 tools:
 - component_type: ClientTool
-  id: read-sa-data
-  name: Read Solution Data
-  description: Access Slack technical channels, meeting notes, CRM data
+  id: read-communications
+  name: Read Communications
+  description: >
+    Access Slack technical channels, email threads, and meeting transcripts
+    for discovery evidence and stakeholder communication patterns.
   requires_confirmation: false
   inputs:
-  - title: query
+  - title: realm_id
+    type: string
+  - title: source_type
+    type: string
+  - title: time_period
     type: string
   outputs:
-  - title: data
+  - title: communications
     type: object
   x-ea-agent:
     risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: risks, decisions, stakeholders, competitive,
+    governance, value, journey, opportunities, context, or frameworks.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: >
+    Access intelligence layer data for a realm. Sections: account (company profile,
+    organigram, opportunity map), industry (profile, regulatory, trends),
+    market (news digest), technology (current map, vendor landscape).
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
 - component_type: ClientTool
   id: write-sa-artifact
   name: Write Solution Artifact
@@ -129,39 +196,48 @@ flows:
       prompt: sa-discovery-preparation
       input: account_name, opportunity_name
       description: Prepare discovery session with account context and research
+      on_failure: stop
     - step: 2
       prompt: sa-business-outcomes-discovery
       input: account_name
       description: Discover business outcomes, success metrics, and drivers
+      on_failure: stop
     - step: 3
       prompt: sa-current-state-discovery
       input: account_name
       description: Map current technical landscape, pain points, and workarounds
+      on_failure: stop
     - step: 4
       prompt: sa-requirements-discovery
       input: account_name
       description: Gather and prioritize requirements using MoSCoW
+      on_failure: stop
     - step: 5
       prompt: sa-stakeholder-discovery
       input: account_name, attendees
       description: Map stakeholder roles, influence, and engagement willingness
+      on_failure: stop
     - step: 6
       prompt: sa-timeline-discovery
       input: account_name
       description: Establish milestones, dependencies, and deadline drivers
+      on_failure: skip_with_warning
     - step: 7
       prompt: sa-discovery-synthesis
       input: account_name
       description: Synthesize all discovery dimensions into actionable summary
+      on_failure: stop
     - step: 8
       prompt: sa-discovery-debrief
       input: account_name
       description: Post-discovery debrief, gap analysis, and next steps
+      on_failure: skip_with_warning
     - step: 9
       action: persist
       tools:
       - write-sa-artifact
       description: Save discovery summary to InfoHub
+      on_failure: stop
 a2a:
   agent_url: null
   connection_config: null
@@ -212,6 +288,33 @@ x-ea-agent:
     signal_validation:
     - rule: Red flags must reference specific evidence from discovery
     - rule: Gap claims identify what information is missing and how to get it
+  knowledge:
+    scope:
+      domains: [discovery, requirements, stakeholder-mapping]
+      archetypes: [enterprise, mid-market]
+    references:
+    - path: references/discovery-methodology.yaml
+      description: Discovery dimensions, question frameworks, red flags, synthesis templates
+    - path: references/signal-detection.yaml
+      description: Technical Risks, Technical Decisions, Architecture Patterns
+    - path: references/specialist-triggers.yaml
+      description: When To Flag, Domains
+  error_handling:
+    tool_failures:
+      critical: [read-communications]
+      enrichment: [read-infohub, read-intelligence]
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
   autonomy:
     triggers:
     - type: parent_dispatch
