@@ -1,5 +1,7 @@
 """Agent definition service for reading and serving *-definition.yaml files."""
 
+import io
+import zipfile
 from pathlib import Path
 from functools import lru_cache
 from typing import Optional
@@ -164,6 +166,61 @@ class DefinitionsService:
 
         return None
 
+    def get_bundle(self, agent_id: str) -> Optional[tuple[bytes, str]]:
+        """Return a ZIP archive containing the definition and all referenced files."""
+        if not self.agents_path.is_dir():
+            return None
+
+        for def_file in self.agents_path.rglob("*-definition.yaml"):
+            try:
+                data = yaml.safe_load(def_file.read_text(encoding="utf-8"))
+                if not isinstance(data, dict) or data.get("id") != agent_id:
+                    continue
+            except Exception:
+                continue
+
+            agent_dir = def_file.parent
+            files: list[tuple[Path, str]] = [(def_file, def_file.name)]
+
+            # Prompt files from prompt_registry sources (deduplicated)
+            registry = data.get("x-ea-agent", {}).get("prompt_registry", {})
+            seen_prompts: set[str] = set()
+            for entry in registry.values():
+                if not isinstance(entry, dict):
+                    continue
+                source = entry.get("source", "")
+                file_part = source.partition("#")[0]
+                if file_part and file_part not in seen_prompts:
+                    seen_prompts.add(file_part)
+                    p = agent_dir / file_part
+                    if p.is_file():
+                        files.append((p, file_part))
+
+            # Knowledge reference files
+            knowledge = data.get("x-ea-agent", {}).get("knowledge", {})
+            if isinstance(knowledge, dict):
+                for ref in knowledge.get("references", []):
+                    if isinstance(ref, dict) and ref.get("path"):
+                        p = agent_dir / ref["path"]
+                        if p.is_file():
+                            files.append((p, ref["path"]))
+
+            # Skills directory
+            skills_dir = agent_dir / "skills"
+            if skills_dir.is_dir():
+                for sf in sorted(skills_dir.iterdir()):
+                    if sf.is_file():
+                        files.append((sf, str(sf.relative_to(agent_dir))))
+
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                for abs_path, arc_name in files:
+                    zf.writestr(arc_name, abs_path.read_text(encoding="utf-8"))
+            buf.seek(0)
+            return buf.getvalue(), f"{agent_id}-bundle.zip"
+
+        return None
+
     def resolve_prompt(self, agent_id: str, prompt_key: str) -> Optional[dict]:
         """Resolve a prompt_registry entry's source path and return the actual prompt content."""
         if not self.agents_path.is_dir():
@@ -199,9 +256,10 @@ class DefinitionsService:
                     else:
                         return {"error": f"Path '{fragment}' not found in {file_part}"}
 
-                if isinstance(node, dict):
-                    return node
-                return {"prompt": str(node)}
+                result = node if isinstance(node, dict) else {"prompt": str(node)}
+                if isinstance(result, dict) and entry.get("requires_data"):
+                    result["requires_data"] = entry["requires_data"]
+                return result
             except Exception:
                 continue
 

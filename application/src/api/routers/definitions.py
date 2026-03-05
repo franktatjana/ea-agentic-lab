@@ -1,7 +1,9 @@
 """Agent Definitions API Router - serves parsed agent definition YAML files."""
 
+import io
+
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, StreamingResponse
 
 from ..services.definitions_service import DefinitionsService, get_definitions_service
 
@@ -41,6 +43,23 @@ async def get_definition_raw(
     return PlainTextResponse(
         content=content,
         media_type="application/x-yaml",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/definitions/{agent_id}/bundle")
+async def get_definition_bundle(
+    agent_id: str,
+    svc: DefinitionsService = Depends(get_definitions_service),
+):
+    """Return a ZIP archive containing the definition and all referenced files."""
+    result = svc.get_bundle(agent_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Agent definition not found")
+    content, filename = result
+    return StreamingResponse(
+        io.BytesIO(content),
+        media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 

@@ -4,12 +4,17 @@ import type { AgentDefinition } from "@/types";
 const NODE_W = 210;
 const AGENT_H = 180;
 const FLOW_GAP = 240;
-const ROW_GAP = 60;
+const ROW_GAP = 100;
 const SIDE_GAP = 60;
 const PROMPT_GAP = 90;
 
 const ACCENT = "#8b5cf6";
 const EDGE_COLOR = "#525252";
+
+const ROLE_ACRONYMS = /\b(Ae|Sa|Ca|Pm|Ve|Ci|Rfp|Poc|Pov|Csp|Ii|Aci|Mna|Adr|Qbr|Ebr|Nps|Csat)\b/g;
+function fixAcronyms(s: string): string {
+  return s.replace(ROLE_ACRONYMS, (m) => m.toUpperCase());
+}
 
 function centerRow(count: number, gap: number, y: number): { x: number; y: number }[] {
   const totalWidth = (count - 1) * gap;
@@ -38,7 +43,7 @@ export function buildFlowGraph(
     type: "agentNode",
     position: { x: -NODE_W / 2, y: -AGENT_H / 2 },
     data: {
-      name: def.name,
+      name: fixAcronyms(def.name),
       description: def.description,
       modelId: (def.llm_configuration as Record<string, unknown>)?.model_id ?? null,
       humanInTheLoop: def.human_in_the_loop,
@@ -60,7 +65,7 @@ export function buildFlowGraph(
       type: "flowNode",
       position: pos,
       data: {
-        name: flow.name,
+        name: fixAcronyms(flow.name),
         description: flow.description,
         stepCount: steps.length,
         isExpanded,
@@ -129,7 +134,7 @@ export function buildFlowGraph(
       type: "toolNode",
       position: { x: toolX, y: toolStartY + i * SIDE_GAP },
       data: {
-        name: tool.name,
+        name: fixAcronyms(tool.name),
         description: tool.description ?? "",
       },
     });
@@ -156,7 +161,7 @@ export function buildFlowGraph(
       type: "variantNode",
       position: { x: variantX, y: variantStartY + i * SIDE_GAP },
       data: {
-        name: String(variant.name ?? ""),
+        name: fixAcronyms(String(variant.name ?? "")),
         description: String(variant.description ?? ""),
       },
     });
@@ -275,7 +280,7 @@ export function buildOrchestrationGraph(
     id: def.id,
     type: "orchestratorNode",
     position: { x: -95, y: topY - 80 },
-    data: { name: def.name, subAgentCount: agentIds.size },
+    data: { name: fixAcronyms(def.name), subAgentCount: agentIds.size },
   });
 
   const rootSources = Array.from(agentIds).filter((id) => inDeg[id] === 0);
@@ -293,13 +298,16 @@ export function buildOrchestrationGraph(
 
   // Sub-agent nodes
   const metaMap = new Map((subAgentMeta ?? []).map((m) => [m.id, m]));
+  const rolePrefix = def.id.replace(/-agent$/, "");
 
   for (const agentId of agentIds) {
-    const name = agentId
-      .replace(/-agent$/, "")
-      .replace(/^ae-/, "")
-      .replace(/-/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+    const name = fixAcronyms(
+      agentId
+        .replace(/-agent$/, "")
+        .replace(new RegExp(`^${rolePrefix}-`), "")
+        .replace(/-/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase()),
+    );
 
     const meta = metaMap.get(agentId);
 

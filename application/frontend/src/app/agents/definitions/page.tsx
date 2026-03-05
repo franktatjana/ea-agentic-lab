@@ -57,7 +57,7 @@ import { nodeTypes } from "@/components/flow/nodes";
 import { buildFlowGraph, buildOrchestrationGraph, classifyRoutingSeverity, type RoutingRule } from "@/lib/flow/transform-definition";
 import type { AgentDefinition, AgentDefinitionSummary } from "@/types";
 
-const ROLE_ACRONYMS = /\b(Ae|Sa|Ca|Pm|Ve|Ci|Rfp|Poc)\b/g;
+const ROLE_ACRONYMS = /\b(Ae|Sa|Ca|Pm|Ve|Ci|Rfp|Poc|Pov|Csp|Ii|Aci|Mna|Adr|Qbr|Ebr|Nps|Csat)\b/g;
 function titleCase(s: string): string {
   return s.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()).replace(ROLE_ACRONYMS, m => m.toUpperCase());
 }
@@ -129,6 +129,7 @@ function PromptFlyoutContent({
 
   const inputs = entry.inputs as Array<Record<string, unknown>> | undefined;
   const outputs = entry.outputs as Array<Record<string, unknown>> | undefined;
+  const requiresData = entry.requires_data as Array<Record<string, unknown>> | undefined;
 
   return (
     <>
@@ -172,6 +173,27 @@ function PromptFlyoutContent({
                 <li key={i} className="text-xs text-muted-foreground flex items-baseline gap-1.5">
                   <span className="font-mono font-medium text-foreground">{String(out.title)}</span>
                   <span className="text-muted-foreground/60">{String(out.type)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {Array.isArray(requiresData) && requiresData.length > 0 ? (
+          <div>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Data Dependencies</h4>
+            <ul className="space-y-2">
+              {requiresData.map((dep, i) => (
+                <li key={i} className="bg-muted/30 rounded px-2.5 py-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono text-xs font-medium text-foreground">{String(dep.source)}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${dep.priority === "critical" ? "bg-red-400/10 text-red-400 border border-red-400/20" : "bg-cyan-400/10 text-cyan-400 border border-cyan-400/20"}`}>
+                      {String(dep.priority)}
+                    </span>
+                  </div>
+                  {Array.isArray(dep.fields) ? (
+                    <p className="text-[11px] text-muted-foreground/70 mt-0.5">{(dep.fields as string[]).join(", ")}</p>
+                  ) : null}
                 </li>
               ))}
             </ul>
@@ -669,18 +691,34 @@ function DefinitionDetail({
           {(deferTo || provideTo) && <TabsTrigger value="interactions">Interactions</TabsTrigger>}
           <TabsTrigger value="guardrails">Guardrails</TabsTrigger>
           <TabsTrigger value="system-prompt">System Prompt</TabsTrigger>
-          <button
-            onClick={() => {
-              const link = document.createElement("a");
-              link.href = `/api/v1/definitions/${def.id}/raw`;
-              link.download = `${def.id}-definition.yaml`;
-              link.click();
-            }}
-            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/80 transition-colors"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Export YAML
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              onClick={() => {
+                const link = document.createElement("a");
+                link.href = `/api/v1/definitions/${def.id}/raw`;
+                link.download = `${def.id}-definition.yaml`;
+                link.click();
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/80 transition-colors"
+              title="Download definition YAML only"
+            >
+              <FileCode2 className="h-3.5 w-3.5" />
+              YAML
+            </button>
+            <button
+              onClick={() => {
+                const link = document.createElement("a");
+                link.href = `/api/v1/definitions/${def.id}/bundle`;
+                link.download = `${def.id}-bundle.zip`;
+                link.click();
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/80 transition-colors"
+              title="Download ZIP with definition, prompts, references, and skills"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Bundle
+            </button>
+          </div>
         </TabsList>
 
         {/* Runbooks tab: flow graph hero + flow cards */}
