@@ -69,7 +69,7 @@ Consistent naming is critical for both human navigation and agent processing. Th
 | Markdown files | `lowercase-kebab-case.md` | `solution-architecture.md` |
 | YAML data files | `lowercase-kebab-case.yaml` | `risk-register.yaml` |
 | Meeting notes | `YYYY-MM-DD-descriptor.md` | `2026-01-23-kickoff.md` |
-| Playbook outputs | `PB_{number}_{name}_YYYYMMDD.md` | `PB_201_swot_20260116.md` |
+| Playbook outputs | `PB_{number}_{name}_YYYYMMDD.md` | `PB_STR_201_swot_20260116.md` |
 
 ### ID Formats
 
@@ -81,7 +81,7 @@ All structured artifacts use consistent ID formats so agents can query and link 
 | Decision | `DEC_{NNN}` | `DEC_047` |
 | Action | `ACT_{NNN}` | `ACT_123` |
 | Meeting | `MTG_YYYY_MM_DD_NNN` | `MTG_2026_01_23_001` |
-| Playbook | `PB_{NNN}` | `PB_201` |
+| Playbook | `PB_{NNN}` | `PB_STR_201` |
 | Signal | `SIG_{CATEGORY}_{NNN}` | `SIG_COMP_001` |
 
 ### Realm and Node IDs
@@ -181,7 +181,7 @@ The Risk Radar agent maintains the risk register, but practitioners can also con
 When a strategic playbook (SWOT, Three Horizons, Value Engineering, PESTLE) completes, its output goes to the internal hub.
 
 1. Store outputs in `internal-infohub/frameworks/{framework}/`
-2. Name the file with the playbook ID and date: `PB_201_swot_20260116.md`
+2. Name the file with the playbook ID and date: `PB_STR_201_swot_20260116.md`
 3. The framework output is vendor-internal; any customer-appropriate summary goes separately to the external hub
 
 ## Finding and Retrieving Artifacts

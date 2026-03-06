@@ -78,7 +78,7 @@ Each playbook follows a consistent pattern:
 
 **When it matters**: playbooks execute continuously throughout an engagement. Some trigger on events (a new risk triggers SWOT analysis). Some run on schedule (health scoring runs monthly). Some are manual (an AE requests a Three Horizons analysis before an account planning session).
 
-**Use case**: a customer mentions budget pressure in an email. The AE Agent detects the commercial risk signal and triggers PB_201 (SWOT Analysis). The playbook analyzes strengths (existing relationship, proven platform), weaknesses (pricing perception), opportunities (consolidation value), and threats (budget cuts, competitive alternatives). The output lands in the Internal InfoHub under `frameworks/`, and the AE receives a structured summary with recommended actions.
+**Use case**: a customer mentions budget pressure in an email. The AE Agent detects the commercial risk signal and triggers PB_STR_201 (SWOT Analysis). The playbook analyzes strengths (existing relationship, proven platform), weaknesses (pricing perception), opportunities (consolidation value), and threats (budget cuts, competitive alternatives). The output lands in the Internal InfoHub under `frameworks/`, and the AE receives a structured summary with recommended actions.
 
 ### The Vault (Three-Vault Knowledge Model)
 

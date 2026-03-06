@@ -106,4 +106,4 @@ No extracted reference files. Personality file is compact and self-contained.
 - **Personality:** `personalities/delivery_personality.yaml`
 - **Tasks:** `prompts/tasks.yaml` (12+ task templates across 4 categories)
 - **Playbooks owned:** PB_DEL_001 (Implementation Kickoff), PB_DEL_002 (Go-Live Readiness), PB_DEL_003 (Implementation Risk Review), PB_DEL_004 (Post-Implementation Review)
-- **Playbooks contributes to:** PB_CS_101 (Security Stage Adoption), PB_902 (Technology Trend Response)
+- **Playbooks contributes to:** PB_DEL_101 (Security Stage Adoption), PB_DEL_902 (Technology Trend Response)

@@ -1,0 +1,486 @@
+# PLAYBOOK: Engage DSE
+# Coordinate Designated Support Engineer engagement for qualifying accounts
+# Version 1.0 - Signal-driven architecture (Support Agent dissolved 2026-02)
+
+# ==============================================================================
+# PLAYBOOK STECKBRIEF
+# ==============================================================================
+steckbrief:
+  playbook_id: "PB_DEL_189"
+  name: "Engage DSE"
+  category: "delivery"
+  mode: "OPERATIONAL"
+  version: "1.0"
+  status: "DRAFT"
+
+  one_liner: "Evaluate DSE engagement need based on SIG_SUP_005 signal, assess account eligibility, create a scoped engagement plan with success criteria, and coordinate the handoff between support and account teams"
+  framework_origin: "Support-to-Account Intelligence (C06)"
+
+  owner_agent: "PS Agent"
+  supporting_agents: ["CA Agent", "AE Agent"]
+
+  triggers_summary:
+    - "SIG_SUP_005: Account needs a DSE based on complexity, volume, or post-incident repair"
+    - "PB_CA_188 identifies systemic escalation pattern recommending DSE"
+    - "CA Agent or AE requests DSE evaluation during account planning"
+
+  anti_patterns:
+    - "DSE already assigned to this account"
+    - "Account is in planned offboarding or active churn"
+    - "Support volume is within normal range for the account tier"
+    - "Request is for temporary break-fix, not ongoing DSE engagement"
+
+  key_inputs:
+    - "SIG_SUP_005 signal payload"
+    - "Account profile (tier, engagement track, contract)"
+    - "Support history and escalation records"
+
+  key_outputs:
+    - artifact: "DSE engagement plan"
+      format: "yaml"
+    - artifact: "DSE eligibility assessment"
+      format: "yaml"
+    - artifact: "Shared engagement summary for customer (if approved)"
+      format: "markdown"
+
+  key_decisions:
+    - "Account meets DSE eligibility criteria: proceed with engagement plan"
+    - "Account does not qualify: document reasoning, recommend alternatives"
+    - "Partial eligibility: propose time-boxed pilot DSE engagement"
+    - "Post-incident DSE: scoped to incident recovery and prevention"
+
+  complexity: "HIGH"
+  estimated_inputs: 8
+  estimated_rules: 5
+
+  source_file: "domain/playbooks/delivery/PB_DEL_189_engage_dse.yaml"
+  last_updated: "2026-02-27"
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+framework_name: "Support-to-Account Intelligence"
+framework_source: "C06 Support & DSE Engagement (Post-Sales Model)"
+playbook_mode: "OPERATIONAL"
+playbook_category: "relationship_governance"
+intended_agent_role: "PS Agent (DSE coordination)"
+secondary_agents: ["CA Agent", "AE Agent"]
+
+primary_objective: "Evaluate whether an account qualifies for a Designated Support Engineer, create a scoped engagement plan with clear success criteria and duration, coordinate the DSE assignment, and track outcomes throughout the engagement"
+
+when_not_to_use:
+  - "DSE already assigned to this account (SIG_SUP_005 anti-pattern)"
+  - "Account in planned offboarding or active churn"
+  - "Support volume within normal parameters for the engagement track"
+  - "Request is for one-time break-fix assistance (route to standard support)"
+  - "Account has no active support entitlement"
+
+raci:
+  responsible:
+    role: "PS Agent"
+    agent: "ps_agent"
+    description: "Evaluates DSE engagement need, assesses account eligibility, creates scoped engagement plan with success criteria"
+
+  accountable:
+    role: "PS Manager"
+    human_required: true
+    description: "Approves DSE engagement scope, resource allocation, and success criteria"
+    approval_actions:
+      - "approve"
+      - "request_revision"
+      - "escalate"
+
+  consulted:
+    - role: "CA Agent"
+      on_steps: ["eligibility_assessment", "engagement_plan"]
+    - role: "AE Agent"
+      on_steps: ["commercial_context", "engagement_plan"]
+
+  informed:
+    - role: "CA Agent"
+      notify_on: ["dse_engagement_approved", "dse_engagement_declined"]
+    - role: "AE Agent"
+      notify_on: ["dse_engagement_approved"]
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  signal_triggers:
+    - signal: "SIG_SUP_005"
+      name: "dse_engagement_needed"
+      description: "Complex deployment, high support volume, customer request, or post-incident repair"
+      priority: "MEDIUM"
+      routing: "CA Agent receives via SK_CA_001, coordinates with PS Agent for execution"
+
+  manual:
+    - "CA Agent requests DSE evaluation after identifying support complexity"
+    - "AE requests DSE as part of premium engagement or retention strategy"
+    - "Customer explicitly requests a named support engineer"
+    - "Account planning review identifies DSE as a recommended action"
+
+  conditional:
+    - condition: "$.support.monthly_ticket_count > 30 AND $.support.repeat_issue_rate_pct > 20"
+      description: "High ticket volume with significant repeat rate"
+
+    - condition: "$.escalation.count_90d >= 5"
+      description: "Five or more escalations in 90 days indicates need for dedicated support"
+
+    - condition: "$.signal.reason == 'post_incident' AND $.incident.severity == 'critical'"
+      description: "Post-critical-incident DSE engagement for recovery and prevention"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+validation_inputs:
+  mandatory:
+    - artifact: "SIG_SUP_005 signal payload or manual DSE request"
+      description: "Reason, ticket volume, and proposed duration"
+    - artifact: "{realm}/{node}/external-infohub/overview.md"
+      description: "Account profile including tier, engagement track, contract terms"
+    - artifact: "{realm}/{node}/internal-infohub/support/support_health.yaml"
+      description: "Support health metrics for eligibility assessment"
+
+  optional:
+    - artifact: "{realm}/{node}/internal-infohub/support/case_log.yaml"
+      use: "Support case history for complexity assessment"
+    - artifact: "{realm}/{node}/internal-infohub/support/escalation_history.yaml"
+      use: "Escalation patterns to justify DSE need"
+    - artifact: "{realm}/{node}/internal-infohub/governance/health_score.yaml"
+      use: "Account health context"
+    - artifact: "{realm}/{node}/internal-infohub/stakeholders/relationship_map.md"
+      use: "Key contacts for DSE introduction"
+    - artifact: "PS team resource availability"
+      use: "DSE capacity and availability check"
+
+  minimum_data_threshold:
+    - "Account profile available with tier and engagement track"
+    - "Support health metrics available (ticket volume, CSAT, escalation count)"
+    - "Reason for DSE request documented"
+
+# ==============================================================================
+# DSE ELIGIBILITY CRITERIA
+# ==============================================================================
+eligibility_criteria:
+  automatic_qualification:
+    description: "Accounts that automatically qualify for DSE engagement"
+    criteria:
+      - "Premium engagement track with annual contract value above threshold"
+      - "Critical incident (SIG_SUP_004) in the past 30 days with production impact"
+      - "Customer contract includes DSE entitlement"
+
+  scored_qualification:
+    description: "Accounts assessed on multiple factors to determine DSE fit"
+    factors:
+      - factor: "deployment_complexity"
+        weight: 25
+        scoring:
+          high: "Multi-region, custom integrations, 10+ data sources"
+          medium: "Standard deployment with some customization"
+          low: "Single-region, standard configuration"
+
+      - factor: "support_volume"
+        weight: 25
+        scoring:
+          high: "30+ tickets/month or 3x above tier average"
+          medium: "15-30 tickets/month or 1.5-3x above tier average"
+          low: "Below 15 tickets/month, within tier average"
+
+      - factor: "repeat_issue_rate"
+        weight: 20
+        scoring:
+          high: "Repeat issue rate above 25%"
+          medium: "Repeat issue rate 10-25%"
+          low: "Repeat issue rate below 10%"
+
+      - factor: "escalation_frequency"
+        weight: 15
+        scoring:
+          high: "3+ escalations in 90 days"
+          medium: "1-2 escalations in 90 days"
+          low: "No escalations in 90 days"
+
+      - factor: "strategic_importance"
+        weight: 15
+        scoring:
+          high: "Strategic account, reference potential, or large expansion pipeline"
+          medium: "Standard premium account"
+          low: "Economy or transactional account"
+
+    threshold:
+      qualify: "Score >= 70"
+      pilot: "Score 50-69 (time-boxed pilot)"
+      decline: "Score < 50"
+
+# ==============================================================================
+# KEY QUESTIONS
+# ==============================================================================
+key_questions:
+  eligibility_assessment:
+    - "What is the reason for the DSE request (complexity, volume, customer request, post-incident)?"
+    - "Does the account automatically qualify based on tier or contract terms?"
+    - "What is the deployment complexity level?"
+    - "What is the monthly ticket volume and how does it compare to tier average?"
+    - "What is the repeat issue rate and escalation frequency?"
+
+  scope_definition:
+    - "What is the proposed engagement duration (3 months, 6 months, ongoing)?"
+    - "What specific areas should the DSE focus on (integration, performance, security)?"
+    - "What are the measurable success criteria for the engagement?"
+    - "How will the DSE coordinate with the existing support team?"
+    - "What level of customer access is expected (advisory, embedded, on-call)?"
+
+  resource_planning:
+    - "Is a DSE resource available with the required expertise?"
+    - "What is the expected time allocation (full-time, part-time, on-demand)?"
+    - "Are there commercial implications (billable vs. included in contract)?"
+    - "Who from the customer side will be the DSE's primary counterpart?"
+
+  handoff_coordination:
+    - "How will the DSE be introduced to the customer?"
+    - "What knowledge transfer is needed from the support case history?"
+    - "How will the CA Agent and DSE coordinate ongoing account activities?"
+    - "What reporting cadence will the DSE follow?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    - id: "auto_qualify_premium"
+      condition: "$.account.engagement_track == 'premium' AND $.account.dse_entitlement == true"
+      severity: "MEDIUM"
+      output_type: "Engagement Plan"
+      decision:
+        title: "DSE auto-qualified for premium account {node}"
+        context: "Account is on premium track with DSE entitlement in contract"
+        recommendation: "Proceed with DSE engagement plan"
+        actions:
+          - "Create DSE engagement plan with scope and success criteria"
+          - "Check PS team resource availability"
+          - "Coordinate DSE introduction with CA Agent"
+          - "Prepare customer-facing engagement summary"
+        stakeholders: ["PS Agent", "CA Agent"]
+
+    - id: "auto_qualify_post_incident"
+      condition: "$.signal.reason == 'post_incident' AND $.incident.severity == 'critical'"
+      severity: "HIGH"
+      output_type: "Engagement Plan (Time-Boxed)"
+      decision:
+        title: "Post-incident DSE engagement for {node}"
+        context: "Critical incident requires dedicated support for recovery and prevention"
+        recommendation: "Approve time-boxed DSE (3 months) focused on incident recovery"
+        actions:
+          - "Create time-boxed DSE engagement plan (3-month scope)"
+          - "Focus areas: root cause remediation, architecture hardening, monitoring setup"
+          - "Assign DSE with relevant technical expertise"
+          - "Schedule weekly progress reviews with CA Agent"
+          - "Define exit criteria for engagement completion"
+        stakeholders: ["PS Agent", "CA Agent", "SA Agent"]
+
+    - id: "scored_qualify"
+      condition: "$.eligibility.score >= 70 AND $.account.dse_entitlement != true"
+      severity: "MEDIUM"
+      output_type: "Engagement Plan + Commercial Review"
+      decision:
+        title: "DSE qualified by scoring for {node} (score: {eligibility_score})"
+        context: "Account meets DSE criteria based on complexity, volume, and strategic factors"
+        recommendation: "Create engagement plan, coordinate with AE for commercial arrangement"
+        actions:
+          - "Create DSE engagement plan with scope and success criteria"
+          - "AE Agent: determine commercial model (included, add-on, or goodwill)"
+          - "Check PS team resource availability"
+          - "CA Agent: prepare customer for DSE introduction"
+        stakeholders: ["PS Agent", "AE Agent", "CA Agent"]
+
+    - id: "pilot_engagement"
+      condition: "$.eligibility.score >= 50 AND $.eligibility.score < 70"
+      severity: "LOW"
+      output_type: "Pilot Proposal"
+      decision:
+        title: "DSE pilot recommended for {node} (score: {eligibility_score})"
+        context: "Account partially qualifies, time-boxed pilot recommended to validate need"
+        recommendation: "Propose 3-month DSE pilot with defined success criteria"
+        actions:
+          - "Create pilot engagement plan (3-month scope, specific focus areas)"
+          - "Define pilot success criteria for go/no-go on continuation"
+          - "AE Agent: position pilot as value-add, not permanent commitment"
+          - "Review pilot outcomes at 3-month mark"
+        stakeholders: ["PS Agent", "AE Agent", "CA Agent"]
+
+    - id: "decline_with_alternatives"
+      condition: "$.eligibility.score < 50"
+      severity: "LOW"
+      output_type: "Decline + Recommendations"
+      decision:
+        title: "DSE not recommended for {node} (score: {eligibility_score})"
+        context: "Account does not meet DSE eligibility threshold"
+        recommendation: "Decline DSE, recommend alternative support improvements"
+        actions:
+          - "Document decline rationale with scoring breakdown"
+          - "Recommend alternatives: enhanced support tier, SA-led architecture review, training"
+          - "CA Agent: communicate recommendation to customer if they requested DSE"
+          - "Set re-evaluation date if conditions change"
+        stakeholders: ["CA Agent"]
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/{node}/internal-infohub/support/dse_engagement.yaml"
+    format: "yaml"
+    schema:
+      dse_engagement:
+        - engagement_id: "string"
+        - account_node: "string"
+        - status: "enum[proposed|approved|active|completed|declined]"
+        - eligibility_score: "integer (nullable)"
+        - qualification_type: "enum[auto_premium|auto_post_incident|scored|pilot|declined]"
+        - dse_assigned: "string (nullable)"
+        - engagement_type: "enum[full_time|part_time|on_demand]"
+        - duration: "string"
+        - start_date: "date"
+        - end_date: "date (nullable for ongoing)"
+        - focus_areas: "array[string]"
+        - success_criteria:
+            - criterion: "string"
+              target: "string"
+              measurement: "string"
+        - commercial_model: "enum[included|add_on|goodwill|pilot]"
+        - reporting_cadence: "string"
+        - customer_counterpart: "string"
+        - activities_log: "array[activity_entry]"
+        - outcomes:
+            ticket_volume_change: "string (nullable)"
+            repeat_issue_change: "string (nullable)"
+            csat_change: "string (nullable)"
+            escalation_change: "string (nullable)"
+        - review_dates: "array[date]"
+        - exit_criteria: "array[string]"
+
+  customer_facing_summary:
+    path: "{realm}/{node}/external-infohub/support/dse_engagement_summary.md"
+    format: "markdown"
+    create_if: "engagement approved"
+    sections:
+      - engagement_overview
+      - dse_introduction
+      - scope_and_focus_areas
+      - communication_plan
+      - success_criteria
+
+  eligibility_assessment:
+    path: "{realm}/{node}/internal-infohub/support/dse_eligibility_{date}.yaml"
+    format: "yaml"
+    create_if: "always (document the decision)"
+
+  notifications:
+    - recipient: "CA Agent"
+      condition: "always"
+      message: "DSE evaluation completed for {node}: {qualification_type}"
+
+    - recipient: "AE Agent"
+      condition: "$.qualification_type IN ['scored', 'pilot'] OR $.commercial_model != 'included'"
+      message: "DSE engagement at {node} requires commercial arrangement: {commercial_model}"
+
+    - recipient: "PS Lead"
+      condition: "$.status == 'approved'"
+      message: "DSE resource needed for {node}: {engagement_type}, duration {duration}"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "$.account.dse_entitlement == true AND no_dse_available"
+      reason: "Contractual DSE entitlement but no resource available"
+      action: "Escalate to PS Lead for resource allocation or capacity planning"
+
+    - condition: "$.commercial_model == 'add_on' AND $.account.contract_value < threshold"
+      reason: "Commercial arrangement needed that may affect customer relationship"
+      action: "AE and PS Lead to agree on commercial approach before customer communication"
+
+    - condition: "$.customer_requested == true AND $.eligibility.score < 50"
+      reason: "Customer explicitly requested DSE but account does not qualify"
+      action: "CA and AE to jointly craft alternative proposal for customer"
+
+  insufficient_data:
+    - "Account profile not available (tier, contract terms unknown)"
+    - "Support metrics insufficient for eligibility scoring"
+    - "PS team capacity information not available"
+
+  ambiguity_signals:
+    - "Reason for DSE unclear, could be addressed by standard support improvement"
+    - "Account tier change pending, eligibility may shift"
+    - "Multiple nodes in realm have different DSE needs"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "No active DSE engagement exists for this account"
+    - "Account has active support entitlement"
+    - "Support health metrics available for eligibility scoring"
+    - "PS team has visibility into resource availability"
+    - "Signal or request includes reason for DSE need"
+
+  post_execution:
+    - "Eligibility assessment documented with scoring breakdown"
+    - "If approved: engagement plan has scope, duration, success criteria, and assigned DSE"
+    - "If declined: rationale documented and alternatives recommended"
+    - "Customer-facing summary created if engagement approved"
+    - "CA Agent notified of outcome"
+    - "Commercial model agreed with AE if not included in contract"
+
+  output_quality:
+    - "Success criteria are measurable (not vague)"
+    - "Focus areas are specific to the account's support challenges"
+    - "Duration is realistic given the scope"
+    - "Exit criteria defined for time-boxed engagements"
+    - "Engagement plan references relevant case history and escalation patterns"
+
+# ==============================================================================
+# INTEGRATION WITH OTHER PLAYBOOKS
+# ==============================================================================
+integrates_with:
+  - playbook: "PB_CA_187_track_support_case"
+    integration: "Case log provides data for DSE eligibility scoring"
+    provides: "Support volume, repeat issues, case complexity"
+
+  - playbook: "PB_CA_188_escalate_support_issue"
+    integration: "Systemic escalation pattern may trigger DSE evaluation"
+    trigger: "3+ escalations in 30 days"
+
+  - playbook: "PB_CA_190_review_support_health"
+    integration: "DSE engagement outcomes feed quarterly support health review"
+    provides: "DSE activity log and outcome metrics"
+
+  - playbook: "PB_CA_174_customer_qbr"
+    integration: "Active DSE engagement is surfaced in QBR support section"
+    provides: "DSE progress and outcomes for customer review"
+
+  - playbook: "PB_CA_401_customer_health_score"
+    integration: "DSE engagement can improve support health component over time"
+    provides: "Support metric improvements from DSE activities"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "1-3 hours for eligibility assessment and plan creation"
+frequency: "On signal receipt or manual request"
+human_review_required: true
+approval_workflow:
+  - reviewer: "PS Lead"
+    approval_gate: "Approve DSE resource allocation and engagement plan"
+  - reviewer: "AE"
+    condition: "$.commercial_model != 'included'"
+    approval_gate: "Approve commercial arrangement for DSE engagement"
+  - reviewer: "CA"
+    approval_gate: "Validate account context and customer readiness"
+
+last_updated: "2026-02-27"
+version: "1.0"
+status: "DRAFT"
+notes: "C06 playbook owned by PS Agent. DSE coordination moved from dissolved Support Agent (2026-02). CA Agent receives SIG_SUP_005 via SK_CA_001 and coordinates with PS Agent for execution."

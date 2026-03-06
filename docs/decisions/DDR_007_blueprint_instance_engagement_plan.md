@@ -52,7 +52,7 @@ changelog:
     details: "Instantiated from reference blueprint A02_competitive"
   - timestamp: "2026-02-03T09:15:00Z"
     action: "playbook_added"
-    details: "PB_202 (PESTLE Analysis) added, reason: compliance requirement identified"
+    details: "PB_STR_202 (PESTLE Analysis) added, reason: compliance requirement identified"
 ```
 
 ## Alternatives Considered

@@ -1,116 +1,173 @@
-# Teams
+# Agents
 
-This directory contains the agent definitions for all agents in the EA Agentic Lab system. Agents are organized by team, with each team representing a functional area.
+This directory contains agent definitions for all 47 agents in the EA Agentic Lab system. Agents are organized across 21 team directories following the DDR-019 v3.0 domain model. Each agent is defined by a canonical `*-definition.yaml` file (Oracle Agent Spec 26.1.0) and supporting configuration files.
 
-## Agent Categories
+The system has 33 standalone role agents and 14 sub-agents. Two orchestrator agents (AE and SA) use holonic decomposition to delegate specialized work to sub-agents while retaining routing and coordination responsibility.
 
-[image: Agent Tiers - 27 agents organized in strategic, governance, and specialist layers]
+## Agent Catalog
 
-### Leadership Agents (2)
+### Leadership (2)
 
-Provide strategic oversight, resolve escalations, and ensure product roadmap alignment.
+Strategic oversight, escalation resolution, and product alignment.
 
-| Team Directory | Agent | Purpose |
-|----------------|-------|---------|
-| `leadership/` | Senior Manager Agent | Oversight, coaching, escalation resolution |
-| `product_managers/` | PM Agent | Product roadmap alignment, feature requests |
+| Directory | Agent | ID | Purpose |
+|-----------|-------|----|---------|
+| `leadership/` | Senior Manager Agent | senior-manager-agent | Oversight, coaching, escalation resolution |
+| `product_managers/` | PM Agent | pm-agent | Product roadmap alignment, feature requests |
 
-### Sales Agents (4)
+### Sales (4 roles + 8 sub-agents)
 
-Drive commercial strategy, competitive positioning, value quantification, and partner alignment.
+Commercial strategy, competitive positioning, value quantification, and partner alignment. The AE agent is an orchestrator with 8 sub-agents handling specialized sales workflows.
 
-| Team Directory | Agent | Purpose |
-|----------------|-------|---------|
-| `account_executives/` | AE Agent | Account strategy, commercial decisions, deal ownership |
-| `competitive_intelligence/` | CI Agent | Competitive intelligence, win/loss insights |
-| `value_engineering/` | VE Agent | Business value quantification, ROI/TCO |
-| `partners/` | Partner Agent | Partner ecosystem coordination |
+| Directory | Agent | ID | Type | Purpose |
+|-----------|-------|----|------|---------|
+| `account_executives/` | AE Agent | ae-agent | orchestrator | Account strategy, deal ownership, commercial decisions |
+| `account_executives/` | Deal Diagnosis | ae-deal-diagnosis-agent | sub-agent | Deal health assessment and risk analysis |
+| `account_executives/` | Meeting Prep | ae-meeting-prep-agent | sub-agent | Pre-call intelligence and agenda preparation |
+| `account_executives/` | Opportunity Hygiene | ae-opportunity-hygiene-agent | sub-agent | CRM data quality and pipeline accuracy |
+| `account_executives/` | Pipeline Gen | ae-pipeline-gen-agent | sub-agent | Prospecting and pipeline generation |
+| `account_executives/` | Pipeline Mgmt | ae-pipeline-mgmt-agent | sub-agent | Pipeline velocity and stage progression |
+| `account_executives/` | Qualification | ae-qualification-agent | sub-agent | MEDDPICC qualification and scoring |
+| `account_executives/` | Signal Detection | ae-signal-detection-agent | sub-agent | Buying signal identification and routing |
+| `account_executives/` | Stakeholder Intel | ae-stakeholder-agent | sub-agent | Stakeholder mapping and influence analysis |
+| `competitive_intelligence/` | CI Agent | ci-agent | standalone | Competitive intelligence, win/loss insights |
+| `value_engineering/` | VE Agent | ve-agent | standalone | Business value quantification, ROI/TCO |
+| `partners/` | Partner Agent | partner-agent | standalone | Partner ecosystem coordination |
 
-### Architecture Agents (3)
+### Architecture (3 roles + 6 sub-agents + 3 domain specialists)
 
-Maintain technical integrity through solution design, customer architecture tracking, and domain expertise routing.
+Technical integrity through solution design, customer architecture tracking, and domain expertise routing. The SA agent is an orchestrator with 6 sub-agents. The Specialist agent routes requests to domain specialists (observability, search, security).
 
-| Team Directory | Agent | Purpose |
-|----------------|-------|---------|
-| `solution_architects/` | SA Agent | Technical architecture, solution design, technical discovery |
-| `customer_architects/` | CA Agent | Customer success, adoption tracking, post-sales |
-| `specialists/` | Specialist Agent | Domain expertise engagement |
+| Directory | Agent | ID | Type | Purpose |
+|-----------|-------|----|------|---------|
+| `solution_architects/` | SA Agent | sa-agent | orchestrator | Technical architecture, solution design |
+| `solution_architects/` | Discovery | sa-discovery-agent | sub-agent | Technical discovery sessions |
+| `solution_architects/` | Risk | sa-risk-agent | sub-agent | Technical risk assessment |
+| `solution_architects/` | Decision Capture | sa-decision-capture-agent | sub-agent | Architecture decision documentation |
+| `solution_architects/` | CSP | sa-csp-agent | sub-agent | Customer success plan creation |
+| `solution_architects/` | Best Practices | sa-best-practices-agent | sub-agent | Best practice recommendations |
+| `solution_architects/` | Journey | sa-journey-agent | sub-agent | Customer journey mapping |
+| `customer_architects/` | CA Agent | ca-agent | standalone | Customer success, adoption tracking |
+| `specialists/` | Specialist Agent | specialist-agent | standalone | Domain expertise routing |
+| `specialists/observability/` | Observability Specialist | observability-specialist-agent | standalone | Observability and monitoring guidance |
+| `specialists/search/` | Search Specialist | search-specialist-agent | standalone | Search architecture guidance |
+| `specialists/security/` | Security Specialist | security-specialist-agent | standalone | Security architecture guidance |
 
-### Deal Execution Agents (3)
+### Deal Execution (3)
 
-Handle structured processes that convert opportunities into wins.
+Structured processes that convert opportunities into wins.
 
-| Team Directory | Agent | Purpose |
-|----------------|-------|---------|
-| `rfp/` | RFP Agent | RFP response orchestration |
-| `poc/` | POC Agent | Proof of concept/value execution |
-| `infosec/` | InfoSec Agent | Security/compliance enablement |
+| Directory | Agent | ID | Purpose |
+|-----------|-------|----|---------|
+| `rfp/` | RFP Agent | rfp-agent | RFP response orchestration |
+| `poc/` | POC Agent | poc-agent | Proof of concept/value execution |
+| `infosec/` | InfoSec Agent | infosec-agent | Security/compliance enablement |
 
-### Delivery Agents (3)
+### Delivery (2)
 
 Bridge what was sold with what gets implemented.
 
-| Team Directory | Agent | Purpose |
-|----------------|-------|---------|
-| `delivery/` | Delivery Agent | Implementation delivery coordination |
-| `professional_services/` | PS Agent | Professional Services pre/post sales |
+| Directory | Agent | ID | Purpose |
+|-----------|-------|----|---------|
+| `delivery/` | Delivery Agent | delivery-agent | Implementation delivery coordination |
+| `professional_services/` | PS Agent | ps-agent | Professional Services pre/post sales |
 
-### Governance Agents (8)
+### Governance (10)
 
-Enforce process, maintain artifacts, and reduce entropy.
+Process enforcement, artifact maintenance, and entropy reduction.
 
-| Team Directory | Agent | Purpose |
-|----------------|-------|---------|
-| `governance/` | Meeting Notes Agent | Extract decisions/actions/risks from meetings |
-| `governance/` | Nudger Agent | Reminder and escalation enforcement |
-| `governance/` | Task Shepherd Agent | Action validation and linkage |
-| `governance/` | Decision Registrar Agent | Decision lifecycle tracking |
-| `governance/` | Reporter Agent | Weekly digest generation |
-| `governance/` | Risk Radar Agent | Risk detection and classification |
-| `governance/` | Playbook Curator Agent | Playbook validation and governance |
-| `governance/` | InfoHub Curator Agent | InfoHub semantic integrity, artifact lifecycle |
-| `governance/` | Knowledge Vault Curator Agent | Vault 3 governance, proposal validation, usage tracking |
+| Directory | Agent | ID | Purpose |
+|-----------|-------|----|---------|
+| `governance/` | Meeting Notes Agent | meeting-notes-agent | Extract decisions/actions/risks from meetings |
+| `governance/` | Nudger Agent | nudger-agent | Reminder and escalation enforcement |
+| `governance/` | Task Shepherd Agent | task-shepherd-agent | Action validation and linkage |
+| `governance/` | Decision Registrar Agent | decision-registrar-agent | Decision lifecycle tracking |
+| `governance/` | Reporter Agent | reporter-agent | Weekly digest generation |
+| `governance/` | Risk Radar Agent | risk-radar-agent | Risk detection and classification |
+| `governance/` | Playbook Curator Agent | playbook-curator-agent | Playbook validation and governance |
+| `governance/` | InfoHub Curator Agent | infohub-curator-agent | InfoHub semantic integrity, artifact lifecycle |
+| `governance/` | Knowledge Vault Curator Agent | knowledge-vault-curator-agent | Vault 3 governance, proposal validation |
+| `governance/` | Signal Matcher Agent | signal-matcher-agent | Signal-to-playbook matching and routing |
 
-### Intelligence Agents (6)
+### Intelligence (5)
 
-The intelligence cluster provides comprehensive account, industry, and technology intelligence from public sources. These agents share a source registry to avoid duplicate research.
+Account, industry, and technology intelligence from public sources. These agents share a source registry to avoid duplicate research.
 
-| Team Directory | Agent | Purpose |
-|----------------|-------|---------|
-| `account_intelligence/` | ACI Agent | Company research, organigram, business line analysis, opportunity identification |
-| `industry_intelligence/` | II Agent | Industry strategy, market trends, regulatory landscape, sector benchmarks |
-| `technology_scout/` | Tech Signal Scanner Agent | Job posting scanning, tech blog monitoring, vendor announcement detection |
-| `technology_scout/` | Tech Signal Analyzer Agent | Technology trend analysis, vendor landscape, radar generation |
-| `market_news_analysis/` | MNA Agent | Lightweight news monitoring, feeds signals to intelligence cluster |
+| Directory | Agent | ID | Purpose |
+|-----------|-------|----|---------|
+| `account_intelligence/` | ACI Agent | aci-agent | Company research, organigram, opportunity identification |
+| `industry_intelligence/` | II Agent | ii-agent | Industry strategy, market trends, regulatory landscape |
+| `technology_scout/` | Tech Signal Scanner | tech-signal-scanner-agent | Job posting scanning, tech blog monitoring |
+| `technology_scout/` | Tech Signal Analyzer | tech-signal-analyzer-agent | Technology trend analysis, vendor landscape |
+| `market_news_analysis/` | MNA Agent | mna-agent | Lightweight news monitoring, signal feeds |
 
-### Specialized Agents
+### Operations (1)
 
-| Team Directory | Agent | Purpose |
-|----------------|-------|---------|
-| `retrospective/` | Retrospective Agent | Win/loss analysis, lessons learned |
+| Directory | Agent | ID | Purpose |
+|-----------|-------|----|---------|
+| `retrospective/` | Retrospective Agent | retrospective-agent | Win/loss analysis, lessons learned |
 
-## Team Directory Structure
+## Orchestrator Pattern (Holonic Decomposition)
 
-Each team follows a consistent structure:
+Two agents use holonic decomposition: the AE agent (8 sub-agents) and the SA agent (6 sub-agents). The orchestrator handles routing and coordination, while sub-agents execute specialized workflows.
+
+Sub-agent definition files sit at the directory root alongside the parent definition. Sub-agents share the parent's `prompts/`, `skills/`, and `references/` folders. Each sub-agent has its own personality file.
 
 ```text
-teams/{team_name}/
+account_executives/
+├── ae-agent-definition.yaml            # parent orchestrator
+├── ae-deal-diagnosis-definition.yaml   # sub-agent
+├── ae-meeting-prep-definition.yaml     # sub-agent
+├── ae-pipeline-mgmt-definition.yaml    # sub-agent
+├── ae-qualification-definition.yaml    # sub-agent
+├── ...                                 # 4 more sub-agent definitions
+├── ae-agent.md                         # parent profile doc
 ├── agents/
-│   └── {agent}_agent.yaml      # Agent configuration
+│   └── ae_agent.yaml
 ├── personalities/
-│   └── {agent}_personality.yaml # Personality and behavior spec
+│   ├── ae_personality.yaml
+│   ├── ae_deal_diagnosis_personality.yaml
+│   └── ...
 ├── prompts/
-│   ├── tasks.yaml              # Task-specific prompts (CAF format)
-│   └── context_template.md     # Context injection template
-└── skills/                      # Named, composable workflows (optional)
-    └── {skill_name}.yaml        # Skill definition
+│   └── tasks.yaml                      # shared prompt registry
+├── skills/
+└── references/
 ```
+
+The parent definition declares `invoke-*` tools and `specialized_agents` blocks. Each sub-agent definition sets `metadata.parent_agent` to the parent's ID.
+
+## Agent Directory Structure
+
+Every agent directory follows the structure defined in `domain/config/agent-scaffold.yaml`. The `*-definition.yaml` is the canonical source of truth for each agent (Oracle Agent Spec 26.1.0).
+
+```text
+{team_name}/
+├── {role}-agent-definition.yaml          # [mandatory] Canonical agent spec
+├── {role}-agent.md                       # [mandatory] Human-readable profile
+├── agents/
+│   └── {role}_agent.yaml                 # [mandatory] Runtime config
+├── personalities/
+│   └── {role}_personality.yaml           # [mandatory] Personality traits
+├── prompts/
+│   ├── tasks.yaml                        # [mandatory] Prompt registry (CAF)
+│   └── context_template.md               # [optional]  Context injection
+├── skills/
+│   └── {skill_name}.yaml                 # [optional]  Skill definitions
+└── references/
+    └── {reference_name}.yaml             # [optional]  Domain knowledge
+```
+
+### Definition YAML Structure
+
+The definition file contains all agent configuration in a single spec. Required blocks include: `system_prompt`, `human_in_the_loop`, `llm_configuration`, `inputs`, `outputs`, `tools` (with resolver field), `flows`, and `a2a`. The `x-ea-agent` extension adds: `prompt_registry`, `profile`, `knowledge`, `guardrails`, `handoffs`, and `autonomy`.
+
+When modifying any agent, update ALL related files. The definition YAML, profile doc, personality, agent config, prompts, and skills must stay in sync (DDR-018/019/020).
 
 ## Skills
 
-Skills are named, composable workflows that sit between atomic prompts (tasks.yaml) and abstract capabilities (playbooks). A skill formalizes what an agent can do with defined inputs, outputs, quality criteria, and guardrails. Skills enable cross-agent composition: one agent can import another agent's skill to build on its output.
+Skills are named, composable workflows between atomic prompts (tasks.yaml) and orchestrated processes (playbooks). A skill formalizes what an agent can do with defined inputs, outputs, quality criteria, and guardrails. Skills enable cross-agent composition: one agent can import another agent's skill to build on its output.
 
-Skills are scoped to agent directories following the bounded-context principle. The skill catalog (`domain/catalogs/skill_catalog.yaml`) indexes all skills for cross-agent discovery, following the same pattern as the signal catalog. Architecture decision: DDR-016.
+Skills are scoped to agent directories following the bounded-context principle. The skill catalog (`domain/catalogs/skill_catalog.yaml`) indexes all skills for cross-agent discovery. Architecture decision: DDR-016.
 
 ### Skill ID Convention
 
@@ -136,97 +193,12 @@ Skills are scoped to agent directories following the bounded-context principle. 
 | SK_SA_001 | Technical Discovery | sa_agent | technical_assessment |
 | SK_SA_002 | Decision Capture | sa_agent | decision_management |
 
-### Three-Layer Capability Hierarchy
-
-```text
-Prompts (tasks.yaml)  →  Atomic CAF prompts, single-turn
-        ↓
-Skills (skills/)      →  Multi-step workflows, composable across agents
-        ↓
-Playbooks (playbooks/) →  Orchestrated processes, trigger-driven
-```
-
 ### Adding a New Skill
 
 1. Create `{skill_name}.yaml` in `domain/agents/{team}/skills/` using `_templates/skill_template.yaml`
 2. Add `skills.owned` entry to the agent's config YAML
 3. Register the skill in `domain/catalogs/skill_catalog.yaml`
 4. If the skill imports from another agent, add `imports` to the skill file and `skills.imports` to the agent config
-
-## Agent Configuration
-
-### Agent YAML (`agents/{agent}_agent.yaml`)
-
-Defines the agent's operational configuration:
-
-```yaml
-agent_id: "agent_name"
-team: "team_name"
-category: "leadership|sales|architecture|deal-execution|delivery|governance"
-purpose: "Primary purpose statement"
-
-core_functions:
-  - "Function 1"
-  - "Function 2"
-
-triggers:
-  automatic:
-    - event: "trigger_event"
-      condition: "when to trigger"
-
-integrations:
-  reads_from: ["data_sources"]
-  writes_to: ["output_locations"]
-  collaborates_with: ["other_agents"]
-
-prompts_dir: "teams/{team}/prompts/"
-```
-
-### Personality YAML (`personalities/{agent}_personality.yaml`)
-
-Defines the agent's behavior and communication style:
-
-```yaml
-name: "Agent Display Name"
-role: "Agent Role"
-team: "team_name"
-
-scope:
-  what_i_do: []
-  what_i_do_not_do: []
-
-signal_detection:
-  keywords: []
-  patterns: []
-
-tone: "communication style"
-communication_principles: {}
-
-hallucination_prevention:
-  strict_rules: []
-  verification_requirements: {}
-
-values: []
-priorities: {}
-```
-
-### Task Prompts (`prompts/tasks.yaml`)
-
-Task-specific prompts using the CAF framework (Context, Action, Format):
-
-```yaml
-task_category:
-  task_name:
-    name: "Display Name"
-    description: "What this task does"
-    prompt: |
-      Context: {context_variables}
-
-      Action: What the agent should do
-
-      Format:
-      - Expected output structure
-```
 
 ## Teams with Task Prompts
 
@@ -252,29 +224,17 @@ The following teams have comprehensive task prompts implemented:
 
 ## Agent Collaboration
 
-Agents collaborate through:
+Agents collaborate through four mechanisms:
 
-1. **InfoHub** - Shared knowledge repository per account
-2. **Signals** - Events that trigger agent actions
-3. **Escalations** - Passing issues to appropriate agents
-4. **Playbooks** - Coordinated execution of workflows
-
-### Collaboration Example
-
-```
-Customer Signal → AE Agent detects → InfoHub updated
-                                    ↓
-                              SA Agent prompted
-                                    ↓
-                              Technical assessment
-                                    ↓
-                              VE Agent calculates value
-                                    ↓
-                              All agents aligned
-```
+1. **InfoHub**: shared knowledge repository per account, organized as External InfoHub (customer), Internal InfoHub (vendor), and Global Knowledge Vault (cross-account)
+2. **Signals**: events that trigger agent actions, matched to playbooks by the Signal Matcher agent
+3. **Escalations**: passing issues to appropriate agents via `handoffs.agent_escalation`
+4. **Playbooks**: coordinated cross-agent execution with trust tiers (autonomous / review / human-decides)
 
 ## Related Documentation
 
-- [Agent Architecture](../docs/architecture/agents/agent-architecture.md) - Full architecture overview
-- [Agent Scenarios](../docs/architecture/agents/agent-scenarios.md) - End-to-end scenario examples
-- [Core Entities](../docs/architecture/system/core-entities.md) - Entity definitions
+- [Agent Architecture](../../docs/architecture/agents/agent-architecture.md) - Full architecture overview
+- [Agent Responsibilities](../../docs/architecture/agents/agent-responsibilities.md) - Per-agent responsibility breakdown
+- [Agent Scenarios](../../docs/architecture/agents/agent-scenarios.md) - End-to-end scenario examples
+- [Domain Model](../../docs/architecture/system/domain-model.md) - Layer hierarchy and composition rules
+- [Agent Scaffold](../config/agent-scaffold.yaml) - Folder structure, tool registry, validation rules

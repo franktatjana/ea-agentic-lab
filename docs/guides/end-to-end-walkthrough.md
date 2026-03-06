@@ -73,7 +73,7 @@ The Task Shepherd validates each action has an owner and due date. The Risk Rada
 
 ### Week 2: Stakeholder Mapping
 
-You run PB_203 (Stakeholder Mapping). The playbook walks you through identifying all stakeholders, their influence level, decision authority, and sentiment. For each stakeholder, you document:
+You run PB_STR_203 (Stakeholder Mapping). The playbook walks you through identifying all stakeholders, their influence level, decision authority, and sentiment. For each stakeholder, you document:
 
 | Stakeholder | Role | Influence | Sentiment | Priority |
 |-------------|------|-----------|-----------|----------|
@@ -114,7 +114,7 @@ You present these to Marcus. The External InfoHub has the customer-appropriate v
 Deal negotiations begin. Because this deal exceeds $500K, the AE Agent escalates governance to the Senior Manager Agent. Your manager gets visibility into deal health, risk status, and forecast confidence without you writing a status report.
 
 **At contract signature**, the system triggers the pre-sales to post-sales handoff:
-- PB_175 (Post-Sales Handoff) creates the handoff checklist
+- PB_CA_175 (Post-Sales Handoff) creates the handoff checklist
 - All InfoHub content is reviewed for completeness
 - The Customer Success Plan is drafted from discovery and POC data
 - An introductory call is scheduled between the CA/CSM and the customer
@@ -146,7 +146,7 @@ You capture findings in the External InfoHub under `opportunities/security_poc/d
 
 ### Week 2: POC Design
 
-Based on discovery, you design the POC. You run PB_150 (Scope POC) which walks you through:
+Based on discovery, you design the POC. You run PB_SA_150 (Scope POC) which walks you through:
 
 **Success criteria definition** (SMART format):
 - Detect 95% of OT/ICS attack patterns from the MITRE ICS framework within 48 hours of deployment
@@ -174,7 +174,7 @@ The specialist runs the security evaluation checklist from `domain/playbooks/spe
 
 ### Weeks 3-6: POC Execution
 
-During the POC, you run weekly checkpoints using PB_152 (Execute Checkpoint).
+During the POC, you run weekly checkpoints using PB_SA_152 (Execute Checkpoint).
 
 **Each checkpoint produces:**
 - Status update (`poc_status/status_2026-01-23.yaml`) in the External InfoHub
@@ -201,7 +201,7 @@ This ADR goes to the External InfoHub (`architecture/ADR_001_security_platform.m
 
 ### Week 6: Results Documentation
 
-POC complete. You run PB_154 (Document Results) which produces:
+POC complete. You run PB_SA_154 (Document Results) which produces:
 - Results summary against each success criterion (pass/partial/fail)
 - Performance data with evidence
 - Architecture recommendation
@@ -261,7 +261,7 @@ You are the CSM assigned to ACME Corp after the security consolidation deal clos
 
 ### Day 0: Handoff
 
-The deal is signed. PB_175 (Post-Sales Handoff) triggers automatically.
+The deal is signed. PB_CA_175 (Post-Sales Handoff) triggers automatically.
 
 **What you receive:**
 - Full External InfoHub with solution architecture, ADRs, POC results, and value metrics
@@ -275,7 +275,7 @@ The deal is signed. PB_175 (Post-Sales Handoff) triggers automatically.
 
 ### Week 1: Onboarding
 
-You run PB_167 (Onboard Customer). The playbook walks you through:
+You run PB_CA_167 (Onboard Customer). The playbook walks you through:
 
 - Confirm customer contacts and escalation paths
 - Validate the success plan with the customer (they should agree on outcomes, not just deliverables)
@@ -285,7 +285,7 @@ The CA Agent begins monitoring customer health. It tracks product usage, support
 
 ### Month 1: Success Plan
 
-You run PB_402 (Customer Success Plan) to formalize the post-sales roadmap:
+You run PB_CA_402 (Customer Success Plan) to formalize the post-sales roadmap:
 
 **Stage adoption targets:**
 - Foundation (weeks 1-2): Core log ingestion, basic dashboards, initial alert rules
@@ -297,7 +297,7 @@ Each stage has measurable criteria. The CA Agent tracks progress against these m
 
 ### Month 2: Health Monitoring
 
-PB_401 (Customer Health Score) runs on its monthly cycle. The health score formula:
+PB_CA_401 (Customer Health Score) runs on its monthly cycle. The health score formula:
 
 - Product Usage (40%): daily active users, data volume ingested, feature adoption breadth
 - Relationship Quality (30%): executive sponsor engagement, champion strength, meeting cadence adherence
@@ -313,7 +313,7 @@ PB_401 (Customer Health Score) runs on its monthly cycle. The health score formu
 Health score drops to 58 (YELLOW). The CA Agent alerts: "Health declining. Primary driver: product usage dropped 30% week-over-week. Secondary: no executive touchpoint in 45 days."
 
 **What the system does:**
-- PB_173 (Success Intervention) triggers automatically
+- PB_CA_173 (Success Intervention) triggers automatically
 - Engagement cadence increases by 1.5x (from biweekly to weekly business reviews)
 - The CA Agent recommends specific actions: re-engage Marcus Weber, investigate usage drop, assess if the migration timeline is slipping
 
@@ -335,7 +335,7 @@ The AE re-engages for the expansion opportunity. A new node is created under the
 
 ### Pre-Renewal (T-90)
 
-PB_303 (Renewal Protection) triggers at T-180 and enters its active phase at T-90. The system prepares:
+PB_VE_303 (Renewal Protection) triggers at T-180 and enters its active phase at T-90. The system prepares:
 - Value delivered summary (quantified outcomes vs. original business case)
 - Health score trend over the contract period
 - Stakeholder engagement history

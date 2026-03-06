@@ -617,7 +617,7 @@ Step 3: SIGNAL EMISSION
     Governance agents respond to signals as usual
 
 Step 4: GOVERNANCE VALIDATION
-  Blueprint Gap Scan (PB_971) checks required artifacts
+  Blueprint Gap Scan (PB_ADM_971) checks required artifacts
   Task Shepherd validates imported actions
   Risk Radar processes imported risks
   Health Score recalculates with new data

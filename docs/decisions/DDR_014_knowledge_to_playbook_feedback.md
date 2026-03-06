@@ -31,9 +31,9 @@ When a knowledge item reaches `validated` status, it may warrant a permanent cha
 
 Consider a validated knowledge item: "Financial services procurement cycles add 4-8 weeks to every enterprise deal. Teams that account for this in discovery avoid timeline surprises in 87% of cases."
 
-**Runtime injection (DDR-008 path):** The SA agent receives this as context while running PB_201 (Technical Discovery Framework). It may or may not incorporate the insight into its output. On the next engagement, a different agent instance receives the same context and may handle it differently. The insight is available but not operationalized.
+**Runtime injection (DDR-008 path):** The SA agent receives this as context while running PB_STR_201 (Technical Discovery Framework). It may or may not incorporate the insight into its output. On the next engagement, a different agent instance receives the same context and may handle it differently. The insight is available but not operationalized.
 
-**Structural change (what's missing):** PB_201's discovery step for timeline estimation should include "procurement cycle assessment" as a required input. PB_102 (Qualification Criteria Checklist) should add "procurement governance identified" as a qualification gate. The competitive displacement blueprint (A02) should adjust `discovery_weeks` for financial services from 3 to 5. These changes are permanent improvements that every future engagement benefits from, regardless of whether the agent reads its context carefully.
+**Structural change (what's missing):** PB_STR_201's discovery step for timeline estimation should include "procurement cycle assessment" as a required input. PB_SA_102 (Qualification Criteria Checklist) should add "procurement governance identified" as a qualification gate. The competitive displacement blueprint (A02) should adjust `discovery_weeks` for financial services from 3 to 5. These changes are permanent improvements that every future engagement benefits from, regardless of whether the agent reads its context carefully.
 
 ### The cross-team problem
 
@@ -43,9 +43,9 @@ A single insight can affect multiple playbooks owned by different teams:
 
 | Affected playbook | Team | What changes |
 |---|---|---|
-| PB_102: Stakeholder Mapping | SA | Add step: "Identify if separate tracks needed based on deal size and stakeholder count" |
-| PB_301: Competitive Positioning | SA | Add conditional: "For multi-track deals, produce per-track positioning" |
-| PB_103: Business Case Development | AE | Add section: "Per-track value articulation" |
+| PB_SA_102: Stakeholder Mapping | SA | Add step: "Identify if separate tracks needed based on deal size and stakeholder count" |
+| PB_VE_301: Competitive Positioning | SA | Add conditional: "For multi-track deals, produce per-track positioning" |
+| CL_SA_103: Business Case Development | AE | Add section: "Per-track value articulation" |
 | A02: Competitive Displacement blueprint | SA | Add optional playbook for multi-track governance |
 
 No single person owns all four changes. The SA team owns three, the AE team owns one, and the blueprint has its own governance. Without a coordination mechanism, either nothing gets updated (most likely), or one team updates their playbook while others remain inconsistent.
@@ -82,7 +82,7 @@ Introduce a **Knowledge Impact Assessment** that connects validated knowledge it
 impact_id: "KIR_001"
 knowledge_item: "KV_003"
 knowledge_title: "Multi-Stakeholder Deals Need Separate Tracks"
-affected_playbook: "PB_102"
+affected_playbook: "PB_SA_102"
 affected_team: "sa_strategic"
 impact_type: "add_step"  # add_step | modify_step | add_condition | update_timeline | add_input | add_output
 suggested_change: "Add stakeholder track assessment after stakeholder identification step"
@@ -92,7 +92,7 @@ reviewed_by: null
 review_notes: ""
 ```
 
-**Step 3: Routing.** Impact records are grouped by `affected_team` and surfaced to the team's playbook owner. Each owner reviews independently. Accepting an impact record on PB_102 does not require accepting the related record on PB_103. Teams operate at their own pace.
+**Step 3: Routing.** Impact records are grouped by `affected_team` and surfaced to the team's playbook owner. Each owner reviews independently. Accepting an impact record on PB_SA_102 does not require accepting the related record on CL_SA_103. Teams operate at their own pace.
 
 **Step 4: Execution.** An accepted impact record becomes a playbook change. The change follows the existing playbook edit flow (DDR-012 field standardization, raw YAML edit via API). The impact record is marked `accepted` and linked to the resulting playbook version.
 

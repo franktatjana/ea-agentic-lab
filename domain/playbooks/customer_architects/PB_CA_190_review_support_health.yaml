@@ -1,0 +1,590 @@
+# PLAYBOOK: Review Support Health
+# Process quarterly support pattern insights and prepare QBR support section
+# Version 1.0 - Signal-driven architecture (Support Agent dissolved 2026-02)
+
+# ==============================================================================
+# PLAYBOOK STECKBRIEF
+# ==============================================================================
+steckbrief:
+  playbook_id: "PB_CA_190"
+  name: "Review Support Health"
+  category: "customer_architects"
+  mode: "ANALYTICAL"
+  version: "1.0"
+  status: "DRAFT"
+
+  one_liner: "Process quarterly SIG_SUP_006 support pattern insights, analyze support trends across volume, CSAT, resolution time, and repeat issues, identify systemic patterns, and prepare the support health section for PB_CA_174 (Customer QBR)"
+  framework_origin: "Support-to-Account Intelligence (C06)"
+
+  owner_agent: "CA Agent"
+  supporting_agents: ["SA Agent", "AE Agent"]
+
+  triggers_summary:
+    - "SIG_SUP_006: Quarterly support trend analysis completed for an account"
+    - "PB_CA_174 (Customer QBR) preparation triggers support health data collection"
+    - "CA manually requests support health review for account planning"
+
+  anti_patterns:
+    - "Account has fewer than 5 tickets in the quarter (insufficient data for trends)"
+    - "Account is in first 30 days post-onboarding (no baseline established)"
+    - "Support data is stale (> 30 days since SIG_SUP_006 emission)"
+    - "Account has no active support entitlement"
+
+  key_inputs:
+    - "SIG_SUP_006 signal payload (quarterly aggregation)"
+    - "Cumulative case log from PB_CA_187"
+    - "Escalation history from PB_CA_188"
+    - "DSE engagement data from PB_DEL_189 (if applicable)"
+
+  key_outputs:
+    - artifact: "Support health analysis report"
+      format: "yaml"
+    - artifact: "QBR support section (for PB_CA_174)"
+      format: "markdown"
+    - artifact: "Proactive intervention recommendations"
+      format: "yaml"
+
+  key_decisions:
+    - "Support health improving: document wins, recommend sustained approach"
+    - "Support health stable: monitor, no intervention needed"
+    - "Support health declining: recommend specific interventions"
+    - "Systemic pattern identified: recommend architecture review or training"
+
+  complexity: "HIGH"
+  estimated_inputs: 10
+  estimated_rules: 6
+
+  source_file: "domain/playbooks/customer_architects/PB_CA_190_review_support_health.yaml"
+  last_updated: "2026-02-27"
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+framework_name: "Support-to-Account Intelligence"
+framework_source: "C06 Support & DSE Engagement (Post-Sales Model)"
+playbook_mode: "ANALYTICAL"
+playbook_category: "relationship_governance"
+intended_agent_role: "CA Agent (signal consumer via SK_CA_001)"
+secondary_agents: ["SA Agent", "AE Agent"]
+
+primary_objective: "Transform quarterly support pattern data into actionable account intelligence by analyzing trends, identifying systemic patterns that indicate adoption gaps or architecture issues, preparing the QBR support section, and recommending proactive interventions"
+
+when_not_to_use:
+  - "Account has fewer than 5 tickets in the quarter (insufficient sample)"
+  - "Account is in first 30 days post-onboarding (no baseline)"
+  - "SIG_SUP_006 data is stale (> 30 days old)"
+  - "Account has no active support entitlement"
+  - "Account is in planned offboarding"
+
+raci:
+  responsible:
+    role: "CA Agent"
+    agent: "ca_agent"
+    description: "Analyzes quarterly support trends, identifies systemic patterns, and prepares QBR support section"
+
+  accountable:
+    role: "Customer Success Manager"
+    human_required: true
+    description: "Validates analysis accuracy and approves customer-facing QBR messaging for sensitive support data"
+    approval_actions:
+      - "approve"
+      - "request_revision"
+      - "escalate"
+
+  consulted:
+    - role: "SA Agent"
+      on_steps: ["repeat_issue_systemic", "escalation_heavy_quarter"]
+    - role: "AE Agent"
+      on_steps: ["csat_declining"]
+
+  informed:
+    - role: "AE Agent"
+      notify_on: ["support_health_at_risk", "csat_below_threshold"]
+    - role: "SA Agent"
+      notify_on: ["systemic_pattern_identified", "architecture_review_recommended"]
+    - role: "Senior Manager"
+      notify_on: ["support_health_critical", "escalation_heavy_quarter"]
+    - role: "CA Lead"
+      notify_on: ["support_health_at_risk"]
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  signal_triggers:
+    - signal: "SIG_SUP_006"
+      name: "support_pattern_insight"
+      description: "Quarterly support trend analysis completed, aggregated data ready for review"
+      priority: "MEDIUM"
+      timing: "Quarterly"
+      skill_entry: "SK_CA_001 step 1"
+
+  manual:
+    - "PB_CA_174 (Customer QBR) preparation requires support health data"
+    - "CA requests ad-hoc support health review for account planning"
+    - "AE requests support context before renewal conversation"
+    - "Senior Manager requests support health portfolio review"
+
+  conditional:
+    - condition: "$.qbr.scheduled_within_30d == true AND $.support_review.last_completed > 90_days"
+      description: "QBR approaching but no recent support health review"
+
+    - condition: "$.support_health.assessment == 'at_risk' OR $.support_health.assessment == 'critical'"
+      description: "Support health already flagged, quarterly review is overdue"
+
+    - condition: "$.dse_engagement.active == true AND $.dse_engagement.review_date_approaching"
+      description: "Active DSE engagement approaching review milestone"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+validation_inputs:
+  mandatory:
+    - artifact: "SIG_SUP_006 signal payload"
+      description: "Quarterly aggregation: total_tickets, tickets_by_severity, top_categories, mttr_hours, repeat_issue_rate_pct, csat_average"
+    - artifact: "{realm}/{node}/internal-infohub/support/case_log.yaml"
+      description: "Cumulative case log entries for the quarter"
+    - artifact: "{realm}/{node}/internal-infohub/governance/health_score.yaml"
+      description: "Current account health score with support component"
+
+  optional:
+    - artifact: "{realm}/{node}/internal-infohub/support/support_health.yaml"
+      use: "Historical support health for trend comparison"
+    - artifact: "{realm}/{node}/internal-infohub/support/escalation_history.yaml"
+      use: "Escalation records for severity analysis"
+    - artifact: "{realm}/{node}/internal-infohub/support/dse_engagement.yaml"
+      use: "DSE activity log and outcomes (if DSE active)"
+    - artifact: "{realm}/{node}/internal-infohub/adoption/adoption_metrics.yaml"
+      use: "Adoption data for correlation with support patterns"
+    - artifact: "Previous quarter's support health analysis"
+      use: "Quarter-over-quarter comparison"
+    - artifact: "{realm}/{node}/internal-infohub/risks/risk_register.yaml"
+      use: "Active risks related to support"
+    - artifact: "{realm}/{node}/external-infohub/reviews/qbr_*.md"
+      use: "Prior QBR support sections for continuity"
+
+  minimum_data_threshold:
+    - "SIG_SUP_006 payload contains total_tickets and tickets_by_severity"
+    - "At least 5 tickets in the quarter for meaningful trend analysis"
+    - "Account health score available"
+
+# ==============================================================================
+# ANALYSIS DIMENSIONS
+# ==============================================================================
+analysis_dimensions:
+  volume_analysis:
+    name: "Ticket Volume Trends"
+    metrics:
+      - "Total tickets this quarter vs. previous quarter"
+      - "Tickets by severity distribution"
+      - "Monthly trend within the quarter"
+      - "Volume per user or per deployment unit"
+    healthy_indicators:
+      - "Ticket volume decreasing or stable"
+      - "Low/medium severity dominates (< 10% high/critical)"
+      - "Volume per user within tier average"
+    warning_indicators:
+      - "Ticket volume increasing > 20% QoQ"
+      - "High/critical severity tickets > 20% of total"
+      - "Spike in any single month"
+
+  satisfaction_analysis:
+    name: "Customer Satisfaction Trends"
+    metrics:
+      - "Average CSAT score for the quarter"
+      - "CSAT trend (improving, stable, declining)"
+      - "CSAT by severity level"
+      - "CSAT by issue category"
+    healthy_indicators:
+      - "Average CSAT >= 4.0"
+      - "CSAT stable or improving"
+      - "No severity category with CSAT < 3.5"
+    warning_indicators:
+      - "Average CSAT < 3.5"
+      - "CSAT declining for 2+ consecutive quarters"
+      - "CSAT on high-severity tickets < 3.0"
+
+  resolution_analysis:
+    name: "Resolution Time Trends"
+    metrics:
+      - "Mean time to resolution (MTTR) overall"
+      - "MTTR by severity level"
+      - "SLA compliance percentage"
+      - "First-contact resolution rate"
+    healthy_indicators:
+      - "MTTR within SLA targets"
+      - "SLA compliance >= 95%"
+      - "MTTR improving or stable"
+    warning_indicators:
+      - "MTTR exceeding SLA targets"
+      - "SLA compliance < 90%"
+      - "MTTR increasing QoQ"
+
+  pattern_analysis:
+    name: "Systemic Pattern Detection"
+    metrics:
+      - "Top 3 issue categories and their frequency"
+      - "Repeat issue rate percentage"
+      - "Category concentration (single category > 40% of tickets)"
+      - "Feature request frequency and themes"
+    healthy_indicators:
+      - "Repeat issue rate < 10%"
+      - "No single category dominates (< 30% concentration)"
+      - "Feature requests align with product roadmap"
+    warning_indicators:
+      - "Repeat issue rate > 20%"
+      - "Single category > 40% of tickets (systemic pattern)"
+      - "Integration or architecture issues recurring"
+
+  escalation_analysis:
+    name: "Escalation and Incident Review"
+    metrics:
+      - "Escalation count this quarter"
+      - "Critical incident count"
+      - "Escalation resolution time"
+      - "Post-incident improvements implemented"
+    healthy_indicators:
+      - "Zero or one escalation in the quarter"
+      - "No critical incidents"
+      - "Post-incident actions completed"
+    warning_indicators:
+      - "3+ escalations in the quarter"
+      - "Critical incidents without post-incident review"
+      - "Repeat escalations for same root cause"
+
+# ==============================================================================
+# KEY QUESTIONS
+# ==============================================================================
+key_questions:
+  trend_assessment:
+    - "How does this quarter's support performance compare to the previous quarter?"
+    - "Is the overall trajectory improving, stable, or declining?"
+    - "What are the top 3 support themes driving volume?"
+    - "Are there seasonal patterns affecting the data?"
+
+  root_cause_identification:
+    - "Do the top issue categories indicate adoption gaps (training, configuration, usage)?"
+    - "Do repeat issues indicate architecture or integration problems?"
+    - "Is the ticket volume driven by a small number of users or widespread?"
+    - "Are feature requests signaling unmet needs that affect satisfaction?"
+
+  impact_on_account_health:
+    - "How does support health correlate with the overall account health score?"
+    - "Is support health the primary driver of any health decline?"
+    - "What is the commercial risk from current support satisfaction levels?"
+    - "How does the customer perceive their support experience?"
+
+  intervention_planning:
+    - "What proactive actions would most improve support health next quarter?"
+    - "Is training or documentation the most effective intervention?"
+    - "Would an architecture review reduce repeat issue volume?"
+    - "Should DSE engagement be recommended or adjusted (PB_DEL_189)?"
+
+  qbr_preparation:
+    - "What support data should be presented to the customer in the QBR?"
+    - "What achievements can be highlighted (improvements, resolved patterns)?"
+    - "What challenges should be raised transparently?"
+    - "What joint actions should be proposed?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    - id: "health_improving"
+      condition: "$.csat_average >= 4.0 AND $.ticket_volume_trend == 'decreasing' AND $.repeat_issue_rate_pct < 10"
+      severity: "LOW"
+      output_type: "Report + QBR Section"
+      decision:
+        title: "Support health improving for {node}"
+        context: "Key metrics trending positively: CSAT healthy, volume decreasing, low repeat rate"
+        recommendation: "Document wins, sustain current approach, highlight in QBR"
+        actions:
+          - "Prepare positive QBR support section highlighting improvements"
+          - "Document what worked for internal knowledge base"
+          - "Update support_health.yaml with 'healthy' assessment"
+          - "If DSE active: evaluate if engagement can scale down"
+
+    - id: "health_stable"
+      condition: "$.csat_average >= 3.5 AND $.ticket_volume_trend IN ['stable', 'decreasing'] AND $.repeat_issue_rate_pct <= 20"
+      severity: "LOW"
+      output_type: "Report + QBR Section"
+      decision:
+        title: "Support health stable for {node}"
+        context: "Metrics within acceptable range, no significant changes"
+        recommendation: "Continue monitoring, present balanced QBR section"
+        actions:
+          - "Prepare balanced QBR support section"
+          - "Update support_health.yaml with 'attention' or 'healthy' assessment"
+          - "Note any areas trending toward warning thresholds"
+
+    - id: "volume_spike_pattern"
+      condition: "$.total_tickets > $.previous_quarter.total_tickets * 1.3"
+      severity: "MEDIUM"
+      output_type: "Report + Intervention + QBR Section"
+      decision:
+        title: "Support volume increased 30%+ QoQ for {node}"
+        context: "Significant ticket volume increase may indicate adoption issue or technical problem"
+        recommendation: "Investigate root cause, recommend intervention"
+        actions:
+          - "Analyze top ticket categories driving the increase"
+          - "Cross-reference with adoption metrics for correlation"
+          - "If adoption-related: recommend training or enablement (PB_CA_406)"
+          - "If technical: recommend SA architecture review"
+          - "Update QBR section with volume analysis and proposed actions"
+        stakeholders: ["CA", "SA Agent"]
+      creates:
+        - object_type: "Action Item"
+          category: "support_intervention"
+
+    - id: "repeat_issue_systemic"
+      condition: "$.repeat_issue_rate_pct > 25 OR $.top_categories[0].percentage > 40"
+      severity: "HIGH"
+      output_type: "Report + Risk + Intervention + QBR Section"
+      decision:
+        title: "Systemic support pattern detected for {node}"
+        context: "High repeat issue rate or single category dominating tickets indicates structural problem"
+        recommendation: "Recommend architecture review or targeted training"
+        actions:
+          - "Identify specific root causes driving repeat issues"
+          - "SA Agent: evaluate whether architecture changes would reduce recurrence"
+          - "If adoption gap: create targeted training plan for top issue category"
+          - "Create risk entry: systemic support pattern affecting account health"
+          - "Prepare QBR section with transparent analysis and proposed joint actions"
+        stakeholders: ["CA", "SA Agent"]
+      creates:
+        - object_type: "Risk"
+          category: "support"
+          severity: "MEDIUM"
+
+    - id: "csat_declining"
+      condition: "$.csat_average < 3.5 OR ($.csat_trend == 'declining' AND $.csat_average < 4.0)"
+      severity: "HIGH"
+      output_type: "Report + Risk + Intervention + QBR Section"
+      decision:
+        title: "CSAT declining for {node}: {csat_average}"
+        context: "Customer satisfaction with support is below acceptable levels"
+        recommendation: "Prioritize CSAT recovery, investigate root cause, consider DSE"
+        actions:
+          - "Analyze CSAT by severity and category to find pain points"
+          - "Identify specific interactions driving low scores"
+          - "AE Agent: assess commercial risk from declining satisfaction"
+          - "Consider DSE engagement if CSAT < 3.0 (may trigger PB_DEL_189)"
+          - "Prepare QBR section with transparent CSAT data and improvement plan"
+        stakeholders: ["CA", "AE Agent"]
+      creates:
+        - object_type: "Risk"
+          category: "relationship"
+          severity: "HIGH"
+
+    - id: "escalation_heavy_quarter"
+      condition: "$.escalation_count >= 3"
+      severity: "HIGH"
+      output_type: "Report + Risk + Systemic Review"
+      decision:
+        title: "Multiple escalations in quarter for {node}: {escalation_count}"
+        context: "Three or more escalations indicate systemic support failure"
+        recommendation: "Conduct systemic review, evaluate DSE need, escalate to leadership"
+        actions:
+          - "Compile escalation root cause analysis across all incidents"
+          - "Evaluate DSE engagement need (may trigger PB_DEL_189)"
+          - "Brief Senior Manager on escalation pattern"
+          - "SA Agent: assess whether technical improvements would prevent recurrence"
+          - "Create comprehensive QBR section addressing escalation pattern"
+        stakeholders: ["CA", "SA Agent", "Senior Manager"]
+      creates:
+        - object_type: "Risk"
+          category: "support"
+          severity: "HIGH"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/{node}/internal-infohub/support/support_health_review_{YYYY}_Q{N}.yaml"
+    format: "yaml"
+    schema:
+      support_health_review:
+        - period: "string (e.g., 2026-Q1)"
+        - account_node: "string"
+        - overall_assessment: "enum[healthy|attention|at_risk|critical]"
+        - volume_summary:
+            total_tickets: "integer"
+            qoq_change_pct: "float"
+            severity_distribution: "object"
+            trend: "enum[improving|stable|worsening]"
+        - satisfaction_summary:
+            csat_average: "float"
+            csat_trend: "enum[improving|stable|declining]"
+            lowest_category_csat: "object"
+        - resolution_summary:
+            mttr_hours: "float"
+            sla_compliance_pct: "float"
+            resolution_trend: "enum[improving|stable|worsening]"
+        - pattern_summary:
+            repeat_issue_rate_pct: "float"
+            top_categories: "array[category_summary]"
+            systemic_patterns_identified: "array[string]"
+        - escalation_summary:
+            escalation_count: "integer"
+            critical_incident_count: "integer"
+            root_causes: "array[string]"
+        - dse_status: "string (nullable)"
+        - interventions_recommended: "array[intervention]"
+        - comparison_to_previous_quarter: "object"
+
+  qbr_support_section:
+    path: "{realm}/{node}/internal-infohub/qbr_prep/support_section_{YYYY}_Q{N}.md"
+    format: "markdown"
+    description: "Prepared support health content for PB_CA_174 (Customer QBR)"
+    sections:
+      - support_summary
+      - key_achievements
+      - areas_for_improvement
+      - proposed_joint_actions
+
+  support_health_update:
+    path: "{realm}/{node}/internal-infohub/support/support_health.yaml"
+    format: "yaml"
+    update_mode: "replace"
+    description: "Updated cumulative support health profile"
+
+  conditional_outputs:
+    risk_object:
+      path: "{realm}/{node}/internal-infohub/risks/"
+      create_if: "overall_assessment IN ['at_risk', 'critical'] OR systemic_patterns_identified.count > 0"
+
+    intervention_plan:
+      path: "{realm}/{node}/internal-infohub/actions/"
+      create_if: "interventions_recommended.count > 0"
+
+  customer_facing_summary:
+    path: "{realm}/{node}/external-infohub/support/support_health_summary_{YYYY}_Q{N}.md"
+    format: "markdown"
+    create_if: "QBR scheduled and customer transparency appropriate"
+    description: "Customer-appropriate support summary for QBR presentation"
+
+  notifications:
+    - recipient: "AE Agent"
+      condition: "$.csat_average < 3.5 OR $.overall_assessment IN ['at_risk', 'critical']"
+      message: "Support health concern at {node}: CSAT {csat_average}, assessment {overall_assessment}"
+
+    - recipient: "SA Agent"
+      condition: "$.systemic_patterns_identified.count > 0 OR $.repeat_issue_rate_pct > 25"
+      message: "Architecture review recommended for {node}: systemic support pattern in {top_category}"
+
+    - recipient: "Senior Manager"
+      condition: "$.overall_assessment == 'critical' OR $.escalation_count >= 3"
+      message: "Support health review for {node}: {overall_assessment}, {escalation_count} escalations this quarter"
+
+    - recipient: "CA Lead"
+      condition: "$.overall_assessment IN ['at_risk', 'critical']"
+      message: "Support health at-risk for {node}: review prepared for QBR"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "$.csat_average < 3.0 AND $.escalation_count >= 3"
+      reason: "Critically low satisfaction combined with frequent escalations"
+      action: "Senior Manager review before QBR presentation"
+
+    - condition: "$.overall_assessment == 'critical' AND $.contract.renewal_date - today <= 90"
+      reason: "Critical support health with renewal approaching"
+      action: "Escalate to AE and Sales Leadership for retention strategy"
+
+    - condition: "$.systemic_patterns_identified contains 'architecture' AND $.repeat_issue_rate_pct > 30"
+      reason: "Architecture-level problem causing persistent support burden"
+      action: "SA Lead to conduct formal architecture review"
+
+  insufficient_data:
+    - "SIG_SUP_006 payload missing required fields (total_tickets, tickets_by_severity)"
+    - "Fewer than 5 tickets in the quarter (insufficient for trend analysis)"
+    - "No previous quarter data for comparison"
+
+  ambiguity_signals:
+    - "Metrics improving in some dimensions but declining in others"
+    - "CSAT high but ticket volume also high (satisfied but dependent)"
+    - "Repeat issues decreasing but new issue categories emerging"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "SIG_SUP_006 payload received and within freshness window (< 30 days)"
+    - "Case log data available for the quarter"
+    - "Account health score available for correlation"
+    - "Previous quarter support data available for comparison (preferred)"
+    - "QBR date known for preparation timeline"
+
+  post_execution:
+    - "All five analysis dimensions completed (volume, satisfaction, resolution, pattern, escalation)"
+    - "Overall assessment assigned (healthy, attention, at_risk, critical)"
+    - "QBR support section prepared and ready for PB_CA_174 consumption"
+    - "Support health profile updated"
+    - "Intervention recommendations created if assessment is at_risk or critical"
+    - "Appropriate stakeholders notified"
+
+  output_quality:
+    - "Trend analysis uses actual numbers, not approximations"
+    - "Systemic pattern identification references specific issue categories"
+    - "Interventions are actionable with clear owners and expected outcomes"
+    - "QBR section balances transparency with constructive framing"
+    - "Quarter-over-quarter comparisons use consistent methodology"
+    - "Customer-facing summary omits sensitive internal data"
+
+# ==============================================================================
+# INTEGRATION WITH OTHER PLAYBOOKS
+# ==============================================================================
+integrates_with:
+  - playbook: "PB_CA_174_customer_qbr"
+    integration: "QBR support section is a direct input to the Customer QBR"
+    provides: "support_section_{YYYY}_Q{N}.md for QBR preparation phase"
+
+  - playbook: "PB_CA_187_track_support_case"
+    integration: "Case log from PB_CA_187 is the primary data source for review"
+    provides: "Cumulative case entries with classifications"
+
+  - playbook: "PB_CA_188_escalate_support_issue"
+    integration: "Escalation history feeds severity and pattern analysis"
+    provides: "Escalation records with root causes and resolution data"
+
+  - playbook: "PB_DEL_189_engage_dse"
+    integration: "Review may recommend DSE engagement or evaluate active DSE outcomes"
+    trigger: "Support health critical and DSE not yet engaged"
+
+  - playbook: "PB_CA_401_customer_health_score"
+    integration: "Support health assessment feeds the support component of health score"
+    provides: "Updated support health factor"
+
+  - playbook: "PB_CA_406_adoption_guidance"
+    integration: "Adoption-related support patterns trigger adoption intervention"
+    trigger: "Systemic pattern classified as adoption gap"
+
+  - playbook: "PB_CA_301_health_triage"
+    integration: "Critical support health assessment may trigger health triage"
+    trigger: "Support assessment pushes overall health below threshold"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "1-2 hours per account review"
+frequency: "Quarterly (aligned with SIG_SUP_006 emission and QBR cadence)"
+human_review_required: true
+approval_workflow:
+  - reviewer: "CA"
+    approval_gate: "Validate analysis accuracy and QBR framing"
+  - reviewer: "AE"
+    condition: "$.overall_assessment IN ['at_risk', 'critical']"
+    approval_gate: "Approve customer-facing messaging for sensitive support data"
+  - reviewer: "SA"
+    condition: "$.systemic_patterns_identified contains 'architecture'"
+    approval_gate: "Validate architecture-related findings before QBR"
+
+last_updated: "2026-02-27"
+version: "1.0"
+status: "DRAFT"
+notes: "C06 playbook. CA Agent processes SIG_SUP_006 via SK_CA_001. Quarterly cadence aligned with QBR preparation (PB_CA_174). Support Agent was dissolved 2026-02; pattern insights now arrive as signals."

@@ -10,7 +10,7 @@ decision_makers:
 context_owner: "Maria Santos (SA)"
 account: "ACME_CORP"
 framework: "TOGAF ADR"
-linked_playbook: "PB_101"
+linked_playbook: "PB_SA_101"
 ---
 
 # ADR-001: Security Platform Selection for Combined Entity
@@ -189,8 +189,8 @@ Week 7: Executive review, decision
 
 ## References
 
-- [Value Engineering Analysis](../frameworks/PB_301_value_engineering_20260112.md)
-- [SWOT Analysis](../frameworks/PB_201_swot_20260116_revised.md)
+- [Value Engineering Analysis](../frameworks/PB_VE_301_value_engineering_20260112.md)
+- [SWOT Analysis](../frameworks/PB_STR_201_swot_20260116_revised.md)
 - [Risk Register](../risks/risk_register.yaml)
 - [CTO Meeting Notes](../meetings/external/2026-01-15_cto_strategic_shift.md)
 

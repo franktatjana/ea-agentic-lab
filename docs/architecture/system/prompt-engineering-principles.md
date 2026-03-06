@@ -440,7 +440,7 @@ Prompt Chaining breaks complex tasks into sequential subtasks, where each output
 ```yaml
 # Prompt chain for SWOT analysis playbook
 prompt_chain:
-  playbook_id: PB_201
+  playbook_id: PB_STR_201
 
   stages:
     - stage_id: 1

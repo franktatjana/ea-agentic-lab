@@ -48,7 +48,7 @@ def load_all_playbooks() -> list:
                 with open(yaml_file, 'r') as f:
                     data = yaml.safe_load(f)
                     if data:
-                        # Extract playbook ID from filename (e.g., PB_001 from PB_001_three_horizons.yaml)
+                        # Extract playbook ID from filename (e.g., PB_STR_001 from PB_STR_001_three_horizons.yaml)
                         pb_id = yaml_file.stem.split('_')[0] + '_' + yaml_file.stem.split('_')[1]
                         data['_id'] = pb_id
                         data['_filename'] = yaml_file.name

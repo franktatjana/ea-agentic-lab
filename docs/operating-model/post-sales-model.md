@@ -71,7 +71,7 @@ Archetype: post_sales_governance
 ├── Playbooks (executed within each Reference Blueprint)
 │   │   Small operational units (~15-30 min)
 │   │
-│   └── PB_401, PB_167, PB_168, etc.
+│   └── PB_CA_401, PB_CA_167, PB_CA_168, etc.
 │
 └── Assets (outputs stored in InfoHub)
         e.g., adoption_tracker.yaml, health_score.yaml, support_log.yaml
@@ -118,10 +118,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_167: Onboard new customer
-- PB_168: Conduct customer check-in
-- PB_169: Address engagement gap
-- PB_170: Celebrate milestone
+- PB_CA_167: Onboard new customer
+- PB_CA_168: Conduct customer check-in
+- PB_CA_169: Address engagement gap
+- PB_CA_170: Celebrate milestone
 
 **Stakeholders:**
 
@@ -161,11 +161,11 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_171: Create success plan
-- PB_172: Review adoption metrics
-- PB_401: Calculate health score
-- PB_173: Trigger success intervention
-- PB_174: Conduct quarterly business review
+- PB_CA_171: Create success plan
+- PB_CA_172: Review adoption metrics
+- PB_CA_401: Calculate health score
+- PB_CA_173: Trigger success intervention
+- PB_CA_174: Conduct quarterly business review
 
 **Stakeholders:**
 
@@ -203,10 +203,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_175: Execute post-sales handoff
-- PB_176: Conduct account health review
-- PB_177: Identify expansion opportunity
-- PB_178: Coordinate account team sync
+- PB_CA_175: Execute post-sales handoff
+- PB_CA_176: Conduct account health review
+- PB_CA_177: Identify expansion opportunity
+- PB_CA_178: Coordinate account team sync
 
 **Stakeholders:**
 
@@ -246,10 +246,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_179: Initialize customer knowledge hub
-- PB_180: Add use case documentation
-- PB_181: Update architecture context
-- PB_182: Review hub freshness
+- PB_CA_179: Initialize customer knowledge hub
+- PB_CA_180: Add use case documentation
+- PB_CA_181: Update architecture context
+- PB_CA_182: Review hub freshness
 
 **Stakeholders:**
 
@@ -287,10 +287,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_183: Sync services status
-- PB_184: Report services milestone
-- PB_185: Escalate services risk
-- PB_186: Complete services engagement
+- PB_CA_183: Sync services status
+- PB_CA_184: Report services milestone
+- PB_CA_185: Escalate services risk
+- PB_CA_186: Complete services engagement
 
 **Stakeholders:**
 
@@ -332,10 +332,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_187: Track support case
-- PB_188: Escalate support issue
-- PB_189: Engage DSE
-- PB_190: Review support health
+- PB_CA_187: Track support case
+- PB_CA_188: Escalate support issue
+- PB_DEL_189: Engage DSE
+- PB_CA_190: Review support health
 
 **Stakeholders:**
 
@@ -373,10 +373,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_191: Identify advocacy candidate
-- PB_192: Document success story
-- PB_193: Process reference request
-- PB_194: Renew advocacy permission
+- PB_CA_191: Identify advocacy candidate
+- PB_CA_192: Document success story
+- PB_CA_193: Process reference request
+- PB_CA_194: Renew advocacy permission
 
 **Stakeholders:**
 
@@ -416,7 +416,7 @@ How post-sales requirements change by service tier:
 | QBR | - | Semi-annual | Quarterly | Monthly |
 | Services sync | - | Bi-weekly | Weekly | Daily |
 | Support review | - | Quarterly | Monthly | Weekly |
-| Gap scan (PB_971) | End only | Monthly | Weekly | Daily |
+| Gap scan (PB_ADM_971) | End only | Monthly | Weekly | Daily |
 
 ### Validation Strictness by Track
 
@@ -442,7 +442,7 @@ How post-sales requirements change by service tier:
 
 ## Gap Scan Integration
 
-PB_971 (Blueprint Gap Scan) validates this archetype by checking:
+PB_ADM_971 (Blueprint Gap Scan) validates this archetype by checking:
 
 1. **Blueprint exists** for Node at `{realm}/{node}/blueprint.yaml`
 2. **Required Reference Blueprints** instantiated per Engagement Track

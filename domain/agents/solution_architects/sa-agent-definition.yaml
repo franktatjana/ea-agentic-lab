@@ -1694,17 +1694,105 @@ x-ea-agent:
   handoffs:
     human_escalation: PM/Leadership
     defer_to:
-      ae_agent: Commercial decisions, customer relationship health
-      pm_agent: Roadmap questions, feature feasibility
-      delivery_agent: Implementation status, delivery risks
+      ae_agent:
+        scope: Commercial decisions, customer relationship health
+        scenarios:
+          - trigger: Technical finding has commercial impact (deal timeline, pricing, scope)
+            context_passed: Technical assessment, risk severity, affected deal areas
+            receiver_action: Deal impact analysis, customer communication, timeline adjustment
+      pm_agent:
+        scope: Roadmap questions, feature feasibility
+        scenarios:
+          - trigger: Customer requests capability not in current product
+            context_passed: Feature request, technical feasibility assessment, customer priority
+            receiver_action: Roadmap alignment, feasibility decision, customer expectation management
+      delivery_agent:
+        scope: Implementation status, delivery risks
+        scenarios:
+          - trigger: Architecture decision affects implementation approach
+            context_passed: Architecture decisions, integration requirements, technical constraints
+            receiver_action: Implementation plan adjustment, resource reallocation
     provide_to:
-      all_agents: Technical context for their domain
-      ae_agent: Technical risk impact on commercial outcomes
-      pm_agent: Customer technical requirements
+      all_agents:
+        scope: Technical context for their domain
+        scenarios:
+          - trigger: Architecture decision captured or technical risk identified
+            context_passed: Decision record, risk assessment, affected systems, architecture context
+            receiver_action: Domain-specific impact assessment within each agent's scope
+      ae_agent:
+        scope: Technical risk impact on commercial outcomes
+        scenarios:
+          - trigger: Technical risk severity >= HIGH on active deal
+            context_passed: Risk details, affected architecture, mitigation options, timeline impact
+            receiver_action: Deal health reassessment, customer communication planning
+          - trigger: Solution validation complete (success or blocker)
+            context_passed: Validation outcome, technical constraints, recommended next steps
+            receiver_action: Deal progression decision, qualification update
+      pm_agent:
+        scope: Customer technical requirements
+        scenarios:
+          - trigger: Technical discovery reveals product gap or enhancement need
+            context_passed: Gap analysis, customer use case, technical requirements, priority
+            receiver_action: Backlog prioritization, roadmap consideration
   human_in_the_loop_conditions:
   - Review required before publishing analysis externally
   - Approval needed for strategic recommendations
   - Flag outputs based on indirect or incomplete signals
+  playbook_raci:
+    context: >
+      Outside of agent-owned operations, the SA participates in cross-role
+      scenarios orchestrated by playbooks. In these scenarios the SA
+      provides technical context while other roles lead their domain.
+      The SA's sub-agents feed analysis into these playbooks but do not
+      orchestrate them.
+    responsible:
+      - playbook: Technical Discovery (PB_SA_001)
+        scope: Architecture assessment, technical risk identification, requirements mapping
+        team: solution_architects
+        file: PB_SA_001_technical_discovery.yaml
+      - playbook: Solution Design Review (PB_SA_002)
+        scope: Architecture design validation, pattern selection, decision capture
+        team: solution_architects
+        file: PB_SA_002_solution_design_review.yaml
+      - playbook: POC Planning (PB_SA_003)
+        scope: POC scope definition, success criteria, technical execution plan
+        team: solution_architects
+        file: PB_SA_003_poc_planning.yaml
+    accountable:
+      - playbook: Technical Discovery (PB_SA_001)
+        scope: SA Lead / PM validates architecture assessment quality and risk coverage
+        team: solution_architects
+        file: PB_SA_001_technical_discovery.yaml
+      - playbook: Solution Design Review (PB_SA_002)
+        scope: SA Lead / PM approves architecture decisions and pattern selections
+        team: solution_architects
+        file: PB_SA_002_solution_design_review.yaml
+      - playbook: POC Planning (PB_SA_003)
+        scope: SA Lead / PM approves POC scope, success criteria, and resource allocation
+        team: solution_architects
+        file: PB_SA_003_poc_planning.yaml
+    consulted:
+      - playbook: Opportunity Consult (PB_AE_604)
+        scope: Technical feasibility, architecture fit, risk assessment for deal review
+        team: account_executives
+        file: PB_AE_604_opportunity_consult.yaml
+      - playbook: MEDDPICC Qualification (PB_AE_801)
+        scope: Decision Criteria input, Paper Process technical requirements
+        team: account_executives
+        file: PB_AE_801_meddpicc.yaml
+      - playbook: Implementation Kickoff (PB_DEL_001)
+        scope: Architecture handoff, technical decisions, integration requirements
+        team: delivery
+        file: PB_DEL_001_implementation_kickoff.yaml
+    informed:
+      - playbook: Deal Retrospective (PB_AE_601)
+        scope: Technical learnings, architecture pattern outcomes
+        team: account_executives
+        file: PB_AE_601_retrospective.yaml
+      - playbook: Sales QBR (PB_AE_603)
+        scope: Pipeline technical complexity, resource demand signals
+        team: account_executives
+        file: PB_AE_603_sales_qbr.yaml
   memory:
     conversation: Current analysis session state
     working:
@@ -1773,6 +1861,24 @@ x-ea-agent:
       routing to other sub-agents or aggregation. Coordinates with InfoSec Agent
       as a peer (separate role, separate person).
 
+    triggers:
+      - source: ae-agent
+        condition: ae_handoff.type == technical_discovery
+        action: Route to sa-discovery-agent with account and opportunity context
+        context_received: [account_context, opportunity_data, customer_requirements]
+      - source: ae-agent
+        condition: ae_handoff.type == solution_validation
+        action: Route to sa-csp-agent with proposed architecture context
+        context_received: [solution_scope, success_criteria, deal_timeline]
+      - source: playbook_orchestrator
+        condition: playbook.assigned_role == solution_architect
+        action: Accept playbook task and route to appropriate sub-agent
+        context_received: [playbook_id, task_context, deliverable_requirements]
+      - source: infosec-agent
+        condition: security_review.requested == true
+        action: Route to sa-risk-agent for architecture security assessment
+        context_received: [security_requirements, compliance_context, architecture_scope]
+
     reactive_routing:
       - watch: poc-agent
         on: poc_risk.severity >= HIGH
@@ -1827,6 +1933,13 @@ x-ea-agent:
         route_to: specialist-agent
         context_forward: [risk_details, domain_area, account_context]
         description: Domain-specific HIGH risks trigger specialist engagement
+
+      # Cross-role: watch AE for commercial risk that impacts technical posture
+      - watch: ae-agent
+        on: commercial_risk.severity == HIGH
+        route_to: sa-risk-agent
+        context_forward: [risk_details, affected_deal, commercial_impact]
+        description: High commercial risk triggers technical risk posture reassessment
 
     cascade_limits:
       max_depth: 3

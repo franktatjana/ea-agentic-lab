@@ -50,8 +50,8 @@ Replacing an incumbent vendor. These engagements require strong competitive posi
 
 | ID | Name | Description | Playbooks |
 |----|------|-------------|-----------|
-| A01_basic | Standard Displacement | Single vendor replacement | PB_102, PB_201, PB_301 |
-| A02_competitive | Competitive Displacement | Multi-vendor consolidation with competitive analysis | PB_102, PB_201, PB_701, PB_301 |
+| A01_basic | Standard Displacement | Single vendor replacement | PB_SA_102, PB_STR_201, PB_VE_301 |
+| A02_competitive | Competitive Displacement | Multi-vendor consolidation with competitive analysis | PB_SA_102, PB_STR_201, PB_CI_701, PB_VE_301 |
 
 **Reference blueprint available:** [A02_competitive.yaml](../../domain/blueprints/reference/competitive_displacement/A02_competitive.yaml)
 
@@ -72,8 +72,8 @@ New capability where no incumbent exists. Lower competitive pressure but require
 
 | ID | Name | Description | Playbooks |
 |----|------|-------------|-----------|
-| A01_basic | Standard Adoption | Standard new deployment | PB_102, PB_201 |
-| A02_enterprise | Enterprise Adoption | Multi-team, multi-environment deployment | PB_102, PB_201, PB_001, PB_301, PB_401 |
+| A01_basic | Standard Adoption | Standard new deployment | PB_SA_102, PB_STR_201 |
+| A02_enterprise | Enterprise Adoption | Multi-team, multi-environment deployment | PB_SA_102, PB_STR_201, PB_STR_001, PB_VE_301, PB_CA_401 |
 
 ---
 
@@ -92,7 +92,7 @@ Merging multiple tools into a unified platform. The most complex archetype, requ
 
 | ID | Name | Description | Playbooks |
 |----|------|-------------|-----------|
-| A01_unified | Unified Platform | Single platform for multiple use cases | PB_102, PB_201, PB_701, PB_301, PB_001, PB_401 |
+| A01_unified | Unified Platform | Single platform for multiple use cases | PB_SA_102, PB_STR_201, PB_CI_701, PB_VE_301, PB_STR_001, PB_CA_401 |
 
 ---
 
@@ -111,8 +111,8 @@ Implementation driven by regulatory deadline or audit finding. These engagements
 
 | ID | Name | Description | Playbooks |
 |----|------|-------------|-----------|
-| A01_audit_response | Audit Response | Addressing specific audit findings | PB_102, PB_202, PB_201 |
-| A02_regulatory | Regulatory Compliance | Meeting regulatory requirements | PB_102, PB_202, PB_201, PB_301 |
+| A01_audit_response | Audit Response | Addressing specific audit findings | PB_SA_102, PB_STR_202, PB_STR_201 |
+| A02_regulatory | Regulatory Compliance | Meeting regulatory requirements | PB_SA_102, PB_STR_202, PB_STR_201, PB_VE_301 |
 
 ---
 
@@ -131,8 +131,8 @@ POC or validation with a decision pending. Fast-moving, technically focused enga
 
 | ID | Name | Description | Playbooks |
 |----|------|-------------|-----------|
-| A01_technical | Technical POC | Feature and capability validation | PB_101 |
-| A02_comparative | Comparative POC | Side-by-side evaluation vs competitor | PB_101, PB_701 |
+| A01_technical | Technical POC | Feature and capability validation | PB_SA_101 |
+| A02_comparative | Comparative POC | Side-by-side evaluation vs competitor | PB_SA_101, PB_CI_701 |
 
 **Reference blueprint available:** [A02_comparative.yaml](../../domain/blueprints/reference/technical_evaluation/A02_comparative.yaml)
 
@@ -153,8 +153,8 @@ Protecting an existing relationship at risk. These engagements focus on rebuildi
 
 | ID | Name | Description | Playbooks |
 |----|------|-------------|-----------|
-| A01_health_recovery | Health Recovery | Address declining health metrics | PB_401, PB_102 |
-| A02_champion_rebuild | Champion Rebuild | Re-establish stakeholder relationships | PB_102, PB_401, PB_301 |
+| A01_health_recovery | Health Recovery | Address declining health metrics | PB_CA_401, PB_SA_102 |
+| A02_champion_rebuild | Champion Rebuild | Re-establish stakeholder relationships | PB_SA_102, PB_CA_401, PB_VE_301 |
 
 **Reference blueprint available:** [A02_champion_rebuild.yaml](../../domain/blueprints/reference/retention_renewal/A02_champion_rebuild.yaml)
 
@@ -175,8 +175,8 @@ Growing within an account that already adopted. Leverages existing success to ex
 
 | ID | Name | Description | Playbooks |
 |----|------|-------------|-----------|
-| A01_use_case | New Use Case | Expand to adjacent use case | PB_201, PB_001 |
-| A02_enterprise | Enterprise Expansion | Scale to additional teams or business units | PB_102, PB_201, PB_001, PB_301 |
+| A01_use_case | New Use Case | Expand to adjacent use case | PB_STR_201, PB_STR_001 |
+| A02_enterprise | Enterprise Expansion | Scale to additional teams or business units | PB_SA_102, PB_STR_201, PB_STR_001, PB_VE_301 |
 
 ---
 
@@ -195,7 +195,7 @@ Enterprise-wide, multi-initiative, executive-level engagement. An ongoing govern
 
 | ID | Name | Description | Playbooks |
 |----|------|-------------|-----------|
-| A01_strategic | Strategic Account Governance | Full governance for strategic accounts | PB_102, PB_201, PB_701, PB_301, PB_001, PB_401 |
+| A01_strategic | Strategic Account Governance | Full governance for strategic accounts | PB_SA_102, PB_STR_201, PB_CI_701, PB_VE_301, PB_STR_001, PB_CA_401 |
 
 ---
 
@@ -222,10 +222,10 @@ Each track defines which playbooks are required, optional, or blocked. These pol
 
 | Track | Required Playbooks | Blocked Playbooks |
 |-------|-------------------|-------------------|
-| **POC** | PB_101 | PB_301, PB_401 |
-| **Economy** | PB_102, PB_201 | PB_701 |
-| **Premium** | PB_102, PB_201, PB_301, PB_401 | None |
-| **Fast Track** | PB_102, PB_201, PB_101 | None |
+| **POC** | PB_SA_101 | PB_VE_301, PB_CA_401 |
+| **Economy** | PB_SA_102, PB_STR_201 | PB_CI_701 |
+| **Premium** | PB_SA_102, PB_STR_201, PB_VE_301, PB_CA_401 | None |
+| **Fast Track** | PB_SA_102, PB_STR_201, PB_SA_101 | None |
 
 ### Track Selection Rules
 
@@ -282,7 +282,7 @@ When a Node is created, a blueprint instance is generated from the reference blu
 5. **Customize** for node-specific requirements
 6. **Store** at `vault/{realm}/{node}/blueprint.yaml`
 
-PB_971 (gap scan) validates that the blueprint instance is complete: all required playbooks executed, all canvases rendered, and success criteria met.
+PB_ADM_971 (gap scan) validates that the blueprint instance is complete: all required playbooks executed, all canvases rendered, and success criteria met.
 
 ## Playbook Reference
 
@@ -290,14 +290,14 @@ The following playbooks are referenced across archetypes and tracks. For the com
 
 | ID | Name | Owner | Used By |
 |----|------|-------|---------|
-| PB_001 | Three Horizons | AE Agent | Greenfield A02, Expansion, Platform Consolidation, Strategic Account |
-| PB_101 | TOGAF ADM (Architecture) | SA Agent | Technical Evaluation, Fast Track |
-| PB_102 | Stakeholder Mapping | AE Agent | All archetypes except Technical Evaluation A01 |
-| PB_201 | SWOT Analysis | SA Agent | Most archetypes (discovery phase) |
-| PB_202 | PESTLE Analysis | AE Agent | Compliance-Driven, optional for others |
-| PB_301 | Value Engineering | AE Agent | Premium track, competitive/compliance/expansion archetypes |
-| PB_401 | Customer Health Score | CA Agent | Premium track, retention, expansion, strategic account |
-| PB_701 | Competitive Analysis (Five Forces) | CI Agent | Competitive Displacement A02, Technical Evaluation A02, Platform Consolidation, Strategic Account |
+| PB_STR_001 | Three Horizons | AE Agent | Greenfield A02, Expansion, Platform Consolidation, Strategic Account |
+| PB_SA_101 | TOGAF ADM (Architecture) | SA Agent | Technical Evaluation, Fast Track |
+| PB_SA_102 | Stakeholder Mapping | AE Agent | All archetypes except Technical Evaluation A01 |
+| PB_STR_201 | SWOT Analysis | SA Agent | Most archetypes (discovery phase) |
+| PB_STR_202 | PESTLE Analysis | AE Agent | Compliance-Driven, optional for others |
+| PB_VE_301 | Value Engineering | AE Agent | Premium track, competitive/compliance/expansion archetypes |
+| PB_CA_401 | Customer Health Score | CA Agent | Premium track, retention, expansion, strategic account |
+| PB_CI_701 | Competitive Analysis (Five Forces) | CI Agent | Competitive Displacement A02, Technical Evaluation A02, Platform Consolidation, Strategic Account |
 
 ## Signal Patterns
 

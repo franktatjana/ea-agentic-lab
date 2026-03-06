@@ -214,20 +214,20 @@ class TestPlaybooks:
         assert len(data) >= 1
 
     def test_get_playbook(self):
-        r = client.get(f"{PREFIX}/playbooks/strategy/PB_201_swot_analysis.yaml")
+        r = client.get(f"{PREFIX}/playbooks/strategy/PB_STR_201_swot_analysis.yaml")
         assert r.status_code == 200
         data = r.json()
         assert data.get("_id") or data.get("steckbrief")
 
     def test_get_playbook_raw(self):
-        r = client.get(f"{PREFIX}/playbooks/strategy/PB_201_swot_analysis.yaml/raw")
+        r = client.get(f"{PREFIX}/playbooks/strategy/PB_STR_201_swot_analysis.yaml/raw")
         assert r.status_code == 200
         data = r.json()
         assert "content" in data
         assert "steckbrief" in data["content"] or "framework_name" in data["content"]
 
     def test_get_playbook_not_found(self):
-        r = client.get(f"{PREFIX}/playbooks/strategy/PB_999_nonexistent.yaml")
+        r = client.get(f"{PREFIX}/playbooks/strategy/PB_ADM_999_nonexistent.yaml")
         assert r.status_code == 404
 
     def test_get_specialist_playbook(self):

@@ -144,12 +144,12 @@ Playbooks that produce customer deliverables write directly to the External Info
 
 | Playbook | Output | Target |
 |----------|--------|--------|
-| PB_101 Discovery & Qualification | Engagement overview, account team contacts | `engagement_overview.md`, `account_team.yaml` |
-| PB_102 Stakeholder Mapping | Engagement timeline with decision points | `engagement_timeline.yaml` |
-| PB_103 Technical Validation | Validation checklist, success criteria | `architecture/`, `success_criteria.yaml` |
-| PB_104 Solution Description | Solution design document, reference architecture | `architecture/` |
-| PB_404 Customer Guidelines | Customer-facing guidelines, best practices | `technical-guides/` |
-| PB_405 Training Plans | Learning paths, training schedules | `deliverables/` |
+| PB_SA_101 Discovery & Qualification | Engagement overview, account team contacts | `engagement_overview.md`, `account_team.yaml` |
+| PB_SA_102 Stakeholder Mapping | Engagement timeline with decision points | `engagement_timeline.yaml` |
+| CL_SA_103 Technical Validation | Validation checklist, success criteria | `architecture/`, `success_criteria.yaml` |
+| PB_SA_104 Solution Description | Solution design document, reference architecture | `architecture/` |
+| PB_CA_404 Customer Guidelines | Customer-facing guidelines, best practices | `technical-guides/` |
+| PB_CA_405 Training Plans | Learning paths, training schedules | `deliverables/` |
 
 ## Related Documentation
 

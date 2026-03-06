@@ -67,19 +67,19 @@ class TestSWOTPlaybookIntegration:
     def test_swot_execution_completes_successfully(self, executor, context_realistic):
         """Test that SWOT playbook executes without errors."""
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
 
         assert result['status'] == 'completed'
-        assert result['run_id'].endswith('_PB_201_c4')
+        assert result['run_id'].endswith('_PB_STR_201_c4')
         assert result['duration_seconds'] > 0
 
     def test_swot_fires_expected_rules(self, executor, context_realistic):
         """Test that SWOT playbook fires expected decision logic rules."""
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
@@ -97,7 +97,7 @@ class TestSWOTPlaybookIntegration:
     def test_swot_generates_outputs(self, executor, context_realistic):
         """Test that SWOT playbook generates output objects."""
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
@@ -116,7 +116,7 @@ class TestSWOTPlaybookIntegration:
         """Test that evidence validation passes for generated outputs."""
         # Should not raise ValueError from evidence validation
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
@@ -126,7 +126,7 @@ class TestSWOTPlaybookIntegration:
     def test_swot_writes_run_directory(self, executor, context_realistic, runs_dir):
         """Test that run directory is created with expected structure."""
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
@@ -138,7 +138,7 @@ class TestSWOTPlaybookIntegration:
     def test_swot_writes_metadata_file(self, executor, context_realistic):
         """Test that metadata.yaml is created with correct structure."""
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
@@ -153,7 +153,7 @@ class TestSWOTPlaybookIntegration:
             metadata = yaml.safe_load(f)
 
         assert metadata['run_id'] == result['run_id']
-        assert metadata['playbook_id'] == 'PB_201'
+        assert metadata['playbook_id'] == 'PB_STR_201'
         assert metadata['client_id'] == 'c4'
         assert metadata['status'] == 'completed'
         assert 'thresholds_used' in metadata
@@ -162,7 +162,7 @@ class TestSWOTPlaybookIntegration:
     def test_swot_writes_trace_file(self, executor, context_realistic):
         """Test that trace.json is created with execution steps."""
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
@@ -189,7 +189,7 @@ class TestSWOTPlaybookIntegration:
     def test_swot_writes_report_file(self, executor, context_realistic):
         """Test that report.md is created."""
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
@@ -206,7 +206,7 @@ class TestSWOTPlaybookIntegration:
     def test_swot_writes_output_files(self, executor, context_realistic):
         """Test that output objects are written to disk."""
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
@@ -222,7 +222,7 @@ class TestSWOTPlaybookIntegration:
     def test_swot_output_directory_structure(self, executor, context_realistic):
         """Test that outputs/ directory has correct structure."""
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
@@ -244,7 +244,7 @@ class TestOutputContractCompliance:
     def test_run_id_format(self, executor, context_realistic):
         """Test that run_id follows specified format."""
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
@@ -270,7 +270,7 @@ class TestOutputContractCompliance:
     def test_run_directory_contains_required_files(self, executor, context_realistic):
         """Test that run directory contains all required files per contract."""
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
@@ -290,7 +290,7 @@ class TestOutputContractCompliance:
     def test_metadata_has_required_fields(self, executor, context_realistic):
         """Test that metadata.yaml has all required fields."""
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
@@ -325,7 +325,7 @@ class TestOutputContractCompliance:
     def test_trace_has_required_structure(self, executor, context_realistic):
         """Test that trace.json has required structure."""
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=context_realistic,
             client_id='c4'
         )
@@ -363,7 +363,7 @@ class TestErrorHandling:
         """Test that invalid playbook ID raises FileNotFoundError."""
         with pytest.raises(FileNotFoundError):
             executor.execute(
-                playbook_id='PB_999',
+                playbook_id='PB_ADM_999',
                 context=context_realistic,
                 client_id='c4'
             )
@@ -382,7 +382,7 @@ class TestErrorHandling:
 
         # Should complete but fire no rules
         result = executor.execute(
-            playbook_id='PB_201',
+            playbook_id='PB_STR_201',
             context=minimal_context,
             client_id='c4'
         )

@@ -27,23 +27,23 @@ A comprehensive framework for customer engagement, health management, and value 
 │                    CUSTOMER SUCCESS PLAYBOOKS                                │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│  STAGE ADOPTION (PB_CS_1xx)         ENGAGEMENT (PB_CS_2xx)                  │
+│  STAGE ADOPTION (PB_DEL_1xx)         ENGAGEMENT (PB_CA_2xx)                  │
 │  ─────────────────────────          ──────────────────────                  │
-│  Security: PB_CS_101                Discovery: PB_CS_201                    │
-│  Observability: PB_CS_102           Cadence: PB_CS_202                      │
-│  Search: PB_CS_103                  Executive Review: PB_CS_203             │
+│  Security: PB_DEL_101                Discovery: PB_CA_201                    │
+│  Observability: PB_DEL_102           Cadence: PB_CA_202                      │
+│  Search: PB_DEL_103                  Executive Review: PB_CA_203             │
 │                                                                              │
-│  HEALTH MANAGEMENT (PB_CS_3xx)      ENABLEMENT (PB_CS_4xx)                  │
+│  HEALTH MANAGEMENT (PB_CA_3xx)      ENABLEMENT (PB_CA_4xx)                  │
 │  ──────────────────────────         ─────────────────────                   │
-│  Health Triage: PB_CS_301           Technical Workshop: PB_CS_401           │
-│  Risk Intervention: PB_CS_302       Migration: PB_CS_402                    │
-│  Renewal Protection: PB_CS_303      POV Execution: PB_CS_403                │
+│  Health Triage: PB_CA_301           Technical Workshop: PB_CA_401           │
+│  Risk Intervention: PB_CA_302       Migration: PB_CA_402                    │
+│  Renewal Protection: PB_CA_303      POV Execution: PB_CA_403                │
 │                                                                              │
-│  LIFECYCLE (PB_CS_5xx)              ANALYSIS (PB_5xx/6xx)                   │
+│  LIFECYCLE (PB_CA_5xx)              ANALYSIS (PB_5xx/6xx)                   │
 │  ─────────────────────              ────────────────────                    │
-│  Handoff: PB_CS_501                 Five Whys: PB_105                       │
-│  Expansion: PB_CS_502               Retrospective: PB_601                   │
-│                                     Account Planning: PB_602                │
+│  Handoff: PB_CA_501                 Five Whys: PB_SA_105                       │
+│  Expansion: PB_CA_502               Retrospective: PB_AE_601                   │
+│                                     Account Planning: PB_AE_602                │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -105,19 +105,19 @@ Playbooks execute automatically based on signals:
 ```yaml
 signal_triggers:
   SIG_LC_002:  # New customer
-    playbook: "PB_CS_101_security_stage_adoption"
+    playbook: "PB_DEL_101_security_stage_adoption"
     condition: "solution_area == 'security'"
 
   SIG_HLT_001:  # Health alert
-    playbook: "PB_CS_301_health_triage"
+    playbook: "PB_CA_301_health_triage"
     condition: "health_score < 70"
 
   SIG_LC_003:  # Renewal mode
-    playbook: "PB_CS_303_renewal_protection"
+    playbook: "PB_CA_303_renewal_protection"
     condition: "days_to_renewal <= 180"
 
   cadence_call_due:
-    playbook: "PB_CS_202_cadence_calls"
+    playbook: "PB_CA_202_cadence_calls"
     timing: "3 days before scheduled"
 ```
 
@@ -127,27 +127,27 @@ signal_triggers:
 
 Start with core playbooks that provide immediate value:
 
-- [x] `PB_CS_202_cadence_calls.yaml` - Engagement framework
-- [x] `PB_CS_301_health_triage.yaml` - Health management
-- [x] `PB_CS_101_security_stage_adoption.yaml` - Stage adoption model
+- [x] `PB_CA_202_cadence_calls.yaml` - Engagement framework
+- [x] `PB_CA_301_health_triage.yaml` - Health management
+- [x] `PB_DEL_101_security_stage_adoption.yaml` - Stage adoption model
 
 ### Phase 2: Extend Coverage
 
 Add playbooks for complete lifecycle coverage:
 
-- [ ] `PB_CS_102_observability_stage_adoption.yaml`
-- [ ] `PB_CS_103_search_stage_adoption.yaml`
-- [ ] `PB_CS_201_discovery_engagement.yaml`
-- [ ] `PB_CS_203_executive_review.yaml`
+- [ ] `PB_DEL_102_observability_stage_adoption.yaml`
+- [ ] `PB_DEL_103_search_stage_adoption.yaml`
+- [ ] `PB_CA_201_discovery_engagement.yaml`
+- [ ] `PB_CA_203_executive_review.yaml`
 
 ### Phase 3: Advanced Playbooks
 
 Complete the framework with specialized playbooks:
 
-- [ ] `PB_CS_302_risk_intervention.yaml`
-- [ ] `PB_CS_303_renewal_protection.yaml`
-- [ ] `PB_CS_401_technical_workshop.yaml`
-- [ ] `PB_CS_501_handoff_presales_postsales.yaml`
+- [ ] `PB_CA_302_risk_intervention.yaml`
+- [ ] `PB_CA_303_renewal_protection.yaml`
+- [ ] `PB_CA_401_technical_workshop.yaml`
+- [ ] `PB_CA_501_handoff_presales_postsales.yaml`
 
 ## InfoHub Integration
 
@@ -183,25 +183,25 @@ Playbooks reference and trigger each other:
 # Health Triage triggers Stage Adoption
 health_triage:
   component_declining: "adoption"
-  triggers: "PB_CS_101_security_stage_adoption"
+  triggers: "PB_DEL_101_security_stage_adoption"
   reason: "Assess adoption stage and blockers"
 
 # Stage Adoption triggers Five Whys
 stage_adoption:
   blocker_persists: 30  # days
-  triggers: "PB_105_five_whys_analysis"
+  triggers: "PB_SA_105_five_whys_analysis"
   reason: "Root cause analysis for adoption blocker"
 
 # Health Triage informs Cadence
 health_triage:
   zone_change: true
-  triggers: "PB_CS_202_cadence_calls"
+  triggers: "PB_CA_202_cadence_calls"
   reason: "Adjust engagement frequency"
 ```
 
 ## Key Playbook Details
 
-### Stage Adoption (PB_CS_101)
+### Stage Adoption (PB_DEL_101)
 
 **Purpose:** Guide customers through solution adoption journey
 
@@ -216,7 +216,7 @@ health_triage:
 - Action items for enablement activities
 - Stage transition notifications
 
-### Cadence Calls (PB_CS_202)
+### Cadence Calls (PB_CA_202)
 
 **Purpose:** Maintain structured engagement rhythm
 
@@ -232,7 +232,7 @@ health_triage:
 - Attendance tracking
 - Missed call alerting
 
-### Health Triage (PB_CS_301)
+### Health Triage (PB_CA_301)
 
 **Purpose:** Respond to health indicators systematically
 
@@ -281,16 +281,16 @@ health_triage:
 
 ### Prerequisites
 
-- [ ] Health score framework operational (`PB_401_customer_health_score`)
+- [ ] Health score framework operational (`PB_CA_401_customer_health_score`)
 - [ ] InfoHub structure established
 - [ ] Signal catalog includes CS signals
 - [ ] Agent configurations updated
 
 ### Playbook Deployment
 
-- [x] Deploy `PB_CS_202_cadence_calls.yaml`
-- [x] Deploy `PB_CS_301_health_triage.yaml`
-- [x] Deploy `PB_CS_101_security_stage_adoption.yaml`
+- [x] Deploy `PB_CA_202_cadence_calls.yaml`
+- [x] Deploy `PB_CA_301_health_triage.yaml`
+- [x] Deploy `PB_DEL_101_security_stage_adoption.yaml`
 - [ ] Configure signal triggers
 - [ ] Train agents on playbook usage
 - [ ] Establish review cadence

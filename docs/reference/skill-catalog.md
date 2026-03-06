@@ -71,7 +71,7 @@ SK_ACI_003 (Opportunity Identification)
     ↓ opportunity_map
 ```
 
-Feeds playbooks: PB_ACI_001, PB_ACI_002, PB_602
+Feeds playbooks: PB_ACI_001, PB_ACI_002, PB_AE_602
 
 ### Meeting to Decisions
 

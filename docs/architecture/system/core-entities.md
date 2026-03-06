@@ -143,9 +143,9 @@ node:
   # Enabled playbooks (from Blueprint)
   enabled_playbooks:
     strategic:
-      - "PB_001"  # Three Horizons
-      - "PB_201"  # SWOT
-      - "PB_301"  # Value Engineering
+      - "PB_STR_001"  # Three Horizons
+      - "PB_STR_201"  # SWOT
+      - "PB_VE_301"  # Value Engineering
     operational:
       - "OP_RSK_001"
       - "OP_ACT_001"
@@ -178,7 +178,7 @@ node:
 
 | Category | Purpose | Example |
 |----------|---------|---------|
-| **Strategic** | Framework operationalization, holistic synthesis | PB_201 SWOT Analysis |
+| **Strategic** | Framework operationalization, holistic synthesis | PB_STR_201 SWOT Analysis |
 | **Operational** | Event-driven tactical procedures | OP_RSK_001 Register Risk |
 
 **Relationship to Blueprint:**
@@ -308,7 +308,7 @@ node:
   status: "active"
   operating_mode: "pre_sales"
   enabled_playbooks:
-    strategic: ["PB_001", "PB_201", "PB_301", "PB_401", "PB_701"]
+    strategic: ["PB_STR_001", "PB_STR_201", "PB_VE_301", "PB_CA_401", "PB_CI_701"]
     operational: ["OP_RSK_001", "OP_ACT_001", "OP_ESC_001", "OP_MTG_001"]
 ```
 
@@ -330,7 +330,7 @@ node:
   status: "active"
   operating_mode: "implementation"
   enabled_playbooks:
-    strategic: ["PB_101", "PB_201"]  # TOGAF + SWOT only
+    strategic: ["PB_SA_101", "PB_STR_201"]  # TOGAF + SWOT only
     operational: ["OP_ACT_001", "OP_MTG_001"]
 ```
 
@@ -395,7 +395,7 @@ node:
 
 | Operation | Scope | Example |
 |-----------|-------|---------|
-| Run PB_201 SWOT | Node | SWOT for "Security Consolidation" node |
+| Run PB_STR_201 SWOT | Node | SWOT for "Security Consolidation" node |
 | Register Risk | Node | Risk in ACME/SECURITY_CONSOLIDATION/internal-infohub/risks/ |
 | Process Meeting | Node | Meeting notes for specific initiative |
 | Health Score | Node | Health of single node, not realm |

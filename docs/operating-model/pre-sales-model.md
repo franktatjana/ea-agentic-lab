@@ -76,7 +76,7 @@ Archetype: pre_sales_governance
 ├── Playbooks (executed within each Reference Blueprint)
 │   │   Small operational units (~15-30 min)
 │   │
-│   └── PB_201, PB_301, PB_701, etc.
+│   └── PB_STR_201, PB_VE_301, PB_CI_701, etc.
 │
 └── Assets (outputs stored in InfoHub)
         e.g., proposal.yaml, poc_plan.yaml, competitive_analysis.yaml
@@ -111,11 +111,11 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_201: Conduct SWOT analysis
-- PB_130: Qualify opportunity
-- PB_131: Progress deal stage
-- PB_132: Prepare deal review
-- PB_133: Monitor deal health
+- PB_STR_201: Conduct SWOT analysis
+- PB_SA_130: Qualify opportunity
+- PB_SA_131: Progress deal stage
+- PB_SA_132: Prepare deal review
+- PB_SA_133: Monitor deal health
 
 **Stakeholders:**
 
@@ -152,11 +152,11 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_134: Intake RFP request
-- PB_135: Assess RFP complexity
-- PB_136: Activate RFP team
-- PB_137: Build response plan
-- PB_138: Review and submit response
+- PB_SA_134: Intake RFP request
+- PB_SA_135: Assess RFP complexity
+- PB_SA_136: Activate RFP team
+- PB_SA_137: Build response plan
+- PB_SA_138: Review and submit response
 
 **Stakeholders:**
 
@@ -194,10 +194,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_139: Request specialist engagement
-- PB_140: Scope specialist involvement
-- PB_141: Execute specialist activities
-- PB_142: Complete specialist handoff
+- PB_SA_139: Request specialist engagement
+- PB_SA_140: Scope specialist involvement
+- PB_SA_141: Execute specialist activities
+- PB_SA_142: Complete specialist handoff
 
 **Stakeholders:**
 
@@ -235,10 +235,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_701: Conduct competitive analysis
-- PB_143: Update competitor profile
-- PB_144: Apply battlecard positioning
-- PB_145: Document win/loss learnings
+- PB_CI_701: Conduct competitive analysis
+- PB_SA_143: Update competitor profile
+- PB_SA_144: Apply battlecard positioning
+- PB_SA_145: Document win/loss learnings
 
 **Stakeholders:**
 
@@ -276,10 +276,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_146: Log feature request
-- PB_147: Request roadmap alignment
-- PB_148: Nominate for CAB
-- PB_149: Escalate to engineering
+- PB_SA_146: Log feature request
+- PB_SA_147: Request roadmap alignment
+- PB_SA_148: Nominate for CAB
+- PB_SA_149: Escalate to engineering
 
 **Stakeholders:**
 
@@ -328,11 +328,11 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_150: Scope POC engagement
-- PB_151: Setup POC environment
-- PB_152: Execute POC checkpoint
-- PB_153: Complete POC evaluation
-- PB_154: Document POC results
+- PB_SA_150: Scope POC engagement
+- PB_SA_151: Setup POC environment
+- PB_SA_152: Execute POC checkpoint
+- PB_SA_153: Complete POC evaluation
+- PB_SA_154: Document POC results
 
 **Stakeholders:**
 
@@ -371,10 +371,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_155: Activate partner engagement
-- PB_156: Update partner scorecard
-- PB_157: Conduct joint planning
-- PB_158: Review data boundaries
+- PB_SA_155: Activate partner engagement
+- PB_SA_156: Update partner scorecard
+- PB_SA_157: Conduct joint planning
+- PB_SA_158: Review data boundaries
 
 **Stakeholders:**
 
@@ -413,11 +413,11 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_101: Design solution architecture
-- PB_159: Select reference architecture
-- PB_160: Calculate sizing estimate
-- PB_161: Develop proposal content
-- PB_162: Conduct SA deal review
+- PB_SA_101: Design solution architecture
+- PB_SA_159: Select reference architecture
+- PB_SA_160: Calculate sizing estimate
+- PB_SA_161: Develop proposal content
+- PB_SA_162: Conduct SA deal review
 
 **Stakeholders:**
 
@@ -455,10 +455,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_163: Request services engagement
-- PB_164: Assess migration complexity
-- PB_165: Develop services proposal
-- PB_166: Identify delivery risks
+- PB_SA_163: Request services engagement
+- PB_SA_164: Assess migration complexity
+- PB_SA_165: Develop services proposal
+- PB_SA_166: Identify delivery risks
 
 **Stakeholders:**
 
@@ -497,7 +497,7 @@ How pre-sales requirements change by service tier:
 | Health score update | - | Monthly | Weekly | Daily |
 | POC checkpoint | Weekly | - | 2x/week | Daily |
 | Specialist sync | As-needed | Weekly | 2x/week | Daily |
-| Gap scan (PB_971) | End only | Monthly | Weekly | Daily |
+| Gap scan (PB_ADM_971) | End only | Monthly | Weekly | Daily |
 
 ### Validation Strictness by Track
 
@@ -523,7 +523,7 @@ How pre-sales requirements change by service tier:
 
 ## Gap Scan Integration
 
-PB_971 (Blueprint Gap Scan) validates this archetype by checking:
+PB_ADM_971 (Blueprint Gap Scan) validates this archetype by checking:
 
 1. **Blueprint exists** for Node at `{realm}/{node}/blueprint.yaml`
 2. **Required Reference Blueprints** instantiated per Engagement Track

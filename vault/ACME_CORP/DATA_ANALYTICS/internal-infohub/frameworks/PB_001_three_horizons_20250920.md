@@ -1,6 +1,6 @@
 # Three Horizons Analysis: ACME Data Analytics
 
-**Playbook:** PB_001 | **Node:** DATA_ANALYTICS | **Date:** 2025-09-20
+**Playbook:** PB_STR_001 | **Node:** DATA_ANALYTICS | **Date:** 2025-09-20
 **Author:** sa_agent | **Status:** Completed
 
 ---

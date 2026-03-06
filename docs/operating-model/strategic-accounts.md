@@ -43,7 +43,7 @@ Archetype: strategic_account_governance
 ├── Playbooks (executed within each Reference Blueprint)
 │   │   Small operational units (~15-30 min)
 │   │
-│   └── PB_102, PB_401, PB_971, etc.
+│   └── PB_SA_102, PB_CA_401, PB_ADM_971, etc.
 │
 └── Assets (outputs stored in InfoHub)
         e.g., stakeholder_map.yaml, risk_register.yaml, decision_log.yaml
@@ -71,10 +71,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_102: Map stakeholders and influence
-- PB_103: Define governance cadence
-- PB_104: Establish escalation paths
-- PB_105: Create RACI matrix
+- PB_SA_102: Map stakeholders and influence
+- CL_SA_103: Define governance cadence
+- PB_SA_104: Establish escalation paths
+- PB_SA_105: Create RACI matrix
 
 **Cadences:**
 
@@ -105,10 +105,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_106: Onboard executive sponsor
-- PB_107: Prepare executive briefing
-- PB_108: Track sponsor engagement
-- PB_109: Escalate sponsor disengagement
+- PB_SA_106: Onboard executive sponsor
+- PB_SA_107: Prepare executive briefing
+- PB_SA_108: Track sponsor engagement
+- PB_SA_109: Escalate sponsor disengagement
 
 **Cadences:**
 
@@ -140,10 +140,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_110: Initialize account plan
-- PB_111: Sync MAP milestones
-- PB_112: Update success criteria
-- PB_113: Generate executive summary
+- PB_SA_110: Initialize account plan
+- PB_SA_111: Sync MAP milestones
+- PB_SA_112: Update success criteria
+- PB_SA_113: Generate executive summary
 
 **Cadences:**
 
@@ -175,10 +175,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_114: Initialize InfoHub structure
-- PB_115: Index existing assets
-- PB_116: Generate onboarding pack
-- PB_117: Audit InfoHub completeness
+- PB_SA_114: Initialize InfoHub structure
+- PB_SA_115: Index existing assets
+- PB_SA_116: Generate onboarding pack
+- PB_SA_117: Audit InfoHub completeness
 
 **Cadences:**
 
@@ -210,11 +210,11 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_118: Register new risk
-- PB_119: Assess risk severity
-- PB_120: Escalate critical risk
-- PB_121: Review risk mitigation
-- PB_401: Calculate health score (includes risk weighting)
+- PB_SA_118: Register new risk
+- PB_SA_119: Assess risk severity
+- PB_SA_120: Escalate critical risk
+- PB_SA_121: Review risk mitigation
+- PB_CA_401: Calculate health score (includes risk weighting)
 
 **Cadences:**
 
@@ -246,10 +246,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_122: Record decision
-- PB_123: Assess decision impact
-- PB_124: Trigger downstream actions
-- PB_125: Review superseded decisions
+- PB_SA_122: Record decision
+- PB_SA_123: Assess decision impact
+- PB_SA_124: Trigger downstream actions
+- PB_SA_125: Review superseded decisions
 
 **Cadences:**
 
@@ -281,10 +281,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_301: Value engineering assessment
-- PB_126: Build ROI model
-- PB_127: Validate business case
-- PB_128: Track value realization
+- PB_VE_301: Value engineering assessment
+- PB_SA_126: Build ROI model
+- PB_SA_127: Validate business case
+- PB_SA_128: Track value realization
 
 **Cadences:**
 
@@ -326,7 +326,7 @@ How governance requirements change by service tier:
 | Risk review | - | Monthly | Weekly | Daily |
 | Decision review | - | Monthly | Weekly | Daily |
 | Account plan sync | - | Monthly | Weekly | Daily |
-| Gap scan (PB_971) | - | Monthly | Weekly | Daily |
+| Gap scan (PB_ADM_971) | - | Monthly | Weekly | Daily |
 
 ### Validation Strictness by Track
 
@@ -342,7 +342,7 @@ How governance requirements change by service tier:
 
 ## Gap Scan Integration
 
-PB_971 (Blueprint Gap Scan) validates this archetype by checking:
+PB_ADM_971 (Blueprint Gap Scan) validates this archetype by checking:
 
 1. **Blueprint exists** for Realm at `{realm}/governance/blueprint.yaml`
 2. **Required Reference Blueprints** instantiated per Engagement Track

@@ -146,7 +146,7 @@ last_updated: "2026-01-23"
 
 ```markdown
 See [Playbook Framework](architecture/playbooks/playbook-framework.md) for design principles.
-Related: PB_970 (validation), PB_971 (gap scan).
+Related: PB_ADM_970 (validation), PB_ADM_971 (gap scan).
 ```
 
 ---
@@ -247,7 +247,7 @@ source:                         # Provenance
 
 ```yaml
 # Include inline documentation
-playbook_id: "PB_201"  # Format: PB_NNN
+playbook_id: "PB_STR_201"  # Format: PB_NNN
 version: "1.0"         # SemVer format
 
 # Group related fields

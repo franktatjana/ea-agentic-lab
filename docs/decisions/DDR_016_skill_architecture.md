@@ -19,7 +19,7 @@ A gap analysis revealed concrete duplication and visibility problems:
 | Cross-team collisions | `risk_identification` appears verbatim in `delivery/` and `partners/` |
 | Name collisions | `value_realization`, `customer_success_plan`, `customer_journey` overlap between SA and CA |
 | Scattered meeting support | `meeting_support` sections exist in governance, SA, and PM agents |
-| No formal skill interface | PB_201 (SWOT) has 8 contributing agents with no defined contribution contract |
+| No formal skill interface | PB_STR_201 (SWOT) has 8 contributing agents with no defined contribution contract |
 | Invisible capabilities | Contributor agents like `specialist_agent` own zero playbooks, making their capabilities undiscoverable |
 
 The agent-lab project establishes "skills" as a best practice: named, composable workflows sitting between atomic prompts and abstract capabilities. This decision introduces a skills layer to ea-agentic-lab.

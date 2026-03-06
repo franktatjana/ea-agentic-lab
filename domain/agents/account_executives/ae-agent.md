@@ -148,5 +148,5 @@ Domain knowledge files in `references/`:
 - **Config:** `agents/ae_agent.yaml`
 - **Personality:** `personalities/ae_personality.yaml`
 - **Tasks:** `prompts/tasks.yaml` (30+ task templates across 7 categories)
-- **Playbooks owned:** PB_001 (Three Horizons), PB_002 (Ansoff Matrix), PB_003 (BCG Matrix), PB_301 (Value Engineering), PB_302 (Stakeholder Mapping), PB_603 (Sales QBR)
-- **Playbooks contributes to:** PB_174, PB_201, PB_401, PB_701
+- **Playbooks owned:** PB_STR_001 (Three Horizons), PB_STR_002 (Ansoff Matrix), PB_STR_003 (BCG Matrix), PB_VE_301 (Value Engineering), PB_VE_302 (Stakeholder Mapping), PB_AE_603 (Sales QBR)
+- **Playbooks contributes to:** PB_CA_174, PB_STR_201, PB_CA_401, PB_CI_701

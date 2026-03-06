@@ -34,7 +34,7 @@ class PlaybookGenerator:
         if playbooks_path is None:
             playbooks_path = Path(__file__).parent.parent.parent / "playbooks"
         self.playbooks_path = playbooks_path
-        self.playbook_counter = 900  # Start from PB_900 for auto-generated
+        self.playbook_counter = 900  # Start from PB_ADM_900 for auto-generated
 
     def generate(self, process_def: Dict) -> List[str]:
         """

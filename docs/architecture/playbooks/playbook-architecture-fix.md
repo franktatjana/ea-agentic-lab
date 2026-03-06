@@ -52,7 +52,7 @@ condition: "calculated_roi >= 3.0 AND payback_period_months <= 12"
 
 # AFTER (config-driven)
 condition: "$.roi >= ${thresholds.strong_roi_percentage} AND $.payback_months <= ${thresholds.fast_payback_months}"
-threshold_ref: "PB_301_value_engineering.strong_roi_percentage"  # = 3.0 in config
+threshold_ref: "PB_VE_301_value_engineering.strong_roi_percentage"  # = 3.0 in config
 ```
 
 ---
@@ -158,18 +158,18 @@ decisions:
 ```yaml
 agents:
   ae_agent:
-    playbooks_owned: ["PB_001", "PB_002", "PB_003", "PB_301", ...]
+    playbooks_owned: ["PB_STR_001", "PB_STR_002", "PB_STR_003", "PB_VE_301", ...]
     functions_performed: ["exec_sponsor_coordination", "stakeholder_management"]
 
   sa_agent:
-    playbooks_owned: ["PB_101", "PB_201", "PB_202", ...]
+    playbooks_owned: ["PB_SA_101", "PB_STR_201", "PB_STR_202", ...]
 
   delivery_agent:
-    playbooks_owned: ["PB_401", "PB_402", "PB_403", "PB_404", "PB_405"]
+    playbooks_owned: ["PB_CA_401", "PB_CA_402", "PB_CA_403", "PB_CA_404", "PB_CA_405"]
     functions_performed: ["transformation_governance", "program_management"]
 
 playbook_routing:
-  PB_001:
+  PB_STR_001:
     owner: "ae_agent"
     contributors: ["sa_agent", "pm_agent", "ci_agent", "ca_agent"]
 ```
@@ -191,7 +191,7 @@ playbook_routing:
 
 2. **[config/playbook_thresholds.yaml](../../../domain/config/playbook_thresholds.yaml)**
    - Global thresholds (ARR minimums, timeline thresholds, risk triggers)
-   - Playbook-specific thresholds (PB_001 through PB_701)
+   - Playbook-specific thresholds (PB_STR_001 through PB_CI_701)
    - Versioned and documented
 
 3. **[config/agent_role_mapping.yaml](../../../domain/mappings/agent_role_mapping.yaml)**
@@ -231,24 +231,24 @@ core/playbook_engine/
 
 #### Generative Playbooks (6)
 
-1. `playbooks/executable/PB_001_three_horizons.yaml`
+1. `playbooks/executable/PB_STR_001_three_horizons.yaml`
    - Extract thresholds → `config/playbook_thresholds.yaml`
    - Rewrite conditions in DLL syntax
    - Add evidence fields to output schemas
    - Standardize field names
 
-2. `playbooks/executable/PB_201_swot_analysis.yaml`
-3. `playbooks/executable/PB_301_value_engineering.yaml`
-4. `playbooks/executable/PB_701_five_forces.yaml`
-5. `playbooks/executable/PB_101_togaf_adm.yaml`
-6. `playbooks/executable/PB_401_customer_health_score.yaml`
+2. `playbooks/executable/PB_STR_201_swot_analysis.yaml`
+3. `playbooks/executable/PB_VE_301_value_engineering.yaml`
+4. `playbooks/executable/PB_CI_701_five_forces.yaml`
+5. `playbooks/executable/PB_SA_101_togaf_adm.yaml`
+6. `playbooks/executable/PB_CA_401_customer_health_score.yaml`
 
 #### Validation Playbooks (4)
 
-7. `playbooks/validation/PB_002_ansoff_matrix.yaml`
-8. `playbooks/validation/PB_003_bcg_matrix.yaml`
-9. `playbooks/validation/PB_202_pestle_analysis.yaml`
-10. `playbooks/validation/PB_301_stakeholder_mapping.yaml`
+7. `playbooks/validation/PB_STR_002_ansoff_matrix.yaml`
+8. `playbooks/validation/PB_STR_003_bcg_matrix.yaml`
+9. `playbooks/validation/PB_STR_202_pestle_analysis.yaml`
+10. `playbooks/validation/PB_VE_301_stakeholder_mapping.yaml`
 
 **Status:** ⏳ Not started
 
@@ -286,7 +286,7 @@ decision_logic:
   - condition: "$.horizon_1.arr_percentage > ${thresholds.horizon_1_concentration_max}"
     jsonpath: "$.horizon_1.arr_percentage"
     operator: ">"
-    threshold_ref: "PB_001_three_horizons.horizon_1_concentration_max"  # From config
+    threshold_ref: "PB_STR_001_three_horizons.horizon_1_concentration_max"  # From config
     decision: "Focus on H2 expansion"
     evidence_required: true
 ```
@@ -295,7 +295,7 @@ decision_logic:
 
 ```yaml
 # config/playbook_thresholds.yaml
-PB_001_three_horizons:
+PB_STR_001_three_horizons:
   horizon_1_concentration_max: 0.80  # Change here, not in playbook YAML
 ```
 

@@ -25,7 +25,7 @@ Archetype × Domain → Reference Blueprint selection
     │   e.g., ACME/SEC_CONSOL/blueprint.yaml
     │
     └── Playbooks (executed)
-            e.g., PB_102, PB_201, PB_701, PB_SEC_001
+            e.g., PB_SA_102, PB_STR_201, PB_CI_701, PB_SEC_001
 ```
 
 ## Glossary
@@ -39,13 +39,13 @@ Archetype × Domain → Reference Blueprint selection
 | **Domain** | Specialist area that determines which playbooks, checklists, and agents are involved. Orthogonal to Archetype | [archetypes.yaml](../../domain/catalogs/archetypes.yaml) (domains section) | `security`, `search`, `observability` |
 | **Reference Blueprint** | Reusable composition of playbooks/assets for an Archetype + Domain combination. Multiple variants per Archetype (A01-A06) | [blueprints/reference/](../../domain/blueprints/reference/) | `competitive_displacement/A02_competitive.yaml` |
 | **Blueprint Instance** | Node-specific instance created from Reference Blueprint, customized for engagement | `vault/{realm}/{node}/blueprint.yaml` | `vault/ACME_CORP/SECURITY_CONSOLIDATION/blueprint.yaml` |
-| **Playbook** | Small, atomic operational scenario with inputs, steps, outputs (~15-30 min execution) | [strategy/](../../domain/playbooks/strategy/) (strategic), [specialists/](../../domain/playbooks/specialists/) (domain), [operational/](../../domain/playbooks/operational/) (tactical) | `PB_201_swot_analysis.yaml`, `PB_SEC_001_technical_validation.yaml` |
+| **Playbook** | Small, atomic operational scenario with inputs, steps, outputs (~15-30 min execution) | [strategy/](../../domain/playbooks/strategy/) (strategic), [specialists/](../../domain/playbooks/specialists/) (domain), [operational/](../../domain/playbooks/operational/) (tactical) | `PB_STR_201_swot_analysis.yaml`, `PB_SEC_001_technical_validation.yaml` |
 | **Engagement Track** | Policy overlay defining scope, cadence, SA allocation. Orthogonal to Archetype and Domain | [engagement_tracks.yaml](../../domain/mappings/engagement_tracks.yaml) | `economy`, `premium`, `fast_track`, `poc` |
 | **Best Practice** | Validated, peer-reviewed insight extracted from deal outcomes and field experience. Stored in Knowledge Base, surfaced contextually during playbook execution | [vault/knowledge/](../../vault/knowledge/) | `BP_SEC_001` (MITRE ATT&CK positioning) |
 | **Asset** | Instance output produced by playbook execution with provenance. Customer-facing assets go to external-infohub/, vendor-only to internal-infohub/ | `vault/{realm}/{node}/external-infohub/` or `internal-infohub/` | `vault/ACME_CORP/SECURITY_CONSOLIDATION/external-infohub/decisions/` |
 | **Template** | Governed library item (canvas template, schema, prompt) | [canvas/templates/](../../domain/playbooks/canvas/templates/) (HTML), [canvas/specs/](../../domain/playbooks/canvas/specs/) (YAML), [playbook templates/](../../domain/playbooks/templates/) | `context_canvas.html`, `poc_success_plan_template.yaml` |
 | **Checklist** | Machine-readable evaluation criteria with weighted scoring | [specialists/checklists/](../../domain/playbooks/specialists/) (domain evaluation), [config/checklists/](../../domain/config/checklists/) (operational) | `security_evaluation_checklist.yaml`, `blueprint_checklists.yaml` |
-| **Gap Scan** | Compliance check comparing Blueprint Instance against Reference Blueprint requirements | Output: `vault/{realm}/{node}/internal-infohub/governance/gap_report.yaml` | PB_971 output |
+| **Gap Scan** | Compliance check comparing Blueprint Instance against Reference Blueprint requirements | Output: `vault/{realm}/{node}/internal-infohub/governance/gap_report.yaml` | PB_ADM_971 output |
 
 ---
 
@@ -126,7 +126,7 @@ Tracks control scope, cadence, and resource allocation. They apply across all ar
 
 ## Validation
 
-Gap Scan (PB_971) checks:
+Gap Scan (PB_ADM_971) checks:
 
 1. Blueprint exists for Node
 2. Blueprint references valid Reference Blueprint

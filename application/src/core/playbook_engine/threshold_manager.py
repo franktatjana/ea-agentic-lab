@@ -15,7 +15,7 @@ Config Structure (playbook_thresholds.yaml):
         minimum_account_arr: 500000
         renewal_warning_days: 90
 
-    PB_001_three_horizons:      # Playbook-specific (overrides global)
+    PB_STR_001_three_horizons:      # Playbook-specific (overrides global)
         horizon_1_concentration_max: 0.80
 
 Usage in Playbook Conditions:
@@ -64,7 +64,7 @@ class ThresholdManager:
         Get threshold value for playbook.
 
         Args:
-            playbook_id: Playbook ID (e.g., "PB_001_three_horizons")
+            playbook_id: Playbook ID (e.g., "PB_STR_001_three_horizons")
             threshold_key: Threshold key (e.g., "horizon_1_concentration_max")
 
         Returns:

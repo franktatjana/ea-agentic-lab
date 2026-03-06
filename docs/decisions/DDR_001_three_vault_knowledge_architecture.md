@@ -53,12 +53,12 @@ Knowledge flows in one direction: engagements produce account-level knowledge, a
 ## Impact on Existing Artifacts
 
 The following playbooks now include `vault_routing` metadata aligned with this decision:
-- PB_102 Sizing Estimation → Internal Account Hub (primary), Customer InfoHub (sanitized summary)
-- PB_103 Technical Validation Checklist → Customer InfoHub (primary), Internal Account Hub (internal notes)
-- PB_104 Solution Description → Customer InfoHub (primary), Internal Account Hub (internal architecture notes)
-- PB_404 Customer Guidelines → Customer InfoHub
-- PB_405 Training Plans → Customer InfoHub
-- PB_406 Adoption Guidance → Customer InfoHub (primary), Internal Account Hub (candid assessment)
+- PB_SA_102 Sizing Estimation → Internal Account Hub (primary), Customer InfoHub (sanitized summary)
+- CL_SA_103 Technical Validation Checklist → Customer InfoHub (primary), Internal Account Hub (internal notes)
+- PB_SA_104 Solution Description → Customer InfoHub (primary), Internal Account Hub (internal architecture notes)
+- PB_CA_404 Customer Guidelines → Customer InfoHub
+- PB_CA_405 Training Plans → Customer InfoHub
+- PB_CA_406 Adoption Guidance → Customer InfoHub (primary), Internal Account Hub (candid assessment)
 
 Existing playbooks without `vault_routing` metadata need to be updated. This is tracked as a documentation consistency task.
 

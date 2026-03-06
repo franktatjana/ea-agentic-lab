@@ -325,7 +325,7 @@ The system assumes one user who can wear multiple hats:
    Orchestration: "Created:
    - PROC_015: CI Competitive Market Analysis
    - Updated PROC_007: SA Technical Comparison (now triggered by CI output)
-   - New playbook: PB_702_competitive_market_analysis.yaml
+   - New playbook: PB_CI_702_competitive_market_analysis.yaml
 
    Version: 1.0
    Status: Active"

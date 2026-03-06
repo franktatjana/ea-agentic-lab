@@ -123,5 +123,5 @@ Domain knowledge files in `references/`:
 - **Config:** `agents/sa_agent.yaml`
 - **Personality:** `personalities/sa_personality.yaml`
 - **Tasks:** `prompts/tasks.yaml` (30+ task templates across 9 categories)
-- **Playbooks owned:** PB_101 (TOGAF ADR), PB_201 (SWOT), PB_203 (Decision Tree), PB_204 (Risk Heat Map)
-- **Playbooks contributes to:** PB_001, PB_174, PB_202, PB_301, PB_401, PB_603, PB_701
+- **Playbooks owned:** PB_SA_101 (TOGAF ADR), PB_STR_201 (SWOT), PB_STR_203 (Decision Tree), PB_STR_204 (Risk Heat Map)
+- **Playbooks contributes to:** PB_STR_001, PB_CA_174, PB_STR_202, PB_VE_301, PB_CA_401, PB_AE_603, PB_CI_701

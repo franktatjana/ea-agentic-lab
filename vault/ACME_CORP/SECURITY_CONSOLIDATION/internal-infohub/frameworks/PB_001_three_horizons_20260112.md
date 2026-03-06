@@ -1,5 +1,5 @@
 ---
-framework_id: "PB_001"
+framework_id: "PB_STR_001"
 framework_name: "Three Horizons of Growth"
 framework_source: "McKinsey & Company"
 execution_date: "2026-01-12"

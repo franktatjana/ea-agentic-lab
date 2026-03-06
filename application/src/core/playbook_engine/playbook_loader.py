@@ -121,7 +121,7 @@ class PlaybookLoader:
         Load playbook by ID (searches in playbook_dir).
 
         Args:
-            playbook_id: Playbook ID (e.g., "PB_001", "PB_201")
+            playbook_id: Playbook ID (e.g., "PB_STR_001", "PB_STR_201")
 
         Returns:
             Parsed playbook as dict

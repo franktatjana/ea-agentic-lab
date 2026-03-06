@@ -68,7 +68,7 @@ No dedicated skills. Uses personality-defined prompts and playbook references.
 | PB_SEC_007 | Security Technical POC |
 | PB_SEC_008 | Validation Evidence Package |
 
-Contributes to: PB_201 (SWOT), PB_301 (Value Engineering), PB_701 (Five Forces), PB_801 (MEDDPICC)
+Contributes to: PB_STR_201 (SWOT), PB_VE_301 (Value Engineering), PB_CI_701 (Five Forces), PB_AE_801 (MEDDPICC)
 
 ---
 

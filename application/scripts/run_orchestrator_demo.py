@@ -52,14 +52,14 @@ def create_mock_handlers():
         """Simulate playbook execution."""
         print(f"    [PLAYBOOK] Executing {step.playbook_id}: {step.description}")
 
-        if step.playbook_id == "PB_401":
+        if step.playbook_id == "PB_CA_401":
             return {
                 "status": "success",
                 "health_score": 72,
                 "trend": "stable",
                 "output": "Customer health score: 72/100 (stable)"
             }
-        elif step.playbook_id == "PB_201":
+        elif step.playbook_id == "PB_STR_201":
             return {
                 "status": "success",
                 "output": "SWOT analysis complete - 4 strengths, 2 weaknesses, 3 opportunities, 2 threats"

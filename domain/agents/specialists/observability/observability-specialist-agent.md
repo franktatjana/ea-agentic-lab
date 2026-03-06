@@ -68,7 +68,7 @@ No dedicated skills. Uses personality-defined prompts and playbook references.
 | PB_OBS_007 | Observability Technical POC |
 | PB_OBS_008 | Alerting Strategy Design |
 
-Contributes to: PB_201 (SWOT), PB_301 (Value Engineering), PB_701 (Five Forces)
+Contributes to: PB_STR_201 (SWOT), PB_VE_301 (Value Engineering), PB_CI_701 (Five Forces)
 
 ---
 

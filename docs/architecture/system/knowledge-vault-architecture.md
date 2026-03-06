@@ -260,12 +260,12 @@ Playbooks declare `vault_routing` metadata that specifies where their outputs ar
 
 | Playbook | Primary Vault | Secondary Vault |
 |----------|---------------|-----------------|
-| PB_102 Sizing Estimation | Internal InfoHub | External InfoHub (sanitized summary) |
-| PB_103 Technical Validation | External InfoHub | Internal InfoHub (internal notes) |
-| PB_104 Solution Description | External InfoHub | Internal InfoHub (architecture notes) |
-| PB_404 Customer Guidelines | External InfoHub | - |
-| PB_405 Training Plans | External InfoHub | - |
-| PB_406 Adoption Guidance | External InfoHub | Internal InfoHub (candid assessment) |
+| PB_SA_102 Sizing Estimation | Internal InfoHub | External InfoHub (sanitized summary) |
+| CL_SA_103 Technical Validation | External InfoHub | Internal InfoHub (internal notes) |
+| PB_SA_104 Solution Description | External InfoHub | Internal InfoHub (architecture notes) |
+| PB_CA_404 Customer Guidelines | External InfoHub | - |
+| PB_CA_405 Training Plans | External InfoHub | - |
+| PB_CA_406 Adoption Guidance | External InfoHub | Internal InfoHub (candid assessment) |
 
 ## Security Boundaries
 
@@ -280,7 +280,7 @@ The three-vault model enforces security through structural separation, not metad
 
 ### Content Misclassification Mitigation
 
-Playbook `vault_routing` metadata enforces correct placement. The InfoHub Curator agent validates naming conventions and detects orphaned or misplaced artifacts in Vaults 1 and 2. PB_971 (gap scan) validates that all required artifacts exist in the correct vault for the engagement's blueprint.
+Playbook `vault_routing` metadata enforces correct placement. The InfoHub Curator agent validates naming conventions and detects orphaned or misplaced artifacts in Vaults 1 and 2. PB_ADM_971 (gap scan) validates that all required artifacts exist in the correct vault for the engagement's blueprint.
 
 ## Naming Conventions
 
@@ -291,7 +291,7 @@ Consistent naming ensures both humans and agents can locate and process artifact
 | Realm ID | `UPPERCASE_SNAKE_CASE` | `ACME_CORP` |
 | Node ID | `UPPERCASE_SNAKE_CASE` | `SECURITY_CONSOLIDATION` |
 | File names | `lowercase-kebab-case` or `YYYY-MM-DD-descriptor` | `risk-register.yaml`, `2026-01-23-kickoff.md` |
-| Playbook outputs | `PB_{number}_{name}_YYYYMMDD.md` | `PB_201_swot_20260116.md` |
+| Playbook outputs | `PB_{number}_{name}_YYYYMMDD.md` | `PB_STR_201_swot_20260116.md` |
 | Agent scratchpads | `scratchpad_{agent}_{date}_{topic}.yaml` | `scratchpad_sa_2026-01-22_analysis.yaml` |
 | Risk IDs | `UPPERCASE_SNAKE_CASE` | `CISO_BIAS`, `TIMELINE_CRITICAL` |
 | Decision IDs | `DEC_{NNN}` | `DEC_047` |

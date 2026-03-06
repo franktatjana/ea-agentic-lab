@@ -251,16 +251,16 @@ This document provides human context. The YAML file is what agents and system co
 | Signal ID | Name | Producer | Key Consumers |
 |-----------|------|----------|---------------|
 | SIG_COM_001 | `deal_stage_changed` | AE Agent | SA Agent, VE Agent, POC Agent |
-| SIG_COM_002 | `deal_closed` | AE Agent | Retrospective Agent, Governance Agent, **PB_CS_501 Handoff** |
+| SIG_COM_002 | `deal_closed` | AE Agent | Retrospective Agent, Governance Agent, **PB_CA_501 Handoff** |
 | SIG_COM_003 | `competitor_identified` | CI Agent | SA Agent, AE Agent |
 
 ### Health Signals (SIG_HLT_*)
 
 | Signal ID | Name | Producer | Key Consumers |
 |-----------|------|----------|---------------|
-| SIG_HLT_001 | `risk_identified` | Risk Radar Agent | Governance Agent, Nudger, AE Agent, **PB_CS_301 Health Triage** |
+| SIG_HLT_001 | `risk_identified` | Risk Radar Agent | Governance Agent, Nudger, AE Agent, **PB_CA_301 Health Triage** |
 | SIG_HLT_002 | `risk_status_changed` | Risk Radar Agent | Governance Agent, Health Score Agent |
-| SIG_HLT_003 | `health_score_changed` | Health Score Agent | Governance Agent, AE Agent, Nudger, **PB_CS_301 Health Triage** |
+| SIG_HLT_003 | `health_score_changed` | Health Score Agent | Governance Agent, AE Agent, Nudger, **PB_CA_301 Health Triage** |
 | SIG_HLT_004 | `action_overdue` | Action Tracker Agent | Nudger, Governance Agent |
 
 ### Governance Signals (SIG_GOV_*)
@@ -275,9 +275,9 @@ This document provides human context. The YAML file is what agents and system co
 
 | Signal ID | Name | Producer | Key Consumers |
 |-----------|------|----------|---------------|
-| SIG_PB_001 | `playbook_started` | Playbook Engine | Orchestration Agent, Audit Logger |
-| SIG_PB_002 | `playbook_completed` | Playbook Engine | Orchestration Agent, Dependent Processes |
-| SIG_PB_003 | `playbook_step_completed` | Playbook Engine | Orchestration Agent |
+| SIG_PB_STR_001 | `playbook_started` | Playbook Engine | Orchestration Agent, Audit Logger |
+| SIG_PB_STR_002 | `playbook_completed` | Playbook Engine | Orchestration Agent, Dependent Processes |
+| SIG_PB_STR_003 | `playbook_step_completed` | Playbook Engine | Orchestration Agent |
 
 ### Technology Scout Signals (SIG_TECH_*)
 
@@ -467,7 +467,7 @@ Which agents subscribe to which signals:
 | **POC Agent** | SIG_COM_001 |
 | **VoC Agent** | SIG_ART_003 |
 | **Playbook Curator** | SIG_LC_003 |
-| **Audit Logger** | SIG_GOV_002, SIG_GOV_003, SIG_PB_001, SIG_PB_002 |
+| **Audit Logger** | SIG_GOV_002, SIG_GOV_003, SIG_PB_STR_001, SIG_PB_STR_002 |
 | **Tech Signal Analyzer Agent** | SIG_TECH_004 |
 | **Market News Analysis Agent** | SIG_LC_001, SIG_MNA_001 |
 | **ACI Agent** | SIG_ACI_*, SIG_TSCT_002, SIG_II_001 |
@@ -505,16 +505,16 @@ Signals that trigger customer success playbooks for automated engagement managem
 
 | Signal | Playbook Triggered | Condition |
 |--------|-------------------|-----------|
-| SIG_LC_002 | **PB_CS_101** Security Stage Adoption | `solution_area == 'security'` |
-| SIG_HLT_001 | **PB_CS_301** Health Triage | `severity >= 'high'` |
-| SIG_HLT_003 | **PB_CS_301** Health Triage | `health_score < 70` |
-| SIG_COM_002 | **PB_CS_501** Pre-to-Post Handoff | `outcome == 'won'` |
-| SIG_COM_002 | **PB_601** Retrospective | Always |
-| SIG_LC_003 | **PB_CS_303** Renewal Protection | `new_mode == 'renewal'` |
-| SIG_TECH_001 | **PB_CS_101** Stage Adoption Refresh | `ring_changes_count >= 3` |
-| SIG_MNA_002 | **PB_CS_301** Health Triage | `category == 'competitive' AND urgency == 'IMMEDIATE'` |
-| (scheduled) | **PB_CS_202** Cadence Calls | `cadence_call_due` |
-| (scheduled) | **PB_602** Account Planning | `annual_planning_cycle` |
+| SIG_LC_002 | **PB_DEL_101** Security Stage Adoption | `solution_area == 'security'` |
+| SIG_HLT_001 | **PB_CA_301** Health Triage | `severity >= 'high'` |
+| SIG_HLT_003 | **PB_CA_301** Health Triage | `health_score < 70` |
+| SIG_COM_002 | **PB_CA_501** Pre-to-Post Handoff | `outcome == 'won'` |
+| SIG_COM_002 | **PB_AE_601** Retrospective | Always |
+| SIG_LC_003 | **PB_CA_303** Renewal Protection | `new_mode == 'renewal'` |
+| SIG_TECH_001 | **PB_DEL_101** Stage Adoption Refresh | `ring_changes_count >= 3` |
+| SIG_MNA_002 | **PB_CA_301** Health Triage | `category == 'competitive' AND urgency == 'IMMEDIATE'` |
+| (scheduled) | **PB_CA_202** Cadence Calls | `cadence_call_due` |
+| (scheduled) | **PB_AE_602** Account Planning | `annual_planning_cycle` |
 
 For complete customer success playbook documentation, see: [Playbook Catalog](playbook-catalog.md)
 

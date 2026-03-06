@@ -113,12 +113,12 @@ Replaced the 2-column card grid with a single-column inline list for readability
 
 ## 2026-02-09 - PESTLE Analysis Ownership Change
 
-PESTLE Analysis (PB_202) is a strategic macro-environmental assessment that belongs at the leadership level. Moved ownership from SA Agent to AE Agent across all references.
+PESTLE Analysis (PB_STR_202) is a strategic macro-environmental assessment that belongs at the leadership level. Moved ownership from SA Agent to AE Agent across all references.
 
 **Files changed:**
-- `domain/playbooks/strategy/PB_202_pestle_analysis.yaml`: `intended_agent_role` SA → AE, decision rule owners updated
-- `domain/mappings/agent_role_mapping.yaml`: moved PB_202 from sa_agent.playbooks_owned to ae_agent.playbooks_owned, updated routing
-- `domain/agents/solution_architects/agents/sa_agent.yaml`: moved PB_202 from owned to contributes_to
+- `domain/playbooks/strategy/PB_STR_202_pestle_analysis.yaml`: `intended_agent_role` SA → AE, decision rule owners updated
+- `domain/mappings/agent_role_mapping.yaml`: moved PB_STR_202 from sa_agent.playbooks_owned to ae_agent.playbooks_owned, updated routing
+- `domain/agents/solution_architects/agents/sa_agent.yaml`: moved PB_STR_202 from owned to contributes_to
 - `docs/operating-model/raci-model.md`: updated PESTLE row to AE Lead
 
 ---
@@ -568,23 +568,23 @@ Moved test data from `infohub/` to `examples/infohub/` for clarity:
 - CLI interface with `--project-root` and `--output-dir` arguments
 
 #### teams/solution_architects/agents/sa_agent.yaml (UPDATED)
-- **ADDED** `playbooks.owned` - PB_101, PB_201, PB_202, PB_203, PB_204
-- **ADDED** `playbooks.contributes_to` - PB_001, PB_301, PB_401, PB_701
+- **ADDED** `playbooks.owned` - PB_SA_101, PB_STR_201, PB_STR_202, PB_STR_203, PB_STR_204
+- **ADDED** `playbooks.contributes_to` - PB_STR_001, PB_VE_301, PB_CA_401, PB_CI_701
 - **ADDED** `execution` config (trigger_sources, output_destination, escalation_threshold)
 
 #### teams/account_executives/agents/ae_agent.yaml (UPDATED)
-- **ADDED** `playbooks.owned` - PB_001, PB_002, PB_003, PB_301, PB_302
-- **ADDED** `playbooks.contributes_to` - PB_201, PB_401, PB_701
+- **ADDED** `playbooks.owned` - PB_STR_001, PB_STR_002, PB_STR_003, PB_VE_301, PB_VE_302
+- **ADDED** `playbooks.contributes_to` - PB_STR_201, PB_CA_401, PB_CI_701
 - **ADDED** `execution` config
 
 #### teams/customer_architects/agents/ca_agent.yaml (UPDATED)
-- **ADDED** `playbooks.owned` - PB_401, PB_402, PB_403
-- **ADDED** `playbooks.contributes_to` - PB_101, PB_201, PB_301
+- **ADDED** `playbooks.owned` - PB_CA_401, PB_CA_402, PB_CA_403
+- **ADDED** `playbooks.contributes_to` - PB_SA_101, PB_STR_201, PB_VE_301
 - **ADDED** `execution` config
 
 #### teams/competitive_intelligence/agents/ci_agent.yaml (UPDATED)
-- **ADDED** `playbooks.owned` - PB_701, PB_702, PB_703
-- **ADDED** `playbooks.contributes_to` - PB_001, PB_201, PB_301
+- **ADDED** `playbooks.owned` - PB_CI_701, PB_CI_702, PB_CI_703
+- **ADDED** `playbooks.contributes_to` - PB_STR_001, PB_STR_201, PB_VE_301
 - **ADDED** `execution` config
 
 #### tests/test_governance_orchestrator.py (NEW)
@@ -627,19 +627,19 @@ Moved test data from `infohub/` to `examples/infohub/` for clarity:
 - Risk discussion and mitigations
 - Framework application recommendations
 
-#### infohub/ACME_CORP/frameworks/PB_001_three_horizons_20260112.md (NEW)
+#### infohub/ACME_CORP/frameworks/PB_STR_001_three_horizons_20260112.md (NEW)
 - Three Horizons analysis executed by AE Agent
 - H1 concentration risk identified (100% > 80% threshold)
 - H2 pipeline: $800K security opportunity
 - 3 risks, 3 actions generated
 
-#### infohub/ACME_CORP/frameworks/PB_301_value_engineering_20260112.md (NEW)
+#### infohub/ACME_CORP/frameworks/PB_VE_301_value_engineering_20260112.md (NEW)
 - Value Engineering analysis for security consolidation
 - TCO comparison: $1.2M current → $800K proposed
 - ROI: 18-month payback, 14% 3-year ROI
 - Stakeholder value mapping
 
-#### infohub/ACME_CORP/frameworks/PB_201_swot_20260112.md (NEW)
+#### infohub/ACME_CORP/frameworks/PB_STR_201_swot_20260112.md (NEW)
 - SWOT analysis coordinated by SA Agent
 - 6 strengths, 4 weaknesses, 5 opportunities, 5 threats
 - Strategic recommendation: Proceed with high priority

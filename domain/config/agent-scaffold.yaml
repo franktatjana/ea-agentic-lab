@@ -38,14 +38,39 @@ folder_structure:
     - pattern: "references/{reference_name}.yaml"
       description: Domain knowledge, frameworks, methodologies
     - pattern: "{role}-{sub}-definition.yaml"
-      description: Sub-agent definition (same level as parent)
+      description: Sub-agent definition (lives at directory root, same level as parent)
 
+  # Holonic agents: orchestrators with sub-agents.
+  # Sub-agent *-definition.yaml files sit at the directory root alongside
+  # the parent definition. Sub-agents share the parent's prompts/, skills/,
+  # references/ folders. Each sub-agent has its own personality file.
+  #
+  # Concrete example (account_executives/):
+  #
+  #   domain/agents/account_executives/
+  #   ├── ae-agent-definition.yaml            ← parent orchestrator
+  #   ├── ae-deal-diagnosis-definition.yaml    ← sub-agent
+  #   ├── ae-meeting-prep-definition.yaml      ← sub-agent
+  #   ├── ae-pipeline-mgmt-definition.yaml     ← sub-agent
+  #   ├── ae-qualification-definition.yaml     ← sub-agent
+  #   ├── ae-agent.md                          ← parent profile doc
+  #   ├── agents/
+  #   │   └── ae_agent.yaml
+  #   ├── personalities/
+  #   │   ├── ae_personality.yaml              ← parent personality
+  #   │   ├── ae_deal_diagnosis_personality.yaml
+  #   │   └── ae_qualification_personality.yaml
+  #   ├── prompts/
+  #   │   └── tasks.yaml                       ← shared prompt registry
+  #   ├── skills/
+  #   └── references/
+  #
   holonic_agents:
     description: >
       Agents with sub-agents (orchestrators) place sub-agent definitions
-      in the same directory as the parent. The parent definition lists
-      invoke-* tools and specialized_agents blocks. Sub-agent definitions
-      set metadata.parent_agent to the parent ID.
+      at the directory root, alongside the parent definition. The parent
+      definition declares invoke-* tools and specialized_agents blocks.
+      Each sub-agent definition sets metadata.parent_agent to the parent ID.
     reference: domain/agents/account_executives/
     example_parent: ae-agent-definition.yaml
     example_sub_agents:
@@ -95,7 +120,8 @@ definition_template:
   x_ea_agent_blocks:
     - prompt_registry  # Prompt definitions with requires_data
     - profile          # why, goals, role_context, capabilities, challenges
-    - knowledge        # scope, references, archetypes
+                       # sub_agents list lives here: x-ea-agent.profile.sub_agents
+    - knowledge        # archetypes lives at: knowledge.scope.archetypes
     - guardrails       # boundaries, output_validation, signal_validation
     - handoffs         # human_escalation, agent_escalation
     - autonomy         # triggers, outputs, cascade_limits
@@ -123,6 +149,17 @@ tool_rules:
 
   - rule: "requires_data.source must reference a tool in the same agent's tools block"
     action: "Cross-check prompt_registry against tools list"
+
+  - rule: "Tool inputs must match canonical schema in this registry"
+    action: "Compare agent's tool inputs block against the inputs declared here"
+
+  - rule: "read-* and write-* naming may be asymmetric by design"
+    note: >
+      read-* tools query a data source (e.g. read-value-tracker reads the
+      value tracking system). write-* tools persist artifacts to InfoHub
+      (e.g. write-value-artifact). The naming reflects what is being accessed
+      (tracker, database, data) vs what is being produced (artifact, insight,
+      alert). This is not a bug.
 
 # ============================================================
 # AGENT REGISTRY
@@ -312,6 +349,11 @@ agent_registry:
 # New agents must only use tools from this list.
 # To add a new tool, add it here AND in tool_resolver.yaml
 # or service_registry.yaml as appropriate.
+#
+# Each tool declares canonical inputs. When multiple agents use
+# the same tool, their inputs block MUST match this registry.
+# Divergences are flagged and must be resolved before linting
+# can enforce schema consistency.
 
 tool_registry:
 
@@ -319,8 +361,11 @@ tool_registry:
   inline:
     - id: ask-user
       description: Request human input for decisions requiring judgment
+      inputs: [question: string]
 
   # --- agent-registry (invoke-* routing tools) ---
+  # invoke-* tools take no explicit inputs; the platform routes
+  # the parent agent's context to the target sub-agent.
   agent_registry:
     - id: invoke-deal-diagnosis
       target: ae-deal-diagnosis-agent
@@ -364,342 +409,458 @@ tool_registry:
     - id: read-crm-data
       connector: crm
       operation: read
+      inputs: [query: string]
 
     # Communications connector
     - id: read-communications
       connector: communications
       operation: read
+      inputs: [source_type: string, account_name: string]
+      # DIVERGENCE: ae-qualification uses (query: string) instead.
+      # Canonical schema uses the ae-deal-diagnosis signature.
+      # ae-qualification-definition.yaml needs alignment.
 
     # InfoHub vault (read)
     - id: read-infohub
       connector: infohub
       operation: read
+      inputs: [realm_id: string, node_id: string, section: string, detail_level: string]
     - id: read-account-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-aci-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-ca-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-ci-database
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-decision-registrar-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-delivery-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-ii-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-infohub-curator-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-intelligence
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-knowledge-vault-curator-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-market-intelligence
       connector: intelligence
       operation: read
+      inputs: [query: string]
     - id: read-meeting-notes-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-mna-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-nudger-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-observability-specialist-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-partner-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-playbook-curator-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-pm-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-ps-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-reporter-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-retrospective-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-risk-radar-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-sa-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-search-specialist-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-security-specialist-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-senior-manager-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-signal-matcher-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-task-shepherd-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-tech-signal-analyzer-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-tech-signal-scanner-data
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: read-value-tracker
       connector: infohub
       operation: read
+      inputs: [tracker_path: string]
+      # Naming note: reads from the value tracking system, not a
+      # generic "ve-data" source. Asymmetric with write-value-artifact
+      # by design (reads tracker state, writes artifacts).
 
     # InfoHub vault (write)
     - id: write-aci-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-ca-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-ci-insight
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-decision-registrar-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-delivery-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-ii-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-infohub-curator-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-infosec-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-knowledge-vault-curator-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-meeting-notes-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-mna-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-nudger-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-observability-specialist-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-partner-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-playbook-curator-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-pm-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-poc-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-ps-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-reporter-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-retrospective-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-rfp-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-risk-alert
       connector: infohub
       operation: write
+      inputs: [risk: object, destination_path: string]
     - id: write-risk-radar-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-sa-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-search-specialist-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-security-specialist-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-senior-manager-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-signal-matcher-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-specialist-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-task-shepherd-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-tech-signal-analyzer-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-tech-signal-scanner-artifact
       connector: infohub
       operation: write
+      inputs: [artifact: object, destination_path: string]
     - id: write-value-artifact
       connector: infohub
       operation: write
+      inputs: [artifact_type: string, content: object, destination_path: string]
 
     # Save (persistence)
     - id: save-deal-intelligence
       connector: infohub
       operation: write
+      inputs: [assessment: object, opportunity_name: string]
     - id: save-hygiene-report
       connector: infohub
       operation: write
+      inputs: [report: object, opportunity_name: string]
     - id: save-meeting-intelligence
       connector: infohub
       operation: write
+      inputs: [intelligence: object, meeting_id: string]
     - id: save-pipeline-intelligence
       connector: infohub
       operation: write
+      inputs: [intelligence: object, pipeline_segment: string]
     - id: save-prospecting-intelligence
       connector: infohub
       operation: write
+      inputs: [intelligence: object, prospect_id: string]
     - id: save-qualification-data
       connector: infohub
       operation: write
+      inputs: [qualification: object, opportunity_name: string]
     - id: save-signal-intelligence
       connector: infohub
       operation: write
+      inputs: [signals: object, source_context: string]
     - id: save-stakeholder-intelligence
       connector: infohub
       operation: write
+      inputs: [intelligence: object, account_name: string]
 
     # Scan
     - id: scan-content
       connector: content
       operation: read
+      inputs: [scan_scope: string, pattern: string]
 
     # Get (computed)
     - id: get-adrs
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: get-architecture-health
       connector: infohub
       operation: read
+      inputs: [account_name: string]
     - id: get-best-practice
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: get-call-brief
       connector: infohub
       operation: read
+      inputs: [opportunity_name: string, meeting_id: string]
     - id: get-champion-status
       connector: infohub
       operation: read
+      inputs: [opportunity_name: string]
     - id: get-close-plan-status
       connector: infohub
       operation: read
+      inputs: [opportunity_name: string]
     - id: get-commercial-signals
       connector: infohub
       operation: read
+      inputs: [account_name: string]
     - id: get-compliance-matrix
       connector: infohub
       operation: read
+      inputs: [account_name: string]
     - id: get-compliance-status
       connector: infohub
       operation: read
+      inputs: [account_name: string]
     - id: get-coverage-analysis
       connector: infohub
       operation: read
+      inputs: [account_name: string]
     - id: get-csp-status
       connector: infohub
       operation: read
+      inputs: [account_name: string]
     - id: get-deal-health
       connector: infohub
       operation: read
+      inputs: [opportunity_name: string]
     - id: get-decision-log
       connector: infohub
       operation: read
+      inputs: [account_name: string]
     - id: get-discovery-summary
       connector: infohub
       operation: read
+      inputs: [opportunity_name: string]
     - id: get-engagement-status
       connector: infohub
       operation: read
+      inputs: [account_name: string]
     - id: get-forecast-confidence
       connector: infohub
       operation: read
+      inputs: [opportunity_name: string]
     - id: get-gap-assessment
       connector: infohub
       operation: read
+      inputs: [account_name: string]
     - id: get-hygiene-report
       connector: infohub
       operation: read
+      inputs: [opportunity_name: string]
     - id: get-journey-map
       connector: infohub
       operation: read
+      inputs: [account_name: string]
     - id: get-pipe-gen-metrics
       connector: infohub
       operation: read
+      inputs: [territory: string]
     - id: get-poc-results
       connector: infohub
       operation: read
+      inputs: [opportunity_name: string]
     - id: get-poc-status
       connector: infohub
       operation: read
+      inputs: [opportunity_name: string]
     - id: get-post-call-summary
       connector: infohub
       operation: read
+      inputs: [meeting_id: string]
     - id: get-practice-gaps
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: get-prospect-list
       connector: infohub
       operation: read
+      inputs: [territory: string]
     - id: get-qualification-gaps
       connector: infohub
       operation: read
+      inputs: [opportunity_name: string]
     - id: get-qualification-scorecard
       connector: infohub
       operation: read
+      inputs: [opportunity_name: string]
     - id: get-rfp-status
       connector: infohub
       operation: read
+      inputs: [opportunity_name: string]
     - id: get-risk-register
       connector: infohub
       operation: read
+      inputs: [account_name: string]
     - id: get-risk-signals
       connector: infohub
       operation: read
+      inputs: [account_name: string]
     - id: get-specialist-findings
       connector: infohub
       operation: read
+      inputs: [query: string]
     - id: get-stakeholder-journey
       connector: infohub
       operation: read
+      inputs: [account_name: string, stakeholder_id: string]
     - id: get-stakeholder-map
       connector: infohub
       operation: read
+      inputs: [account_name: string]
     - id: get-stale-alerts
       connector: infohub
       operation: read
+      inputs: [territory: string]

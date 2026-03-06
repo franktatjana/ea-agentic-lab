@@ -1,0 +1,186 @@
+# PLAYBOOK: Opportunity Consult
+# Cross-role coaching session between AE and Sales Manager
+# AE prepares deal review materials, SM reviews and coaches
+#
+# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+
+agentspec_version: "26.1.0"
+component_type: Playbook
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+id: PB_AE_604
+name: "Opportunity Consult"
+framework_name: "Opportunity Consult"
+framework_source: "Enterprise Sales Management Best Practice"
+playbook_mode: "COLLABORATIVE"
+playbook_category: "deal_review"
+trust_tier: "review"
+intended_agent_role: "Account Executive Agent (prepares materials)"
+secondary_agents: ["Senior Manager Agent"]
+
+primary_objective: "Conduct structured deal review between AE and Sales Manager to identify qualification gaps, validate forecast confidence, and agree on specific next actions to advance the deal"
+
+vault_routing:
+  primary_vault: "Internal Account Hub"
+  rationale: "Opportunity consult notes contain candid deal assessments, gap analysis, and internal strategy. Sensitive vendor-only content."
+  secondary_outputs:
+    - vault: "Global Knowledge Vault"
+      artifact: "Anonymized coaching patterns and common gap categories (aggregated quarterly)"
+
+when_not_to_use:
+  - "Deal below qualification threshold (see trigger_criteria)"
+  - "Deal already in commit stage with no open gaps"
+  - "AE has no active opportunities requiring review"
+  - "Less than 48 hours since last consult on the same deal"
+
+trigger_criteria:
+  enterprise:
+    threshold: "$250K+ ARR"
+    stage: "Stage 3 or later"
+    cadence: "At least monthly per qualifying deal"
+  commercial:
+    threshold: "$100K+ ARR"
+    stage: "Stage 3 or later"
+    cadence: "At least monthly per qualifying deal"
+  exception: "Any deal where forecast confidence changed by >15% since last review"
+
+raci:
+  responsible:
+    role: "Account Executive Agent"
+    agent: "ae_agent"
+    description: "Prepares deal review materials including qualification scorecard, close plan status, and specific help needed"
+
+  accountable:
+    role: "Senior Manager"
+    human_required: true
+    description: "Reviews deal materials, identifies gaps, provides coaching, and approves or challenges forecast confidence"
+    approval_actions:
+      - "approve_forecast"
+      - "challenge_confidence"
+      - "request_additional_data"
+      - "escalate_to_leadership"
+
+  consulted:
+    - role: "AE Qualification Agent"
+      on_steps: ["qualification_review"]
+    - role: "AE Deal Diagnosis Agent"
+      on_steps: ["deal_health_review"]
+    - role: "AE Pipeline Management Agent"
+      on_steps: ["forecast_validation"]
+
+  informed:
+    - role: "Sales Leadership"
+      notify_on: ["forecast_adjustment", "deal_escalation"]
+
+# ==============================================================================
+# PLAYBOOK STEPS
+# ==============================================================================
+
+steps:
+  - id: pre_consult_preparation
+    name: "Pre-Consult Preparation"
+    agent: ae_agent
+    sub_agents: ["ae-qualification-agent", "ae-deal-diagnosis-agent", "ae-pipeline-mgmt-agent"]
+    description: "AE assembles deal review package from sub-agent outputs"
+    inputs:
+      - opportunity_name
+      - current_stage
+      - forecast_category
+    outputs:
+      - qualification_scorecard: "MEDDPICC scores with evidence per dimension"
+      - deal_health: "RED/YELLOW/GREEN with risk factors"
+      - close_plan_status: "Milestone completion against mutual action plan"
+      - forecast_confidence: "Commit confidence with supporting signals"
+      - help_needed: "Specific asks for SM or extended team"
+    quality_gates:
+      - "MEDDPICC scorecard must be current (updated within 7 days)"
+      - "Close plan milestones must have dates, not 'TBD'"
+      - "Help needed must be specific (who, what, by when)"
+
+  - id: qualification_review
+    name: "Qualification Gap Review"
+    agent: senior_manager_agent
+    description: "SM reviews MEDDPICC scorecard, challenges weak dimensions, and identifies missing evidence"
+    inputs:
+      - qualification_scorecard
+      - deal_context
+    outputs:
+      - gap_priorities: "Top 3 gaps ranked by deal impact"
+      - coaching_notes: "Specific guidance for closing each gap"
+      - evidence_requests: "What additional evidence is needed and where to find it"
+    quality_gates:
+      - "Every gap must have a specific closing action, not just 'improve this'"
+      - "Coaching notes must reference the specific deal context, not generic advice"
+
+  - id: deal_health_review
+    name: "Deal Health and Risk Review"
+    agent: senior_manager_agent
+    description: "SM reviews deal health, validates or challenges risk assessment, and assesses close plan"
+    inputs:
+      - deal_health
+      - close_plan_status
+      - risk_factors
+    outputs:
+      - risk_validation: "SM confirms, escalates, or downgrades risk assessment"
+      - close_plan_feedback: "Adjustments to milestone timing or ownership"
+      - blockers_identified: "New blockers SM sees that AE may have missed"
+    quality_gates:
+      - "Risk validation must cite specific evidence for agreement or disagreement"
+      - "Close plan feedback must include actionable adjustments, not just observations"
+
+  - id: forecast_validation
+    name: "Forecast Confidence Validation"
+    agent: senior_manager_agent
+    description: "SM validates or challenges forecast category based on deal evidence"
+    inputs:
+      - forecast_confidence
+      - qualification_scorecard
+      - close_plan_status
+    outputs:
+      - forecast_decision: "Approved, adjusted, or challenged with rationale"
+      - confidence_delta: "If adjusted, specific reasons for change"
+    quality_gates:
+      - "Forecast adjustments must cite specific evidence gaps, not gut feel"
+      - "Challenge must include what evidence would change the assessment"
+
+  - id: action_agreement
+    name: "Action Agreement"
+    agent: ae_agent
+    description: "AE and SM agree on specific next actions with owners and deadlines"
+    inputs:
+      - gap_priorities
+      - coaching_notes
+      - blockers_identified
+      - forecast_decision
+    outputs:
+      - action_items: "Each with single owner, due date, and success criteria"
+      - follow_up_date: "Next consult date"
+      - crm_updates: "Recommended field changes based on consult outcomes"
+    quality_gates:
+      - "Max 5 action items per consult (focus over breadth)"
+      - "Every action has a single owner, not 'AE and SM'"
+      - "Follow-up date is specific, tied to next milestone"
+
+  - id: consult_documentation
+    name: "Consult Documentation"
+    agent: ae_agent
+    description: "AE documents consult outcomes with date-stamped manager review notes"
+    inputs:
+      - action_items
+      - forecast_decision
+      - coaching_notes
+    outputs:
+      - manager_review_notes: "Date-stamped summary: gaps identified, actions agreed, forecast decision"
+      - crm_update_recommendations: "Specific CRM field changes for human review"
+    format: |
+      YYYY-MM-DD | Opportunity Consult
+      Gap priorities: [top 3 with closing actions]
+      Actions: [who will do what by when]
+      Forecast: [category, confidence, any adjustment with rationale]
+      Next review: [date]
+    quality_gates:
+      - "Notes start with date in YYYY-MM-DD format"
+      - "Notes fit within 5000 characters (crisp and actionable)"
+      - "Actions reference specific gap-closing activities, not generic follow-ups"

@@ -78,7 +78,7 @@ class PlaybookExecutor:
         Execute playbook against context and generate outputs.
 
         Args:
-            playbook_id: Playbook identifier (e.g., 'PB_201')
+            playbook_id: Playbook identifier (e.g., 'PB_STR_201')
             context: InfoHub data context
             client_id: Client identifier (extracted from context if not provided)
 

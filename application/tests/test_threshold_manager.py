@@ -23,7 +23,7 @@ class TestThresholdManagerBasics:
 
     def test_get_playbook_specific_threshold(self, threshold_manager):
         """Test retrieving playbook-specific thresholds."""
-        value = threshold_manager.get('PB_001_three_horizons', 'horizon_1_concentration_max')
+        value = threshold_manager.get('PB_STR_001_three_horizons', 'horizon_1_concentration_max')
         assert value == 0.80  # From config
 
     def test_get_missing_threshold_raises_error(self, threshold_manager):
@@ -38,13 +38,13 @@ class TestThresholdSubstitution:
     def test_substitute_single_placeholder(self, threshold_manager):
         """Test substituting a single ${thresholds.key} placeholder."""
         condition = "$.horizon_1.arr_percentage > ${thresholds.horizon_1_concentration_max}"
-        result = threshold_manager.substitute_condition(condition, 'PB_001_three_horizons')
+        result = threshold_manager.substitute_condition(condition, 'PB_STR_001_three_horizons')
         assert result == "$.horizon_1.arr_percentage > 0.8"  # 0.80 becomes "0.8" as string
 
     def test_substitute_multiple_placeholders(self, threshold_manager):
         """Test substituting multiple placeholders."""
         condition = "$.roi >= ${thresholds.strong_roi_percentage} AND $.payback_months <= ${thresholds.fast_payback_months}"
-        result = threshold_manager.substitute_condition(condition, 'PB_301_value_engineering')
+        result = threshold_manager.substitute_condition(condition, 'PB_VE_301_value_engineering')
         # Should replace both placeholders
         assert '${thresholds' not in result
         assert '3.0' in result  # strong_roi_percentage
@@ -64,7 +64,7 @@ class TestThresholdContextInjection:
     def test_inject_into_context(self, threshold_manager):
         """Test injecting thresholds into context at $.thresholds."""
         context = {"client_id": "c1", "arr": 720000}
-        result = threshold_manager.inject_into_context(context, 'PB_001_three_horizons')
+        result = threshold_manager.inject_into_context(context, 'PB_STR_001_three_horizons')
 
         # Original context preserved
         assert result['client_id'] == 'c1'
@@ -77,7 +77,7 @@ class TestThresholdContextInjection:
 
     def test_get_all_for_playbook(self, threshold_manager):
         """Test getting all thresholds for a playbook (global + specific)."""
-        thresholds = threshold_manager.get_all_for_playbook('PB_001_three_horizons')
+        thresholds = threshold_manager.get_all_for_playbook('PB_STR_001_three_horizons')
 
         # Has playbook-specific
         assert 'horizon_1_concentration_max' in thresholds
@@ -89,7 +89,7 @@ class TestThresholdContextInjection:
         """Test that playbook-specific thresholds override global."""
         # If there's an overlap, playbook-specific should win
         # (Current config doesn't have overlap, but test the mechanism)
-        thresholds = threshold_manager.get_all_for_playbook('PB_001_three_horizons')
+        thresholds = threshold_manager.get_all_for_playbook('PB_STR_001_three_horizons')
         # Just verify that the method works and returns combined dict
         assert isinstance(thresholds, dict)
         assert len(thresholds) > 0

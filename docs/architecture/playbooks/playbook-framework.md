@@ -31,7 +31,7 @@ A **playbook** is a lightweight, structured procedure that:
 ### Lightweight Playbook Structure
 
 ```yaml
-playbook_id: "PB_001_three_horizons"
+playbook_id: "PB_STR_001_three_horizons"
 name: "McKinsey Three Horizons Growth Analysis"
 framework_source: "McKinsey & Company"
 category: "strategic_planning"
@@ -195,12 +195,12 @@ graph TD
 
 ## Example Playbooks
 
-### PB_001: McKinsey Three Horizons Analysis
+### PB_STR_001: McKinsey Three Horizons Analysis
 
-**File:** `playbooks/executable/PB_001_three_horizons.yaml`
+**File:** `playbooks/executable/PB_STR_001_three_horizons.yaml`
 
 ```yaml
-playbook_id: "PB_001"
+playbook_id: "PB_STR_001"
 name: "Three Horizons Growth Analysis"
 framework: "McKinsey Three Horizons of Growth"
 source_url: "https://www.mckinsey.com/capabilities/strategy-and-corporate-finance/our-insights/enduring-ideas-the-three-horizons-of-growth"
@@ -326,12 +326,12 @@ owner_agent: "AE Agent (primary), SA Agent (technical input)"
 
 ---
 
-### PB_002: SWOT Analysis (Risk Context)
+### PB_STR_002: SWOT Analysis (Risk Context)
 
-**File:** `playbooks/risk/PB_002_swot_risk.yaml`
+**File:** `playbooks/risk/PB_STR_002_swot_risk.yaml`
 
 ```yaml
-playbook_id: "PB_002"
+playbook_id: "PB_STR_002"
 name: "SWOT Analysis for Risk Context"
 framework: "SWOT Analysis"
 
@@ -374,12 +374,12 @@ estimated_time: "2 minutes"
 
 ---
 
-### PB_003: Porter's Five Forces (Competitive Analysis)
+### PB_STR_003: Porter's Five Forces (Competitive Analysis)
 
-**File:** `playbooks/competitive/PB_003_five_forces.yaml`
+**File:** `playbooks/competitive/PB_STR_003_five_forces.yaml`
 
 ```yaml
-playbook_id: "PB_003"
+playbook_id: "PB_STR_003"
 name: "Porter's Five Forces - Competitive Dynamics"
 framework: "Michael Porter's Five Forces"
 
@@ -421,38 +421,38 @@ ea-agentic-lab/
 └── playbooks/
     ├── README.md                      # Playbook catalog
     ├── strategic/
-    │   ├── PB_001_three_horizons.yaml
-    │   ├── PB_002_ansoff_matrix.yaml
-    │   ├── PB_003_bcg_matrix.yaml
-    │   └── PB_004_value_pyramid.yaml
+    │   ├── PB_STR_001_three_horizons.yaml
+    │   ├── PB_STR_002_ansoff_matrix.yaml
+    │   ├── PB_STR_003_bcg_matrix.yaml
+    │   └── PB_STR_004_value_pyramid.yaml
     │
     ├── technical/
-    │   ├── PB_101_five_forces.yaml
-    │   ├── PB_102_adoption_curve.yaml
-    │   ├── PB_103_12factor_check.yaml
-    │   └── PB_104_adr_generation.yaml
+    │   ├── PB_SA_101_five_forces.yaml
+    │   ├── PB_SA_102_adoption_curve.yaml
+    │   ├── CL_SA_103_12factor_check.yaml
+    │   └── PB_SA_104_adr_generation.yaml
     │
     ├── risk/
-    │   ├── PB_201_swot_analysis.yaml
-    │   ├── PB_202_risk_matrix.yaml
-    │   ├── PB_203_premortem.yaml
-    │   └── PB_204_fmea.yaml
+    │   ├── PB_STR_201_swot_analysis.yaml
+    │   ├── PB_STR_202_risk_matrix.yaml
+    │   ├── PB_STR_203_premortem.yaml
+    │   └── PB_STR_204_fmea.yaml
     │
     ├── value/
-    │   ├── PB_301_value_engineering.yaml
-    │   ├── PB_302_roi_analysis.yaml
-    │   ├── PB_303_business_model_canvas.yaml
-    │   └── PB_304_cost_benefit.yaml
+    │   ├── PB_VE_301_value_engineering.yaml
+    │   ├── PB_VE_302_roi_analysis.yaml
+    │   ├── PB_VE_303_business_model_canvas.yaml
+    │   └── PB_VE_304_cost_benefit.yaml
     │
     ├── customer_success/
-    │   ├── PB_401_health_score.yaml
-    │   ├── PB_402_adoption_maturity.yaml
-    │   └── PB_403_nps_analysis.yaml
+    │   ├── PB_CA_401_health_score.yaml
+    │   ├── PB_CA_402_adoption_maturity.yaml
+    │   └── PB_CA_403_nps_analysis.yaml
     │
     └── competitive/
-        ├── PB_501_positioning_map.yaml
-        ├── PB_502_win_loss_analysis.yaml
-        └── PB_503_battlecard_gen.yaml
+        ├── PB_POC_501_positioning_map.yaml
+        ├── PB_POC_502_win_loss_analysis.yaml
+        └── PB_POC_503_battlecard_gen.yaml
 ```
 
 ---
@@ -502,13 +502,13 @@ agent_id: "ae_agent"
 team: "account_executives"
 
 playbooks_owned:
-  - "PB_001_three_horizons"
-  - "PB_002_ansoff_matrix"
-  - "PB_301_value_engineering"
+  - "PB_STR_001_three_horizons"
+  - "PB_STR_002_ansoff_matrix"
+  - "PB_VE_301_value_engineering"
 
 playbooks_contribute_to:
-  - "PB_201_swot_analysis"  # Provides commercial context
-  - "PB_401_health_score"   # Provides relationship data
+  - "PB_STR_201_swot_analysis"  # Provides commercial context
+  - "PB_CA_401_health_score"   # Provides relationship data
 ```
 
 ---

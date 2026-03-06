@@ -348,7 +348,7 @@ A deal stage scenario that orchestrates runbooks from across multiple roles. The
 **Example:**
 
 ```yaml
-playbook: PB_603_sales_qbr
+playbook: PB_AE_603_sales_qbr
   owner: ae
   domain: >
     Quarterly Business Review consolidates deal health, competitive
@@ -403,14 +403,14 @@ blueprint: enterprise_displacement
       - PB_ACI_001  # Account Research
       - PB_ACI_002  # Org Mapping
     qualification:
-      - PB_701      # Competitive Landscape
-      - PB_301      # Value Engineering
-      - PB_201      # SWOT Analysis
+      - PB_CI_701      # Competitive Landscape
+      - PB_VE_301      # Value Engineering
+      - PB_STR_201      # SWOT Analysis
     execution:
-      - PB_101      # Architecture Decision Record
-      - PB_302      # Stakeholder Mapping
+      - PB_SA_101      # Architecture Decision Record
+      - PB_VE_302      # Stakeholder Mapping
     governance:
-      - PB_603      # Sales QBR (recurring)
+      - PB_AE_603      # Sales QBR (recurring)
       - PB_DEL_003  # Implementation Risk Review (recurring)
     close:
       - PB_DEL_001  # Implementation Kickoff

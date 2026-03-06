@@ -68,9 +68,9 @@
 
 | Date | Framework | Status |
 |------|-----------|--------|
-| [**2026-01-16**](frameworks/PB_201_swot_20260116_revised.md) | SWOT Revised | **CURRENT** |
-| [2026-01-12](frameworks/PB_001_three_horizons_20260112.md) | Three Horizons | Valid |
-| [2026-01-12](frameworks/PB_301_value_engineering_20260112.md) | Value Engineering | Needs revision |
+| [**2026-01-16**](frameworks/PB_STR_201_swot_20260116_revised.md) | SWOT Revised | **CURRENT** |
+| [2026-01-12](frameworks/PB_STR_001_three_horizons_20260112.md) | Three Horizons | Valid |
+| [2026-01-12](frameworks/PB_VE_301_value_engineering_20260112.md) | Value Engineering | Needs revision |
 
 ## Critical Actions (Immediate)
 
@@ -154,10 +154,10 @@ SECURITY_CONSOLIDATION/
     │   ├── operating_cadence.yaml         # Meeting rhythms
     │   └── health_score.yaml              # 68/100 (declining)
     ├── frameworks/
-    │   ├── PB_201_swot_20260116_revised.md
-    │   ├── PB_001_three_horizons_20260112.md
-    │   ├── PB_201_swot_20260112.md        # Superseded
-    │   └── PB_301_value_engineering_20260112.md
+    │   ├── PB_STR_201_swot_20260116_revised.md
+    │   ├── PB_STR_001_three_horizons_20260112.md
+    │   ├── PB_STR_201_swot_20260112.md        # Superseded
+    │   └── PB_VE_301_value_engineering_20260112.md
     ├── actions/
     │   └── action_tracker.yaml            # 18 actions (critical-medium)
     └── agent_work/

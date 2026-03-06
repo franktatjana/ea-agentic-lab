@@ -122,8 +122,8 @@ Thomas Richter was our only executive champion. When he departed, we had no back
 
 | Date | Framework | Status |
 |------|-----------|--------|
-| [2025-09-20](internal-infohub/frameworks/PB_001_three_horizons_20250920.md) | Three Horizons | Completed |
-| [2025-09-20](internal-infohub/frameworks/PB_201_swot_20250920.md) | SWOT | Completed |
+| [2025-09-20](internal-infohub/frameworks/PB_STR_001_three_horizons_20250920.md) | Three Horizons | Completed |
+| [2025-09-20](internal-infohub/frameworks/PB_STR_201_swot_20250920.md) | SWOT | Completed |
 
 ## Stakeholder Map (Final)
 
@@ -200,8 +200,8 @@ DATA_ANALYTICS/
     │   ├── customer_journey_map.yaml
     │   └── touchpoint_log.yaml
     └── frameworks/
-        ├── PB_001_three_horizons_20250920.md
-        └── PB_201_swot_20250920.md
+        ├── PB_STR_001_three_horizons_20250920.md
+        └── PB_STR_201_swot_20250920.md
 ```
 
 ---

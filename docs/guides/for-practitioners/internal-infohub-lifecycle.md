@@ -35,12 +35,12 @@ Strategic playbooks produce framework analysis outputs that land in the Internal
 
 | Playbook | Output | Directory |
 |----------|--------|-----------|
-| PB_201 SWOT Analysis | SWOT output | `frameworks/swot/` |
-| PB_001 Three Horizons | Horizons analysis | `frameworks/three-horizons/` |
-| PB_301 Value Engineering | Value model (internal) | `frameworks/value-engineering/` |
-| PB_202 PESTLE Analysis | PESTLE output | `frameworks/pestle/` |
-| PB_701 Competitive Analysis | Competitive positioning | `competitive/` |
-| PB_102 Sizing Estimation | Internal sizing notes | `governance/` |
+| PB_STR_201 SWOT Analysis | SWOT output | `frameworks/swot/` |
+| PB_STR_001 Three Horizons | Horizons analysis | `frameworks/three-horizons/` |
+| PB_VE_301 Value Engineering | Value model (internal) | `frameworks/value-engineering/` |
+| PB_STR_202 PESTLE Analysis | PESTLE output | `frameworks/pestle/` |
+| PB_CI_701 Competitive Analysis | Competitive positioning | `competitive/` |
+| PB_SA_102 Sizing Estimation | Internal sizing notes | `governance/` |
 
 ### Manual Contribution
 

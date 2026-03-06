@@ -411,7 +411,7 @@ function QbrTrackingSection() {
             QBR Tracking Canvas
             <Badge variant="outline" className="text-xs">{d.quarter}</Badge>
             <HelpPopover title="QBR Tracking Canvas">
-              Continuous tracking instrument between Quarterly Business Reviews (PB_603). Monitors 6 weighted scoring dimensions, prior QBR commitments, portfolio health across all accounts, active signals and risks, and preparation readiness. Updated weekly throughout the quarter. Overall score: weighted sum across all dimensions (0-100). GREEN {"\u2265"} 75, YELLOW 50-74, RED {"<"} 50.
+              Continuous tracking instrument between Quarterly Business Reviews (PB_AE_603). Monitors 6 weighted scoring dimensions, prior QBR commitments, portfolio health across all accounts, active signals and risks, and preparation readiness. Updated weekly throughout the quarter. Overall score: weighted sum across all dimensions (0-100). GREEN {"\u2265"} 75, YELLOW 50-74, RED {"<"} 50.
             </HelpPopover>
             <button
               onClick={() => window.open("/present/qbr", "_blank")}
@@ -429,7 +429,7 @@ function QbrTrackingSection() {
               <Progress value={readinessPct} className="h-1.5 w-16" />
               <span className="font-medium">{readinessPct}%</span>
               <HelpPopover title="QBR Readiness">
-                Percentage of preparation checklist items completed. Maps to PB_603 quarter-long cadence across 4 phases.
+                Percentage of preparation checklist items completed. Maps to PB_AE_603 quarter-long cadence across 4 phases.
               </HelpPopover>
             </div>
             <div className="flex items-center gap-1">
@@ -459,7 +459,7 @@ function QbrTrackingSection() {
           <div className="flex items-center gap-1 mb-2">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-500">Quarter Scorecard</p>
             <HelpPopover title="Quarter Scorecard">
-              Six key metrics aligned with PB_603 scoring dimensions, updated weekly. Each dimension has a weight that contributes to the overall QBR score. Thresholds follow PB_603 decision logic: pipeline below 2x triggers immediate action, forecast below 70% triggers commit criteria recalibration, 2+ at-risk accounts triggers health triage escalation.
+              Six key metrics aligned with PB_AE_603 scoring dimensions, updated weekly. Each dimension has a weight that contributes to the overall QBR score. Thresholds follow PB_AE_603 decision logic: pipeline below 2x triggers immediate action, forecast below 70% triggers commit criteria recalibration, 2+ at-risk accounts triggers health triage escalation.
             </HelpPopover>
           </div>
           <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
@@ -488,7 +488,7 @@ function QbrTrackingSection() {
                 Prior QBR Commitments ({commitPct}% complete)
               </p>
               <HelpPopover title="Prior QBR Commitments">
-                Action items from the previous QBR with current status. Every item must have an owner and deadline. Blocked items must include a reason. Items past deadline without completion are flagged. 2+ blocked commitments triggers a warning alert in PB_603.
+                Action items from the previous QBR with current status. Every item must have an owner and deadline. Blocked items must include a reason. Items past deadline without completion are flagged. 2+ blocked commitments triggers a warning alert in PB_AE_603.
               </HelpPopover>
             </div>
             <div className="border rounded-md overflow-hidden">
@@ -570,7 +570,7 @@ function QbrTrackingSection() {
             <div className="flex items-center gap-1 mb-2">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-teal-500">Signals & Risks</p>
               <HelpPopover title="Signals & Risks">
-                Active risks, competitive encounters, and PB_603 decision rules triggered this quarter. Types: Pipeline Risk, Competitive, Forecast, Account Health, Stalled Deal. Sorted by severity. PB_603 defines 8 decision rules that auto-generate signals, for example: pipeline below 2x, repeated losses to same competitor, 3+ stalled deals.
+                Active risks, competitive encounters, and PB_AE_603 decision rules triggered this quarter. Types: Pipeline Risk, Competitive, Forecast, Account Health, Stalled Deal. Sorted by severity. PB_AE_603 defines 8 decision rules that auto-generate signals, for example: pipeline below 2x, repeated losses to same competitor, 3+ stalled deals.
               </HelpPopover>
             </div>
             <div className="border rounded-md overflow-hidden">
@@ -616,7 +616,7 @@ function QbrTrackingSection() {
                 QBR Readiness ({readinessPct}%)
               </p>
               <HelpPopover title="QBR Readiness">
-                Preparation checklist mapped to PB_603 quarter-long cadence. Wk 1-4: foundation (targets, baseline pipeline). Wk 5-8: continuous capture (health scores, competitive encounters, win/loss retrospectives). Wk 9-12: synthesis (MEDDPICC assessments, pipeline snapshot, narrative). Pre-QBR: alignment sync with SA, CA, CI, VE agents. GREEN {"\u2265"} 80%, YELLOW 50-79%, RED {"<"} 50%.
+                Preparation checklist mapped to PB_AE_603 quarter-long cadence. Wk 1-4: foundation (targets, baseline pipeline). Wk 5-8: continuous capture (health scores, competitive encounters, win/loss retrospectives). Wk 9-12: synthesis (MEDDPICC assessments, pipeline snapshot, narrative). Pre-QBR: alignment sync with SA, CA, CI, VE agents. GREEN {"\u2265"} 80%, YELLOW 50-79%, RED {"<"} 50%.
               </HelpPopover>
             </div>
             <div className="space-y-1">

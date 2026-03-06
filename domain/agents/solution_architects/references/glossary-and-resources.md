@@ -15,6 +15,6 @@
 ## External Resources
 
 - TOGAF ADM Framework: architecture decision methodology
-- SWOT Analysis: strategic assessment framework (PB_201)
-- Decision Tree Analysis: structured decision evaluation (PB_203)
-- Risk Heat Map: visual risk prioritization (PB_204)
+- SWOT Analysis: strategic assessment framework (PB_STR_201)
+- Decision Tree Analysis: structured decision evaluation (PB_STR_203)
+- Risk Heat Map: visual risk prioritization (PB_STR_204)

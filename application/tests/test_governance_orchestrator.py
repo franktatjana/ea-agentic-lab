@@ -67,7 +67,7 @@ def simple_workflow():
             WorkflowStep(
                 step_id="step_3",
                 step_type=StepType.PLAYBOOK_EXECUTION,
-                playbook_id="PB_201",
+                playbook_id="PB_STR_201",
                 description="Third step - depends on 1 and 2",
                 dependencies=["step_1", "step_2"]
             ),

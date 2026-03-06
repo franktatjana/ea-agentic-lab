@@ -1,5 +1,5 @@
 ---
-framework_id: "PB_201"
+framework_id: "PB_STR_201"
 framework_name: "SWOT Analysis"
 framework_source: "Albert Humphrey"
 execution_date: "2026-01-16"
@@ -10,7 +10,7 @@ trigger: "material_change"
 focus: "Post-Acquisition Strategic Position"
 status: "complete"
 revision: 2
-previous_version: "PB_201_swot_20260112.md"
+previous_version: "PB_STR_201_swot_20260112.md"
 change_reason: "Industrietechnik acquisition announcement - fundamental situation change"
 contributors:
   - agent: "ae_agent"
@@ -214,5 +214,5 @@ The opportunity has doubled but so has the risk. This is now a defining deal for
 *Framework executed by: SA Agent (coordinator)*
 *Contributors: AE Agent, CI Agent*
 *Evidence sources: 2*
-*Supersedes: PB_201_swot_20260112.md*
+*Supersedes: PB_STR_201_swot_20260112.md*
 *Next review: Post-Klaus 1:1 (Jan 20)*

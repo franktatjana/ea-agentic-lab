@@ -61,7 +61,7 @@ No dedicated skills. Uses semantic matching via LLM prompting, comparing `done_m
 | Event | Artifact created (`SIG_ART_001`) |
 | Event | Artifact updated (`SIG_ART_002`) |
 | Event | Decision logged (`SIG_GOV_001`) |
-| Event | Playbook completed (`SIG_PB_002`) |
+| Event | Playbook completed (`SIG_PB_STR_002`) |
 | Schedule | Daily 10am (Mon-Fri): scan open actions against recent signals |
 | Schedule | Friday 4pm: weekly reconciliation before reporter digest |
 
