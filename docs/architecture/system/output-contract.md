@@ -152,7 +152,7 @@ Detailed execution trace for debugging and audit.
       "step": "load_playbook",
       "status": "success",
       "details": {
-        "playbook_path": "playbooks/executable/PB_STR_201_swot_analysis_v2.yaml",
+        "playbook_path": "domain/playbooks/PB_STR_201_swot_analysis_v2.yaml",
         "schema_validation": "passed"
       }
     },

@@ -8,7 +8,7 @@
 ## Completed Validation Playbooks ✅
 
 1. **PB_STR_001** - Three Horizons of Growth (McKinsey) - AE Agent
-   - Location: `playbooks/executable/` (needs refactor to validation mode)
+   - Location: `domain/playbooks/` (needs refactor to validation mode)
    - Status: Created as generative, needs conversion to validation
 
 2. **PB_STR_002** - Ansoff Growth Matrix (Igor Ansoff) - AE Agent ✅

@@ -83,7 +83,7 @@ Executes playbooks defined in YAML:
 from core.playbook_engine import PlaybookLoader, PlaybookExecutor
 
 loader = PlaybookLoader()
-playbook = loader.load("playbooks/executable/PB_STR_201_swot_analysis.yaml")
+playbook = loader.load("domain/playbooks/PB_STR_201_swot_analysis.yaml")
 
 executor = PlaybookExecutor()
 result = executor.execute(playbook, context=account_context)

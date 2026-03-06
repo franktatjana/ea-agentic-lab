@@ -34,7 +34,7 @@ Stage adoption playbooks guide customers through adopting specific product capab
 
 ### Security Stage Adoption
 
-**Path:** `playbooks/executable/PB_DEL_101_security_stage_adoption.yaml`
+**Path:** `domain/playbooks/PB_DEL_101_security_stage_adoption.yaml`
 
 Guides customers from basic SIEM deployment to advanced threat detection and response.
 
@@ -52,7 +52,7 @@ Guides customers from basic SIEM deployment to advanced threat detection and res
 
 ### Observability Stage Adoption
 
-**Path:** `playbooks/executable/PB_DEL_102_observability_stage_adoption.yaml`
+**Path:** `domain/playbooks/PB_DEL_102_observability_stage_adoption.yaml`
 
 Guides customers through APM, logging, and infrastructure monitoring adoption.
 
@@ -65,7 +65,7 @@ Guides customers through APM, logging, and infrastructure monitoring adoption.
 
 ### Search Stage Adoption
 
-**Path:** `playbooks/executable/PB_DEL_103_search_stage_adoption.yaml`
+**Path:** `domain/playbooks/PB_DEL_103_search_stage_adoption.yaml`
 
 Guides customers through enterprise search and AI-powered retrieval adoption.
 
@@ -84,7 +84,7 @@ Structured engagement rhythms that maintain customer relationships and drive val
 
 ### Discovery Engagement
 
-**Path:** `playbooks/executable/PB_CA_201_discovery_engagement.yaml`
+**Path:** `domain/playbooks/PB_CA_201_discovery_engagement.yaml`
 
 Structured approach to understanding customer needs, challenges, and success criteria.
 
@@ -103,7 +103,7 @@ Structured approach to understanding customer needs, challenges, and success cri
 
 ### Cadence Calls
 
-**Path:** `playbooks/executable/PB_CA_202_cadence_calls.yaml`
+**Path:** `domain/playbooks/PB_CA_202_cadence_calls.yaml`
 
 Regular touchpoint framework for maintaining engagement and tracking progress.
 
@@ -123,7 +123,7 @@ Regular touchpoint framework for maintaining engagement and tracking progress.
 
 ### Executive Business Reviews (EBR)
 
-**Path:** `playbooks/executable/PB_CA_203_executive_review.yaml`
+**Path:** `domain/playbooks/PB_CA_203_executive_review.yaml`
 
 Quarterly executive engagement for strategic alignment and relationship building.
 
@@ -143,7 +143,7 @@ Proactive engagement based on customer health indicators.
 
 ### Health Triage
 
-**Path:** `playbooks/executable/PB_CA_301_health_triage.yaml`
+**Path:** `domain/playbooks/PB_CA_301_health_triage.yaml`
 
 Structured response to declining health scores and risk indicators.
 
@@ -163,7 +163,7 @@ Structured response to declining health scores and risk indicators.
 
 ### Risk Intervention
 
-**Path:** `playbooks/executable/PB_CA_302_risk_intervention.yaml`
+**Path:** `domain/playbooks/PB_CA_302_risk_intervention.yaml`
 
 Response playbook when specific risk indicators trigger.
 
@@ -177,7 +177,7 @@ Response playbook when specific risk indicators trigger.
 
 ### Renewal Protection
 
-**Path:** `playbooks/executable/PB_CA_303_renewal_protection.yaml`
+**Path:** `domain/playbooks/PB_CA_303_renewal_protection.yaml`
 
 Systematic approach to ensuring successful renewals.
 
@@ -198,7 +198,7 @@ Hands-on technical engagement to drive adoption and value realization.
 
 ### Technical Workshop
 
-**Path:** `playbooks/executable/PB_CA_401_technical_workshop.yaml`
+**Path:** `domain/playbooks/PB_CA_401_technical_workshop.yaml`
 
 Structured technical sessions to enable customer teams.
 
@@ -211,7 +211,7 @@ Structured technical sessions to enable customer teams.
 
 ### Migration Playbook
 
-**Path:** `playbooks/executable/PB_CA_402_migration.yaml`
+**Path:** `domain/playbooks/PB_CA_402_migration.yaml`
 
 Structured guidance for customers migrating from competitive solutions.
 
@@ -229,7 +229,7 @@ Structured guidance for customers migrating from competitive solutions.
 
 ### POV Execution
 
-**Path:** `playbooks/executable/PB_CA_403_pov_execution.yaml`
+**Path:** `domain/playbooks/PB_CA_403_pov_execution.yaml`
 
 Proof of Value execution framework for technical evaluations.
 
@@ -250,7 +250,7 @@ Smooth handoffs between stages and teams.
 
 ### Pre-to-Post Sales Handoff
 
-**Path:** `playbooks/executable/PB_CA_501_handoff_presales_postsales.yaml`
+**Path:** `domain/playbooks/PB_CA_501_handoff_presales_postsales.yaml`
 
 Structured handoff from SA/AE to CA/AM.
 
@@ -274,7 +274,7 @@ Structured handoff from SA/AE to CA/AM.
 
 ### Expansion Planning
 
-**Path:** `playbooks/executable/PB_CA_502_expansion_planning.yaml`
+**Path:** `domain/playbooks/PB_CA_502_expansion_planning.yaml`
 
 Systematic approach to identifying and executing expansion opportunities.
 
@@ -305,7 +305,7 @@ Use when:
 
 ### Retrospective
 
-**Path:** `playbooks/executable/PB_AE_601_retrospective.yaml`
+**Path:** `domain/playbooks/PB_AE_601_retrospective.yaml`
 
 Structured reflection on wins and losses.
 
@@ -317,7 +317,7 @@ Use when:
 
 ### Account Planning
 
-**Path:** `playbooks/executable/PB_AE_602_account_planning.yaml`
+**Path:** `domain/playbooks/PB_AE_602_account_planning.yaml`
 
 Annual strategic planning with integrated root cause analysis.
 
@@ -329,7 +329,7 @@ Use when:
 
 ### SWOT Analysis
 
-**Path:** `playbooks/executable/PB_STR_201_swot_analysis.yaml`
+**Path:** `domain/playbooks/PB_STR_201_swot_analysis.yaml`
 
 Strategic position analysis for account strategy.
 
@@ -471,17 +471,15 @@ stop_conditions:
 ### Naming Convention
 
 ```
-PB_CA_{NNN}_{descriptive_name}.yaml
+PB_PREFIX_NNN_{descriptive_name}.yaml
 
 Where:
-- CS = Customer Success category
-- NNN = Sequential number within category
-- 1xx = Stage Adoption
-- 2xx = Engagement Cadence
-- 3xx = Health Management
-- 4xx = Technical Enablement
-- 5xx = Lifecycle Transitions
+- PREFIX = Team abbreviation (CA, SA, AE, VE, DEL, RFP, GOV, etc.)
+- NNN = Sequential number within team
+- playbook_id is the short key (PB_CA_401), filename adds the slug
 ```
+
+For the full playbook library across all teams (149 playbooks), see [domain/playbooks/README.md](../../domain/playbooks/README.md).
 
 ---
 

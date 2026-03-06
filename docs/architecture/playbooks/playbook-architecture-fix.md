@@ -231,17 +231,17 @@ core/playbook_engine/
 
 #### Generative Playbooks (6)
 
-1. `playbooks/executable/PB_STR_001_three_horizons.yaml`
+1. `domain/playbooks/PB_STR_001_three_horizons.yaml`
    - Extract thresholds → `config/playbook_thresholds.yaml`
    - Rewrite conditions in DLL syntax
    - Add evidence fields to output schemas
    - Standardize field names
 
-2. `playbooks/executable/PB_STR_201_swot_analysis.yaml`
-3. `playbooks/executable/PB_VE_301_value_engineering.yaml`
-4. `playbooks/executable/PB_CI_701_five_forces.yaml`
-5. `playbooks/executable/PB_SA_101_togaf_adm.yaml`
-6. `playbooks/executable/PB_CA_401_customer_health_score.yaml`
+2. `domain/playbooks/PB_STR_201_swot_analysis.yaml`
+3. `domain/playbooks/PB_VE_301_value_engineering.yaml`
+4. `domain/playbooks/PB_CI_701_five_forces.yaml`
+5. `domain/playbooks/PB_SA_101_togaf_adm.yaml`
+6. `domain/playbooks/PB_CA_401_customer_health_score.yaml`
 
 #### Validation Playbooks (4)
 

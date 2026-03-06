@@ -25,7 +25,7 @@ The system uses two distinct playbook categories:
 - Updateable based on context changes (customer or internal)
 - Blueprint-like by nature
 
-**Location:** `playbooks/executable/`
+**Location:** `domain/playbooks/`
 
 **Examples:**
 - PB_STR_001: Three Horizons Analysis

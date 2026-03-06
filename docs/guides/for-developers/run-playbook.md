@@ -246,7 +246,7 @@ decision_logic:
 
 ### Playbook doesn't run
 
-- Check playbook exists: `ls domain/playbooks/executable/`
+- Check playbook exists: `ls domain/domain/playbooks/`
 - Verify realm/node exist in InfoHub
 - Check required inputs are present
 

@@ -1,7 +1,7 @@
 # EA Agentic Lab - Implementation Status
 
-**Last Updated:** 2026-02-27
-**Status:** Domain model defined, 106 playbooks authored, 27 agents configured, web application functional with dashboard, canvas rendering, and node management
+**Last Updated:** 2026-03-06
+**Status:** Domain model defined, 149 playbooks authored (109 `PB_` + 8 `OP_` + 32 specialist), 47 agents configured, web application functional with dashboard, canvas rendering, and node management
 
 ---
 
@@ -19,14 +19,14 @@ The domain layer (`domain/`) contains all business logic definitions: agents, pl
 
 | Component | Count | Location | Status |
 |-----------|-------|----------|--------|
-| Playbook YAMLs | 106 | `domain/playbooks/{team}/` | Authored |
-| Agent configs | 27 | `domain/agents/{team}/agents/` | Configured |
-| Personality specs | 27 | `domain/agents/{team}/personalities/` | Configured |
+| Playbook YAMLs | 149 | `domain/playbooks/{team}/` | Authored |
+| Agent configs | 47 | `domain/agents/{team}/agents/` | Configured |
+| Personality specs | 47 | `domain/agents/{team}/personalities/` | Configured |
 | Skill definitions | 8 | `domain/agents/{team}/skills/` | Authored |
 | Task prompt files | 17 | `domain/agents/{team}/prompts/tasks.yaml` | Authored |
 | Templates | 8 | `domain/playbooks/templates/` | Authored |
 | Canvas specs | 8 | `domain/playbooks/canvas/specs/` | Authored |
-| Operational playbooks | 7 | `domain/playbooks/operational/` | Authored |
+| Operational playbooks | 8 | `domain/playbooks/operational/` | Authored |
 | Catalogs | 5 | `domain/catalogs/` | Authored |
 
 ### 2. Agents (27 configured)
@@ -104,26 +104,34 @@ All agents have YAML configuration, personality specifications with anti-halluci
 | Search | 10 (PB_SRCH_001-010) | Schema design, relevance tuning, RAG system design |
 | Security | 12 (PB_SEC_001-012) | Use case definition, migration planning, competitive battlecard |
 
-### 3. Playbooks (99 authored)
+### 3. Playbooks (149 authored)
 
-Playbooks are organized by team ownership. Each follows a standardized YAML schema with metadata, vault routing, trigger conditions, required inputs, key questions, decision logic, expected outputs, stop conditions, and validation checks. All playbooks now include `vault_routing` metadata aligned to the three-vault knowledge architecture.
+Playbooks are organized by team ownership using the `PB_PREFIX_NNN` ID scheme. Each follows a standardized YAML schema with metadata, vault routing, trigger conditions, required inputs, key questions, decision logic, expected outputs, stop conditions, and validation checks. All playbooks include `vault_routing` metadata aligned to the three-vault knowledge architecture.
 
 | Team | Count | Key Playbooks |
 |------|-------|---------------|
 | Strategy | 6 | Three Horizons, Ansoff, BCG, SWOT, PESTLE, Stakeholder Mapping |
-| Solution Architects | 6 | TOGAF ADM, Sizing Estimation, Technical Validation, Solution Description, Five Whys, TECHDRIVE |
-| Customer Architects | 11 | Health Score, Success Plan, Journey VoC, Guidelines, Training, Adoption, Cadence Calls, Health Triage, Track Support Case, Escalate Support Issue, Review Support Health |
+| Solution Architects | 5 | TOGAF ADM, Sizing Estimation, Solution Description, Five Whys, TECHDRIVE |
+| Customer Architects | 12 | Health Score, Success Plan, Journey VoC, Guidelines, Training, Adoption, Cadence Calls, Health Triage, Track/Escalate/Review Support |
 | Specialists: Security | 12 | Technical validation, RFx, solution scoping, use cases, migration, POC, battlecard |
 | Specialists: Search | 10 | Validation, RFx, schema design, relevance tuning, vector search, RAG |
 | Specialists: Observability | 10 | Discovery, demo, validation, SLO/SLI, APM, platform architecture |
-| Account Executives | 4 | Retrospective, Account Planning, Sales QBR, MEDDPICC |
-| Operational | 6 | Risk registration, action creation, escalation, health alerts, meeting notes, tech signals |
-| Admins | 4 | Render canvas, canvas gap analysis, validate playbook, blueprint gap scan |
-| Delivery | 7 | Implementation Kickoff, Go-Live Readiness, Implementation Risk Review, Post-Implementation Review, Engage DSE, Security Stage Adoption, Tech Trend Response |
+| Account Executives | 5 | Retrospective, Account Planning, Sales QBR, Opportunity Consult, MEDDPICC |
+| Account Intelligence | 3 | Initial Research, Org Mapping, Periodic Refresh |
+| Industry Intelligence | 2 | Industry Deep Dive, Trend Analysis |
+| Technology Scout | 2 | Tech Landscape Scan, Vendor Analysis |
+| Value Engineering | 7 | Value Engineering, Hypothesis, Calculation, Workshop, Proof, Realization, Amplification |
+| RFP | 5 | RFP Processing, Bid Decision, Response Strategy, Quality Review, Post Submission |
+| InfoSec | 2 | Security Questionnaire, Compliance Gap Assessment |
+| Delivery | 7 | Implementation Kickoff, Go-Live Readiness, Risk Review, Post-Implementation Review, Engage DSE, Security Stage Adoption, Tech Trend Response |
+| Partners | 3 | Partner Engagement Health, Dependency Tracking, Joint Account Planning |
+| Product Managers | 3 | Feature Gap Analysis, Roadmap Alignment, Feature Request Pattern |
+| Management | 2 | Deal Escalation Review, Forecast Commit Approval |
+| Governance | 7 | Nudge Effectiveness, Action Audit, Decision Digest, Risk Review, Signal Quality, InfoHub Freshness, Vault Structure |
 | Competitive Intelligence | 1 | Five Forces |
-| Value Engineering | 1 | Value Engineering |
 | POC | 1 | POC Success Plan |
-| RFP | 1 | RFP Processing |
+| Admins | 4 | Render canvas, canvas gap analysis, validate playbook, blueprint gap scan |
+| Operational | 8 | Risk registration, action creation/completion, escalation, health alerts, meeting notes, commercial fields, tech signals |
 
 ### 4. Knowledge Architecture
 
@@ -135,7 +143,7 @@ The three-vault model separates knowledge by audience and sensitivity (see [DDR-
 | Internal Account Hub | Per account | Vendor-only | Competitive intel, deal reviews, pricing, risk assessments |
 | Global Knowledge Vault | Cross-account | Vendor-only, anonymized | Best practices, winning patterns, tribal knowledge |
 
-All 106 playbooks now include `vault_routing` metadata specifying primary vault, rationale, and secondary outputs.
+All playbooks include `vault_routing` metadata specifying primary vault, rationale, and secondary outputs.
 
 ### 5. Application
 
@@ -225,7 +233,7 @@ ea-agentic-lab/
 ├── application/                  # Application (Streamlit UI + Swift iOS + Python backend)
 ├── data/                         # Runtime data
 ├── domain/
-│   ├── agents/                   # 27 agents across 17 teams
+│   ├── agents/                   # 47 agents across 17 teams
 │   │   └── {team}/
 │   │       ├── agents/           # Agent config YAML
 │   │       ├── personalities/    # Personality specs
@@ -312,6 +320,7 @@ Identified during dashboard implementation (documented in DDR-010 Open Questions
 | 2026-02-10 | Documentation restructured (architecture/, operating-model/, guides/, decisions/) |
 | 2026-02-12 | Competitive intelligence UI, stakeholder interactivity, realm profile tabs |
 | 2026-02-13 | Canvas rendering pipeline (5 assemblers, format-dispatch renderer), portfolio dashboard with aggregated metrics, DDR-010 accepted |
+| 2026-03-06 | Playbook ID migration to `PB_PREFIX_NNN`, 20 new playbooks (RFP, InfoSec, VE, Management, Governance), DDR-024 runtime binding, `intended_agent_role` on all files, 47 agent definitions with resolver fields |
 | 2026-02-27 | QBR playbooks (PB_AE_603, PB_CA_174), Support Agent dissolved into SIG_SUP_* signals + CA Agent skill SK_CA_001 |
 | 2026-02-27 | vault_routing added to all 99 playbooks, PB_CA_187-190 (C06 support/DSE) authored, PB_DEL_001-004 (Delivery Agent) authored, Delivery Agent gap resolved |
 | 2026-02-27 | QBR playbooks enhanced to v2.0: quarter-long prep cadence, interactive agendas, coaching questions, pipeline review techniques, stakeholder tailoring, customer wins framework |

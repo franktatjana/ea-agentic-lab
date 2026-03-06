@@ -17,21 +17,30 @@ Playbooks are actionable, repeatable workflows that agents execute for recurring
 
 ```text
 playbooks/
-├── strategy/                # Management consulting frameworks
-├── solution_architects/     # Technical architecture playbooks
-├── account_executives/      # Sales and account management
-├── customer_architects/     # Customer success and health
-├── competitive_intelligence/
-├── value_engineering/
-├── proof_of_concept/
-├── rfp_response/
-├── delivery/
-├── specialists/
-├── management/
-├── infohub/
-├── admins/                  # System/utility playbooks
+├── strategy/                # Management consulting frameworks (6)
+├── solution_architects/     # Technical architecture playbooks (5)
+├── account_executives/      # Sales and account management (5)
+├── customer_architects/     # Customer success and health (12)
+├── competitive_intelligence/ # Market positioning (1)
+├── value_engineering/       # ROI, TCO, business case (7)
+├── proof_of_concept/        # POC governance (1)
+├── rfp_response/            # RFP processing and response (5)
+├── delivery/                # Implementation and delivery (7)
+├── specialists/             # Domain-specific technical (32)
+│   ├── security/            # SIEM/SOAR, compliance (12)
+│   ├── search/              # Schema, relevance, RAG (10)
+│   └── observability/       # SLO/SLI, APM, alerting (10)
+├── account_intelligence/    # Account research and org mapping (3)
+├── industry_intelligence/   # Industry deep dives and trends (2)
+├── technology_scout/        # Tech landscape scanning (2)
+├── partners/                # Partner engagement (3)
+├── product_managers/        # Feature gaps and roadmap (3)
+├── management/              # Deal escalation and forecast (2)
+├── governance/              # Periodic governance reviews (7)
+├── infosec/                 # Security questionnaires, compliance (2)
+├── admins/                  # System/utility playbooks (4)
 │
-├── operational/             # Micro-playbooks for routine operations
+├── operational/             # Event-driven micro-playbooks (8)
 ├── overrides/               # Personalization layer (future)
 │   ├── regions/
 │   ├── teams/
@@ -64,6 +73,8 @@ Technical architecture and qualification playbooks.
 | ID | Name | Framework | RACI |
 |----|------|-----------|------|
 | PB_SA_101 | TOGAF ADM | TOGAF | R: SA, A: SA Lead |
+| PB_SA_102 | Sizing Estimation | Capacity Planning | R: SA, A: SA Lead |
+| PB_SA_104 | Solution Description | Solution Design | R: SA, A: SA Lead |
 | PB_SA_105 | Five Whys Analysis | Root Cause | R: SA, A: SA |
 | PB_SA_802 | TECHDRIVE | Technical Qualification | R: SA, A: SA Lead |
 
@@ -76,6 +87,7 @@ Sales qualification, planning, and review playbooks.
 | PB_AE_601 | Retrospective | Win/Loss Analysis | R: AE, A: Sales Mgmt |
 | PB_AE_602 | Account Planning | Account Strategy | R: AE, A: AE |
 | PB_AE_603 | Sales QBR | Sales Performance Review | R: AE, A: Sales Mgmt |
+| PB_AE_604 | Opportunity Consult | Opportunity Analysis | R: AE, A: AE |
 | PB_AE_801 | MEDDPICC | Sales Qualification | R: AE, A: AE |
 
 ### Customer Architects (`customer_architects/`)
@@ -93,6 +105,9 @@ Customer health, success, and journey management.
 | PB_CA_190 | Review Support Health | Support Health Analysis | R: CA, A: CA Lead |
 | PB_CA_202 | Cadence Calls | Meeting Rhythm | R: CA, A: CA |
 | PB_CA_301 | Health Triage | Risk Response | R: CA, A: CA Lead |
+| PB_CA_404 | Customer Guidelines | Best Practice Guidelines | R: CA, A: CA |
+| PB_CA_405 | Training Plans | Enablement Planning | R: CA, A: CA |
+| PB_CA_406 | Adoption Guidance | Adoption Framework | R: CA, A: CA |
 
 ### Competitive Intelligence (`competitive_intelligence/`)
 
@@ -109,6 +124,12 @@ ROI, TCO, and business case development.
 | ID | Name | Framework | RACI |
 |----|------|-----------|------|
 | PB_VE_301 | Value Engineering | ROI/TCO | R: VE, A: VE Lead |
+| PB_VE_302 | Value Hypothesis | Quantified Value | R: VE, A: VE Lead |
+| PB_VE_303 | Value Calculation | Financial Modelling | R: VE, A: VE Lead |
+| PB_VE_304 | Value Stream Workshop | Current/Future State | R: VE, A: VE Lead |
+| PB_VE_305 | Value Proof | POV Metric Tracking | R: VE, A: VE Lead |
+| PB_VE_306 | Value Realization | Post-Sale Tracking | R: VE, A: VE Lead |
+| PB_VE_307 | Value Amplification | Renewal/Expansion | R: VE, A: VE Lead |
 
 ### Proof of Concept (`proof_of_concept/`)
 
@@ -125,6 +146,10 @@ RFP processing and response management.
 | ID | Name | Framework | RACI |
 |----|------|-----------|------|
 | PB_RFP_901 | RFP Processing | RFP Response | R: RFP Team, A: AE |
+| PB_RFP_902 | Bid Decision | Bid/No-Bid Framework | R: RFP Team, A: Sales Mgmt |
+| PB_RFP_903 | Response Strategy | Win Themes | R: RFP Team, A: AE |
+| PB_RFP_904 | Quality Review | Pre-Submission QA | R: RFP Team, A: RFP Lead |
+| PB_RFP_905 | Post Submission | Win/Loss Analysis | R: RFP Team, A: AE |
 
 ### Delivery (`delivery/`)
 
@@ -181,10 +206,65 @@ Domain-specific technical playbooks organized by specialty area. Each subdirecto
 | `search/` | 10 | Schema design, relevance tuning, vector search, RAG system design |
 | `observability/` | 10 | SLO/SLI definition, APM implementation, alerting strategy, platform architecture |
 
-### Empty (Ready for Future)
+### Account Intelligence (`account_intelligence/`)
 
-- `management/` - Leadership and management playbooks
-- `infohub/` - Knowledge curation playbooks
+Account research, org mapping, and periodic refresh playbooks.
+
+| ID | Name | Framework | RACI |
+|----|------|-----------|------|
+| PB_ACI_001 | Initial Account Research | Account Intelligence | R: ACI, A: AE |
+| PB_ACI_002 | Org Mapping | Organizational Analysis | R: ACI, A: AE |
+| PB_ACI_003 | Periodic Refresh | Account Maintenance | R: ACI, A: AE |
+
+### Industry Intelligence (`industry_intelligence/`)
+
+Industry deep dives and trend analysis playbooks.
+
+| ID | Name | Framework | RACI |
+|----|------|-----------|------|
+| PB_II_001 | Industry Deep Dive | Industry Analysis | R: II, A: Strategy |
+| PB_II_002 | Trend Analysis | Trend Detection | R: II, A: Strategy |
+
+### Technology Scout (`technology_scout/`)
+
+Technology landscape scanning and vendor analysis.
+
+| ID | Name | Framework | RACI |
+|----|------|-----------|------|
+| PB_TSCT_001 | Tech Landscape Scan | Technology Radar | R: Tech Scout, A: SA Lead |
+| PB_TSCT_002 | Vendor Analysis | Vendor Assessment | R: Tech Scout, A: SA Lead |
+
+### Management (`management/`)
+
+Deal escalation and forecast governance playbooks.
+
+| ID | Name | Framework | RACI |
+|----|------|-----------|------|
+| PB_MGT_001 | Deal Escalation Review | Escalation Governance | R: Senior Mgr, A: VP Sales |
+| PB_MGT_002 | Forecast Commit Approval | Forecast Governance | R: Senior Mgr, A: VP Sales |
+
+### Governance (`governance/`)
+
+Periodic review cycles for system-level governance agents.
+
+| ID | Name | Framework | RACI |
+|----|------|-----------|------|
+| PB_GOV_001 | Nudge Effectiveness Review | Nudge Governance | R: Nudger, A: System Admin |
+| PB_GOV_002 | Weekly Action Audit | Action Governance | R: Task Shepherd, A: System Admin |
+| PB_GOV_003 | Weekly Decision Digest | Decision Governance | R: Decision Registrar, A: System Admin |
+| PB_GOV_004 | Weekly Risk Review | Risk Governance | R: Risk Radar, A: System Admin |
+| PB_GOV_005 | Signal Quality Review | Signal Governance | R: Signal Matcher, A: System Admin |
+| PB_GOV_006 | InfoHub Freshness Audit | Knowledge Governance | R: InfoHub Curator, A: System Admin |
+| PB_GOV_007 | Vault Structure Review | Knowledge Governance | R: Vault Curator, A: System Admin |
+
+### InfoSec (`infosec/`)
+
+Security questionnaire processing and compliance assessment.
+
+| ID | Name | Framework | RACI |
+|----|------|-----------|------|
+| PB_ISEC_001 | Security Questionnaire | Security Compliance | R: InfoSec, A: SA Lead |
+| PB_ISEC_002 | Compliance Gap Assessment | Compliance Analysis | R: InfoSec, A: SA Lead |
 
 ---
 
@@ -194,13 +274,14 @@ Micro-playbooks for routine, event-driven operations.
 
 | ID | Name | Trigger | Owner |
 |----|------|---------|-------|
-| OP_RSK_001 | Register New Risk | risk_identified | Risk Radar Agent |
-| OP_ACT_001 | Create Action Item | action_needed | Task Shepherd Agent |
-| OP_ESC_001 | Escalate Blocked Action | action_blocked | Nudger Agent |
-| OP_HLT_001 | Health Score Alert | health_threshold | CA Agent |
-| OP_MTG_001 | Process Meeting Notes | meeting_notes_available | Meeting Notes Agent |
-| OP_COM_001 | Update Commercial Fields | deal_stage_change, stale_data | AE Agent |
-| OP_TECH_001 | Process Technology Scout Update | tech_signal_detected | Tech Signal Agent |
+| OP_MTG_001 | Process Meeting Notes | meeting_notes_available | meeting-notes-agent |
+| OP_RSK_001 | Register New Risk | risk_identified | risk-radar-agent |
+| OP_ACT_001 | Create Action Item | action_needed | task-shepherd-agent |
+| OP_ACT_002 | Complete Action from Signal | signal_matches_done_means | task-shepherd-agent |
+| OP_ESC_001 | Escalate Blocked Action | action_blocked | nudger-agent |
+| OP_HLT_001 | Health Score Alert | health_threshold | risk-radar-agent |
+| OP_COM_001 | Update Commercial Fields | deal_stage_change | ae-opportunity-hygiene-agent |
+| OP_TECH_001 | Process Tech Signal Update | tech_signal_detected | tech-signal-analyzer-agent |
 
 ---
 
@@ -396,6 +477,11 @@ All agent roles now have dedicated playbooks. No remaining gaps.
 
 **Resolved gaps:**
 
+- ~~RFP Agent~~: resolved with PB_RFP_901-905 (2026-03-06)
+- ~~InfoSec Agent~~: resolved with PB_ISEC_001-002 (2026-03-06)
+- ~~VE Agent~~: expanded from 1 to 7 with PB_VE_301-307 (2026-03-06)
+- ~~Senior Manager Agent~~: resolved with PB_MGT_001-002 (2026-03-06)
+- ~~Governance Agents~~: resolved with PB_GOV_001-007 (2026-03-06)
 - ~~Product Manager Agent~~: resolved with PB_PM_001-003 (2026-02-27)
 - ~~Partner Agent~~: resolved with PB_PTR_001-003 (2026-02-27)
 - ~~Delivery Agent~~: resolved with PB_DEL_001-004 (2026-02-27)
@@ -416,6 +502,7 @@ All agent roles now have dedicated playbooks. No remaining gaps.
 
 | Version | Date | Changes | Author |
 |---------|------|---------| -------|
+| 3.0 | 2026-03-06 | Playbook ID migration (PB_PREFIX_NNN), added 20 new playbooks (RFP, InfoSec, VE, Management, Governance), intended_agent_role on all files, OP_ top-level fields | Tatjana Frank |
 | 2.3 | 2026-02-27 | Added PB_PM_001-003 (PM Agent), PB_PTR_001-003 (Partner Agent), OP_COM_001, RACI on all playbooks, all agent gaps resolved | Tatjana Frank |
 | 2.2 | 2026-02-27 | Added PB_CA_187-190 (C06), PB_DEL_001-004 (Delivery), vault_routing on all playbooks, Delivery gap resolved | Tatjana Frank |
 | 2.1 | 2026-02-11 | Added specialists catalog, documented agent role coverage gaps | Tatjana Frank |

@@ -129,7 +129,7 @@ Retirement triggers: no executions in 180 days, success rate below 50% over 30 d
 
 | Source | Content |
 |--------|---------|
-| `playbooks/executable/` | Executable playbook definitions |
+| `domain/playbooks/` | Executable playbook definitions |
 | `playbooks/operational/` | Operational playbook definitions |
 | `playbooks/validation/` | Validation playbook definitions |
 | `runs/` | Execution logs |

@@ -197,7 +197,7 @@ graph TD
 
 ### PB_STR_001: McKinsey Three Horizons Analysis
 
-**File:** `playbooks/executable/PB_STR_001_three_horizons.yaml`
+**File:** `domain/playbooks/PB_STR_001_three_horizons.yaml`
 
 ```yaml
 playbook_id: "PB_STR_001"

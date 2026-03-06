@@ -14,7 +14,7 @@ an 8-step execution pipeline:
     8. Write Outputs       - Persist artifacts and execution trace
 
 Integration Points:
-    - Reads from: domain/playbooks/executable/*.yaml, application/settings/playbook_thresholds.yaml
+    - Reads from: domain/domain/playbooks/*.yaml, application/settings/playbook_thresholds.yaml
     - Writes to: data/runs/{run_id}/ (metadata.yaml, trace.json, report.md, outputs/)
     - Used by: Agent implementations, Streamlit UI (app.py)
 
