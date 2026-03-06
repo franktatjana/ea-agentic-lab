@@ -10,7 +10,7 @@ order: 1
 
 ## Overview
 
-The EA Agentic Lab implements a 47-agent governance system for strategic account management across three layers: 18 strategic agents that exercise judgment and make recommendations (with 8 AE sub-agents and 6 SA sub-agents operating under routing orchestrators), 10 governance agents that enforce process and maintain artifacts, and 5 intelligence agents that gather and analyze external signals.
+The EA Agentic Lab implements a 47-agent governance system for strategic account management across three layers: 18 strategic agents that exercise judgment and make recommendations (with 8 AE sub-agents and 6 SA sub-agents operating under routing orchestrators), 11 governance agents that enforce process and maintain artifacts, and 5 intelligence agents that gather and analyze external signals.
 
 All agents operate at **Node level** within the Realm/Node hierarchy. See [core-entities.md](../system/core-entities.md) for entity definitions. For the full domain model, see [domain-model.md](../system/domain-model.md).
 

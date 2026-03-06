@@ -398,7 +398,7 @@ InfoHub Curator
 
 **Communication:** Signal-based, not shared records.
 
-**Governance count:** Now 9 (was 8, added Knowledge Vault Curator; renamed Knowledge Curator to InfoHub Curator per DDR-015)
+**Governance count:** Now 11 (was 8, added Knowledge Vault Curator per DDR-015, Signal Matcher, Observability Specialist; renamed Knowledge Curator to InfoHub Curator per DDR-015)
 
 ---
 

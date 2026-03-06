@@ -30,7 +30,7 @@ This document defines the complete responsibility matrix for all agents, includi
 | **Deal Execution** | RFP orchestration, POC validation, security clearance | 3 |
 | **Delivery** | Implementation handoff, services | 2 |
 | **Intelligence** | Gather and analyze external data | 5 |
-| **Governance** | Reduce entropy, maintain quality | 9 |
+| **Governance** | Reduce entropy, maintain quality | 11 |
 | **Orchestration** | Meta-layer process management | 1 |
 
 ---
@@ -43,9 +43,9 @@ See [curator-agents.md](curator-agents.md) for signal specification.
 
 ---
 
-## Functional Agents (14)
+## Functional Agents (14 + 14 sub-agents)
 
-Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture (3), Deal Execution (3), and Delivery (2). See the [Agent Categories](#agent-categories) table above for the full breakdown. Each agent is documented below with its scope, handover triggers, and escalation paths.
+Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture (3), Deal Execution (3), and Delivery (2). AE Agent and SA Agent are routing orchestrators with 8 and 6 sub-agents respectively. Sub-agent responsibilities are documented immediately after their parent agent. Each agent is documented below with its scope, handover triggers, and escalation paths.
 
 ### 1. AE Agent (Account Executive)
 
@@ -85,6 +85,83 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 | POC Agent | POC results | Drive to close |
 | RFP Agent | Bid recommendation | Execute or escalate |
 
+#### AE Sub-Agents (8)
+
+The AE Agent is a routing orchestrator. All domain work is delegated to these sub-agents, each owning its own tools, flows, and prompt registry. See `domain/agents/account_executives/` for definition files.
+
+**1.1 AE Deal Diagnosis Agent** (`ae-deal-diagnosis-agent`, parent: `ae-agent`)
+
+Scores deal health (RED/YELLOW/GREEN) from engagement signals, diagnoses stall causes, extracts loss learnings, identifies resurrection candidates, and manages close plans.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| Portfolio-level metrics | ae-pipeline-mgmt-agent | Request spans pipeline, not single deal |
+| Meeting materials needed | ae-meeting-prep-agent | Prep or post-call summary requested |
+| Hygiene check | ae-opportunity-hygiene-agent | Scheduled check, not ad-hoc diagnosis |
+
+**1.2 AE Pipeline Management Agent** (`ae-pipeline-mgmt-agent`, parent: `ae-agent`)
+
+Forecast accuracy analysis, pipeline coverage assessment, next-best-action prioritization, territory planning, and account tiering.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| Individual deal diagnosis | ae-deal-diagnosis-agent | Single deal, not portfolio |
+| Forecast variance > 15% | Senior Manager | Escalation required |
+
+**1.3 AE Stakeholder Intelligence Agent** (`ae-stakeholder-agent`, parent: `ae-agent`)
+
+Relationship mapping, champion health scoring, executive briefing preparation, multi-threading strategy, and stakeholder sentiment tracking.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| Champion gone dark 21+ days | Senior Manager | Escalation |
+| Competitive stakeholder moves | ae-signal-detection-agent | Competitive signal detected |
+
+**1.4 AE Signal Detection Agent** (`ae-signal-detection-agent`, parent: `ae-agent`)
+
+Budget signals, competitive threat detection, expansion opportunity identification, and commercial signal scoring from communications and CRM data.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| Competitive threat at deal level | CI Agent | Deeper competitive analysis needed |
+| Budget signal confirmed | ae-deal-diagnosis-agent | Deal health reassessment |
+
+**1.5 AE Qualification Agent** (`ae-qualification-agent`, parent: `ae-agent`)
+
+MEDDPICC assessment, deal readiness scoring, qualification gap analysis, and evidence-based scorecard generation.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| Technical criteria gaps | SA Agent | Architecture fit assessment needed |
+| Economic buyer unidentified | ae-stakeholder-agent | Stakeholder mapping required |
+
+**1.6 AE Meeting Preparation Agent** (`ae-meeting-prep-agent`, parent: `ae-agent`)
+
+Call briefs, QBR materials, post-call summaries, discovery preparation with structured questions, and objection handling frameworks.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| Technical meeting prep | SA Agent | Architecture review meeting |
+| Meeting notes captured | Meeting Notes Agent | Post-meeting processing |
+
+**1.7 AE Opportunity Hygiene Agent** (`ae-opportunity-hygiene-agent`, parent: `ae-agent`)
+
+Weekly CRM hygiene checks, stale deal alerts, paper process tracking (procurement, legal, security), and compliance checklists.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| Stale deal detected | ae-deal-diagnosis-agent | Deal needs health assessment |
+| Security review stalled | InfoSec Agent | Security clearance blocked |
+
+**1.8 AE Pipeline Generation Agent** (`ae-pipeline-gen-agent`, parent: `ae-agent`)
+
+Prospecting research, ICP-matched targeting, outreach strategy, SDR coordination, and pipeline generation tracking.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| Target account identified | ACI Agent | Account intelligence research |
+| Partner co-sell opportunity | Partner Agent | Partner leverage potential |
+
 ---
 
 ### 2. SA Agent (Solution Architect)
@@ -123,6 +200,66 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 | RFP Agent | Technical RFP sections | Draft responses |
 | POC Agent | Technical blockers | Resolve or escalate |
 | Meeting Notes | Technical decisions | Log in ADR |
+
+#### SA Sub-Agents (6)
+
+The SA Agent is a routing orchestrator. All domain work is delegated to these sub-agents, each owning its own tools, flows, and prompt registry. See `domain/agents/solution_architects/` for definition files.
+
+**2.1 SA Discovery Agent** (`sa-discovery-agent`, parent: `sa-agent`)
+
+Structured discovery sessions, requirement elicitation, gap analysis against customer needs, and discovery summary generation.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| Risk identified during discovery | sa-risk-agent | Technical risk needs assessment |
+| Decision point surfaced | sa-decision-capture-agent | Architecture decision needed |
+| Best practice applicable | sa-best-practices-agent | Pattern recommendation needed |
+
+**2.2 SA Risk Agent** (`sa-risk-agent`, parent: `sa-agent`)
+
+Technical risk identification, risk scoring (severity/likelihood), mitigation planning, and risk register maintenance.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| Risk severity HIGH | Senior Manager | Escalation required |
+| Risk affects journey | sa-journey-agent | Customer journey impact |
+| Risk requires decision | sa-decision-capture-agent | Architecture trade-off needed |
+
+**2.3 SA Decision Capture Agent** (`sa-decision-capture-agent`, parent: `sa-agent`)
+
+Architecture decision records (ADRs), trade-off analysis, decision rationale documentation, and decision log maintenance.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| Decision affects CSP evaluation | sa-csp-agent | Platform comparison impact |
+| Decision creates new risk | sa-risk-agent | Risk register update needed |
+
+**2.4 SA CSP Agent** (`sa-csp-agent`, parent: `sa-agent`)
+
+Cloud service provider evaluation, platform comparison, CSP-specific architecture guidance, and multi-cloud strategy assessment.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| CSP decision finalized | sa-decision-capture-agent | ADR creation needed |
+| CSP gap identified | sa-best-practices-agent | Pattern recommendation |
+
+**2.5 SA Best Practices Agent** (`sa-best-practices-agent`, parent: `sa-agent`)
+
+Architecture pattern recommendations, best practice retrieval from knowledge vault, practice gap analysis, and pattern applicability assessment.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| Practice gap in customer journey | sa-journey-agent | Journey stage needs improvement |
+| Practice requires risk assessment | sa-risk-agent | Pattern has trade-offs |
+
+**2.6 SA Journey Agent** (`sa-journey-agent`, parent: `sa-agent`)
+
+Customer journey mapping, journey stage tracking, stakeholder journey analysis, and engagement progression monitoring.
+
+| Handover | Target | Condition |
+|----------|--------|-----------|
+| Journey stage blocked | sa-risk-agent | Blocker needs risk assessment |
+| Journey milestone reached | sa-discovery-agent | Next discovery phase |
 
 ---
 
@@ -522,7 +659,7 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 
 ---
 
-## Governance Agents (9)
+## Governance Agents (11)
 
 [image: Governance Processing Chain - Meeting Notes triggering parallel processing by Task Shepherd, Decision Registrar, and Risk Radar]
 
@@ -697,6 +834,72 @@ Agents are organized into 5 categories: Leadership (2), Sales (4), Architecture 
 - Emits `semantic_conflict` signal → Owning agents notified
 - Emits `staleness_detected` signal → Owning agent
 - Emits `artifact_deprecated` signal → All agents
+
+---
+
+### 9. Knowledge Vault Curator Agent
+
+**Mission:** Govern the Global Knowledge Vault (Vault 3), ensuring anonymized cross-account learnings are valid, non-duplicative, and aligned with playbook evolution.
+
+| Trigger | `knowledge_contributed`, `playbook_feedback_received`, scheduled quality audits |
+|---------|-------|
+| **Output Path** | `governance/knowledge_vault/` |
+| **Quality Gate** | No PII leakage, no duplicate patterns |
+
+**Responsibilities:**
+- Anonymization validation: verify all contributed knowledge has PII removed
+- Deduplication: detect and merge overlapping patterns across accounts
+- Quality scoring: rate contributed learnings by evidence strength and reusability
+- Playbook alignment: connect validated patterns to relevant playbooks (DDR-014)
+- Lifecycle management: archive superseded patterns, promote validated ones
+
+**Handover:**
+- Emits `knowledge_validated` → Playbook Curator (pattern ready for playbook integration)
+- Emits `anonymization_failed` → Contributing agent (PII detected, needs rework)
+- Emits `pattern_superseded` → All consuming agents
+
+---
+
+### 10. Signal Matcher Agent
+
+**Mission:** Route incoming signals to the correct consuming agent based on signal type, severity, and context.
+
+| Trigger | Any signal emitted by any agent |
+|---------|-------|
+| **Output Path** | `governance/signal_routing/` |
+| **Quality Gate** | No unrouted signals, no duplicate deliveries |
+
+**Responsibilities:**
+- Signal classification: match incoming signals to registered consumers
+- Priority routing: ensure HIGH/CRITICAL signals reach targets within SLA
+- Dead letter handling: flag signals with no registered consumer
+- Delivery confirmation: track signal acknowledgment from receiving agents
+
+**Handover:**
+- Routes signals to their registered consumers per signal catalog
+- Emits `signal_unroutable` → Orchestration Agent (no consumer registered)
+
+---
+
+### 11. Observability Specialist Agent
+
+**Mission:** Monitor agent health, performance metrics, and system-level observability across the agent ecosystem.
+
+| Trigger | Scheduled health checks, `agent_error`, `performance_threshold_exceeded` |
+|---------|-------|
+| **Output Path** | `governance/observability/` |
+| **Quality Gate** | All agents reporting health within SLA |
+
+**Responsibilities:**
+- Agent health monitoring: track heartbeat, error rates, response times
+- Performance trending: detect degradation patterns before they become failures
+- Capacity signaling: flag agents approaching resource or rate limits
+- Incident correlation: connect failures across agents to identify systemic issues
+
+**Handover:**
+- Emits `agent_unhealthy` → Senior Manager (agent degradation detected)
+- Emits `performance_alert` → Owning agent (self-correction opportunity)
+- Emits `incident_detected` → Risk Radar Agent (systemic risk)
 
 ---
 
