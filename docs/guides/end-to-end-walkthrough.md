@@ -73,7 +73,7 @@ The Task Shepherd validates each action has an owner and due date. The Risk Rada
 
 ### Week 2: Stakeholder Mapping
 
-You run PB_STR_203 (Stakeholder Mapping). The playbook walks you through identifying all stakeholders, their influence level, decision authority, and sentiment. For each stakeholder, you document:
+You run PB_STR_006 (Stakeholder Mapping). The playbook walks you through identifying all stakeholders, their influence level, decision authority, and sentiment. For each stakeholder, you document:
 
 | Stakeholder | Role | Influence | Sentiment | Priority |
 |-------------|------|-----------|-----------|----------|
@@ -285,7 +285,7 @@ The CA Agent begins monitoring customer health. It tracks product usage, support
 
 ### Month 1: Success Plan
 
-You run PB_CA_402 (Customer Success Plan) to formalize the post-sales roadmap:
+You run PB_CA_008 (Customer Success Plan) to formalize the post-sales roadmap:
 
 **Stage adoption targets:**
 - Foundation (weeks 1-2): Core log ingestion, basic dashboards, initial alert rules
@@ -297,7 +297,7 @@ Each stage has measurable criteria. The CA Agent tracks progress against these m
 
 ### Month 2: Health Monitoring
 
-PB_CA_401 (Customer Health Score) runs on its monthly cycle. The health score formula:
+PB_CA_007 (Customer Health Score) runs on its monthly cycle. The health score formula:
 
 - Product Usage (40%): daily active users, data volume ingested, feature adoption breadth
 - Relationship Quality (30%): executive sponsor engagement, champion strength, meeting cadence adherence
@@ -335,7 +335,7 @@ The AE re-engages for the expansion opportunity. A new node is created under the
 
 ### Pre-Renewal (T-90)
 
-PB_VE_303 (Renewal Protection) triggers at T-180 and enters its active phase at T-90. The system prepares:
+PB_VE_003 (Renewal Protection) triggers at T-180 and enters its active phase at T-90. The system prepares:
 - Value delivered summary (quantified outcomes vs. original business case)
 - Health score trend over the contract period
 - Stakeholder engagement history

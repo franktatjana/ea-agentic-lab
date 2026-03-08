@@ -34,7 +34,7 @@ Stage adoption playbooks guide customers through adopting specific product capab
 
 ### Security Stage Adoption
 
-**Path:** `domain/playbooks/PB_DEL_101_security_stage_adoption.yaml`
+**Path:** `domain/playbooks/PB_DEL_005_security_stage_adoption.yaml`
 
 Guides customers from basic SIEM deployment to advanced threat detection and response.
 
@@ -103,7 +103,7 @@ Structured approach to understanding customer needs, challenges, and success cri
 
 ### Cadence Calls
 
-**Path:** `domain/playbooks/PB_CA_202_cadence_calls.yaml`
+**Path:** `domain/playbooks/PB_CA_005_cadence_calls.yaml`
 
 Regular touchpoint framework for maintaining engagement and tracking progress.
 
@@ -143,7 +143,7 @@ Proactive engagement based on customer health indicators.
 
 ### Health Triage
 
-**Path:** `domain/playbooks/PB_CA_301_health_triage.yaml`
+**Path:** `domain/playbooks/PB_CA_006_health_triage.yaml`
 
 Structured response to declining health scores and risk indicators.
 
@@ -198,7 +198,7 @@ Hands-on technical engagement to drive adoption and value realization.
 
 ### Technical Workshop
 
-**Path:** `domain/playbooks/PB_CA_401_technical_workshop.yaml`
+**Path:** `domain/playbooks/PB_CA_007_technical_workshop.yaml`
 
 Structured technical sessions to enable customer teams.
 
@@ -211,7 +211,7 @@ Structured technical sessions to enable customer teams.
 
 ### Migration Playbook
 
-**Path:** `domain/playbooks/PB_CA_402_migration.yaml`
+**Path:** `domain/playbooks/PB_CA_008_migration.yaml`
 
 Structured guidance for customers migrating from competitive solutions.
 
@@ -229,7 +229,7 @@ Structured guidance for customers migrating from competitive solutions.
 
 ### POV Execution
 
-**Path:** `domain/playbooks/PB_CA_403_pov_execution.yaml`
+**Path:** `domain/playbooks/PB_CA_009_pov_execution.yaml`
 
 Proof of Value execution framework for technical evaluations.
 
@@ -293,7 +293,7 @@ Strategic analysis tools integrated into customer success workflows.
 
 ### Five Whys Analysis
 
-**Path:** `playbooks/solution_architects/PB_SA_105_five_whys_analysis.yaml`
+**Path:** `playbooks/solution_architects/PB_SA_004_five_whys_analysis.yaml`
 
 Root cause analysis for customer issues and blockers.
 
@@ -305,7 +305,7 @@ Use when:
 
 ### Retrospective
 
-**Path:** `domain/playbooks/PB_AE_601_retrospective.yaml`
+**Path:** `domain/playbooks/PB_AE_001_retrospective.yaml`
 
 Structured reflection on wins and losses.
 
@@ -317,7 +317,7 @@ Use when:
 
 ### Account Planning
 
-**Path:** `domain/playbooks/PB_AE_602_account_planning.yaml`
+**Path:** `domain/playbooks/PB_AE_002_account_planning.yaml`
 
 Annual strategic planning with integrated root cause analysis.
 
@@ -329,7 +329,7 @@ Use when:
 
 ### SWOT Analysis
 
-**Path:** `domain/playbooks/PB_STR_201_swot_analysis.yaml`
+**Path:** `domain/playbooks/PB_STR_004_swot_analysis.yaml`
 
 Strategic position analysis for account strategy.
 
@@ -476,7 +476,7 @@ PB_PREFIX_NNN_{descriptive_name}.yaml
 Where:
 - PREFIX = Team abbreviation (CA, SA, AE, VE, DEL, RFP, GOV, etc.)
 - NNN = Sequential number within team
-- playbook_id is the short key (PB_CA_401), filename adds the slug
+- playbook_id is the short key (PB_CA_007), filename adds the slug
 ```
 
 For the full playbook library across all teams (149 playbooks), see [domain/playbooks/README.md](../../domain/playbooks/README.md).

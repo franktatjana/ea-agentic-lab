@@ -214,13 +214,13 @@ class TestPlaybooks:
         assert len(data) >= 1
 
     def test_get_playbook(self):
-        r = client.get(f"{PREFIX}/playbooks/strategy/PB_STR_201_swot_analysis.yaml")
+        r = client.get(f"{PREFIX}/playbooks/strategy/PB_STR_004_swot_analysis.yaml")
         assert r.status_code == 200
         data = r.json()
         assert data.get("_id") or data.get("steckbrief")
 
     def test_get_playbook_raw(self):
-        r = client.get(f"{PREFIX}/playbooks/strategy/PB_STR_201_swot_analysis.yaml/raw")
+        r = client.get(f"{PREFIX}/playbooks/strategy/PB_STR_004_swot_analysis.yaml/raw")
         assert r.status_code == 200
         data = r.json()
         assert "content" in data

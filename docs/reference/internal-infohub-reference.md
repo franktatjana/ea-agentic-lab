@@ -63,9 +63,9 @@ internal-infohub/
 │
 ├── frameworks/
 │   ├── PB_STR_001_three_horizons_20260112.md       # Strategic framework outputs
-│   ├── PB_STR_201_swot_20260112.md
-│   ├── PB_STR_201_swot_20260116_revised.md
-│   └── PB_VE_301_value_engineering_20260112.md
+│   ├── PB_STR_004_swot_20260112.md
+│   ├── PB_STR_004_swot_20260116_revised.md
+│   └── PB_VE_001_value_engineering_20260112.md
 │
 ├── market_intelligence/
 │   └── news_digest.yaml              # Market signals, industry news

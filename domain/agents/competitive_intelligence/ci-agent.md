@@ -136,5 +136,5 @@ No extracted reference files. Personality file is compact and self-contained.
 - **Config:** `agents/ci_agent.yaml`
 - **Personality:** `personalities/ci_personality.yaml`
 - **Tasks:** `prompts/tasks.yaml` (15+ task templates across 4 categories)
-- **Playbooks owned:** PB_CI_701 (Porter's Five Forces), PB_CI_702 (Competitive Landscape Analysis), PB_CI_703 (Win/Loss Analysis)
-- **Playbooks contributes to:** PB_STR_001, PB_STR_201, PB_VE_301, PB_AE_603
+- **Playbooks owned:** PB_CI_001 (Porter's Five Forces), PB_CI_702 (Competitive Landscape Analysis), PB_CI_703 (Win/Loss Analysis)
+- **Playbooks contributes to:** PB_STR_001, PB_STR_004, PB_VE_001, PB_AE_003

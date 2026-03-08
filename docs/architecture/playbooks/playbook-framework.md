@@ -427,30 +427,30 @@ ea-agentic-lab/
     │   └── PB_STR_004_value_pyramid.yaml
     │
     ├── technical/
-    │   ├── PB_SA_101_five_forces.yaml
-    │   ├── PB_SA_102_adoption_curve.yaml
+    │   ├── PB_SA_001_five_forces.yaml
+    │   ├── PB_SA_002_adoption_curve.yaml
     │   ├── CL_SA_103_12factor_check.yaml
-    │   └── PB_SA_104_adr_generation.yaml
+    │   └── PB_SA_003_adr_generation.yaml
     │
     ├── risk/
-    │   ├── PB_STR_201_swot_analysis.yaml
-    │   ├── PB_STR_202_risk_matrix.yaml
-    │   ├── PB_STR_203_premortem.yaml
+    │   ├── PB_STR_004_swot_analysis.yaml
+    │   ├── PB_STR_005_risk_matrix.yaml
+    │   ├── PB_STR_006_premortem.yaml
     │   └── PB_STR_204_fmea.yaml
     │
     ├── value/
-    │   ├── PB_VE_301_value_engineering.yaml
-    │   ├── PB_VE_302_roi_analysis.yaml
-    │   ├── PB_VE_303_business_model_canvas.yaml
-    │   └── PB_VE_304_cost_benefit.yaml
+    │   ├── PB_VE_001_value_engineering.yaml
+    │   ├── PB_VE_002_roi_analysis.yaml
+    │   ├── PB_VE_003_business_model_canvas.yaml
+    │   └── PB_VE_004_cost_benefit.yaml
     │
     ├── customer_success/
-    │   ├── PB_CA_401_health_score.yaml
-    │   ├── PB_CA_402_adoption_maturity.yaml
-    │   └── PB_CA_403_nps_analysis.yaml
+    │   ├── PB_CA_007_health_score.yaml
+    │   ├── PB_CA_008_adoption_maturity.yaml
+    │   └── PB_CA_009_nps_analysis.yaml
     │
     └── competitive/
-        ├── PB_POC_501_positioning_map.yaml
+        ├── PB_POC_001_positioning_map.yaml
         ├── PB_POC_502_win_loss_analysis.yaml
         └── PB_POC_503_battlecard_gen.yaml
 ```
@@ -504,11 +504,11 @@ team: "account_executives"
 playbooks_owned:
   - "PB_STR_001_three_horizons"
   - "PB_STR_002_ansoff_matrix"
-  - "PB_VE_301_value_engineering"
+  - "PB_VE_001_value_engineering"
 
 playbooks_contribute_to:
-  - "PB_STR_201_swot_analysis"  # Provides commercial context
-  - "PB_CA_401_health_score"   # Provides relationship data
+  - "PB_STR_004_swot_analysis"  # Provides commercial context
+  - "PB_CA_007_health_score"   # Provides relationship data
 ```
 
 ---

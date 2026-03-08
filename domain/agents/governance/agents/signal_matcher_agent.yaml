@@ -1,246 +1,163 @@
 # Signal Matcher Agent
-# Purpose: Infer action completion from seller activity signals, not manual status clicks
+# Purpose: Route intelligence signals from source agents to the realms and agents that can act on them
 
 agent_id: "signal_matcher_agent"
 team: "governance"
 category: "entropy_reduction"
-purpose: "Eliminate admin burden by inferring action completion from daily operations signals"
+purpose: "Route intelligence signals to the right realm context so agents can act on them"
 
 core_functions:
-  - "Matches open actions to completion signals from daily operations"
-  - "Scores match confidence using semantic, source, temporal, and actor factors"
-  - "Auto-completes high-confidence actions with evidence trail"
-  - "Sends one-tap confirmation for medium-confidence matches"
+  - "Match incoming signals from MNA, ACI, CI, and tech scout agents to active realms"
+  - "Score signal relevance and confidence against realm context"
+  - "Route matched signals to the appropriate agent or infohub destination"
+  - "Discard low-confidence signals and log reasoning for calibration"
+
+inputs:
+  - "Signal events from mna-agent, aci-agent, ci-agent, tech-signal-analyzer-agent"
+  - "{realm}/{node}/external-infohub/signals/"
+  - "references/signal-matcher-signal-sources.yaml"
+  - "references/signal-matcher-confidence-scoring.yaml"
+
+outputs:
+  - "{realm}/{node}/internal-infohub/signals/matched_signals.yaml"
+  - "Routed signal payload to target agent"
 
 mechanics:
-  - "Semantic matching of done_means against recent signals"
-  - "Confidence scoring with weighted factors (semantic, credibility, timing, actor)"
-  - "Threshold-based routing (auto-complete, suggest, attach evidence, skip)"
+  - "Receives raw signal with source, content, and metadata"
+  - "Scores relevance against active realm profile using confidence-scoring.yaml"
+  - "Routes signals above threshold to declared target agent"
+  - "Logs discarded signals with confidence score for calibration review"
 
 escalation_to: "Governance Lead"
 
 # Design Principle:
-# Sellers sell. They should never have to remember what to click and why.
-# This agent reads signals from their natural work artifacts (meetings, daily ops,
-# POC updates, decisions) and correlates them to open actions. Humans validate,
-# they don't administrate.
+# Intelligence signals are only valuable when they reach the right context.
+# This agent ensures signals from market, account, competitive, and technology
+# intelligence agents are scored against realm profiles and routed to the
+# agents that can act on them. Unmatched signals are logged for calibration.
 
 trigger:
   events:
-    - "meeting_processed"          # SIG_ART_003: meeting notes extracted
-    - "artifact_created"           # SIG_ART_001: new document in vault
-    - "artifact_updated"           # SIG_ART_002: existing document changed
-    - "decision_logged"            # SIG_GOV_001: decision registered
-    - "playbook_completed"         # SIG_PB_STR_002: playbook execution finished
+    - "signal_received"
+    - "external_feed_updated"
+    - "realm_profile_changed"
   schedule:
-    - cron: "0 10 * * 1-5"        # Daily 10am: scan all open actions against recent signals
-    - cron: "0 16 * * 5"          # Friday 4pm: weekly reconciliation before reporter digest
-
-inputs:
-  primary:
-    - "{realm}/{node}/internal-infohub/actions/action_tracker.yaml"
-  signal_sources:
-    - "{realm}/{node}/raw/meetings/"
-    - "{realm}/{node}/raw/daily-ops/"
-    - "{realm}/{node}/external-infohub/decisions/decision_log.yaml"
-    - "{realm}/{node}/external-infohub/journey/touchpoint_log.yaml"
-    - "{realm}/{node}/external-infohub/opportunities/*/poc_status/"
-    - "{realm}/{node}/internal-infohub/agent_work/"
+    - cron: "0 10 * * 1-5"        # Daily 10am: process queued signals
+    - cron: "0 16 * * 5"          # Friday 4pm: weekly calibration review
 
 processing:
-  # Step 1: Collect open actions with their done_means
-  gather_open_actions:
-    source: "action_tracker.yaml"
-    filter: "status IN ('not_started', 'in_progress')"
+  signal_intake:
+    description: "Receive raw signal from intelligence agents"
     required_fields:
-      - "action_id"
-      - "title"
-      - "owner"
-      - "due_date"
-      - "done_means"              # Set by task_shepherd, the matching target
-
-  # Step 2: Collect recent signals (artifacts changed since last scan)
-  gather_signals:
-    lookback: "48_hours"          # Scan window, overlaps to catch missed signals
+      - "signal_id"
+      - "source_agent"
+      - "signal_type"
+      - "content"
+      - "metadata"
     sources:
-      - id: "meeting_outcomes"
-        path: "raw/meetings/"
-        extract: "action tables, outcome sections, decisions made"
-      - id: "daily_ops"
-        path: "raw/daily-ops/"
-        extract: "status updates, completion mentions, metrics achieved"
-      - id: "poc_status"
-        path: "opportunities/*/poc_status/"
-        extract: "checklist items marked complete, completion percentages"
-      - id: "decision_outcomes"
-        path: "decisions/decision_log.yaml"
-        extract: "decisions with status 'implemented', next_actions completed"
-      - id: "touchpoints"
-        path: "journey/touchpoint_log.yaml"
-        extract: "meetings that occurred, follow_up_required fields"
-      - id: "agent_outputs"
-        path: "agent_work/"
-        extract: "session.status == completed, actions_created"
+      - id: "market_news"
+        agent: "mna-agent"
+        signal_types: ["market_shift", "competitor_move", "industry_trend"]
+      - id: "account_intelligence"
+        agent: "aci-agent"
+        signal_types: ["account_change", "stakeholder_move", "tech_adoption"]
+      - id: "competitive_intelligence"
+        agent: "ci-agent"
+        signal_types: ["competitive_threat", "win_loss_pattern", "positioning_shift"]
+      - id: "technology_signals"
+        agent: "tech-signal-analyzer-agent"
+        signal_types: ["technology_trending", "new_technology_detected", "technology_scout_updated"]
 
-  # Step 3: Semantic matching (LLM-based)
-  match_signals_to_actions:
+  realm_matching:
     method: "semantic"
     description: |
-      For each open action, compare its done_means against all recent signals.
-      Use semantic similarity, not keyword matching. The done_means is the
-      completion criteria set by task_shepherd; signals provide evidence.
+      Match signal content against active realm profiles. Score relevance
+      using industry alignment, technology stack overlap, and competitive
+      landscape match.
     match_criteria:
-      - "Signal content semantically satisfies action's done_means"
-      - "Signal source is credible (meeting note, POC update, decision log)"
-      - "Signal timing is plausible (after action creation, within due window)"
-      - "Signal author/participants overlap with action owner or stakeholders"
+      - "Signal industry aligns with realm vertical"
+      - "Signal technologies overlap with realm tech stack"
+      - "Signal competitors match realm competitive landscape"
+      - "Signal geography relevant to realm market"
 
-  # Step 4: Score confidence
   confidence_scoring:
     factors:
-      - id: "semantic_match"
-        weight: 0.35
-        description: "How closely signal content matches done_means"
-      - id: "source_credibility"
+      - id: "content_relevance"
+        weight: 0.40
+        description: "How closely signal content matches realm context"
+      - id: "source_reliability"
         weight: 0.25
-        description: "Meeting note > daily ops > agent scratchpad"
-        scores:
-          meeting_note: 1.0
-          decision_log: 1.0
-          poc_status: 0.9
-          daily_ops: 0.8
-          touchpoint: 0.7
-          agent_work: 0.5
-      - id: "temporal_plausibility"
+        description: "Track record of source agent for this signal type"
+      - id: "temporal_relevance"
         weight: 0.20
-        description: "Signal occurred after action created, near due date"
-      - id: "actor_overlap"
-        weight: 0.20
-        description: "Signal involves action owner or related stakeholders"
+        description: "Recency and time-sensitivity of the signal"
+      - id: "corroboration"
+        weight: 0.15
+        description: "Multiple sources reporting similar signal"
 
-  # Step 5: Act based on confidence
-  confidence_thresholds:
-    - id: "auto_complete"
-      range: "confidence >= 0.90"
-      action: "Mark action completed, set evidence, notify owner for awareness"
-      requires_human: false
-      revert_window: "48_hours"
-    - id: "suggest_complete"
-      range: "0.60 <= confidence < 0.90"
-      action: "Send one-tap confirmation to owner with evidence summary"
-      requires_human: true
-      template: "confirm_completion"
-    - id: "show_evidence"
-      range: "0.30 <= confidence < 0.60"
-      action: "Attach evidence to action as progress note, no status change"
-      requires_human: false
-    - id: "no_signal"
-      range: "confidence < 0.30"
-      action: "No action taken, leave for nudger_agent to handle"
-      requires_human: false
-
-outputs:
-  artifacts:
-    - type: "action_tracker_update"
-      path: "{realm}/{node}/internal-infohub/actions/action_tracker.yaml"
-      changes:
-        - field: "status"
-          value: "completed|completed_late"
-          condition: "auto_complete OR human_confirmed"
-        - field: "completed_date"
-          value: "signal.date"
-        - field: "outcome"
-          value: "Auto-detected: {evidence_summary}"
-        - field: "completion_evidence"
-          value:
-            signal_source: "artifact path"
-            signal_excerpt: "relevant text"
-            confidence: "0.0-1.0"
-            matched_at: "ISO timestamp"
-            auto_completed: "true|false"
-    - type: "signal_match_log"
-      path: "{realm}/{node}/internal-infohub/governance/signal_match_log.yaml"
-      description: "Audit trail of all matches attempted, including non-matches"
-  notifications:
-    - type: "completion_detected"
-      channel: "slack|email"
-      template: "completion_notification"
-      condition: "auto_complete"
-      content: |
-        Action "{action.title}" marked complete based on {signal.source_type}.
-        Evidence: {signal.excerpt}
-        Wrong? Tap to revert.
-    - type: "completion_suggested"
-      channel: "slack|email"
-      template: "confirm_completion"
-      condition: "suggest_complete"
-      content: |
-        Did you finish "{action.title}"?
-        I found: {signal.excerpt}
-        [Confirm] [Not yet] [Wrong match]
+  routing_thresholds:
+    - id: "auto_route"
+      range: "confidence >= 0.80"
+      action: "Route signal directly to target agent and infohub"
+    - id: "review_route"
+      range: "0.50 <= confidence < 0.80"
+      action: "Queue for human review before routing"
+    - id: "log_discard"
+      range: "confidence < 0.50"
+      action: "Log signal with reasoning, no routing"
 
 quality_gates:
-  - "Never auto-complete without verifiable signal evidence"
-  - "Never modify action priority or risk severity (out of scope)"
-  - "Signal match log must record every evaluation, including non-matches"
-  - "Auto-completed actions must have revert_window before downstream effects"
-  - "Max 1 confirmation request per action per day (no spam)"
-  - "done_means must exist on action; skip actions without it"
-  - "completed_late auto-set when completed_date > due_date"
+  - "Every routed signal must have confidence score and routing reasoning"
+  - "Discarded signals must be logged with score for calibration"
+  - "No duplicate signals routed to same realm within 24h window"
+  - "Source agent must be in declared signal_sources list"
+  - "Realm must be active to receive routed signals"
 
 anti_patterns:
-  - "Do not guess completion without signal evidence"
-  - "Do not use absence of nudger complaints as a completion signal"
-  - "Do not match signals older than 7 days to avoid stale correlations"
-  - "Do not auto-complete critical actions (always require human confirmation)"
-  - "Do not process signals from draft or unconfirmed meeting notes"
+  - "Do not route signals without confidence scoring"
+  - "Do not discard signals without logging reasoning"
+  - "Do not route to inactive or archived realms"
+  - "Do not process signals from unregistered source agents"
+  - "Do not bypass review threshold for ambiguous signals"
 
-# Relationship to existing agents
 coordination:
-  task_shepherd:
-    dependency: "Requires done_means field on actions (set by task_shepherd)"
-    handoff: "If done_means is missing, signal_matcher skips and task_shepherd is notified"
-  nudger_agent:
-    replaces: "For matched actions, replaces 'please update status' with 'confirm this is done'"
-    fallback: "Actions with no signal match remain in nudger's scope"
-  meeting_notes_agent:
-    consumes: "Extracted actions and outcomes from processed meeting notes"
-  infohub_curator:
-    informs: "Completed actions enter 30-day deprecation window per existing rules"
+  mna_agent:
+    consumes: "Market news and industry trend signals"
+    feedback: "Signal match rates inform MNA relevance tuning"
+  aci_agent:
+    consumes: "Account-level intelligence signals"
+    feedback: "Realm match accuracy informs ACI targeting"
+  ci_agent:
+    consumes: "Competitive intelligence signals"
+    feedback: "Competitive signal relevance informs CI priorities"
+  tech_signal_analyzer_agent:
+    consumes: "Technology trend and adoption signals"
+    feedback: "Tech signal match rates inform scanner focus areas"
 
 integrations:
   reads_from:
-    - "action_tracker"
-    - "meeting_notes"
-    - "decision_log"
-    - "touchpoint_log"
-    - "poc_status"
-    - "daily_ops"
-    - "agent_work"
+    - "realm_profiles"
+    - "signal_sources_config"
+    - "confidence_scoring_config"
   writes_to:
-    - "action_tracker"
-    - "signal_match_log"
+    - "matched_signals"
+    - "signal_discard_log"
   notifies:
-    - "action_owners"
-    - "task_shepherd_agent"        # When done_means is missing
-    - "nudger_agent"               # When action is auto-completed (skip future nudges)
+    - "target_agents"
+    - "governance_lead"
 
 skills:
   owned: []
 
 playbooks:
   owned:
-    - "PB_GOV_005"  # Signal Match Quality Review
-    - "OP_ACT_002"  # Auto-Complete Action via Signal
-  contributes_to: []
+    - "PB_GOV_005"   # Signal Quality Review
+  contributes_to:
+    - "OP_TECH_001"  # Process Tech Signal Map Update
 
 execution:
   trigger_sources:
-    - "meeting_processed"
-    - "artifact_created"
-    - "artifact_updated"
-    - "decision_logged"
-    - "playbook_completed"
-    - "scheduled_cadence"
-  output_destination: "{realm}/{node}/internal-infohub/governance/"
-  escalation_threshold: "false_positive_rate_high"
+    - "signal_received"
+    - "external_feed_updated"
+  output_destination: "{realm}/{node}/internal-infohub/signals/"
+  escalation_threshold: "signal confidence indeterminate after 2 scoring passes"

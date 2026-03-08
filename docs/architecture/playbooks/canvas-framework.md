@@ -47,7 +47,7 @@ The system produces both HTML for visual presentation and Markdown for text-base
 │  │ Scanning     │──────────────────▶           │                            │
 │  │ (scheduled)  │                              ▼                            │
 │  └──────────────┘                   ┌──────────────────────┐                │
-│                                     │ PB_ADM_951 Render Canvas │                │
+│                                     │ PB_ADM_001 Render Canvas │                │
 │                                     │ - Gathers data       │                │
 │                                     │ - Validates content  │                │
 │                                     │ - Outputs MD + HTML  │                │
@@ -166,7 +166,7 @@ output:
 
 ## Playbooks
 
-### PB_ADM_951: Render Canvas
+### PB_ADM_001: Render Canvas
 
 Renders any canvas type from InfoHub data:
 
@@ -182,7 +182,7 @@ Renders any canvas type from InfoHub data:
 - Scheduled refresh (per spec cadence)
 - Manual request
 
-### PB_ADM_952: Canvas Gap Analysis
+### PB_ADM_002: Canvas Gap Analysis
 
 Checks canvas coverage across nodes:
 

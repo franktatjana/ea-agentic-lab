@@ -967,52 +967,52 @@ x-ea-agent:
       The AE's sub-agents feed context into these playbooks but do not
       orchestrate them.
     responsible:
-      - playbook: Sales QBR (PB_AE_603)
+      - playbook: Sales QBR (PB_AE_003)
         scope: Pipeline health, revenue attainment, forecast accuracy presentation
         team: account_executives
-        file: PB_AE_603_sales_qbr.yaml
-      - playbook: Account Planning (PB_AE_602)
+        file: PB_AE_003_sales_qbr.yaml
+      - playbook: Account Planning (PB_AE_002)
         scope: Strategic account planning with blocker analysis and territory plans
         team: account_executives
-        file: PB_AE_602_account_planning.yaml
-      - playbook: MEDDPICC Qualification (PB_AE_801)
+        file: PB_AE_002_account_planning.yaml
+      - playbook: MEDDPICC Qualification (PB_AE_006)
         scope: Qualification assessment, deal scoring, gap identification
         team: account_executives
-        file: PB_AE_801_meddpicc.yaml
+        file: PB_AE_006_meddpicc.yaml
       - playbook: Update Commercial Fields (OP_COM_001)
         scope: CRM field updates ensuring pipeline accuracy
         team: operational
         file: OP_COM_001_update_commercial_fields.yaml
-      - playbook: Opportunity Consult (PB_AE_604)
+      - playbook: Opportunity Consult (PB_AE_004)
         scope: Deal review preparation, qualification scorecard assembly, close plan status, help needed
         team: account_executives
-        file: PB_AE_604_opportunity_consult.yaml
+        file: PB_AE_004_opportunity_consult.yaml
     accountable:
-      - playbook: Sales QBR (PB_AE_603)
+      - playbook: Sales QBR (PB_AE_003)
         scope: Sales Leadership approves forecast commits and pipeline narrative
         team: account_executives
-        file: PB_AE_603_sales_qbr.yaml
-      - playbook: Account Planning (PB_AE_602)
+        file: PB_AE_003_sales_qbr.yaml
+      - playbook: Account Planning (PB_AE_002)
         scope: Sales Leadership approves strategic account plans and territory priorities
         team: account_executives
-        file: PB_AE_602_account_planning.yaml
-      - playbook: MEDDPICC Qualification (PB_AE_801)
+        file: PB_AE_002_account_planning.yaml
+      - playbook: MEDDPICC Qualification (PB_AE_006)
         scope: Sales Leadership validates qualification gate decisions on strategic deals
         team: account_executives
-        file: PB_AE_801_meddpicc.yaml
-      - playbook: Deal Retrospective (PB_AE_601)
+        file: PB_AE_006_meddpicc.yaml
+      - playbook: Deal Retrospective (PB_AE_001)
         scope: Sales Leadership reviews win/loss outcomes and learnings
         team: account_executives
-        file: PB_AE_601_retrospective.yaml
+        file: PB_AE_001_retrospective.yaml
       - playbook: Update Commercial Fields (OP_COM_001)
         scope: Sales Operations validates CRM data hygiene and field accuracy
         team: operational
         file: OP_COM_001_update_commercial_fields.yaml
     consulted:
-      - playbook: Deal Retrospective (PB_AE_601)
+      - playbook: Deal Retrospective (PB_AE_001)
         scope: Deal overview, outcome analysis, commercial learnings
         team: account_executives
-        file: PB_AE_601_retrospective.yaml
+        file: PB_AE_001_retrospective.yaml
       - playbook: Implementation Kickoff (PB_DEL_001)
         scope: Deal context, stakeholder identification, success criteria handoff
         team: delivery
@@ -1215,10 +1215,39 @@ x-ea-agent:
         context_forward: [blocker_details, technical_constraints, timeline_impact]
         description: Blocked solution triggers re-qualification of deal feasibility
 
+      # Contradiction detection: conflicting sub-agent assessments on same deal
+      - watch: [ae-signal-detection-agent, ae-qualification-agent]
+        on: competitive_threat.severity >= HIGH AND competition_dimension.score IN [STRONG, ADEQUATE]
+        route_to: ae-deal-diagnosis-agent
+        context_forward: [signal_assessment, qualification_scorecard, deal_context]
+        description: Conflicting competitive signals require deal diagnosis reconciliation
+
+      # Delivery feedback: post-implementation learnings improve deal quality
+      - watch: delivery-agent
+        on: post_implementation_review.completed == true
+        route_to: ae-deal-diagnosis-agent
+        context_forward: [commitment_accuracy, sla_achievability, stakeholder_map_validity]
+        description: Delivery feedback calibrates future commitment realism scoring
+
+      # Cross-account pattern: vault curator detected recurring root cause
+      - watch: knowledge-vault-curator-agent
+        on: SIG_VAULT_PATTERN.frequency >= 3 AND pattern_domain == "deal_retrospective"
+        route_to: ae-qualification-agent
+        context_forward: [pattern_category, frequency, affected_dimensions, suggested_threshold_adjustment]
+        description: Recurring loss patterns across accounts trigger qualification threshold review
+
     cascade_limits:
       max_depth: 3
       max_agents_per_chain: 4
       circuit_breaker: Stop chain if same agent triggered twice in one cascade
+      on_halt:
+        action: create_action_item
+        via: OP_ACT_001
+        assigned_to: ae_human
+        payload: [cascade_trace, accumulated_outputs, halt_reason]
+        notify: nudger-agent
       description: >
         Prevents infinite loops. A signal can trigger at most 3 downstream
         hops before requiring human review of the accumulated results.
+        When the breaker trips, an action item is created via OP_ACT_001
+        so the nudger tracks it and the human sees the full cascade trace.

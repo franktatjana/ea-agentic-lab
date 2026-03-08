@@ -108,7 +108,7 @@ calculations:
 
 [image: Workshop Timeline - pre-workshop through current state, future state, and roadmap sessions]
 
-## Value Stream Discovery
+## Value Stream Mapping
 
 ### Discovery Levels
 

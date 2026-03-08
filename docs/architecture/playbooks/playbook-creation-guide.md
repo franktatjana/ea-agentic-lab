@@ -67,12 +67,12 @@
 
 ## SA / Architecture & Decision Agent - All Remaining (7/7)
 
-### PB_STR_201 - SWOT Analysis (Refactor)
+### PB_STR_004 - SWOT Analysis (Refactor)
 **Current:** Generative playbook
 **Needs:** Convert to validation mode
 **Validates:** Strengths, weaknesses, opportunities, threats assessed and current
 
-### PB_STR_202 - PESTLE Analysis
+### PB_STR_005 - PESTLE Analysis
 **Validates:** Political, Economic, Social, Technological, Environmental, Legal context captured
 **Gap Detection:**
 - Regulatory requirements not documented (GDPR, industry-specific)
@@ -80,7 +80,7 @@
 - Technology trends not monitored (cloud mandates, GenAI adoption)
 - Environmental factors ignored (energy, sustainability requirements)
 
-### PB_STR_203 - Decision Tree Analysis
+### PB_STR_006 - Decision Tree Analysis
 **Validates:** Decisions documented with alternatives and rationale
 **Gap Detection:**
 - Decisions made but not documented
@@ -126,7 +126,7 @@
 
 **Note:** Agent type not in current 8-agent system. Maps to governance role + stakeholder management.
 
-### PB_VE_301 - Stakeholder Mapping (Power-Interest Grid)
+### PB_VE_001 - Stakeholder Mapping (Power-Interest Grid)
 **Validates:** Key stakeholders mapped by power and interest
 **Gap Detection:**
 - Stakeholders identified but not classified (power/interest unknown)
@@ -134,7 +134,7 @@
 - Champions/blockers not identified
 - Decision-makers not mapped
 
-### PB_VE_302 - Influence Model
+### PB_VE_002 - Influence Model
 **Validates:** Influence strategies documented per stakeholder
 **Gap Detection:**
 - Stakeholder engagement is transactional (no influence strategy)
@@ -142,7 +142,7 @@
 - Resistance not anticipated or addressed
 - Influence tactics not tailored to stakeholder type
 
-### PB_VE_303 - RACI Matrix
+### PB_VE_003 - RACI Matrix
 **Validates:** Roles clear for key activities (Responsible, Accountable, Consulted, Informed)
 **Gap Detection:**
 - Role ambiguity for critical activities
@@ -150,7 +150,7 @@
 - Everyone consulted (decision paralysis)
 - RACI conflicts (two As for same activity)
 
-### PB_VE_304 - McKinsey 5 Frames of Performance
+### PB_VE_004 - McKinsey 5 Frames of Performance
 **Validates:** Aspiration, Assessment, Architecture, Action, Advance assessed
 **Gap Detection:**
 - Goals set but no baseline assessment
@@ -158,7 +158,7 @@
 - Plans exist but no action timeline
 - Initiatives launched but no progress tracking
 
-### PB_VE_305 - Results Delivery Framework
+### PB_VE_005 - Results Delivery Framework
 **Validates:** Post-meeting follow-up tracked and executed
 **Gap Detection:**
 - Meeting action items not captured
@@ -172,7 +172,7 @@
 
 **Note:** Maps to Delivery Agent + governance role from the governance model.
 
-### PB_CA_401 - Kotter's 8-Step Change Model (Refactor)
+### PB_CA_007 - Kotter's 8-Step Change Model (Refactor)
 **Validates:** Urgency, coalition, vision, communication, empowerment, short-term wins, consolidation, anchoring
 **Gap Detection:**
 - Change initiative without urgency created
@@ -182,7 +182,7 @@
 - Short-term wins not planned
 - Change not anchored in culture
 
-### PB_CA_402 - Three Lines of Defense
+### PB_CA_008 - Three Lines of Defense
 **Validates:** Governance structure for security/risk/compliance (Operational, Oversight, Assurance)
 **Gap Detection:**
 - No first line (operational risk management)
@@ -190,7 +190,7 @@
 - No third line (independent assurance)
 - Lines of defense overlap or have gaps
 
-### PB_CA_403 - Operating Model Canvas
+### PB_CA_009 - Operating Model Canvas
 **Validates:** Strategy-to-execution link documented (Value proposition, processes, capabilities, organization, technology)
 **Gap Detection:**
 - Strategy defined but no operating model
@@ -198,7 +198,7 @@
 - Capability gaps not identified
 - Organization structure misaligned with strategy
 
-### PB_CA_404 - OKR Framework
+### PB_CA_010 - OKR Framework
 **Validates:** Objectives and Key Results defined, tracked, and reviewed
 **Gap Detection:**
 - Objectives vague (not ambitious and qualitative)
@@ -206,7 +206,7 @@
 - OKRs not tracked (set and forget)
 - No quarterly review cadence
 
-### PB_CA_405 - Transformation Office Model
+### PB_CA_011 - Transformation Office Model
 **Validates:** Program-level governance exists (PMO, steering committee, workstream leads)
 **Gap Detection:**
 - Transformation without governance structure
@@ -221,10 +221,10 @@
 
 These were created as generative but should be refactored to validation mode:
 
-1. **PB_SA_101** - TOGAF ADR (SA Agent) - Refactor to validation
-2. **PB_VE_301_old** - Value Engineering (AE Agent) - Refactor to validation
-3. **PB_CA_401_old** - Customer Health Score (CA Agent) - Refactor to validation
-4. **PB_CI_701** - Porter's Five Forces (CI Agent) - Refactor to validation
+1. **PB_SA_001** - TOGAF ADR (SA Agent) - Refactor to validation
+2. **PB_VE_001_old** - Value Engineering (AE Agent) - Refactor to validation
+3. **PB_CA_007_old** - Customer Health Score (CA Agent) - Refactor to validation
+4. **PB_CI_001** - Porter's Five Forces (CI Agent) - Refactor to validation
 
 ---
 
@@ -238,8 +238,8 @@ These were created as generative but should be refactored to validation mode:
 5. PB_STR_008 - Blue Ocean Strategy
 
 ### Phase 2 - Complete SA Agent (High Priority)
-1. PB_STR_202 - PESTLE Analysis
-2. PB_STR_203 - Decision Tree Analysis
+1. PB_STR_005 - PESTLE Analysis
+2. PB_STR_006 - Decision Tree Analysis
 3. PB_STR_204 - Risk Heat Map
 4. PB_STR_205 - McKinsey 7S Framework
 5. PB_STR_206 - Pace-Layered Application Strategy
@@ -248,27 +248,27 @@ These were created as generative but should be refactored to validation mode:
 ### Phase 3 - Create Exec Sponsor Agent + Playbooks (New Agent)
 1. Create agent configuration
 2. Create agent personality
-3. PB_VE_301 - Stakeholder Mapping
-4. PB_VE_302 - Influence Model
-5. PB_VE_303 - RACI Matrix
-6. PB_VE_304 - McKinsey 5 Frames
-7. PB_VE_305 - Results Delivery Framework
+3. PB_VE_001 - Stakeholder Mapping
+4. PB_VE_002 - Influence Model
+5. PB_VE_003 - RACI Matrix
+6. PB_VE_004 - McKinsey 5 Frames
+7. PB_VE_005 - Results Delivery Framework
 
 ### Phase 4 - Create Transformation Agent + Playbooks (New Role)
 1. Extend Delivery Agent with governance role
-2. PB_CA_401 - Kotter's 8-Step
-3. PB_CA_402 - Three Lines of Defense
-4. PB_CA_403 - Operating Model Canvas
-5. PB_CA_404 - OKR Framework
-6. PB_CA_405 - Transformation Office Model
+2. PB_CA_007 - Kotter's 8-Step
+3. PB_CA_008 - Three Lines of Defense
+4. PB_CA_009 - Operating Model Canvas
+5. PB_CA_010 - OKR Framework
+6. PB_CA_011 - Transformation Office Model
 
 ### Phase 5 - Refactor Existing Generative Playbooks
 1. PB_STR_001 - Three Horizons → Validation
-2. PB_STR_201 - SWOT → Validation
-3. PB_SA_101 - TOGAF ADR → Validation
-4. PB_VE_301_old - Value Engineering → Validation
-5. PB_CA_401_old - Customer Health Score → Validation
-6. PB_CI_701 - Five Forces → Validation
+2. PB_STR_004 - SWOT → Validation
+3. PB_SA_001 - TOGAF ADR → Validation
+4. PB_VE_001_old - Value Engineering → Validation
+5. PB_CA_007_old - Customer Health Score → Validation
+6. PB_CI_001 - Five Forces → Validation
 
 ---
 

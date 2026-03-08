@@ -114,5 +114,5 @@ No extracted reference files. Personality file is compact and self-contained. Su
 - **Personality:** `personalities/ca_personality.yaml`
 - **Skills:** `skills/SK_CA_001_support_intelligence_triage.yaml`
 - **Tasks:** `prompts/tasks.yaml` (40+ task templates across 7 categories: adoption, architecture, value realization, customer health, CSP, journey mapping, VoC)
-- **Playbooks owned:** PB_CA_174 (Customer QBR), PB_CA_401 (Customer Health), PB_CA_402 (Adoption Metrics), PB_CA_403 (Solution Adoption Success)
-- **Playbooks contributes to:** PB_SA_101, PB_STR_201, PB_VE_301, PB_AE_603
+- **Playbooks owned:** PB_CA_001 (Customer QBR), PB_CA_007 (Customer Health), PB_CA_008 (Adoption Metrics), PB_CA_009 (Solution Adoption Success)
+- **Playbooks contributes to:** PB_SA_001, PB_STR_004, PB_VE_001, PB_AE_003

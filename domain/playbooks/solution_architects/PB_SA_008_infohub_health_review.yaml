@@ -1,0 +1,313 @@
+# disclaimer
+# This playbook is part of a reference architecture
+# framework. It defines agent behavior specifications,
+# not production-ready operational procedures.
+# Framework references (MEDDPICC, Five Whys, SWOT,
+# etc.) are industry-standard methodologies cited for
+# educational context.
+
+# PLAYBOOK: InfoHub Health Review
+# Closes sa-agent infohub-validation flow coverage gap
+
+# ==============================================================================
+# PLAYBOOK STECKBRIEF
+# ==============================================================================
+playbook_id: "PB_SA_008"
+steckbrief:
+  playbook_id: "PB_SA_008"
+  name: "InfoHub Health Review"
+  category: "solution_architects"
+  mode: "ASSESSMENT"
+  version: "1.0"
+  status: "stub"
+
+  one_liner: "Assess InfoHub completeness, data freshness, and cross-reference integrity to ensure the SA's knowledge base supports accurate decision-making"
+  framework_origin: "Data Quality Management - Knowledge Base Health"
+
+  owner_agent: "SA Agent"
+  supporting_agents: []
+
+  triggers_summary:
+    - "Periodic review cycle (bi-weekly or monthly)"
+    - "Before major playbook execution (discovery, sizing, HLD)"
+    - "After significant customer engagement changes"
+
+  anti_patterns:
+    - "New account with no InfoHub data yet (nothing to validate)"
+    - "Post-close accounts managed by CA (not SA responsibility)"
+
+  key_inputs:
+    - "InfoHub sections for account"
+    - "Last-updated timestamps per section"
+    - "Cross-reference integrity rules"
+
+  key_outputs:
+    - artifact: "InfoHub Health Scorecard"
+      format: "yaml"
+    - artifact: "Gap Remediation Plan"
+      format: "yaml"
+
+  key_decisions:
+    - "Stale data detected: flag for refresh and identify source"
+    - "Missing sections: prioritize based on upcoming playbook needs"
+    - "Cross-reference conflicts: escalate for resolution"
+
+  complexity: "LOW"
+  estimated_inputs: 3
+  estimated_rules: 4
+
+  source_file: "domain/playbooks/solution_architects/PB_SA_008_infohub_health_review.yaml"
+  last_updated: "2026-03-08"
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+framework_name: "InfoHub Health Review"
+framework_source: "Data Quality Management - Knowledge Base Health"
+playbook_mode: "ASSESSMENT"
+playbook_category: "technical_execution"
+intended_agent_role: "sa-agent"
+secondary_agents: []
+
+primary_objective: "Ensure InfoHub data completeness, freshness, and cross-reference integrity so that downstream playbooks and agent decisions operate on reliable data"
+
+vault_routing:
+  primary_vault: "Internal Account Hub"
+  rationale: "Health scores and gap reports are internal quality metrics for the SA team. They drive data maintenance actions but are not customer-facing."
+  secondary_outputs: []
+
+flow_bindings:
+  description: "Maps health review phases to the agent flows that execute them"
+  bindings:
+    - phase: "Completeness Scan"
+      agent: sa-agent
+      flow: infohub-validation
+      context: "Check all required InfoHub sections exist and contain data"
+    - phase: "Staleness Detection"
+      agent: sa-agent
+      flow: infohub-validation
+      context: "Compare last-updated timestamps against freshness thresholds"
+    - phase: "Cross-Reference Validation"
+      agent: sa-discovery-agent
+      flow: technical-discovery
+      context: "Verify references between InfoHub sections are consistent"
+    - phase: "Gap Remediation Plan"
+      agent: sa-agent
+      flow: infohub-validation
+      context: "Generate prioritized remediation actions for detected gaps"
+
+when_not_to_use:
+  - "New account with no InfoHub data (nothing to validate)"
+  - "Post-close accounts managed by CA team"
+  - "InfoHub just populated (give data time to accumulate)"
+
+raci:
+  responsible:
+    role: "SA Agent"
+    agent: "sa_agent"
+    description: "Runs health checks, generates scorecard, and creates remediation plan"
+
+  accountable:
+    role: "SA Manager"
+    human_required: true
+    description: "Reviews critical gaps and approves remediation priorities"
+    approval_actions:
+      - "approve"
+      - "request_revision"
+
+  consulted: []
+
+  informed:
+    - role: "SA Agent"
+      notify_on: ["critical_data_gaps", "stale_data_warning"]
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - "Bi-weekly health review cycle"
+    - "Before PB_SA_001, PB_SA_002, PB_SA_003, or PB_SA_005 execution"
+    - "Account engagement status change"
+
+  manual:
+    - "SA requests health check: '/infohub health {account}'"
+
+  conditional:
+    - "IF playbook_execution_pending AND last_health_check > 14_days THEN trigger"
+    - "IF account_engagement_change THEN trigger"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "InfoHub account data (all sections)"
+    - artifact: "Section freshness thresholds"
+
+  optional:
+    - artifact: "Upcoming playbook schedule"
+      use: "Prioritize gaps that block upcoming playbook execution"
+
+  minimum_data_threshold:
+    - "Account exists in InfoHub with at least one section populated"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  completeness:
+    - "Which required InfoHub sections are missing?"
+    - "Which sections have less than minimum required fields?"
+
+  freshness:
+    - "When was each section last updated?"
+    - "Which sections exceed the freshness threshold?"
+    - "What triggered the last update?"
+
+  integrity:
+    - "Do stakeholder references match across sections?"
+    - "Do risk entries reference valid decisions?"
+    - "Are opportunity data consistent with discovery findings?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  scoring:
+    sections_checked: ["context", "stakeholders", "risks", "decisions", "opportunities", "journey", "frameworks", "competitive", "value"]
+    per_section_score:
+      complete_and_fresh: 3
+      complete_but_stale: 2
+      partial: 1
+      missing: 0
+
+  rules:
+    - condition: "section_missing AND section_required_by_upcoming_playbook"
+      output_type: "Critical Gap"
+      decision: |
+        FLAG Critical Gap:
+          section: "{missing_section}"
+          blocks: "{upcoming_playbook}"
+          action: "Populate before playbook execution"
+          priority: "HIGH"
+
+    - condition: "section_stale AND staleness > 30_days"
+      output_type: "Staleness Warning"
+      decision: |
+        FLAG Stale Data:
+          section: "{stale_section}"
+          last_updated: "{date}"
+          action: "Refresh from latest customer interactions"
+          priority: "MEDIUM"
+
+    - condition: "cross_reference_conflict"
+      output_type: "Integrity Issue"
+      decision: |
+        FLAG Integrity Issue:
+          sections: "{conflicting_sections}"
+          conflict: "{description}"
+          action: "Resolve conflict, determine authoritative source"
+          priority: "HIGH"
+
+    - condition: "all_sections_complete_and_fresh"
+      output_type: "Healthy"
+      decision: |
+        CONFIRM Health:
+          status: "GREEN"
+          next_review: "{date + review_interval}"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/{node}/internal-infohub/health/infohub_health_{YYYY-MM-DD}.yaml"
+    vault_type: "internal"
+    format: "yaml"
+    sections:
+      - health_summary
+      - section_scores
+      - gaps
+      - staleness_report
+      - integrity_issues
+      - remediation_plan
+
+    schema:
+      health_summary:
+        account: "string"
+        assessment_date: "YYYY-MM-DD"
+        overall_score: "integer"
+        overall_status: "enum[GREEN|YELLOW|RED]"
+        sections_assessed: "integer"
+
+      section_scores:
+        - section: "string"
+          score: "integer (0-3)"
+          status: "enum[COMPLETE_FRESH|COMPLETE_STALE|PARTIAL|MISSING]"
+          last_updated: "YYYY-MM-DD"
+
+      remediation_plan:
+        - gap: "string"
+          priority: "enum[HIGH|MEDIUM|LOW]"
+          action: "string"
+          blocks: "array[string] (playbook IDs blocked by this gap)"
+          owner: "string"
+
+  notifications:
+    - recipient: "SA Agent"
+      condition: "critical_gaps_found"
+      message: "InfoHub health review for {node}: {gap_count} critical gaps require attention"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "critical_gaps_blocking_imminent_playbook"
+      reason: "Playbook execution will produce unreliable results"
+      action: "SA to prioritize InfoHub population"
+
+  insufficient_data:
+    - "Account does not exist in InfoHub"
+    - "No sections populated"
+
+  human_judgment_required:
+    - "Prioritizing remediation when multiple gaps exist"
+    - "Resolving cross-reference conflicts between sections"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "Account exists in InfoHub"
+    - "At least one section has data"
+
+  post_execution:
+    - "Every section has a score"
+    - "Gaps have remediation actions with priorities"
+    - "Health score is calculated"
+
+  output_quality:
+    - "Staleness thresholds are applied consistently"
+    - "Remediation plan is actionable"
+    - "Cross-reference checks cover all section pairs"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "5-10 minutes (agent)"
+frequency: "Bi-weekly, or before major playbook execution"
+human_review_required: false
+approval_workflow:
+  - reviewer: "SA Agent"
+    approval_gate: "Automated health check"
+    condition: "overall_status != RED"
+  - reviewer: "SA Manager"
+    approval_gate: "Review critical gaps"
+    condition: "overall_status == RED"
+
+last_updated: "2026-03-08"
+version: "1.0"
+status: "stub"

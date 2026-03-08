@@ -21,13 +21,13 @@ Playbooks operationalize consulting frameworks (McKinsey, BCG, TOGAF, etc.) as e
 | ID | Framework | Agent | Use Case |
 |----|-----------|-------|----------|
 | PB_STR_001 | Three Horizons | AE Agent | Growth strategy |
-| PB_SA_101 | TOGAF ADR | SA Agent | Architecture decisions |
-| PB_STR_201 | SWOT Analysis | Cross-functional | Strategic assessment |
-| PB_VE_301 | Value Engineering | VE Agent | ROI/business case |
-| PB_CA_401 | Customer Health | CA Agent | Retention monitoring |
-| PB_CI_701 | Five Forces | CI Agent | Competitive analysis |
-| PB_AE_801 | MEDDPICC | AE Agent | Deal qualification |
-| PB_SA_802 | TECHDRIVE | SA Agent | Technical qualification |
+| PB_SA_001 | TOGAF ADR | SA Agent | Architecture decisions |
+| PB_STR_004 | SWOT Analysis | Cross-functional | Strategic assessment |
+| PB_VE_001 | Value Engineering | VE Agent | ROI/business case |
+| PB_CA_007 | Customer Health | CA Agent | Retention monitoring |
+| PB_CI_001 | Five Forces | CI Agent | Competitive analysis |
+| PB_AE_006 | MEDDPICC | AE Agent | Deal qualification |
+| PB_SA_005 | TECHDRIVE | SA Agent | Technical qualification |
 
 ### Operational Playbooks
 
@@ -45,7 +45,7 @@ Playbooks operationalize consulting frameworks (McKinsey, BCG, TOGAF, etc.) as e
 
 ```bash
 python application/scripts/run_playbook.py \
-  --playbook PB_STR_201 \
+  --playbook PB_STR_004 \
   --realm ACME_CORP \
   --node MAIN
 ```
@@ -69,14 +69,14 @@ from core.playbook_engine import PlaybookExecutor
 
 executor = PlaybookExecutor()
 result = executor.run(
-    playbook_id="PB_STR_201",
+    playbook_id="PB_STR_004",
     realm_id="ACME_CORP",
     node_id="MAIN",
     context={"focus_area": "competitive"}
 )
 ```
 
-## Example: SWOT Analysis (PB_STR_201)
+## Example: SWOT Analysis (PB_STR_004)
 
 ### Step 1: Ensure Input Data Exists
 
@@ -88,7 +88,7 @@ The SWOT playbook requires:
 
 ```bash
 python application/scripts/run_playbook.py \
-  --playbook PB_STR_201 \
+  --playbook PB_STR_004 \
   --realm ACME_CORP \
   --node MAIN \
   --focus competitive
@@ -140,7 +140,7 @@ recommendations:
     owner: SA Agent
 ```
 
-## Example: Customer Health Score (PB_CA_401)
+## Example: Customer Health Score (PB_CA_007)
 
 ### Step 1: Check Health Indicators
 
@@ -154,7 +154,7 @@ Required data:
 
 ```bash
 python application/scripts/run_playbook.py \
-  --playbook PB_CA_401 \
+  --playbook PB_CA_007 \
   --realm GLOBEX \
   --node MAIN
 ```

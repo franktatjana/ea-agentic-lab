@@ -286,7 +286,7 @@ STEERING_COMMITTEE_PREP = GovernanceWorkflow(
         WorkflowStep(
             step_id="run_health_score",
             step_type=StepType.PLAYBOOK_EXECUTION,
-            playbook_id="PB_CA_401",
+            playbook_id="PB_CA_007",
             description="Execute customer health score playbook",
             dependencies=["gather_risks"]
         ),
@@ -345,7 +345,7 @@ RISK_REVIEW_WORKFLOW = GovernanceWorkflow(
         WorkflowStep(
             step_id="prioritize",
             step_type=StepType.PLAYBOOK_EXECUTION,
-            playbook_id="PB_STR_201",
+            playbook_id="PB_STR_004",
             description="Run SWOT analysis on consolidated risks",
             dependencies=["consolidate"]
         ),

@@ -27,7 +27,7 @@ Archetype × Domain → Reference Blueprint selection
     │   e.g., ACME/SEC_CONSOL/blueprint.yaml
     │
     └── Playbooks (executed)
-            e.g., PB_SA_102, PB_STR_201, PB_CI_701, PB_SEC_001
+            e.g., PB_SA_002, PB_STR_004, PB_CI_001, PB_SEC_001
 ```
 
 ## Structure
@@ -113,7 +113,7 @@ When a Node is created, a Blueprint instance is generated:
 
 ## Gap Scan
 
-PB_ADM_971 validates:
+PB_ADM_004 validates:
 
 - Blueprint exists for Node
 - Blueprint references valid Reference Blueprint

@@ -37,7 +37,7 @@ domain/
         │
         ├── regions/          # Region-specific overrides
         │   ├── emea/
-        │   │   └── PB_STR_201_swot_analysis.override.yaml
+        │   │   └── PB_STR_004_swot_analysis.override.yaml
         │   ├── apac/
         │   └── americas/
         │
@@ -48,7 +48,7 @@ domain/
         │
         └── users/            # Personal overrides
             └── {user_id}/
-                └── PB_STR_201_swot_analysis.override.yaml
+                └── PB_STR_004_swot_analysis.override.yaml
 ```
 
 ---
@@ -58,12 +58,12 @@ domain/
 ### Base Override Structure
 
 ```yaml
-# File: PB_STR_201_swot_analysis.override.yaml
+# File: PB_STR_004_swot_analysis.override.yaml
 # Location: domain/playbooks/overrides/users/{user_id}/
 
 schema_version: "1.0"
 override_metadata:
-  playbook_id: "PB_STR_201_swot_analysis"
+  playbook_id: "PB_STR_004_swot_analysis"
   override_type: "user"           # user | team | region
   owner: "tatjana.frank"
   created_at: "2026-02-03"
@@ -72,7 +72,7 @@ override_metadata:
 
 # What this override modifies
 applies_to:
-  base_playbook: "strategy/PB_STR_201_swot_analysis.yaml"
+  base_playbook: "strategy/PB_STR_004_swot_analysis.yaml"
   version_constraint: ">=1.0"     # Compatible base versions
 
 # The actual customizations
@@ -342,11 +342,11 @@ overrides:
 **Scenario:** AE wants MEDDPICC with shorter output and custom deal stages.
 
 ```yaml
-# File: overrides/users/john.smith/PB_AE_801_meddpicc.override.yaml
+# File: overrides/users/john.smith/PB_AE_006_meddpicc.override.yaml
 
 schema_version: "1.0"
 override_metadata:
-  playbook_id: "PB_AE_801_meddpicc"
+  playbook_id: "PB_AE_006_meddpicc"
   override_type: "user"
   owner: "john.smith"
   description: "Streamlined MEDDPICC for quick deal reviews"
@@ -382,11 +382,11 @@ overrides:
 **Scenario:** Public sector team needs compliance-focused playbooks.
 
 ```yaml
-# File: overrides/teams/public_sector/PB_STR_201_swot_analysis.override.yaml
+# File: overrides/teams/public_sector/PB_STR_004_swot_analysis.override.yaml
 
 schema_version: "1.0"
 override_metadata:
-  playbook_id: "PB_STR_201_swot_analysis"
+  playbook_id: "PB_STR_004_swot_analysis"
   override_type: "team"
   owner: "public_sector_team"
   description: "SWOT with FedRAMP and compliance focus"
@@ -439,11 +439,11 @@ overrides:
 **Scenario:** EMEA region needs GDPR-aware playbooks.
 
 ```yaml
-# File: overrides/regions/emea/PB_CA_403_customer_journey_voc.override.yaml
+# File: overrides/regions/emea/PB_CA_009_customer_journey_voc.override.yaml
 
 schema_version: "1.0"
 override_metadata:
-  playbook_id: "PB_CA_403_customer_journey_voc"
+  playbook_id: "PB_CA_009_customer_journey_voc"
   override_type: "region"
   owner: "emea_operations"
   description: "GDPR-compliant customer journey tracking"
@@ -509,7 +509,7 @@ overrides:
 
 ```json
 {
-  "playbook_id": "PB_STR_201_swot_analysis",
+  "playbook_id": "PB_STR_004_swot_analysis",
   "execution_context": {
     "user_id": "tatjana.frank",
     "team": "enterprise",
@@ -530,15 +530,15 @@ overrides:
 ```json
 {
   "resolved_playbook": {
-    "id": "PB_STR_201_swot_analysis",
+    "id": "PB_STR_004_swot_analysis",
     "version": "1.0",
     "resolved_at": "2026-02-03T14:30:00Z",
 
     "resolution_chain": [
-      {"layer": "base", "source": "strategy/PB_STR_201_swot_analysis.yaml"},
-      {"layer": "region", "source": "overrides/regions/emea/PB_STR_201_swot_analysis.override.yaml"},
-      {"layer": "team", "source": "overrides/teams/enterprise/PB_STR_201_swot_analysis.override.yaml"},
-      {"layer": "user", "source": "overrides/users/tatjana.frank/PB_STR_201_swot_analysis.override.yaml"}
+      {"layer": "base", "source": "strategy/PB_STR_004_swot_analysis.yaml"},
+      {"layer": "region", "source": "overrides/regions/emea/PB_STR_004_swot_analysis.override.yaml"},
+      {"layer": "team", "source": "overrides/teams/enterprise/PB_STR_004_swot_analysis.override.yaml"},
+      {"layer": "user", "source": "overrides/users/tatjana.frank/PB_STR_004_swot_analysis.override.yaml"}
     ],
 
     "merged_config": {
@@ -563,7 +563,7 @@ overrides:
 ```json
 {
   "execution_id": "exec-2026-02-03-143000-swot",
-  "playbook_id": "PB_STR_201_swot_analysis",
+  "playbook_id": "PB_STR_004_swot_analysis",
   "status": "completed",
 
   "applied_overrides": {

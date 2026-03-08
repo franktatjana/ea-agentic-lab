@@ -29,11 +29,11 @@ The system uses two distinct playbook categories:
 
 **Examples:**
 - PB_STR_001: Three Horizons Analysis
-- PB_SA_101: TOGAF ADM
-- PB_STR_201: SWOT Analysis
-- PB_VE_301: Value Engineering
-- PB_CA_401: Customer Health Score
-- PB_CI_701: Porter's Five Forces
+- PB_SA_001: TOGAF ADM
+- PB_STR_004: SWOT Analysis
+- PB_VE_001: Value Engineering
+- PB_CA_007: Customer Health Score
+- PB_CI_001: Porter's Five Forces
 
 ### Operational Playbooks
 
@@ -211,23 +211,23 @@ playbook_thresholds:
     horizon_2_pipeline_min: 500000     # H2 >= $500K
     account_minimum_arr: 500000        # Skip if < $500K
 
-  PB_VE_301_value_engineering:
+  PB_VE_001_value_engineering:
     strong_roi_threshold: 3.0          # 300% ROI
     acceptable_roi_threshold: 2.0      # 200% ROI
     max_payback_months: 24
     strategic_deal_arr: 2000000
 
-  PB_CA_401_customer_health:
+  PB_CA_007_customer_health:
     health_score_red: 50               # < 50 = RED
     health_score_yellow: 70            # 50-70 = YELLOW
     health_score_green: 70             # >= 70 = GREEN
     usage_decline_threshold: -0.15     # -15% = warning
     renewal_warning_days: 90
 
-  PB_SA_101_togaf_adm:
+  PB_SA_001_togaf_adm:
     # No numeric thresholds (qualitative framework)
 
-  PB_CI_701_five_forces:
+  PB_CI_001_five_forces:
     # No numeric thresholds (qualitative framework)
 ```
 
@@ -418,45 +418,45 @@ class EvidenceValidator:
 agents:
   ae_agent:
     primary_roles: ["commercial", "account_strategy", "growth_planning"]
-    playbooks_owned: ["PB_STR_001", "PB_STR_002", "PB_STR_003", "PB_STR_005", "PB_STR_006", "PB_STR_007", "PB_STR_008", "PB_VE_301"]
-    playbooks_contribute_to: ["PB_STR_201", "PB_CA_401", "PB_CI_701"]
+    playbooks_owned: ["PB_STR_001", "PB_STR_002", "PB_STR_003", "PB_STR_005", "PB_STR_006", "PB_STR_007", "PB_STR_008", "PB_VE_001"]
+    playbooks_contribute_to: ["PB_STR_004", "PB_CA_007", "PB_CI_001"]
     functions: ["exec_sponsor_coordination", "stakeholder_management"]
 
   sa_agent:
     primary_roles: ["technical", "architecture", "risk_management"]
-    playbooks_owned: ["PB_SA_101", "PB_STR_201", "PB_STR_202", "PB_STR_203", "PB_STR_204", "PB_STR_205", "PB_STR_206", "PB_STR_207"]
-    playbooks_contribute_to: ["PB_STR_001", "PB_VE_301", "PB_CI_701"]
+    playbooks_owned: ["PB_SA_001", "PB_STR_004", "PB_STR_005", "PB_STR_006", "PB_STR_204", "PB_STR_205", "PB_STR_206", "PB_STR_207"]
+    playbooks_contribute_to: ["PB_STR_001", "PB_VE_001", "PB_CI_001"]
 
   specialist_agent:
     primary_roles: ["deep_technical", "domain_expertise"]
     playbooks_owned: []
-    playbooks_contribute_to: ["PB_SA_101", "PB_STR_201", "PB_CI_701"]
+    playbooks_contribute_to: ["PB_SA_001", "PB_STR_004", "PB_CI_001"]
 
   pm_agent:
     primary_roles: ["product_roadmap", "feature_gaps"]
     playbooks_owned: []
-    playbooks_contribute_to: ["PB_STR_001", "PB_STR_201", "PB_STR_203"]
+    playbooks_contribute_to: ["PB_STR_001", "PB_STR_004", "PB_STR_006"]
 
   ci_agent:
     primary_roles: ["competitive_intelligence", "market_analysis"]
-    playbooks_owned: ["PB_CI_701"]
-    playbooks_contribute_to: ["PB_STR_001", "PB_STR_201", "PB_STR_005"]
+    playbooks_owned: ["PB_CI_001"]
+    playbooks_contribute_to: ["PB_STR_001", "PB_STR_004", "PB_STR_005"]
 
   delivery_agent:
     primary_roles: ["implementation", "project_management"]
-    playbooks_owned: ["PB_CA_401", "PB_CA_402", "PB_CA_403", "PB_CA_404", "PB_CA_405"]
-    playbooks_contribute_to: ["PB_STR_201", "PB_CA_401"]
+    playbooks_owned: ["PB_CA_007", "PB_CA_008", "PB_CA_009", "PB_CA_010", "PB_CA_011"]
+    playbooks_contribute_to: ["PB_STR_004", "PB_CA_007"]
     functions: ["transformation_governance"]
 
   partner_agent:
     primary_roles: ["partner_coordination", "ecosystem"]
     playbooks_owned: []
-    playbooks_contribute_to: ["PB_STR_001", "PB_STR_201"]
+    playbooks_contribute_to: ["PB_STR_001", "PB_STR_004"]
 
   ca_agent:
     primary_roles: ["customer_success", "adoption", "retention"]
-    playbooks_owned: ["PB_CA_401"]
-    playbooks_contribute_to: ["PB_STR_001", "PB_STR_201"]
+    playbooks_owned: ["PB_CA_007"]
+    playbooks_contribute_to: ["PB_STR_001", "PB_STR_004"]
 ```
 
 ### Playbook Execution Routing

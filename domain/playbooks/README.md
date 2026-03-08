@@ -19,7 +19,7 @@ Playbooks are actionable, repeatable workflows that agents execute for recurring
 playbooks/
 ├── strategy/                # Management consulting frameworks (6)
 ├── solution_architects/     # Technical architecture playbooks (5)
-├── account_executives/      # Sales and account management (5)
+├── account_executives/      # Sales and account management (6)
 ├── customer_architects/     # Customer success and health (12)
 ├── competitive_intelligence/ # Market positioning (1)
 ├── value_engineering/       # ROI, TCO, business case (7)
@@ -62,9 +62,9 @@ Management consulting frameworks for strategic analysis.
 | PB_STR_001 | Three Horizons | McKinsey | R: Strategy, A: Management |
 | PB_STR_002 | Ansoff Matrix | Ansoff | R: Strategy, A: Management |
 | PB_STR_003 | BCG Matrix | BCG | R: Strategy, A: Management |
-| PB_STR_201 | SWOT Analysis | SWOT | R: Strategy, A: SA |
-| PB_STR_202 | PESTLE Analysis | PESTLE | R: Strategy, A: SA |
-| PB_STR_203 | Stakeholder Mapping | Stakeholder Analysis | R: Strategy, A: AE |
+| PB_STR_004 | SWOT Analysis | SWOT | R: Strategy, A: SA |
+| PB_STR_005 | PESTLE Analysis | PESTLE | R: Strategy, A: SA |
+| PB_STR_006 | Stakeholder Mapping | Stakeholder Analysis | R: Strategy, A: AE |
 
 ### Solution Architects (`solution_architects/`)
 
@@ -72,11 +72,11 @@ Technical architecture and qualification playbooks.
 
 | ID | Name | Framework | RACI |
 |----|------|-----------|------|
-| PB_SA_101 | TOGAF ADM | TOGAF | R: SA, A: SA Lead |
-| PB_SA_102 | Sizing Estimation | Capacity Planning | R: SA, A: SA Lead |
-| PB_SA_104 | Solution Description | Solution Design | R: SA, A: SA Lead |
-| PB_SA_105 | Five Whys Analysis | Root Cause | R: SA, A: SA |
-| PB_SA_802 | TECHDRIVE | Technical Qualification | R: SA, A: SA Lead |
+| PB_SA_001 | TOGAF ADM | TOGAF | R: SA, A: SA Lead |
+| PB_SA_002 | Sizing Estimation | Capacity Planning | R: SA, A: SA Lead |
+| PB_SA_003 | Solution Description | Solution Design | R: SA, A: SA Lead |
+| PB_SA_004 | Five Whys Analysis | Root Cause | R: SA, A: SA |
+| PB_SA_005 | TECHDRIVE | Technical Qualification | R: SA, A: SA Lead |
 
 ### Account Executives (`account_executives/`)
 
@@ -84,11 +84,12 @@ Sales qualification, planning, and review playbooks.
 
 | ID | Name | Framework | RACI |
 |----|------|-----------|------|
-| PB_AE_601 | Retrospective | Win/Loss Analysis | R: AE, A: Sales Mgmt |
-| PB_AE_602 | Account Planning | Account Strategy | R: AE, A: AE |
-| PB_AE_603 | Sales QBR | Sales Performance Review | R: AE, A: Sales Mgmt |
-| PB_AE_604 | Opportunity Consult | Opportunity Analysis | R: AE, A: AE |
-| PB_AE_801 | MEDDPICC | Sales Qualification | R: AE, A: AE |
+| PB_AE_001 | Retrospective | Win/Loss Analysis | R: AE, A: Sales Mgmt |
+| PB_AE_002 | Account Planning | Account Strategy | R: AE, A: AE |
+| PB_AE_003 | Sales QBR | Sales Performance Review | R: AE, A: Sales Mgmt |
+| PB_AE_004 | Opportunity Consult | Opportunity Analysis | R: AE, A: AE |
+| PB_AE_005 | Pipeline Generation Review | Pipeline Management | R: AE, A: Sales Mgmt |
+| PB_AE_006 | MEDDPICC | Sales Qualification | R: AE, A: AE |
 
 ### Customer Architects (`customer_architects/`)
 
@@ -96,18 +97,18 @@ Customer health, success, and journey management.
 
 | ID | Name | Framework | RACI |
 |----|------|-----------|------|
-| PB_CA_174 | Customer QBR | Customer Business Review | R: CA, A: CA Lead |
-| PB_CA_401 | Customer Health Score | Health Metrics | R: CA, A: CA Lead |
-| PB_CA_402 | Customer Success Plan | CSP | R: CA, A: CA |
-| PB_CA_403 | Customer Journey VoC | Journey Mapping | R: CA, A: CA |
-| PB_CA_187 | Track Support Case | Support-to-Account Intelligence | R: CA, A: CA Lead |
-| PB_CA_188 | Escalate Support Issue | Escalation Management | R: CA, A: CA Lead |
-| PB_CA_190 | Review Support Health | Support Health Analysis | R: CA, A: CA Lead |
-| PB_CA_202 | Cadence Calls | Meeting Rhythm | R: CA, A: CA |
-| PB_CA_301 | Health Triage | Risk Response | R: CA, A: CA Lead |
-| PB_CA_404 | Customer Guidelines | Best Practice Guidelines | R: CA, A: CA |
-| PB_CA_405 | Training Plans | Enablement Planning | R: CA, A: CA |
-| PB_CA_406 | Adoption Guidance | Adoption Framework | R: CA, A: CA |
+| PB_CA_001 | Customer QBR | Customer Business Review | R: CA, A: CA Lead |
+| PB_CA_007 | Customer Health Score | Health Metrics | R: CA, A: CA Lead |
+| PB_CA_008 | Customer Success Plan | CSP | R: CA, A: CA |
+| PB_CA_009 | Customer Journey VoC | Journey Mapping | R: CA, A: CA |
+| PB_CA_002 | Track Support Case | Support-to-Account Intelligence | R: CA, A: CA Lead |
+| PB_CA_003 | Escalate Support Issue | Escalation Management | R: CA, A: CA Lead |
+| PB_CA_004 | Review Support Health | Support Health Analysis | R: CA, A: CA Lead |
+| PB_CA_005 | Cadence Calls | Meeting Rhythm | R: CA, A: CA |
+| PB_CA_006 | Health Triage | Risk Response | R: CA, A: CA Lead |
+| PB_CA_010 | Customer Guidelines | Best Practice Guidelines | R: CA, A: CA |
+| PB_CA_011 | Training Plans | Enablement Planning | R: CA, A: CA |
+| PB_CA_012 | Adoption Guidance | Adoption Framework | R: CA, A: CA |
 
 ### Competitive Intelligence (`competitive_intelligence/`)
 
@@ -115,7 +116,7 @@ Competitive analysis and market positioning.
 
 | ID | Name | Framework | RACI |
 |----|------|-----------|------|
-| PB_CI_701 | Five Forces | Porter | R: CI, A: CI Lead |
+| PB_CI_001 | Five Forces | Porter | R: CI, A: CI Lead |
 
 ### Value Engineering (`value_engineering/`)
 
@@ -123,13 +124,13 @@ ROI, TCO, and business case development.
 
 | ID | Name | Framework | RACI |
 |----|------|-----------|------|
-| PB_VE_301 | Value Engineering | ROI/TCO | R: VE, A: VE Lead |
-| PB_VE_302 | Value Hypothesis | Quantified Value | R: VE, A: VE Lead |
-| PB_VE_303 | Value Calculation | Financial Modelling | R: VE, A: VE Lead |
-| PB_VE_304 | Value Stream Workshop | Current/Future State | R: VE, A: VE Lead |
-| PB_VE_305 | Value Proof | POV Metric Tracking | R: VE, A: VE Lead |
-| PB_VE_306 | Value Realization | Post-Sale Tracking | R: VE, A: VE Lead |
-| PB_VE_307 | Value Amplification | Renewal/Expansion | R: VE, A: VE Lead |
+| PB_VE_001 | Value Engineering | ROI/TCO | R: VE, A: VE Lead |
+| PB_VE_002 | Value Hypothesis | Quantified Value | R: VE, A: VE Lead |
+| PB_VE_003 | Value Calculation | Financial Modelling | R: VE, A: VE Lead |
+| PB_VE_004 | Value Stream Workshop | Current/Future State | R: VE, A: VE Lead |
+| PB_VE_005 | Value Proof | POV Metric Tracking | R: VE, A: VE Lead |
+| PB_VE_006 | Value Realization | Post-Sale Tracking | R: VE, A: VE Lead |
+| PB_VE_007 | Value Amplification | Renewal/Expansion | R: VE, A: VE Lead |
 
 ### Proof of Concept (`proof_of_concept/`)
 
@@ -137,7 +138,7 @@ POC planning and execution.
 
 | ID | Name | Framework | RACI |
 |----|------|-----------|------|
-| PB_POC_501 | POC Success Plan | POC Governance | R: POC Team, A: SA |
+| PB_POC_001 | POC Success Plan | POC Governance | R: POC Team, A: SA |
 
 ### RFP Response (`rfp_response/`)
 
@@ -145,11 +146,11 @@ RFP processing and response management.
 
 | ID | Name | Framework | RACI |
 |----|------|-----------|------|
-| PB_RFP_901 | RFP Processing | RFP Response | R: RFP Team, A: AE |
-| PB_RFP_902 | Bid Decision | Bid/No-Bid Framework | R: RFP Team, A: Sales Mgmt |
-| PB_RFP_903 | Response Strategy | Win Themes | R: RFP Team, A: AE |
-| PB_RFP_904 | Quality Review | Pre-Submission QA | R: RFP Team, A: RFP Lead |
-| PB_RFP_905 | Post Submission | Win/Loss Analysis | R: RFP Team, A: AE |
+| PB_RFP_001 | RFP Processing | RFP Response | R: RFP Team, A: AE |
+| PB_RFP_002 | Bid Decision | Bid/No-Bid Framework | R: RFP Team, A: Sales Mgmt |
+| PB_RFP_003 | Response Strategy | Win Themes | R: RFP Team, A: AE |
+| PB_RFP_004 | Quality Review | Pre-Submission QA | R: RFP Team, A: RFP Lead |
+| PB_RFP_005 | Post Submission | Win/Loss Analysis | R: RFP Team, A: AE |
 
 ### Delivery (`delivery/`)
 
@@ -161,9 +162,9 @@ Implementation and technical delivery playbooks.
 | PB_DEL_002 | Go-Live Readiness Assessment | Readiness Validation | R: Delivery, A: Delivery Mgr |
 | PB_DEL_003 | Implementation Risk Review | Delivery Risk Management | R: Delivery, A: Delivery Mgr |
 | PB_DEL_004 | Post-Implementation Review | Lessons Learned | R: Delivery, A: Delivery Mgr |
-| PB_DEL_189 | Engage DSE | DSE Coordination | R: PS, A: PS Lead |
-| PB_DEL_101 | Security Stage Adoption | Adoption Framework | R: Delivery, A: CA |
-| PB_DEL_902 | Tech Trend Response | Trend Analysis | R: Delivery, A: SA |
+| PB_DEL_006 | Engage DSE | DSE Coordination | R: PS, A: PS Lead |
+| PB_DEL_005 | Security Stage Adoption | Adoption Framework | R: Delivery, A: CA |
+| PB_DEL_007 | Tech Trend Response | Trend Analysis | R: Delivery, A: SA |
 
 ### Product Managers (`product_managers/`)
 
@@ -191,10 +192,10 @@ System utilities and governance playbooks.
 
 | ID | Name | Purpose | RACI |
 |----|------|---------|------|
-| PB_ADM_951 | Render Canvas | Generate visual canvases | R: System, A: Admin |
-| PB_ADM_952 | Canvas Gap Analysis | Identify canvas gaps | R: System, A: Admin |
-| PB_ADM_970 | Validate Playbook | Playbook QA | R: System, A: Admin |
-| PB_ADM_971 | Blueprint Gap Scan | Blueprint completeness | R: System, A: Admin |
+| PB_ADM_001 | Render Canvas | Generate visual canvases | R: System, A: Admin |
+| PB_ADM_002 | Canvas Gap Analysis | Identify canvas gaps | R: System, A: Admin |
+| PB_ADM_003 | Validate Playbook | Playbook QA | R: System, A: Admin |
+| PB_ADM_004 | Blueprint Gap Scan | Blueprint completeness | R: System, A: Admin |
 
 ### Specialists (`specialists/`)
 
@@ -477,15 +478,15 @@ All agent roles now have dedicated playbooks. No remaining gaps.
 
 **Resolved gaps:**
 
-- ~~RFP Agent~~: resolved with PB_RFP_901-905 (2026-03-06)
+- ~~RFP Agent~~: resolved with PB_RFP_001-005 (2026-03-06)
 - ~~InfoSec Agent~~: resolved with PB_ISEC_001-002 (2026-03-06)
-- ~~VE Agent~~: expanded from 1 to 7 with PB_VE_301-307 (2026-03-06)
+- ~~VE Agent~~: expanded from 1 to 7 with PB_VE_001-007 (2026-03-06)
 - ~~Senior Manager Agent~~: resolved with PB_MGT_001-002 (2026-03-06)
 - ~~Governance Agents~~: resolved with PB_GOV_001-007 (2026-03-06)
 - ~~Product Manager Agent~~: resolved with PB_PM_001-003 (2026-02-27)
 - ~~Partner Agent~~: resolved with PB_PTR_001-003 (2026-02-27)
 - ~~Delivery Agent~~: resolved with PB_DEL_001-004 (2026-02-27)
-- ~~Support Agent~~: dissolved (2026-02). Support intelligence handled via SIG_SUP_* signals consumed by CA Agent's SK_CA_001 skill. PB_CA_187-190 (Blueprint C06) authored and owned by CA Agent (signal consumer) and PS Agent (DSE coordination).
+- ~~Support Agent~~: dissolved (2026-02). Support intelligence handled via SIG_SUP_* signals consumed by CA Agent's SK_CA_001 skill. PB_CA_002-004 (Blueprint C06) authored and owned by CA Agent (signal consumer) and PS Agent (DSE coordination).
 
 ---
 
@@ -502,9 +503,10 @@ All agent roles now have dedicated playbooks. No remaining gaps.
 
 | Version | Date | Changes | Author |
 |---------|------|---------| -------|
+| 4.0 | 2026-03-08 | Sequential numbering per prefix (dropped hundred-block ranges), 47 IDs renumbered, added PB_AE_005 Pipeline Generation Review | Tatjana Frank |
 | 3.0 | 2026-03-06 | Playbook ID migration (PB_PREFIX_NNN), added 20 new playbooks (RFP, InfoSec, VE, Management, Governance), intended_agent_role on all files, OP_ top-level fields | Tatjana Frank |
 | 2.3 | 2026-02-27 | Added PB_PM_001-003 (PM Agent), PB_PTR_001-003 (Partner Agent), OP_COM_001, RACI on all playbooks, all agent gaps resolved | Tatjana Frank |
-| 2.2 | 2026-02-27 | Added PB_CA_187-190 (C06), PB_DEL_001-004 (Delivery), vault_routing on all playbooks, Delivery gap resolved | Tatjana Frank |
+| 2.2 | 2026-02-27 | Added PB_CA_002-190 (C06), PB_DEL_001-004 (Delivery), vault_routing on all playbooks, Delivery gap resolved | Tatjana Frank |
 | 2.1 | 2026-02-11 | Added specialists catalog, documented agent role coverage gaps | Tatjana Frank |
 | 2.0 | 2026-02-03 | Reorganized by team ownership, added RACI | |
 | 1.0 | 2026-01-01 | Initial structure | |

@@ -40,19 +40,19 @@
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_VE_301** | **Value Pyramid** | Bain | Value proposition design | Functional, emotional, life-changing value |
-| **PB_VE_302** | **Economic Value to Customer (EVC)** | McKinsey | Pricing strategy | Price vs. value differentiation |
-| **PB_VE_303** | **Value Engineering** | SAVE International | Business case development | ROI, NPV, payback analysis |
-| **PB_VE_304** | **Total Cost of Ownership (TCO)** | Gartner | Cost comparison | TCO vs. competitor solutions |
+| **PB_VE_001** | **Value Pyramid** | Bain | Value proposition design | Functional, emotional, life-changing value |
+| **PB_VE_002** | **Economic Value to Customer (EVC)** | McKinsey | Pricing strategy | Price vs. value differentiation |
+| **PB_VE_003** | **Value Engineering** | SAVE International | Business case development | ROI, NPV, payback analysis |
+| **PB_VE_004** | **Total Cost of Ownership (TCO)** | Gartner | Cost comparison | TCO vs. competitor solutions |
 
 #### Customer Relationship
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_CA_401** | **Customer Lifetime Value (CLV)** | Harvard Business School | Retention strategy | CLV calculation + segment strategy |
-| **PB_CA_402** | **Net Promoter System** | Bain | Loyalty measurement | NPS score + action plan |
-| **PB_CA_403** | **Customer Journey Mapping** | Adaptive Path | CX optimization | Journey stages + pain points |
-| **PB_CA_404** | **Account-Based Marketing (ABM)** | ITSMA | Strategic account targeting | Personalization playbook |
+| **PB_CA_007** | **Customer Lifetime Value (CLV)** | Harvard Business School | Retention strategy | CLV calculation + segment strategy |
+| **PB_CA_008** | **Net Promoter System** | Bain | Loyalty measurement | NPS score + action plan |
+| **PB_CA_009** | **Customer Journey Mapping** | Adaptive Path | CX optimization | Journey stages + pain points |
+| **PB_CA_010** | **Account-Based Marketing (ABM)** | ITSMA | Strategic account targeting | Personalization playbook |
 
 ---
 
@@ -62,11 +62,11 @@
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_SA_101** | **TOGAF ADM** | The Open Group | Enterprise architecture | Architecture Decision Records |
-| **PB_SA_102** | **12-Factor App** | Heroku | Cloud-native assessment | Deployment readiness checklist |
+| **PB_SA_001** | **TOGAF ADM** | The Open Group | Enterprise architecture | Architecture Decision Records |
+| **PB_SA_002** | **12-Factor App** | Heroku | Cloud-native assessment | Deployment readiness checklist |
 | **CL_SA_103** | **C4 Model** | Simon Brown | Architecture documentation | Context, Container, Component, Code diagrams |
-| **PB_SA_104** | **Zachman Framework** | John Zachman | EA planning | 6x6 architecture matrix |
-| **PB_SA_105** | **Microservices Patterns** | Chris Richardson | Service design | Pattern recommendations |
+| **PB_SA_003** | **Zachman Framework** | John Zachman | EA planning | 6x6 architecture matrix |
+| **PB_SA_004** | **Microservices Patterns** | Chris Richardson | Service design | Pattern recommendations |
 
 #### Technology Strategy
 
@@ -93,7 +93,7 @@
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_POC_501** | **Product-Market Fit** | Sean Ellis | PMF assessment | PMF score + gap analysis |
+| **PB_POC_001** | **Product-Market Fit** | Sean Ellis | PMF assessment | PMF score + gap analysis |
 | **PB_POC_502** | **Jobs-to-be-Done (JTBD)** | Clayton Christensen | Feature prioritization | Customer jobs canvas |
 | **PB_POC_503** | **Kano Model** | Noriaki Kano | Feature classification | Must-have, Performance, Delighters |
 | **PB_POC_504** | **Product Lifecycle** | Theodore Levitt | Maturity assessment | Introduction, Growth, Maturity, Decline |
@@ -122,8 +122,8 @@
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_AE_601** | **NIST Cybersecurity Framework** | NIST | Security assessment | Identify, Protect, Detect, Respond, Recover |
-| **PB_AE_602** | **Zero Trust Architecture** | NIST | Security model design | ZTA principles + implementation |
+| **PB_AE_001** | **NIST Cybersecurity Framework** | NIST | Security assessment | Identify, Protect, Detect, Respond, Recover |
+| **PB_AE_002** | **Zero Trust Architecture** | NIST | Security model design | ZTA principles + implementation |
 
 #### Observability
 
@@ -141,7 +141,7 @@
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_CI_701** | **Porter's Five Forces** | Michael Porter | Industry analysis | Competitive dynamics assessment |
+| **PB_CI_001** | **Porter's Five Forces** | Michael Porter | Industry analysis | Competitive dynamics assessment |
 | **PB_CI_702** | **Competitive Positioning Map** | Strategy | Market positioning | 2x2 positioning matrix |
 | **PB_CI_703** | **Win/Loss Analysis** | Sales methodology | Deal retrospective | Win factors + loss reasons |
 | **PB_CI_704** | **Battlecard Framework** | Product Marketing | Competitive response | Head-to-head comparison |
@@ -155,8 +155,8 @@
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_AE_801** | **Critical Path Method (CPM)** | DuPont/Remington Rand | Project scheduling | Critical path + float analysis |
-| **PB_SA_802** | **Earned Value Management (EVM)** | PMI | Project performance | CPI, SPI, forecasting |
+| **PB_AE_006** | **Critical Path Method (CPM)** | DuPont/Remington Rand | Project scheduling | Critical path + float analysis |
+| **PB_SA_005** | **Earned Value Management (EVM)** | PMI | Project performance | CPI, SPI, forecasting |
 | **PB_SA_803** | **Agile Maturity Model** | Agile Alliance | Team assessment | Maturity stage + recommendations |
 
 #### Change Management
@@ -175,8 +175,8 @@
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_RFP_901** | **Partner Ecosystem Map** | Accenture | Partnership landscape | Partner categories + roles |
-| **PB_DEL_902** | **Alliance Maturity Model** | Vantage Partners | Partnership health | Maturity assessment + roadmap |
+| **PB_RFP_001** | **Partner Ecosystem Map** | Accenture | Partnership landscape | Partner categories + roles |
+| **PB_DEL_007** | **Alliance Maturity Model** | Vantage Partners | Partnership health | Maturity assessment + roadmap |
 | **PB_CI_903** | **Co-opetition Framework** | Brandenburger/Nalebuff | Competitive cooperation | Value net analysis |
 
 #### Partner Implementation Playbooks
@@ -211,7 +211,7 @@ See: [Customer Success Playbooks](../guides/for-practitioners/customer-success-p
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_DEL_101** | **Security Stage Adoption** | Industry CS Best Practices | New security customer | Adoption journey + enablement plan |
+| **PB_DEL_005** | **Security Stage Adoption** | Industry CS Best Practices | New security customer | Adoption journey + enablement plan |
 | **PB_DEL_102** | **Observability Stage Adoption** | Industry CS Best Practices | New observability customer | Adoption journey + enablement plan |
 | **PB_DEL_103** | **Search Stage Adoption** | Industry CS Best Practices | New search customer | Adoption journey + enablement plan |
 
@@ -220,14 +220,14 @@ See: [Customer Success Playbooks](../guides/for-practitioners/customer-success-p
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
 | **PB_CA_201** | **Discovery Engagement** | Industry CS Best Practices | Initial customer discovery | Discovery findings + success criteria |
-| **PB_CA_202** | **Cadence Calls** | Industry CS Best Practices | Ongoing engagement | Meeting notes + action items |
+| **PB_CA_005** | **Cadence Calls** | Industry CS Best Practices | Ongoing engagement | Meeting notes + action items |
 | **PB_CA_203** | **Executive Business Review** | Industry CS Best Practices | Quarterly executive touch | EBR presentation + value story |
 
 #### Health Management
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_CA_301** | **Health Triage** | Industry CS Best Practices | Health score decline | Triage report + intervention plan |
+| **PB_CA_006** | **Health Triage** | Industry CS Best Practices | Health score decline | Triage report + intervention plan |
 | **PB_CA_302** | **Risk Intervention** | Industry CS Best Practices | Specific risk triggered | Risk mitigation actions |
 | **PB_CA_303** | **Renewal Protection** | Industry CS Best Practices | T-180 to renewal | Renewal plan + value documentation |
 
@@ -235,9 +235,9 @@ See: [Customer Success Playbooks](../guides/for-practitioners/customer-success-p
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_CA_401** | **Technical Workshop** | Industry CS Best Practices | Enablement needed | Training delivered + proficiency |
-| **PB_CA_402** | **Migration Playbook** | Industry CS Best Practices | Competitive displacement | Migration plan + execution |
-| **PB_CA_403** | **POV Execution** | Industry CS Best Practices | Technical evaluation | POV results + success criteria |
+| **PB_CA_007** | **Technical Workshop** | Industry CS Best Practices | Enablement needed | Training delivered + proficiency |
+| **PB_CA_008** | **Migration Playbook** | Industry CS Best Practices | Competitive displacement | Migration plan + execution |
+| **PB_CA_009** | **POV Execution** | Industry CS Best Practices | Technical evaluation | POV results + success criteria |
 
 #### Lifecycle Transitions
 
@@ -250,11 +250,11 @@ See: [Customer Success Playbooks](../guides/for-practitioners/customer-success-p
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_SA_105** | **Five Whys Analysis** | Toyota Production System | Root cause needed | Root cause + countermeasures |
-| **PB_AE_601** | **Retrospective** | Agile + Five Whys | Deal won/lost | Learnings + process improvements |
-| **PB_AE_602** | **Account Planning** | Enterprise Sales + Five Whys | Annual planning | Account plan + blockers resolved |
-| **PB_AE_603** | **Sales QBR** | Enterprise Sales Ops | Quarterly sales review | Pipeline health + revenue attainment + forecast accuracy |
-| **PB_CA_174** | **Customer QBR** | Customer Success Best Practice | Quarterly customer review | Adoption progress + value realization + success plan refresh |
+| **PB_SA_004** | **Five Whys Analysis** | Toyota Production System | Root cause needed | Root cause + countermeasures |
+| **PB_AE_001** | **Retrospective** | Agile + Five Whys | Deal won/lost | Learnings + process improvements |
+| **PB_AE_002** | **Account Planning** | Enterprise Sales + Five Whys | Annual planning | Account plan + blockers resolved |
+| **PB_AE_003** | **Sales QBR** | Enterprise Sales Ops | Quarterly sales review | Pipeline health + revenue attainment + forecast accuracy |
+| **PB_CA_001** | **Customer QBR** | Customer Success Best Practice | Quarterly customer review | Adoption progress + value realization + success plan refresh |
 
 ---
 
@@ -264,9 +264,9 @@ See: [Customer Success Playbooks](../guides/for-practitioners/customer-success-p
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_STR_201** | **SWOT Analysis** | Albert Humphrey | Strategic assessment | Strengths, Weaknesses, Opportunities, Threats |
-| **PB_STR_202** | **PESTEL Analysis** | Harvard | Macro environment | Political, Economic, Social, Technological, Environmental, Legal |
-| **PB_STR_203** | **Scenario Planning** | Shell | Future visioning | Multiple future scenarios |
+| **PB_STR_004** | **SWOT Analysis** | Albert Humphrey | Strategic assessment | Strengths, Weaknesses, Opportunities, Threats |
+| **PB_STR_005** | **PESTEL Analysis** | Harvard | Macro environment | Political, Economic, Social, Technological, Environmental, Legal |
+| **PB_STR_006** | **Scenario Planning** | Shell | Future visioning | Multiple future scenarios |
 | **PB_STR_204** | **Business Model Canvas** | Strategyzer | Business model design | 9-block canvas |
 
 ### Risk Management
@@ -292,13 +292,13 @@ See: [Customer Success Playbooks](../guides/for-practitioners/customer-success-p
 
 ### Phase 1: Core Playbooks (Immediate)
 1. **PB_STR_001** - Three Horizons (strategic planning baseline)
-2. **PB_STR_201** - SWOT (risk and strategic context)
-3. **PB_VE_301** - Value Engineering (business case standard)
-4. **PB_SA_101** - TOGAF ADM (architecture decisions)
-5. **PB_CI_701** - Porter's Five Forces (competitive analysis)
+2. **PB_STR_004** - SWOT (risk and strategic context)
+3. **PB_VE_001** - Value Engineering (business case standard)
+4. **PB_SA_001** - TOGAF ADM (architecture decisions)
+5. **PB_CI_001** - Porter's Five Forces (competitive analysis)
 
 ### Phase 2: Expansion (Month 2)
-6. **PB_CA_401** - Customer Health Score
+6. **PB_CA_007** - Customer Health Score
 7. **PB_STR_002** - Ansoff Matrix
 8. **PB_SA_111** - Technology Adoption Lifecycle
 9. **PB_STR_211** - Risk Matrix

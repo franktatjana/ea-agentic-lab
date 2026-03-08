@@ -4,6 +4,10 @@
 
 ### Added
 
+- SA playbooks PB_SA_011-015: Value Stream Mapping, Technical Evaluation Execution, SA Engagement Qualification, Technical Discovery, Solution Fit Assessment
+- SA skills SK_SA_011-012: Value Stream Facilitation, Technical Evaluation Design
+- Methodology reference files: discovery-methodology.yaml (enriched), solution-fit-methodology.yaml (new)
+- DDR-025: Methodology Reference Architecture (knowledge_refs pattern for playbook-to-knowledge binding)
 - Canvas Library page at `/canvas` with catalog API endpoint, summary cards, filter tabs (all/core/specialized/planned), and per-canvas cards showing sections, owner, cadence, and data pipeline status
 - Canvas catalog backend: `GET /canvas/catalog` endpoint returning canvas metadata from registry and specs
 - About page with project disclaimer, fictional vendor notice, and CC BY-NC-SA 4.0 license
@@ -26,6 +30,9 @@
 
 ### Changed
 
+- SA Agent peer relationship: AE Agent (was incorrectly InfoSec Agent)
+- SA Agent profile (sa-agent.md): full rewrite to match current definition (12 skills, 15 SA playbooks, 9 sub-agents, lifecycle chain)
+- CLAUDE.md SA competency model: added PB_SA_011-015, cross-competency playbooks, lifecycle chain, peer agent, DDR-025 reference
 - Playbook catalog: 2-column grid layout, compact cards with role badge top-right, category as colored text
 - Playbook detail view: icons on all metadata title labels, 3x2 detail card grid
 - Fictional vendor names standardized across all vault data (Titanmetrics, Vizara, DataForge, ShieldOne)
@@ -113,12 +120,12 @@ Replaced the 2-column card grid with a single-column inline list for readability
 
 ## 2026-02-09 - PESTLE Analysis Ownership Change
 
-PESTLE Analysis (PB_STR_202) is a strategic macro-environmental assessment that belongs at the leadership level. Moved ownership from SA Agent to AE Agent across all references.
+PESTLE Analysis (PB_STR_005) is a strategic macro-environmental assessment that belongs at the leadership level. Moved ownership from SA Agent to AE Agent across all references.
 
 **Files changed:**
-- `domain/playbooks/strategy/PB_STR_202_pestle_analysis.yaml`: `intended_agent_role` SA → AE, decision rule owners updated
-- `domain/mappings/agent_role_mapping.yaml`: moved PB_STR_202 from sa_agent.playbooks_owned to ae_agent.playbooks_owned, updated routing
-- `domain/agents/solution_architects/agents/sa_agent.yaml`: moved PB_STR_202 from owned to contributes_to
+- `domain/playbooks/strategy/PB_STR_005_pestle_analysis.yaml`: `intended_agent_role` SA → AE, decision rule owners updated
+- `domain/mappings/agent_role_mapping.yaml`: moved PB_STR_005 from sa_agent.playbooks_owned to ae_agent.playbooks_owned, updated routing
+- `domain/agents/solution_architects/agents/sa_agent.yaml`: moved PB_STR_005 from owned to contributes_to
 - `docs/operating-model/raci-model.md`: updated PESTLE row to AE Lead
 
 ---
@@ -568,23 +575,23 @@ Moved test data from `infohub/` to `examples/infohub/` for clarity:
 - CLI interface with `--project-root` and `--output-dir` arguments
 
 #### teams/solution_architects/agents/sa_agent.yaml (UPDATED)
-- **ADDED** `playbooks.owned` - PB_SA_101, PB_STR_201, PB_STR_202, PB_STR_203, PB_STR_204
-- **ADDED** `playbooks.contributes_to` - PB_STR_001, PB_VE_301, PB_CA_401, PB_CI_701
+- **ADDED** `playbooks.owned` - PB_SA_001, PB_STR_004, PB_STR_005, PB_STR_006, PB_STR_204
+- **ADDED** `playbooks.contributes_to` - PB_STR_001, PB_VE_001, PB_CA_007, PB_CI_001
 - **ADDED** `execution` config (trigger_sources, output_destination, escalation_threshold)
 
 #### teams/account_executives/agents/ae_agent.yaml (UPDATED)
-- **ADDED** `playbooks.owned` - PB_STR_001, PB_STR_002, PB_STR_003, PB_VE_301, PB_VE_302
-- **ADDED** `playbooks.contributes_to` - PB_STR_201, PB_CA_401, PB_CI_701
+- **ADDED** `playbooks.owned` - PB_STR_001, PB_STR_002, PB_STR_003, PB_VE_001, PB_VE_002
+- **ADDED** `playbooks.contributes_to` - PB_STR_004, PB_CA_007, PB_CI_001
 - **ADDED** `execution` config
 
 #### teams/customer_architects/agents/ca_agent.yaml (UPDATED)
-- **ADDED** `playbooks.owned` - PB_CA_401, PB_CA_402, PB_CA_403
-- **ADDED** `playbooks.contributes_to` - PB_SA_101, PB_STR_201, PB_VE_301
+- **ADDED** `playbooks.owned` - PB_CA_007, PB_CA_008, PB_CA_009
+- **ADDED** `playbooks.contributes_to` - PB_SA_001, PB_STR_004, PB_VE_001
 - **ADDED** `execution` config
 
 #### teams/competitive_intelligence/agents/ci_agent.yaml (UPDATED)
-- **ADDED** `playbooks.owned` - PB_CI_701, PB_CI_702, PB_CI_703
-- **ADDED** `playbooks.contributes_to` - PB_STR_001, PB_STR_201, PB_VE_301
+- **ADDED** `playbooks.owned` - PB_CI_001, PB_CI_702, PB_CI_703
+- **ADDED** `playbooks.contributes_to` - PB_STR_001, PB_STR_004, PB_VE_001
 - **ADDED** `execution` config
 
 #### tests/test_governance_orchestrator.py (NEW)
@@ -633,13 +640,13 @@ Moved test data from `infohub/` to `examples/infohub/` for clarity:
 - H2 pipeline: $800K security opportunity
 - 3 risks, 3 actions generated
 
-#### infohub/ACME_CORP/frameworks/PB_VE_301_value_engineering_20260112.md (NEW)
+#### infohub/ACME_CORP/frameworks/PB_VE_001_value_engineering_20260112.md (NEW)
 - Value Engineering analysis for security consolidation
 - TCO comparison: $1.2M current → $800K proposed
 - ROI: 18-month payback, 14% 3-year ROI
 - Stakeholder value mapping
 
-#### infohub/ACME_CORP/frameworks/PB_STR_201_swot_20260112.md (NEW)
+#### infohub/ACME_CORP/frameworks/PB_STR_004_swot_20260112.md (NEW)
 - SWOT analysis coordinated by SA Agent
 - 6 strengths, 4 weaknesses, 5 opportunities, 5 threats
 - Strategic recommendation: Proceed with high priority

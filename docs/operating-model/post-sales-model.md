@@ -71,7 +71,7 @@ Archetype: post_sales_governance
 ├── Playbooks (executed within each Reference Blueprint)
 │   │   Small operational units (~15-30 min)
 │   │
-│   └── PB_CA_401, PB_CA_167, PB_CA_168, etc.
+│   └── PB_CA_007, PB_CA_167, PB_CA_168, etc.
 │
 └── Assets (outputs stored in InfoHub)
         e.g., adoption_tracker.yaml, health_score.yaml, support_log.yaml
@@ -163,9 +163,9 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 - PB_CA_171: Create success plan
 - PB_CA_172: Review adoption metrics
-- PB_CA_401: Calculate health score
+- PB_CA_007: Calculate health score
 - PB_CA_173: Trigger success intervention
-- PB_CA_174: Conduct quarterly business review
+- PB_CA_001: Conduct quarterly business review
 
 **Stakeholders:**
 
@@ -332,10 +332,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_CA_187: Track support case
-- PB_CA_188: Escalate support issue
-- PB_DEL_189: Engage DSE
-- PB_CA_190: Review support health
+- PB_CA_002: Track support case
+- PB_CA_003: Escalate support issue
+- PB_DEL_006: Engage DSE
+- PB_CA_004: Review support health
 
 **Stakeholders:**
 
@@ -416,7 +416,7 @@ How post-sales requirements change by service tier:
 | QBR | - | Semi-annual | Quarterly | Monthly |
 | Services sync | - | Bi-weekly | Weekly | Daily |
 | Support review | - | Quarterly | Monthly | Weekly |
-| Gap scan (PB_ADM_971) | End only | Monthly | Weekly | Daily |
+| Gap scan (PB_ADM_004) | End only | Monthly | Weekly | Daily |
 
 ### Validation Strictness by Track
 
@@ -442,7 +442,7 @@ How post-sales requirements change by service tier:
 
 ## Gap Scan Integration
 
-PB_ADM_971 (Blueprint Gap Scan) validates this archetype by checking:
+PB_ADM_004 (Blueprint Gap Scan) validates this archetype by checking:
 
 1. **Blueprint exists** for Node at `{realm}/{node}/blueprint.yaml`
 2. **Required Reference Blueprints** instantiated per Engagement Track

@@ -45,10 +45,10 @@ Dissolve the Support Agent entirely. Replace its functions with two mechanisms:
 
 | Playbook | Owner | Purpose |
 |----------|-------|---------|
-| PB_CA_187 Track Support Case | CA Agent | Processes SIG_SUP_001/002, classifies root causes |
-| PB_CA_188 Escalate Support Issue | CA Agent | Processes SIG_SUP_003/004, three-tier escalation |
-| PB_DEL_189 Engage DSE | PS Agent | Evaluates DSE eligibility with weighted scoring |
-| PB_CA_190 Review Support Health | CA Agent | Quarterly support trends for QBR (PB_CA_174) |
+| PB_CA_002 Track Support Case | CA Agent | Processes SIG_SUP_001/002, classifies root causes |
+| PB_CA_003 Escalate Support Issue | CA Agent | Processes SIG_SUP_003/004, three-tier escalation |
+| PB_DEL_006 Engage DSE | PS Agent | Evaluates DSE eligibility with weighted scoring |
+| PB_CA_004 Review Support Health | CA Agent | Quarterly support trends for QBR (PB_CA_001) |
 
 The `domain/agents/support/` directory was removed. All `collaborates_with: support_agent` references in other agent configs were replaced with signal consumption or CA Agent collaboration.
 
@@ -71,7 +71,7 @@ The `domain/agents/support/` directory was removed. All `collaborates_with: supp
 - Follows the signal architecture (DDR-005) consistently: support events are signals like any other domain event
 - CA Agent gains support awareness through a composable skill (DDR-016) rather than ad-hoc collaboration
 - Five agents lose a coupling dependency (`collaborates_with: support_agent`), replaced by loosely-coupled signal consumption
-- C06 blueprint now has concrete playbooks (PB_CA_187-190) instead of unimplemented agent references
+- C06 blueprint now has concrete playbooks (PB_CA_002-190) instead of unimplemented agent references
 
 **Negative:**
 - Support signals require the real support team to emit structured events, adding an integration requirement
@@ -79,7 +79,7 @@ The `domain/agents/support/` directory was removed. All `collaborates_with: supp
 - Any future support-specific logic must be added as signals + playbooks rather than agent tasks, which is more ceremony for simple additions
 
 **Risks:**
-- If the support team cannot emit signals reliably, the system loses support visibility entirely. Mitigation: PB_CA_190 (quarterly review) can fall back to manual data collection
+- If the support team cannot emit signals reliably, the system loses support visibility entirely. Mitigation: PB_CA_004 (quarterly review) can fall back to manual data collection
 - CA Agent accumulating too many skills could become a god agent over time. Mitigation: monitor skill count per agent, split if SK count exceeds 5-7
 
 ---
@@ -96,10 +96,10 @@ The `domain/agents/support/` directory was removed. All `collaborates_with: supp
 | EDIT | `domain/agents/professional_services/agents/ps_agent.yaml` (updated collaborates_with) |
 | EDIT | `domain/agents/account_executives/agents/ae_agent.yaml` (removed support_agent ref) |
 | EDIT | `domain/agents/solution_architects/agents/sa_agent.yaml` (removed support_agent ref) |
-| CREATE | `domain/playbooks/customer_architects/PB_CA_187_track_support_case.yaml` |
-| CREATE | `domain/playbooks/customer_architects/PB_CA_188_escalate_support_issue.yaml` |
-| CREATE | `domain/playbooks/delivery/PB_DEL_189_engage_dse.yaml` |
-| CREATE | `domain/playbooks/customer_architects/PB_CA_190_review_support_health.yaml` |
+| CREATE | `domain/playbooks/customer_architects/PB_CA_002_track_support_case.yaml` |
+| CREATE | `domain/playbooks/customer_architects/PB_CA_003_escalate_support_issue.yaml` |
+| CREATE | `domain/playbooks/delivery/PB_DEL_006_engage_dse.yaml` |
+| CREATE | `domain/playbooks/customer_architects/PB_CA_004_review_support_health.yaml` |
 | EDIT | `docs/architecture/blueprints/post-sales-model.md` (C06 ownership updated) |
 | EDIT | `docs/architecture/agents/agent-handover-diagram.md` (Support Agent removed from flow) |
 | EDIT | `docs/architecture/agents/agent-responsibilities.md` (section 12 removed) |

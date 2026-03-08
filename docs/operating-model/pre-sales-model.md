@@ -76,7 +76,7 @@ Archetype: pre_sales_governance
 ├── Playbooks (executed within each Reference Blueprint)
 │   │   Small operational units (~15-30 min)
 │   │
-│   └── PB_STR_201, PB_VE_301, PB_CI_701, etc.
+│   └── PB_STR_004, PB_VE_001, PB_CI_001, etc.
 │
 └── Assets (outputs stored in InfoHub)
         e.g., proposal.yaml, poc_plan.yaml, competitive_analysis.yaml
@@ -111,7 +111,7 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_STR_201: Conduct SWOT analysis
+- PB_STR_004: Conduct SWOT analysis
 - PB_SA_130: Qualify opportunity
 - PB_SA_131: Progress deal stage
 - PB_SA_132: Prepare deal review
@@ -235,7 +235,7 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_CI_701: Conduct competitive analysis
+- PB_CI_001: Conduct competitive analysis
 - PB_SA_143: Update competitor profile
 - PB_SA_144: Apply battlecard positioning
 - PB_SA_145: Document win/loss learnings
@@ -413,7 +413,7 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_SA_101: Design solution architecture
+- PB_SA_001: Design solution architecture
 - PB_SA_159: Select reference architecture
 - PB_SA_160: Calculate sizing estimate
 - PB_SA_161: Develop proposal content
@@ -497,7 +497,7 @@ How pre-sales requirements change by service tier:
 | Health score update | - | Monthly | Weekly | Daily |
 | POC checkpoint | Weekly | - | 2x/week | Daily |
 | Specialist sync | As-needed | Weekly | 2x/week | Daily |
-| Gap scan (PB_ADM_971) | End only | Monthly | Weekly | Daily |
+| Gap scan (PB_ADM_004) | End only | Monthly | Weekly | Daily |
 
 ### Validation Strictness by Track
 
@@ -523,7 +523,7 @@ How pre-sales requirements change by service tier:
 
 ## Gap Scan Integration
 
-PB_ADM_971 (Blueprint Gap Scan) validates this archetype by checking:
+PB_ADM_004 (Blueprint Gap Scan) validates this archetype by checking:
 
 1. **Blueprint exists** for Node at `{realm}/{node}/blueprint.yaml`
 2. **Required Reference Blueprints** instantiated per Engagement Track

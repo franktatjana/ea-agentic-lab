@@ -43,7 +43,7 @@ Archetype: strategic_account_governance
 ├── Playbooks (executed within each Reference Blueprint)
 │   │   Small operational units (~15-30 min)
 │   │
-│   └── PB_SA_102, PB_CA_401, PB_ADM_971, etc.
+│   └── PB_SA_002, PB_CA_007, PB_ADM_004, etc.
 │
 └── Assets (outputs stored in InfoHub)
         e.g., stakeholder_map.yaml, risk_register.yaml, decision_log.yaml
@@ -71,10 +71,10 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_SA_102: Map stakeholders and influence
+- PB_SA_002: Map stakeholders and influence
 - CL_SA_103: Define governance cadence
-- PB_SA_104: Establish escalation paths
-- PB_SA_105: Create RACI matrix
+- PB_SA_003: Establish escalation paths
+- PB_SA_004: Create RACI matrix
 
 **Cadences:**
 
@@ -214,7 +214,7 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 - PB_SA_119: Assess risk severity
 - PB_SA_120: Escalate critical risk
 - PB_SA_121: Review risk mitigation
-- PB_CA_401: Calculate health score (includes risk weighting)
+- PB_CA_007: Calculate health score (includes risk weighting)
 
 **Cadences:**
 
@@ -281,7 +281,7 @@ Engagement Track = Policy overlay (Economy/Premium/Fast Track/POC)
 
 **Core Playbooks:**
 
-- PB_VE_301: Value engineering assessment
+- PB_VE_001: Value engineering assessment
 - PB_SA_126: Build ROI model
 - PB_SA_127: Validate business case
 - PB_SA_128: Track value realization
@@ -326,7 +326,7 @@ How governance requirements change by service tier:
 | Risk review | - | Monthly | Weekly | Daily |
 | Decision review | - | Monthly | Weekly | Daily |
 | Account plan sync | - | Monthly | Weekly | Daily |
-| Gap scan (PB_ADM_971) | - | Monthly | Weekly | Daily |
+| Gap scan (PB_ADM_004) | - | Monthly | Weekly | Daily |
 
 ### Validation Strictness by Track
 
@@ -342,7 +342,7 @@ How governance requirements change by service tier:
 
 ## Gap Scan Integration
 
-PB_ADM_971 (Blueprint Gap Scan) validates this archetype by checking:
+PB_ADM_004 (Blueprint Gap Scan) validates this archetype by checking:
 
 1. **Blueprint exists** for Realm at `{realm}/governance/blueprint.yaml`
 2. **Required Reference Blueprints** instantiated per Engagement Track

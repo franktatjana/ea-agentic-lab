@@ -7,15 +7,24 @@ category: "entropy_reduction"
 purpose: "Make follow-through unavoidable without babysitting adults"
 
 core_functions:
-  - "Sends reminders for approaching and overdue actions"
-  - "Escalates stalled or blocked items through management chain"
-  - "Flags actions missing owners or due dates"
-  - "Produces daily nudge summary for governance lead"
+  - "Scan action tracker for overdue and approaching-due items"
+  - "Issue reminder nudges via declared output channel"
+  - "Escalate to human when item overdue > threshold"
+  - "Log nudge history to prevent duplicate noise"
+
+inputs:
+  - "{realm}/{node}/internal-infohub/actions/action_tracker.yaml"
+  - "OP_ACT_001 output, newly created action items"
+
+outputs:
+  - "{realm}/{node}/internal-infohub/actions/nudge_log.yaml"
+  - "Slack/email notification to action owner"
 
 mechanics:
-  - "Scans action tracker and decision log on schedule"
-  - "Classifies items by urgency (due soon, overdue, stalled, missing fields)"
-  - "Routes escalations based on overdue duration thresholds"
+  - "Runs on schedule (daily 9am + 2pm) and on action_created event"
+  - "Compares due_date against today; classifies as approaching / overdue"
+  - "Issues nudge if no nudge sent in last 24h for same item"
+  - "Escalates to human after 3 missed nudges on same item"
 
 escalation_to: "Governance Lead"
 
@@ -27,11 +36,6 @@ trigger:
     - "action_created"
     - "action_due_approaching"
     - "action_overdue"
-
-inputs:
-  sources:
-    - "{realm}/{node}/internal-infohub/actions/action_tracker.yaml"
-    - "{realm}/{node}/external-infohub/decisions/decision_log.yaml"
 
 processing:
   checks:
@@ -65,22 +69,6 @@ escalation_rules:
   - trigger: "blocked > 3 days"
     action: "Route to blocker_resolver"
 
-outputs:
-  notifications:
-    - type: "reminder"
-      channel: "slack|email"
-      frequency: "once_per_check"
-    - type: "escalation"
-      channel: "slack|email"
-      include: "manager"
-  reports:
-    - type: "daily_nudge_summary"
-      destination: "governance_lead"
-      content:
-        - actions_reminded
-        - actions_escalated
-        - items_missing_owners
-
 quality_gates:
   - "No spam: max 1 reminder per action per day"
   - "Escalation requires overdue proof"
@@ -90,7 +78,7 @@ integrations:
   reads_from:
     - "action_tracker"
     - "decision_log"
-    - "org_chart"              # For escalation paths
+    - "org_chart"
   writes_to:
     - "nudge_log"
   notifies:
@@ -103,15 +91,14 @@ skills:
 
 playbooks:
   owned:
-    - "PB_GOV_001"  # Nudge Effectiveness Review
-    - "OP_ESC_001"  # Escalate Blocked Action
+    - "PB_GOV_001"   # Nudge Effectiveness Review
   contributes_to:
-    - "PB_GOV_002"  # Weekly Action Audit (receives overdue alerts)
+    - "OP_ESC_001"   # Escalate Blocked Action
 
 execution:
   trigger_sources:
     - "scheduled_cadence"
     - "action_created"
     - "action_overdue"
-  output_destination: "{realm}/{node}/internal-infohub/governance/"
-  escalation_threshold: "overdue_2_days"
+  output_destination: "{realm}/{node}/internal-infohub/actions/"
+  escalation_threshold: "action overdue > 3 nudges with no response"

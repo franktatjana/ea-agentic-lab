@@ -111,9 +111,9 @@ escalation:
 # Related playbooks
 playbooks:
   primary:
-    - PB_AE_601_partner_engagement
+    - PB_AE_001_partner_engagement
   secondary:
-    - PB_STR_201_swot_analysis
+    - PB_STR_004_swot_analysis
 
 # Interaction with other agents
 collaborates_with:

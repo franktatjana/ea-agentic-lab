@@ -66,7 +66,7 @@ No dedicated skills. Uses personality-defined prompts and playbook references.
 | PB_SRCH_007 | Search Technical POC |
 | PB_SRCH_008 | RAG System Design |
 
-Contributes to: PB_STR_201 (SWOT), PB_VE_301 (Value Engineering), PB_CI_701 (Five Forces)
+Contributes to: PB_STR_004 (SWOT), PB_VE_001 (Value Engineering), PB_CI_001 (Five Forces)
 
 ---
 

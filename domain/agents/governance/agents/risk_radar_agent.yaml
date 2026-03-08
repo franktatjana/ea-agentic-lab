@@ -7,15 +7,26 @@ category: "entropy_reduction"
 purpose: "Surface risks early and keep them visible"
 
 core_functions:
-  - "Detects explicit, implicit, and derived risks from vault activity"
-  - "Classifies risks by severity and category"
-  - "Tracks mitigation status and escalates critical risks"
-  - "Produces weekly risk digest with trend indicators"
+  - "Scan meeting notes, decisions, and action blocks for risk signals"
+  - "Classify risks by type and severity using risk-classification.yaml"
+  - "Register new risks to the risk register via OP_RSK_001"
+  - "Maintain weekly risk review cadence and surface trending risks"
+  - "Alert stakeholders when risk severity escalates"
+
+inputs:
+  - "{realm}/{node}/internal-infohub/meetings/"
+  - "{realm}/{node}/internal-infohub/decisions/"
+  - "{realm}/{node}/internal-infohub/risks/risk_register.yaml"
+
+outputs:
+  - "{realm}/{node}/internal-infohub/risks/risk_register.yaml"
+  - "Risk alert notifications to relevant agents and owners"
 
 mechanics:
-  - "Scans meeting notes, decisions, actions, health scores"
-  - "Severity classification (critical/high/medium/low)"
-  - "Enrichment: assigns owners, sets review dates, links mitigations"
+  - "Keyword scan across infohub content on each trigger event"
+  - "Scores risk confidence against references/risk-classification.yaml"
+  - "Deduplicates against existing register before creating new entry"
+  - "Weekly review aggregates open risks and produces trending summary"
 
 escalation_to: "Governance Lead"
 
@@ -37,14 +48,6 @@ trigger:
     - "problem"
     - "worried"
     - "might not"
-
-inputs:
-  sources:
-    - "{realm}/{node}/meetings/"
-    - "{realm}/{node}/external-infohub/decisions/decision_log.yaml"
-    - "{realm}/{node}/internal-infohub/actions/action_tracker.yaml"
-    - "slack_threads"
-    - "email_threads"
 
 processing:
   detection:
@@ -93,36 +96,15 @@ processing:
     - link_mitigations: "From action tracker"
     - calculate_exposure: "Impact × probability"
 
-outputs:
-  artifacts:
-    - type: "risk_register_update"
-      path: "{realm}/{node}/internal-infohub/risks/risk_register.yaml"
-    - type: "top_risks_digest"
-      format: "markdown"
-      destination: "account_team"
-  alerts:
-    - condition: "severity == critical"
-      action: "Immediate notification"
-      recipients: ["account_lead", "governance_lead"]
-    - condition: "new_risk"
-      action: "Add to weekly digest"
-  reports:
-    - type: "weekly_risk_summary"
-      content:
-        - new_risks
-        - escalated_risks
-        - mitigated_risks
-        - top_5_active
-
 risk_lifecycle:
   states:
-    - "Identified"        # Detected, not yet assessed
-    - "Assessed"          # Severity/owner assigned
-    - "Mitigating"        # Actions in progress
-    - "Monitoring"        # Under control, watching
-    - "Mitigated"         # Addressed
-    - "Accepted"          # Known, no action planned
-    - "Materialized"      # Risk became issue
+    - "Identified"
+    - "Assessed"
+    - "Mitigating"
+    - "Monitoring"
+    - "Mitigated"
+    - "Accepted"
+    - "Materialized"
   review_cadence:
     critical: "Daily"
     high: "Every 2 days"
@@ -142,8 +124,6 @@ integrations:
     - "action_tracker"
     - "decision_log"
     - "health_score"
-    - "slack"
-    - "email"
   writes_to:
     - "risk_register"
   notifies:
@@ -156,10 +136,10 @@ skills:
 
 playbooks:
   owned:
-    - "PB_GOV_004"  # Risk Assessment Review
-    - "OP_RSK_001"  # Process Risk Alert
-    - "OP_HLT_001"  # Compute Health Score
-  contributes_to: []
+    - "PB_GOV_004"   # Risk Review
+  contributes_to:
+    - "OP_RSK_001"   # Register New Risk
+    - "OP_HLT_001"   # Health Score Alert
 
 execution:
   trigger_sources:
@@ -169,4 +149,4 @@ execution:
     - "health_score_dropped"
     - "scheduled_cadence"
   output_destination: "{realm}/{node}/internal-infohub/risks/"
-  escalation_threshold: "severity_critical"
+  escalation_threshold: "risk.severity == CRITICAL and owner unassigned > 24h"

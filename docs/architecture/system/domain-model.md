@@ -335,6 +335,7 @@ A deal stage scenario that orchestrates runbooks from across multiple roles. The
 - Domain description (what, why, who contributes)
 - Trust tier (autonomous / review-before-publish / human-decides)
 - Steps (references to agent runbooks from any role)
+- Flow bindings (maps playbook phases to agent flow IDs, making the implicit orchestration explicit)
 - Boundaries (scenario-level constraints)
 
 **Trust tiers:**
@@ -348,7 +349,7 @@ A deal stage scenario that orchestrates runbooks from across multiple roles. The
 **Example:**
 
 ```yaml
-playbook: PB_AE_603_sales_qbr
+playbook: PB_AE_003_sales_qbr
   owner: ae
   domain: >
     Quarterly Business Review consolidates deal health, competitive
@@ -377,7 +378,19 @@ playbook: PB_AE_603_sales_qbr
   boundaries:
     - No forward-looking revenue projections without evidence
     - All competitive claims must be sourced
+  flow_bindings:
+    - phase: "Pipeline Review"
+      agent: ae-pipeline-mgmt-agent
+      flow: pipeline-management
+    - phase: "Deal Quality Review"
+      agent: ae-qualification-agent
+      flow: meddpicc-qualification
+    - phase: "Competitive Landscape"
+      agent: ae-signal-detection-agent
+      flow: commercial-signal-detection
 ```
+
+Flow bindings create the bidirectional link between playbook phases and agent flows. Each agent flow carries a `playbook_refs` field listing which playbooks invoke it. This makes the orchestration traceable in both directions: from playbook to flow and from flow to playbook.
 
 **Design principle:** Playbooks are the coordination layer. No agent needs to understand another agent's domain. The playbook defines what each role contributes and how outputs flow between them. The owning role reviews the assembled result.
 
@@ -403,14 +416,14 @@ blueprint: enterprise_displacement
       - PB_ACI_001  # Account Research
       - PB_ACI_002  # Org Mapping
     qualification:
-      - PB_CI_701      # Competitive Landscape
-      - PB_VE_301      # Value Engineering
-      - PB_STR_201      # SWOT Analysis
+      - PB_CI_001      # Competitive Landscape
+      - PB_VE_001      # Value Engineering
+      - PB_STR_004      # SWOT Analysis
     execution:
-      - PB_SA_101      # Architecture Decision Record
-      - PB_VE_302      # Stakeholder Mapping
+      - PB_SA_001      # Architecture Decision Record
+      - PB_VE_002      # Stakeholder Mapping
     governance:
-      - PB_AE_603      # Sales QBR (recurring)
+      - PB_AE_003      # Sales QBR (recurring)
       - PB_DEL_003  # Implementation Risk Review (recurring)
     close:
       - PB_DEL_001  # Implementation Kickoff

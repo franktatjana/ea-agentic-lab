@@ -59,7 +59,7 @@ def extract_playbook_id(path: Path, data: dict | None) -> str | None:
     """Extract playbook ID from YAML data or derive from filename.
 
     Checks: playbook_id (top-level) → steckbrief.playbook_id → filename pattern.
-    Filename pattern: PB_XXX_name.yaml → PB_XXX, PB_CA_301_name.yaml → PB_CA_301,
+    Filename pattern: PB_XXX_name.yaml → PB_XXX, PB_CA_006_name.yaml → PB_CA_006,
     OP_MTG_001_name.yaml → OP_MTG_001.
     """
     if data:
@@ -72,7 +72,7 @@ def extract_playbook_id(path: Path, data: dict | None) -> str | None:
 
     # Derive from filename
     stem = path.stem
-    # Match patterns like PB_CA_301, PB_SEC_001, PB_OBS_010, PB_SRCH_008, PB_RFP_901, PB_STR_201, OP_MTG_001
+    # Match patterns like PB_CA_006, PB_SEC_001, PB_OBS_010, PB_SRCH_008, PB_RFP_001, PB_STR_004, OP_MTG_001
     m = re.match(r"((?:PB|OP)_(?:[A-Z]+_)?\d+)", stem)
     if m:
         return m.group(1)
@@ -283,7 +283,7 @@ class TestOperationalWiring:
 
     def test_follow_up_playbook_ids_are_valid(self, operational_playbooks, all_playbook_ids):
         """Cross-playbook triggers should reference real playbooks."""
-        known_future = {"PB_DEL_902_tech_trend_response"}  # referenced by ID stem
+        known_future = {"PB_DEL_007_tech_trend_response"}  # referenced by ID stem
 
         for pid, data in operational_playbooks.items():
             steps = data.get("steps") or data.get("processing_steps") or []
@@ -343,7 +343,7 @@ class TestStrategicWiring:
             # Find PB_xxx references in the YAML text
             refs = set(re.findall(r"PB_[A-Z_]*\d+", text))
             for ref in refs:
-                # Extract the core ID (e.g., PB_STR_201, PB_CA_301)
+                # Extract the core ID (e.g., PB_STR_004, PB_CA_006)
                 match = re.match(r"(PB_(?:[A-Z]+_)?\d+)", ref)
                 if match:
                     core_id = match.group(1)
@@ -441,7 +441,7 @@ class TestTechSignalScenario:
         assert "SIG_TECH_003" in emitted_ids, "OP_TECH_001 should emit SIG_TECH_003"
 
     def test_tech_trend_response_playbook_exists(self, all_playbook_ids):
-        assert "PB_DEL_902" in all_playbook_ids, "Follow-up playbook PB_DEL_902 (tech trend response) missing"
+        assert "PB_DEL_007" in all_playbook_ids, "Follow-up playbook PB_DEL_007 (tech trend response) missing"
 
     def test_tech_signal_agents_exist(self, all_agent_ids):
         required = ["tech_signal_analyzer_agent", "tech_signal_scanner_agent"]
@@ -463,28 +463,28 @@ class TestDealClosureScenario:
         )
 
     def test_retrospective_playbook_exists(self, strategic_playbooks):
-        assert "PB_AE_601" in strategic_playbooks
-        data = strategic_playbooks["PB_AE_601"]
+        assert "PB_AE_001" in strategic_playbooks
+        data = strategic_playbooks["PB_AE_001"]
         # Should trigger on SIG_COM_002
         triggers = data.get("trigger_conditions", {})
         auto = triggers.get("automatic", [])
         events = [t.get("event", "") for t in auto if isinstance(t, dict)]
         assert any("SIG_COM_002" in e for e in events), (
-            "PB_AE_601 should trigger on SIG_COM_002"
+            "PB_AE_001 should trigger on SIG_COM_002"
         )
 
     def test_retrospective_has_five_whys(self, strategic_playbooks):
-        data = strategic_playbooks["PB_AE_601"]
+        data = strategic_playbooks["PB_AE_001"]
         questions = data.get("key_questions", {})
         assert "five_whys_for_wins" in questions or "five_whys_for_losses" in questions, (
-            "PB_AE_601 should include Five Whys analysis"
+            "PB_AE_001 should include Five Whys analysis"
         )
 
     def test_account_planning_playbook_exists(self, strategic_playbooks):
-        assert "PB_AE_602" in strategic_playbooks
+        assert "PB_AE_002" in strategic_playbooks
 
     def test_health_score_playbook_exists(self, strategic_playbooks):
-        assert "PB_CA_401" in strategic_playbooks
+        assert "PB_CA_007" in strategic_playbooks
 
     def test_deal_lifecycle_signals_form_chain(self, all_signals):
         chain = ["SIG_LC_001", "SIG_COM_001", "SIG_COM_002", "SIG_LC_002"]
@@ -501,16 +501,16 @@ class TestHealthDeclineScenario:
         assert sig["name"] == "health_score_changed"
 
     def test_health_triage_playbook_exists(self, strategic_playbooks):
-        assert "PB_CA_301" in strategic_playbooks
+        assert "PB_CA_006" in strategic_playbooks
 
     def test_health_triage_triggers_on_signal(self, strategic_playbooks):
-        data = strategic_playbooks["PB_CA_301"]
+        data = strategic_playbooks["PB_CA_006"]
         triggers = data.get("trigger_conditions", {})
         auto = triggers.get("automatic", [])
         # Should reference health-related signals or conditions
         text = yaml.dump(triggers, default_flow_style=False)
         assert "SIG_HLT" in text or "health" in text.lower(), (
-            "PB_CA_301 should trigger on health signals"
+            "PB_CA_006 should trigger on health signals"
         )
 
     def test_health_alert_operational_playbook_exists(self, operational_playbooks):
@@ -520,14 +520,14 @@ class TestHealthDeclineScenario:
 
     def test_health_triage_has_intervention_routing(self, strategic_playbooks):
         """Health triage should route to follow-up playbooks."""
-        data = strategic_playbooks["PB_CA_301"]
+        data = strategic_playbooks["PB_CA_006"]
         text = yaml.dump(data, default_flow_style=False)
         # Should reference at least one follow-up playbook
         follow_ups = re.findall(r"PB_[A-Z_]*\d+", text)
         # Remove self-reference
         follow_ups = [p for p in follow_ups if "CS_301" not in p]
         assert len(follow_ups) >= 1, (
-            "PB_CA_301 should route to at least one follow-up playbook"
+            "PB_CA_006 should route to at least one follow-up playbook"
         )
 
 
@@ -711,10 +711,10 @@ class TestMEDDPICCScenario:
     """Scenario: Deal qualification using MEDDPICC framework."""
 
     def test_meddpicc_playbook_exists(self, strategic_playbooks):
-        assert "PB_AE_801" in strategic_playbooks
+        assert "PB_AE_006" in strategic_playbooks
 
     def test_meddpicc_has_all_dimensions(self, strategic_playbooks):
-        data = strategic_playbooks["PB_AE_801"]
+        data = strategic_playbooks["PB_AE_006"]
         questions = data.get("key_questions", {})
         expected_dimensions = [
             "metrics", "economic_buyer", "decision_criteria",
@@ -725,6 +725,6 @@ class TestMEDDPICCScenario:
             assert dim in questions, f"MEDDPICC missing dimension: {dim}"
 
     def test_meddpicc_has_scoring(self, strategic_playbooks):
-        data = strategic_playbooks["PB_AE_801"]
+        data = strategic_playbooks["PB_AE_006"]
         decision = data.get("decision_logic", {})
         assert decision.get("scoring"), "MEDDPICC should have scoring logic"

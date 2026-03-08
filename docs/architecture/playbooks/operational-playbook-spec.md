@@ -28,11 +28,11 @@ Operational playbooks are event-driven, tactical procedures that respond to sign
 Keep unchanged. These are blueprint-like governance tools:
 
 - PB_STR_001: Three Horizons Analysis
-- PB_SA_101: TOGAF ADM
-- PB_STR_201: SWOT Analysis
-- PB_VE_301: Value Engineering
-- PB_CA_401: Customer Health Score
-- PB_CI_701: Porter's Five Forces
+- PB_SA_001: TOGAF ADM
+- PB_STR_004: SWOT Analysis
+- PB_VE_001: Value Engineering
+- PB_CA_007: Customer Health Score
+- PB_CI_001: Porter's Five Forces
 
 **Characteristics:**
 - Serve humans first, agents second
@@ -106,7 +106,7 @@ Each decision type has exactly ONE authoritative playbook:
 | Risk severity | OP_RSK_001 | Pass raw signals only |
 | Action priority | OP_ACT_001 | Pass raw requests only |
 | Escalation target | OP_ESC_001 | Trigger only |
-| Health score | PB_CA_401 | Read-only |
+| Health score | PB_CA_007 | Read-only |
 
 **Violation Example:**
 ```yaml
@@ -543,7 +543,7 @@ Operational Playbook(s)
 ```
 
 **Example Flow:**
-1. PB_STR_201 (SWOT) identifies a critical threat
+1. PB_STR_004 (SWOT) identifies a critical threat
 2. Triggers OP_RSK_001 (Register New Risk)
 3. OP_RSK_001 creates risk entry in risk_register.yaml
 4. Threshold breach triggers OP_ESC_001 (Escalate)

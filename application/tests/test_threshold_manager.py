@@ -44,7 +44,7 @@ class TestThresholdSubstitution:
     def test_substitute_multiple_placeholders(self, threshold_manager):
         """Test substituting multiple placeholders."""
         condition = "$.roi >= ${thresholds.strong_roi_percentage} AND $.payback_months <= ${thresholds.fast_payback_months}"
-        result = threshold_manager.substitute_condition(condition, 'PB_VE_301_value_engineering')
+        result = threshold_manager.substitute_condition(condition, 'PB_VE_001_value_engineering')
         # Should replace both placeholders
         assert '${thresholds' not in result
         assert '3.0' in result  # strong_roi_percentage

@@ -52,7 +52,7 @@ condition: "calculated_roi >= 3.0 AND payback_period_months <= 12"
 
 # AFTER (config-driven)
 condition: "$.roi >= ${thresholds.strong_roi_percentage} AND $.payback_months <= ${thresholds.fast_payback_months}"
-threshold_ref: "PB_VE_301_value_engineering.strong_roi_percentage"  # = 3.0 in config
+threshold_ref: "PB_VE_001_value_engineering.strong_roi_percentage"  # = 3.0 in config
 ```
 
 ---
@@ -158,14 +158,14 @@ decisions:
 ```yaml
 agents:
   ae_agent:
-    playbooks_owned: ["PB_STR_001", "PB_STR_002", "PB_STR_003", "PB_VE_301", ...]
+    playbooks_owned: ["PB_STR_001", "PB_STR_002", "PB_STR_003", "PB_VE_001", ...]
     functions_performed: ["exec_sponsor_coordination", "stakeholder_management"]
 
   sa_agent:
-    playbooks_owned: ["PB_SA_101", "PB_STR_201", "PB_STR_202", ...]
+    playbooks_owned: ["PB_SA_001", "PB_STR_004", "PB_STR_005", ...]
 
   delivery_agent:
-    playbooks_owned: ["PB_CA_401", "PB_CA_402", "PB_CA_403", "PB_CA_404", "PB_CA_405"]
+    playbooks_owned: ["PB_CA_007", "PB_CA_008", "PB_CA_009", "PB_CA_010", "PB_CA_011"]
     functions_performed: ["transformation_governance", "program_management"]
 
 playbook_routing:
@@ -191,7 +191,7 @@ playbook_routing:
 
 2. **[config/playbook_thresholds.yaml](../../../domain/config/playbook_thresholds.yaml)**
    - Global thresholds (ARR minimums, timeline thresholds, risk triggers)
-   - Playbook-specific thresholds (PB_STR_001 through PB_CI_701)
+   - Playbook-specific thresholds (PB_STR_001 through PB_CI_001)
    - Versioned and documented
 
 3. **[config/agent_role_mapping.yaml](../../../domain/mappings/agent_role_mapping.yaml)**
@@ -237,18 +237,18 @@ core/playbook_engine/
    - Add evidence fields to output schemas
    - Standardize field names
 
-2. `domain/playbooks/PB_STR_201_swot_analysis.yaml`
-3. `domain/playbooks/PB_VE_301_value_engineering.yaml`
-4. `domain/playbooks/PB_CI_701_five_forces.yaml`
-5. `domain/playbooks/PB_SA_101_togaf_adm.yaml`
-6. `domain/playbooks/PB_CA_401_customer_health_score.yaml`
+2. `domain/playbooks/PB_STR_004_swot_analysis.yaml`
+3. `domain/playbooks/PB_VE_001_value_engineering.yaml`
+4. `domain/playbooks/PB_CI_001_five_forces.yaml`
+5. `domain/playbooks/PB_SA_001_togaf_adm.yaml`
+6. `domain/playbooks/PB_CA_007_customer_health_score.yaml`
 
 #### Validation Playbooks (4)
 
 7. `playbooks/validation/PB_STR_002_ansoff_matrix.yaml`
 8. `playbooks/validation/PB_STR_003_bcg_matrix.yaml`
-9. `playbooks/validation/PB_STR_202_pestle_analysis.yaml`
-10. `playbooks/validation/PB_VE_301_stakeholder_mapping.yaml`
+9. `playbooks/validation/PB_STR_005_pestle_analysis.yaml`
+10. `playbooks/validation/PB_VE_001_stakeholder_mapping.yaml`
 
 **Status:** ⏳ Not started
 

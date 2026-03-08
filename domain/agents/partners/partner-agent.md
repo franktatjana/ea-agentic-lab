@@ -106,4 +106,4 @@ No extracted reference files. Personality file is compact and self-contained.
 - **Personality:** `personalities/partner_personality.yaml`
 - **Tasks:** `prompts/tasks.yaml` (12+ task templates across 4 categories)
 - **Playbooks owned:** PB_PTR_001 (Partner Engagement Health), PB_PTR_002 (Partner Dependency Tracking), PB_PTR_003 (Joint Account Planning)
-- **Playbooks contributes to:** PB_AE_602 (Account Planning), PB_DEL_001 (Implementation Kickoff)
+- **Playbooks contributes to:** PB_AE_002 (Account Planning), PB_DEL_001 (Implementation Kickoff)

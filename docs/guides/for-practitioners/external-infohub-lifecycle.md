@@ -22,10 +22,10 @@ Most External InfoHub content is produced by playbook execution. The playbook's 
 | Playbook | Output | Directory |
 |----------|--------|-----------|
 | CL_SA_103 Technical Validation | Validation checklist, results | `architecture/` |
-| PB_SA_104 Solution Description | Solution architecture doc | `architecture/` |
-| PB_CA_404 Customer Guidelines | Guidelines document | `journey/training/` |
-| PB_CA_405 Training Plans | Training plan | `journey/training/` |
-| PB_CA_406 Adoption Guidance | Adoption roadmap | `journey/` |
+| PB_SA_003 Solution Description | Solution architecture doc | `architecture/` |
+| PB_CA_010 Customer Guidelines | Guidelines document | `journey/training/` |
+| PB_CA_011 Training Plans | Training plan | `journey/training/` |
+| PB_CA_012 Adoption Guidance | Adoption roadmap | `journey/` |
 
 ### Manual Contribution
 

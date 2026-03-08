@@ -12,7 +12,7 @@ from ..config import get_settings
 def _extract_pb_id(stem: str) -> str:
     """Derive a unique playbook ID from a filename stem.
 
-    Standard files: PB_SA_101_togaf -> PB_SA_101
+    Standard files: PB_SA_001_togaf -> PB_SA_001
     Specialist files: PB_SEC_001_technical -> PB_SEC_001
     """
     parts = stem.split("_")
