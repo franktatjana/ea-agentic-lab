@@ -16,7 +16,7 @@ class DefinitionsService:
 
     CATEGORY_MAP = {
         "account_executives": "Sales",
-        "competitive_intelligence": "Sales",
+        "competitive_intelligence": "Intelligence",
         "value_engineering": "Sales",
         "partners": "Sales",
         "account_intelligence": "Intelligence",
@@ -80,7 +80,13 @@ class DefinitionsService:
                     "capabilities": profile.get("capabilities", []),
                     "sub_agents": profile.get("sub_agents", []),
                     "escalation_target": handoffs_data.get("human_escalation", ""),
-                    "has_profile": bool(profile),
+                    "has_profile": bool(profile.get("role_context")),
+                    "role_context": profile.get("role_context", ""),
+                    "goals_summary": profile.get("goals_summary", ""),
+                    "goals": profile.get("goals", []),
+                    "why": profile.get("why", ""),
+                    "human_matters_summary": profile.get("human_matters_summary", ""),
+                    "knowledge_ref_count": len(ext.get("knowledge", {}).get("references", [])),
                 })
             except Exception:
                 continue

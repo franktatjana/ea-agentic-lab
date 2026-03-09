@@ -12,9 +12,12 @@ const STATIC_STATS = [
   { icon: Frame, label: "Canvas Types", color: "border-cyan-600/20 bg-cyan-600/10", iconColor: "text-cyan-400" },
 ];
 
-const AGENT_COUNT = 30;
-
 export function HomeStats() {
+  const { data: definitions } = useQuery({
+    queryKey: ["definitions"],
+    queryFn: () => api.listDefinitions(),
+  });
+
   const { data: playbooks } = useQuery({
     queryKey: ["playbooks"],
     queryFn: () => api.listPlaybooks(),
@@ -31,7 +34,7 @@ export function HomeStats() {
   });
 
   const values = [
-    String(AGENT_COUNT),
+    definitions ? String(definitions.length) : "–",
     playbooks ? String(playbooks.length) : "–",
     blueprints ? String(blueprints.length) : "–",
     canvases ? String(canvases.length) : "–",

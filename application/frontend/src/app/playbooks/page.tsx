@@ -407,7 +407,7 @@ export default function PlaybookCatalogPage() {
                       <span className="text-sm font-medium">{getRoleLabel(role) || formatLabel(role)}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <Badge variant="secondary" className="text-[10px]">{count}</Badge>
-                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                        <ArrowRight className="h-3 w-3 text-blue-500 dark:text-amber-400" />
                       </div>
                     </div>
                   </CardContent>
@@ -452,7 +452,7 @@ export default function PlaybookCatalogPage() {
                         <span className="text-sm font-medium">{info?.label || formatLabel(category)}</span>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <Badge variant="secondary" className="text-[10px]">{count}</Badge>
-                          {!isEmpty && <ArrowRight className="h-3 w-3 text-muted-foreground" />}
+                          {!isEmpty && <ArrowRight className="h-3 w-3 text-blue-500 dark:text-amber-400" />}
                         </div>
                       </div>
                       <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2">

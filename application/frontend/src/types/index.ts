@@ -564,6 +564,8 @@ export interface PublicResource {
 
 export interface AgentProfile {
   why?: string;
+  human_matters_summary?: string;
+  goals_summary?: string;
   goals?: string[];
   role_context: string;
   challenges: ChallengeEntry[];
@@ -596,6 +598,12 @@ export interface AgentDefinitionSummary {
   sub_agents: AgentProfileSubAgent[];
   escalation_target: string;
   has_profile: boolean;
+  role_context: string;
+  goals_summary: string;
+  goals: string[];
+  why: string;
+  human_matters_summary: string;
+  knowledge_ref_count: number;
 }
 
 export interface AgentDefinitionFlow {

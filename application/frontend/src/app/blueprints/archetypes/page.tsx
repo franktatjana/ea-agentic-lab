@@ -151,7 +151,7 @@ function ArchetypeCard({ archetypeKey, data }: { archetypeKey: string; data: Arc
                       <span className="text-sm font-medium">{bp.name}</span>
                       <span className="text-xs font-mono text-muted-foreground">{bp.id}</span>
                     </div>
-                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    <ArrowRight className="h-3.5 w-3.5 text-blue-500 dark:text-amber-400" />
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{bp.description}</p>
                   <div className="flex items-center gap-1 mt-1.5">

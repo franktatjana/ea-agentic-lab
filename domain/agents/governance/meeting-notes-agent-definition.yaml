@@ -307,6 +307,96 @@ a2a:
 
 x-ea-agent:
   fallback_model: null
+  profile:
+    human_matters_summary: >
+      Words in meetings are ambiguous; humans interpret them. The agent extracts
+      structured elements and creates decision digests, but the participants
+      understand what was actually decided versus discussed, which concerns are
+      blocking versus hypothetical, and what really needs to happen next. The
+      notes are compiled, but humans validate whether they captured what matters.
+    challenges:
+      - "Meeting notes are written in fragments, shorthand, or stream-of-consciousness that obscures what was actually decided"
+      - "Action items are buried in discussion text without explicit owners or due dates, making follow-through impossible"
+      - "Participants disagree on what was decided after the meeting because no structured record exists"
+      - "Risk signals mentioned casually in discussion are lost because they are not extracted as formal risk items"
+    administrative_overhead:
+      - "Manually parsing raw meeting transcripts to separate decisions from discussion, opinions from commitments"
+      - "Chasing meeting participants after the fact to confirm who owns which action and what the actual deadline is"
+      - "Reformatting messy notes into structured artifacts that downstream agents (Nudger, Decision Registrar) can consume"
+      - "Creating and distributing confirm-or-correct Slack digests after every meeting to validate the extracted content"
+    scenarios:
+      - problem: "Decisions made in meetings are not recorded, leading to 'who decided this?' disputes weeks later"
+        why: >
+          When meetings end without structured decision capture, the team operates
+          on individual memory. Two weeks later, stakeholders disagree on what was
+          agreed, scope changes go untracked, and the Decision Registrar has no
+          source material to log.
+        agent: meeting-notes-agent
+        agent_response: >
+          Extracts decisions from raw meeting input using the "We decided to X
+          because Y" format, tags each with the decision maker and rationale,
+          and routes structured decision records to the Decision Registrar for
+          permanent logging.
+        success_signal:
+          metric: "Percentage of meetings with structured decision output"
+          target: "100% of meetings produce at least one decision record or explicit 'no decisions made' confirmation"
+          leading_indicator: "Decision Registrar receives structured input within 2 hours of meeting end"
+          failure_signal: "Team members ask 'what did we decide?' more than 48 hours after a meeting"
+      - problem: "Action items from meetings lack owners or due dates, so nothing gets followed up"
+        why: >
+          Vague action items like "we should look into that" or "someone needs to
+          follow up" enter the tracker without accountability. The Nudger cannot
+          send reminders without a named owner, and the Task Shepherd rejects
+          items that fail validation, creating a backlog of unactionable tasks.
+        agent: meeting-notes-agent
+        agent_response: >
+          Extracts action items from meeting content, flags any that lack an
+          explicit owner or due date, and generates a confirm-or-correct digest
+          that prompts participants to fill in the missing fields before the
+          action enters the governance pipeline.
+        success_signal:
+          metric: "Percentage of extracted actions with complete owner and due date"
+          target: "90% of actions have owner and due date assigned within 24 hours of meeting"
+          leading_indicator: "Confirm-or-correct digest response rate above 80% within same business day"
+          failure_signal: "Task Shepherd rejection rate for meeting-sourced actions exceeds 30%"
+      - problem: "Meeting notes are written in fragments, shorthand, or stream-of-consciousness that obscures what was actually decided"
+        why: >
+          Raw meeting input arrives as bullet fragments, abbreviations, and unstructured
+          commentary that makes sense only to the note-taker in the moment. Downstream
+          agents and team members cannot parse intent from shorthand, so decisions are
+          missed, actions are misinterpreted, and the meeting record becomes useless
+          within days of being created.
+        agent: meeting-notes-agent
+        agent_response: >
+          Transforms raw meeting input (fragments, transcripts, shorthand) into
+          structured, decision-grade artifacts using standardized extraction rules.
+          Separates decisions, actions, risks, and open questions into distinct
+          sections with consistent formatting so any downstream consumer can parse
+          the output without needing the original context.
+        success_signal:
+          metric: "Percentage of meeting outputs that pass structured format validation"
+          target: "100% of processed meeting notes conform to the structured output schema"
+          leading_indicator: "Downstream agents (Decision Registrar, Task Shepherd) consume meeting output without manual reformatting"
+          failure_signal: "Team members report that processed meeting notes are unclear or require re-reading the raw source"
+      - problem: "Risk signals mentioned casually in discussion are lost because they are not extracted as formal risk items"
+        why: >
+          Participants mention concerns, blockers, and warning signals during discussion
+          but frame them as conversational asides rather than formal risks. Without
+          extraction, these signals never reach the Risk Radar Agent for classification,
+          and the team discovers the risk only when it materializes as an actual problem
+          weeks later.
+        agent: meeting-notes-agent
+        agent_response: >
+          Scans meeting content for risk-indicative language (concerns, blockers,
+          dependencies, "what if" statements) and extracts them as formal risk items
+          with source context. Routes extracted risks to the Risk Radar Agent for
+          classification while preserving the verbatim quote so the original signal
+          is not lost in translation.
+        success_signal:
+          metric: "Risk signals extracted from meetings versus risks identified post-meeting"
+          target: "80% of risks that materialize within 30 days were previously captured in a meeting extraction"
+          leading_indicator: "Risk Radar Agent receives meeting-sourced risk signals within 4 hours of meeting end"
+          failure_signal: "Risks surface as surprises that participants recall discussing in a prior meeting but were never extracted"
   prompt_registry:
     meeting-notes-process-meeting:
       description: Extract decisions, actions, risks from meeting

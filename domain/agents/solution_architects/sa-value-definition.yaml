@@ -1,0 +1,535 @@
+# SA Value Agent
+# Sub-agent of Solution Architect Agent (sa-agent)
+# Owns: Value stream mapping, value articulation, ROI framing, business outcome quantification
+#
+# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+
+agentspec_version: "26.1.0"
+component_type: Agent
+
+id: sa-value-agent
+name: SA Value Agent
+description: >
+  Technical capabilities mean nothing until they connect to business outcomes.
+  This agent maps value streams to identify waste and improvement opportunities,
+  translates technical solution design into quantified business impact, and
+  constructs ROI frameworks that bridge the gap between what the solution does
+  and why it matters to the customer's business.
+
+metadata:
+  definition_version: "0.1.0"
+  parent_agent: sa-agent
+  tags:
+    - value-stream-mapping
+    - value-articulation
+    - roi-framing
+    - business-outcomes
+  responsibility: >
+    Own value intelligence end-to-end: facilitate value stream mapping workshops,
+    translate technical capabilities into business outcomes, construct ROI
+    frameworks with evidence, and produce value narratives for different audiences.
+
+system_prompt: |
+  You are a Value Agent, part of the Solution Architect intelligence system.
+  Your job is to connect technical solutions to business value.
+
+  VALUE DOMAINS:
+  - Value Stream Mapping: end-to-end process analysis, waste identification, improvement targets
+  - Value Articulation: technical capability to business outcome translation
+  - ROI Framing: quantified impact with evidence and assumptions
+  - Business Case Construction: cost-of-inaction, payback period, risk-adjusted returns
+
+  You MUST:
+  - Map value streams with current state, future state, and improvement targets
+  - Translate every technical capability into a measurable business outcome
+  - Construct ROI frameworks with explicit assumptions and evidence sources
+  - Build value narratives tailored to different stakeholder audiences
+  - Quantify improvement opportunities with ranges, not single-point estimates
+
+  You MUST NOT:
+  - Invent business metrics not grounded in customer discovery data
+  - Promise specific financial outcomes without evidence
+  - Conduct technical discovery (SA Discovery Agent's domain)
+  - Assess technical risk (SA Risk Agent's domain)
+  - Manage customer journey touchpoints (SA Journey Agent's domain)
+
+  When uncertain about business impact: state the assumption explicitly,
+  provide a conservative range, and flag for customer validation.
+
+  Tone: analytical, business-focused, evidence-driven.
+human_in_the_loop: true
+
+tools:
+  - component_type: ClientTool
+    id: read-communications
+    name: Read Communications
+    description: >
+      Access meeting transcripts, Slack threads, and email exchanges for
+      value evidence, business context, and stakeholder priorities.
+    requires_confirmation: false
+    inputs:
+      - title: realm_id
+        type: string
+      - title: source_type
+        type: string
+      - title: time_period
+        type: string
+    outputs:
+      - title: communications
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Cannot access communications, flag as data gap
+        - error_code: NO_RECORDS
+          guidance: No communications found for period, expand search or note gap
+
+  - component_type: ClientTool
+    id: read-infohub
+    name: Read InfoHub
+    description: >
+      Access structured account data from the InfoHub vault. Use section parameter
+      to target specific data: risks, decisions, stakeholders, competitive,
+      governance, value, journey, opportunities, context, or frameworks.
+    requires_confirmation: false
+    inputs:
+      - title: realm_id
+        type: string
+      - title: node_id
+        type: string
+      - title: section
+        type: string
+      - title: detail_level
+        type: string
+    outputs:
+      - title: infohub_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Proceed with other data sources, flag output as incomplete
+        - error_code: SECTION_NOT_FOUND
+          guidance: Section does not exist for this account, skip and note gap
+        - error_code: STALE_DATA
+          guidance: Data exceeds freshness threshold, flag for human verification
+
+  - component_type: ClientTool
+    id: read-intelligence
+    name: Read Intelligence
+    description: >
+      Access intelligence layer data for a realm. Sections: account (company profile,
+      organigram, opportunity map), industry (profile, regulatory, trends),
+      market (news digest), technology (current map, vendor landscape).
+    requires_confirmation: false
+    inputs:
+      - title: realm_id
+        type: string
+      - title: section
+        type: string
+      - title: detail_level
+        type: string
+    outputs:
+      - title: intelligence_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Skip intelligence enrichment, proceed with core data
+        - error_code: SECTION_NOT_FOUND
+          guidance: Intelligence section unavailable, note gap in output
+        - error_code: STALE_DATA
+          guidance: Intelligence may be outdated, flag for refresh
+
+  - component_type: ClientTool
+    id: write-sa-artifact
+    name: Write Solution Artifact
+    description: Save value stream maps, ROI frameworks, and value narratives to InfoHub
+    requires_confirmation: true
+    inputs:
+      - title: artifact
+        type: object
+      - title: destination_path
+        type: string
+    outputs:
+      - title: status
+        type: string
+    x-ea-agent:
+      risk: medium
+      resolver: service-registry
+
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from solution architect about value context
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+
+toolboxes:
+  - component_type: Toolbox
+    id: value-intelligence
+    name: Value Intelligence
+    description: Value stream maps and ROI frameworks available to peer agents for business context
+    tools:
+      - id: get-value-stream-map
+        name: Get Value Stream Map
+        description: Returns current/future state value stream map with improvement targets
+        inputs:
+          - title: account_name
+            type: string
+        outputs:
+          - title: value_stream_map
+            type: object
+      - id: get-value-narrative
+        name: Get Value Narrative
+        description: Returns business outcome narrative with ROI evidence for specified audience
+        inputs:
+          - title: account_name
+            type: string
+          - title: audience
+            type: string
+        outputs:
+          - title: value_narrative
+            type: object
+specialized_agents: []
+
+flows:
+  - component_type: Flow
+    id: value-intelligence
+    name: Value Intelligence
+    playbook_refs: [PB_SA_009, PB_SA_011, PB_VE_001]
+    description: Map value streams, translate technical capabilities to business outcomes, and construct ROI frameworks.
+    inputs:
+      - title: account_name
+        type: string
+      - title: engagement_context
+        type: object
+      - title: technical_solution
+        type: object
+      - title: stakeholder_audience
+        type: string
+    outputs:
+      - title: value_stream_map
+        type: object
+      - title: value_narrative
+        type: object
+      - title: roi_framework
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: sa-value-stream-mapping
+          input: account_name, engagement_context
+          tools: [read-communications, read-infohub]
+          description: Map current state value stream, identify waste, define future state with targets
+          on_failure: stop
+        - step: 2
+          prompt: sa-capability-outcome-mapping
+          input: technical_solution, discovery_findings
+          tools: [read-infohub]
+          description: Map each technical capability to a measurable business outcome
+          on_failure: stop
+        - step: 3
+          prompt: sa-roi-framework
+          input: capability_outcomes, value_stream_improvements
+          tools: [read-intelligence]
+          description: Construct ROI framework with assumptions, evidence, and conservative ranges
+          on_failure: skip_with_warning
+        - step: 4
+          prompt: sa-value-narrative
+          input: roi_framework, stakeholder_audience
+          description: Build audience-adapted value narrative connecting solution to business impact
+          on_failure: skip_with_warning
+        - step: 5
+          action: persist
+          tools:
+            - write-sa-artifact
+          description: Save value stream map, ROI framework, and value narrative to InfoHub
+          on_failure: stop
+
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: "0.1"
+    capabilities:
+      - value-stream-mapping
+      - value-articulation
+      - roi-framing
+      - business-case-construction
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/yaml
+      - text/markdown
+
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      ROI spreadsheets don't close deals, conversations do. The SA translates
+      value frameworks into credible stories that resonate with each stakeholder's
+      priorities. Knowing when to lead with cost savings versus revenue growth,
+      when to push back on unrealistic expectations, and how to co-create value
+      with the customer requires judgment that no model can replicate. The agent
+      quantifies, but the SA persuades.
+    challenges:
+      - "Technical capabilities are presented without connecting them to measurable business outcomes"
+      - "ROI frameworks use single-point estimates that lack credibility with financial stakeholders"
+      - "Value narratives are generic across audiences instead of tailored to each stakeholder's priorities"
+      - "Value stream mapping reveals process complexity that exceeds the current solution scope"
+    administrative_overhead:
+      - "Manually mapping each technical capability to a business outcome with supporting evidence"
+      - "Building ROI frameworks from scratch for each deal instead of adapting a reusable model"
+      - "Adapting value narratives for different audiences by rewriting the same content multiple times"
+      - "Gathering industry benchmarks and peer comparisons to support improvement target estimates"
+    scenarios:
+      - problem: "Technical capabilities are presented without connecting them to measurable business outcomes"
+        why: >
+          When proposals lead with features, economic buyers cannot justify the investment
+          internally. The procurement team sees a technology purchase, not a business case.
+          Deals stall in late stages because no one can articulate what the solution is worth
+          in the customer's own metrics.
+        agent: sa-value-agent
+        agent_response: >
+          Maps each technical capability to a measurable business outcome using discovery
+          findings and customer pain points as input. Constructs an ROI framework with explicit
+          assumptions, evidence sources, and conservative ranges rather than single-point estimates.
+          Produces value narratives tailored to the specified stakeholder audience.
+        success_signal:
+          metric: "Proposals include quantified business outcomes per capability"
+          target: "100% of proposals map at least one business outcome to each key capability"
+          leading_indicator: "Customer references business outcomes in their internal business case"
+          failure_signal: "Economic buyer asks for business justification after receiving the proposal"
+      - problem: "Value narratives are generic across audiences instead of tailored to each stakeholder's priorities"
+        why: >
+          A CTO cares about technical debt reduction and platform modernization. A CFO cares
+          about cost avoidance and payback period. When both receive the same value pitch,
+          neither feels the message was meant for them, and internal consensus stalls because
+          each stakeholder needs different evidence to say yes.
+        agent: sa-value-agent
+        agent_response: >
+          Reads stakeholder map and prior interaction data to understand each audience's priorities.
+          Generates audience-specific value narratives that lead with the metrics and outcomes
+          each stakeholder measures. Adapts the same ROI framework into different presentations
+          without losing consistency in the underlying numbers.
+        success_signal:
+          metric: "Value narratives adapted per stakeholder audience"
+          target: "Distinct value narrative exists for each key stakeholder persona in the deal"
+          leading_indicator: "Stakeholders reference their specific value narrative in internal discussions"
+          failure_signal: "Multiple stakeholders receive identical value pitch with no audience adaptation"
+      - problem: "ROI frameworks use single-point estimates that lack credibility with financial stakeholders"
+        why: >
+          A single ROI number implies false precision. Financial stakeholders know that projections
+          carry uncertainty, and a framework that presents one number without ranges, assumptions,
+          or sensitivity analysis looks naive. The CFO discounts the entire business case because
+          the methodology does not match how they evaluate investments internally.
+        agent: sa-value-agent
+        agent_response: >
+          Constructs ROI frameworks with explicit assumption sets, conservative-to-optimistic
+          ranges, and sensitivity analysis on key variables. Labels every assumption for customer
+          validation and provides evidence sources for each estimate. Produces output that matches
+          the rigor financial stakeholders expect from internal investment evaluations.
+        success_signal:
+          metric: "ROI frameworks with ranges and explicit assumptions"
+          target: "100% of ROI frameworks use ranges with labeled assumptions instead of single-point estimates"
+          leading_indicator: "Financial stakeholder engages with assumption validation rather than dismissing the framework"
+          failure_signal: "CFO rejects ROI framework as not credible or requests a complete rebuild"
+      - problem: "Value stream mapping reveals process complexity that exceeds the current solution scope"
+        why: >
+          When the value stream map uncovers waste and inefficiency across the full end-to-end
+          process, the improvement opportunity often extends beyond what the proposed solution
+          can address. The SA faces a scope decision: promise value the solution cannot deliver,
+          or acknowledge the gap and risk the customer questioning whether the investment is
+          sufficient to achieve their business outcome.
+        agent: sa-value-agent
+        agent_response: >
+          Clearly delineates which portions of the value stream the proposed solution addresses
+          and which fall outside the current scope. Quantifies the achievable improvement within
+          scope separately from the total opportunity, and flags out-of-scope areas as future
+          phase candidates so the SA can set realistic expectations with the customer.
+        success_signal:
+          metric: "Value stream maps with scope-bounded improvement targets"
+          target: "100% of value stream maps distinguish in-scope improvements from total process opportunity"
+          leading_indicator: "Customer validates that in-scope improvement targets align with their investment expectations"
+          failure_signal: "Customer expects value realization beyond what the solution scope can deliver"
+  escalation_triggers:
+    - "Customer challenges ROI assumptions with contradicting internal data"
+    - "Value narrative fails to resonate after 2+ stakeholder presentations"
+    - "VSM workshop reveals process complexity beyond current solution scope"
+    - "Business case requires financial data the customer has not shared"
+
+  prompt_registry:
+    sa-value-stream-mapping:
+      description: Map current and future state value streams with improvement targets
+      source: prompts/tasks.yaml#value_intelligence.value_stream_mapping
+      inputs:
+        - title: account_name
+          type: string
+        - title: engagement_context
+          type: object
+      outputs:
+        - title: value_stream_map
+          type: object
+      requires_data:
+        - source: read-communications
+          fields: [meeting_transcripts, workshop_notes, process_descriptions]
+          priority: critical
+        - source: read-infohub
+          fields: [account_context, discovery_summary, current_state]
+          priority: enrichment
+
+    sa-capability-outcome-mapping:
+      description: Map technical capabilities to measurable business outcomes
+      source: prompts/tasks.yaml#value_intelligence.capability_outcome_mapping
+      inputs:
+        - title: technical_solution
+          type: object
+        - title: discovery_findings
+          type: object
+      outputs:
+        - title: capability_outcomes
+          type: object
+      requires_data:
+        - source: read-infohub
+          fields: [solution_design, discovery_summary, pain_points]
+          priority: critical
+        - source: read-intelligence
+          fields: [industry_benchmarks, market_context]
+          priority: enrichment
+
+    sa-roi-framework:
+      description: Construct ROI framework with evidence, assumptions, and ranges
+      source: prompts/tasks.yaml#value_intelligence.roi_framework
+      inputs:
+        - title: capability_outcomes
+          type: object
+        - title: value_stream_improvements
+          type: object
+      outputs:
+        - title: roi_framework
+          type: object
+      requires_data:
+        - source: read-infohub
+          fields: [account_context, financial_context, pain_point_severity]
+          priority: critical
+        - source: read-intelligence
+          fields: [industry_benchmarks, peer_comparisons]
+          priority: enrichment
+
+    sa-value-narrative:
+      description: Build audience-adapted value narrative connecting solution to impact
+      source: prompts/tasks.yaml#value_intelligence.value_narrative
+      inputs:
+        - title: roi_framework
+          type: object
+        - title: stakeholder_audience
+          type: string
+      outputs:
+        - title: value_narrative
+          type: object
+      requires_data:
+        - source: read-infohub
+          fields: [stakeholder_map, audience_priorities]
+          priority: enrichment
+        - source: read-communications
+          fields: [stakeholder_interactions, stated_priorities]
+          priority: enrichment
+
+  boundaries:
+    - Value analysis and articulation only, does not conduct technical discovery
+    - Does not assess technical risk or architecture health
+    - Does not manage customer journey touchpoints
+    - Does not promise financial outcomes without evidence
+    - Does not create solution designs (uses existing designs as input)
+
+  permissions:
+    - Read discovery findings and solution designs from InfoHub
+    - Read communications for value evidence and business context
+    - Facilitate value stream mapping with current/future state analysis
+    - Construct ROI frameworks with explicit assumptions
+    - Produce value narratives adapted to different stakeholder audiences
+
+  guardrails:
+    input_validation:
+      - rule: Value stream mapping requires discovery data and process context
+      - rule: ROI framework requires capability-outcome mapping as input
+    output_checks:
+      - rule: Every business outcome traces to a specific technical capability
+      - rule: ROI estimates use ranges, never single-point projections
+      - rule: All assumptions are explicit and labeled for customer validation
+      - rule: Value narratives are tailored to specified audience
+    signal_validation:
+      - rule: Financial metrics cite source data or state assumption explicitly
+      - rule: Industry benchmarks reference verifiable sources
+      - rule: Improvement targets use conservative estimates with upside ranges
+      - rule: Mark projections as [CUSTOMER VALIDATION NEEDED] when based on assumptions
+
+  knowledge:
+    scope:
+      domains: [value-engineering, business-case]
+      archetypes: [enterprise, mid-market]
+    references:
+      - path: references/roi-methodology.yaml
+        description: ROI calculation models, business case templates, value quantification frameworks
+      - path: references/discovery-methodology.yaml
+        description: Discovery dimensions and pain point classification for value mapping
+
+  error_handling:
+    tool_failures:
+      critical: [read-communications]
+      enrichment: [read-infohub, read-intelligence]
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: sa-agent
+        description: SA orchestrator routes value mapping and articulation requests
+      - type: downstream
+        source: sa-discovery-agent
+        condition: discovery.completed == true AND discovery.pain_points.count > 0
+        description: Completed discovery with pain points triggers value mapping
+    outputs:
+      - type: parent_return
+        target: sa-agent
+        payload: [value_stream_map, value_narrative, roi_framework]
+        description: Value intelligence back to SA orchestrator
+      - type: notify_human
+        condition: roi.assumptions_unvalidated > 3 OR vsm.scope_exceeded == true
+        channel: alert
+        description: Unvalidated assumptions or scope concerns surface for SA review
+    consumes_toolboxes:
+      - toolbox: discovery-intelligence
+        agent: sa-discovery-agent
+        tools: [get-discovery-summary]
+        reason: Discovery findings provide pain points and business context for value mapping
+      - toolbox: risk-intelligence
+        agent: sa-risk-agent
+        tools: [get-architecture-health]
+        reason: Technical risk context informs achievable improvement targets
+    dependencies: []

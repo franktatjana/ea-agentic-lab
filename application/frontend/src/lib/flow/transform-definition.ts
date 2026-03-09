@@ -25,6 +25,7 @@ function centerRow(count: number, gap: number, y: number): { x: number; y: numbe
 export function buildFlowGraph(
   def: AgentDefinition,
   expandedFlowId: string | null,
+  subAgentMeta?: { id: string; prompt_count: number }[],
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
@@ -32,6 +33,9 @@ export function buildFlowGraph(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ext = (def as any)["x-ea-agent"] as Record<string, unknown> | undefined;
   const promptRegistry = ext?.prompt_registry as Record<string, Record<string, unknown>> | undefined;
+  const profile = ext?.profile as Record<string, unknown> | undefined;
+  const subAgents = ((profile?.sub_agents ?? ext?.sub_agents ?? []) as Array<Record<string, unknown>>);
+  const isOrchestrator = subAgents.length > 0;
 
   const flows = def.flows ?? [];
   const tools = def.tools ?? [];
@@ -123,16 +127,23 @@ export function buildFlowGraph(
     }
   });
 
-  // Tools flanking left of agent
-  const toolStackHeight = (tools.length - 1) * SIDE_GAP;
-  const toolStartY = -toolStackHeight / 2;
+  // Split tools: read/input tools go left, write/save tools go right as destinations
+  const DEST_PATTERNS = /^(write|save|send|update|notify|publish|create)/i;
+  const INVOKE_PATTERN = /^invoke\s/i;
+  const inputTools = tools.filter((t) => !DEST_PATTERNS.test(t.name) && !(isOrchestrator && INVOKE_PATTERN.test(t.name)));
+  const destTools = tools.filter((t) => DEST_PATTERNS.test(t.name));
+
+  // Input tools flanking left of agent
+  // Clamp: never start above the agent's top edge
+  const inputStackHeight = (inputTools.length - 1) * SIDE_GAP;
+  const inputStartY = Math.max(-AGENT_H / 2, -inputStackHeight / 2);
   const toolX = -NODE_W / 2 - FLOW_GAP;
 
-  tools.forEach((tool, i) => {
+  inputTools.forEach((tool, i) => {
     nodes.push({
       id: tool.id,
       type: "toolNode",
-      position: { x: toolX, y: toolStartY + i * SIDE_GAP },
+      position: { x: toolX, y: inputStartY + i * SIDE_GAP },
       data: {
         name: fixAcronyms(tool.name),
         description: tool.description ?? "",
@@ -149,9 +160,133 @@ export function buildFlowGraph(
     });
   });
 
-  // Variants flanking right of agent
+  // Outputs flanking right of agent
+  const rolePrefix = def.id.replace(/-agent$/, "");
+  const destNames = destTools.map((t) => fixAcronyms(t.name));
+  const outputX = NODE_W / 2 + FLOW_GAP - 60;
+
+  if (isOrchestrator && subAgents.length > 0) {
+    // Orchestrator: group outputs by sub-agent
+    const metaMap = new Map((subAgentMeta ?? []).map((m) => [m.id, m]));
+    const groupEntries = subAgents.map((sa) => ({
+      id: String(sa.id ?? ""),
+      name: fixAcronyms(
+        String(sa.name ?? sa.id ?? "")
+          .replace(/-agent$/, "")
+          .replace(new RegExp(`^${rolePrefix}-`, "i"), "")
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase()),
+      ),
+      promptCount: metaMap.get(String(sa.id))?.prompt_count ?? 0,
+    }));
+    const outputStackHeight = Math.max(0, (groupEntries.length - 1) * SIDE_GAP);
+    const outputStartY = Math.max(-AGENT_H / 2, -outputStackHeight / 2);
+
+    groupEntries.forEach((entry, i) => {
+      const outputId = `sa-group-${entry.id}`;
+      nodes.push({
+        id: outputId,
+        type: "subAgentGroupNode",
+        position: { x: outputX, y: outputStartY + i * SIDE_GAP },
+        data: { name: entry.name, promptCount: entry.promptCount },
+      });
+
+      edges.push({
+        id: `${def.id}->${outputId}`,
+        source: def.id,
+        sourceHandle: "outputs",
+        target: outputId,
+        type: "smoothstep",
+        style: { stroke: EDGE_COLOR, strokeWidth: 1.5 },
+      });
+    });
+  } else {
+    // Sub-agent or standalone: show individual prompt nodes on right
+    // Cap at 8 to keep graph readable; flows below provide access to the rest
+    const promptKeys = Object.keys(promptRegistry ?? {});
+    const MAX_VISIBLE = 8;
+    const visibleKeys = promptKeys.slice(0, MAX_VISIBLE);
+    const outputEntries = visibleKeys.map((key) => ({
+      name: fixAcronyms(
+        key
+          .replace(new RegExp(`^${rolePrefix}-`), "")
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase()),
+      ),
+      description: String(promptRegistry?.[key]?.description ?? ""),
+    }));
+    const outputStackHeight = Math.max(0, (outputEntries.length - 1) * SIDE_GAP);
+    const outputStartY = Math.max(-AGENT_H / 2, -outputStackHeight / 2);
+
+    outputEntries.forEach((entry, i) => {
+      const outputId = `output-${i}`;
+      nodes.push({
+        id: outputId,
+        type: "outputNode",
+        position: { x: outputX, y: outputStartY + i * SIDE_GAP },
+        data: { name: entry.name, description: entry.description, destinations: destNames },
+      });
+
+      edges.push({
+        id: `${def.id}->${outputId}`,
+        source: def.id,
+        sourceHandle: "outputs",
+        target: outputId,
+        type: "smoothstep",
+        style: { stroke: EDGE_COLOR, strokeWidth: 1.5 },
+      });
+    });
+  }
+
+  // Destination tools above the agent, spread horizontally
+  const DEST_GAP = 200;
+  const destY = -AGENT_H / 2 - ROW_GAP;
+  const destPositions = centerRow(destTools.length, DEST_GAP, destY);
+
+  function inferSystems(toolName: string, desc: string): string[] {
+    const systems: string[] = [];
+    const text = `${toolName} ${desc}`.toLowerCase();
+    if (text.includes("infohub") || text.includes("artifact") || text.includes("persist")) systems.push("InfoHub");
+    if (text.includes("crm") || text.includes("salesforce") || text.includes("account")) systems.push("CRM");
+    if (text.includes("slack") || text.includes("notify") || text.includes("alert")) systems.push("Slack");
+    if (text.includes("email") || text.includes("send")) systems.push("Email");
+    if (text.includes("document") || text.includes("confluence") || text.includes("sharepoint")) systems.push("Document Store");
+    if (systems.length === 0) systems.push("InfoHub");
+    return systems;
+  }
+
+  destTools.forEach((tool, i) => {
+    const destId = `dest-${tool.id}`;
+    const desc = tool.description ?? "";
+    nodes.push({
+      id: destId,
+      type: "destinationNode",
+      position: destPositions[i] ?? { x: 0, y: destY },
+      data: {
+        name: fixAcronyms(tool.name),
+        description: desc,
+        systems: inferSystems(tool.name, desc),
+      },
+    });
+
+    edges.push({
+      id: `${def.id}->${destId}`,
+      source: def.id,
+      sourceHandle: "destinations",
+      target: destId,
+      type: "smoothstep",
+      style: { stroke: EDGE_COLOR, strokeWidth: 1.5 },
+    });
+  });
+
+  // Variants below outputs (if any)
+  const outputNodeCount = isOrchestrator ? subAgents.length : Object.keys(promptRegistry ?? {}).length;
+  const computedOutputStackHeight = Math.max(0, (outputNodeCount - 1) * SIDE_GAP);
+  const computedOutputStartY = Math.max(-AGENT_H / 2, -computedOutputStackHeight / 2);
   const variantStackHeight = (variants.length - 1) * SIDE_GAP;
-  const variantStartY = -variantStackHeight / 2;
+  const variantStartY = outputNodeCount > 0
+    ? computedOutputStartY + computedOutputStackHeight + SIDE_GAP * 2
+    : -variantStackHeight / 2;
   const variantX = NODE_W / 2 + FLOW_GAP - 60;
 
   variants.forEach((variant: Record<string, unknown>, i: number) => {
@@ -180,7 +315,7 @@ export function buildFlowGraph(
 }
 
 export interface RoutingRule {
-  watch: string;
+  watch: string | string[];
   true: string;
   route_to: string;
   context_forward: string[];
@@ -204,15 +339,20 @@ export function buildOrchestrationGraph(
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 
+  const watchSources = (rule: RoutingRule): string[] =>
+    Array.isArray(rule.watch) ? rule.watch : [rule.watch];
+
   const agentIds = new Set<string>();
   for (const rule of routingRules) {
-    agentIds.add(rule.watch);
+    for (const w of watchSources(rule)) agentIds.add(w);
     agentIds.add(rule.route_to);
   }
 
   const routeCounts: Record<string, number> = {};
   for (const rule of routingRules) {
-    routeCounts[rule.watch] = (routeCounts[rule.watch] ?? 0) + 1;
+    for (const w of watchSources(rule)) {
+      routeCounts[w] = (routeCounts[w] ?? 0) + 1;
+    }
   }
 
   // Build adjacency
@@ -220,8 +360,10 @@ export function buildOrchestrationGraph(
   const inDeg: Record<string, number> = {};
   for (const id of agentIds) { outTargets[id] = []; inDeg[id] = 0; }
   for (const rule of routingRules) {
-    if (!outTargets[rule.watch].includes(rule.route_to)) {
-      outTargets[rule.watch].push(rule.route_to);
+    for (const w of watchSources(rule)) {
+      if (!outTargets[w].includes(rule.route_to)) {
+        outTargets[w].push(rule.route_to);
+      }
     }
     inDeg[rule.route_to] += 1;
   }
@@ -375,25 +517,27 @@ export function buildOrchestrationGraph(
       severity = "warning";
     }
 
-    const { sourceHandle, targetHandle } = pickHandles(rule.watch, rule.route_to);
-    const isFeedback = (positions[rule.route_to]?.y ?? 0) < (positions[rule.watch]?.y ?? 0);
+    for (const w of watchSources(rule)) {
+      const { sourceHandle, targetHandle } = pickHandles(w, rule.route_to);
+      const isFeedback = (positions[rule.route_to]?.y ?? 0) < (positions[w]?.y ?? 0);
 
-    edges.push({
-      id: `route-${i}`,
-      source: rule.watch,
-      sourceHandle,
-      target: rule.route_to,
-      targetHandle,
-      type: "smoothstep",
-      data: { severity },
-      style: {
-        stroke: color,
-        strokeWidth: 1.5,
-        ...(isFeedback ? { strokeDasharray: "6 3" } : {}),
-      },
-      markerEnd: arrow(color),
-      animated: !isFeedback,
-    });
+      edges.push({
+        id: `route-${i}-${w}`,
+        source: w,
+        sourceHandle,
+        target: rule.route_to,
+        targetHandle,
+        type: "smoothstep",
+        data: { severity },
+        style: {
+          stroke: color,
+          strokeWidth: 1.5,
+          ...(isFeedback ? { strokeDasharray: "6 3" } : {}),
+        },
+        markerEnd: arrow(color),
+        animated: !isFeedback,
+      });
+    }
   });
 
   return { nodes, edges };

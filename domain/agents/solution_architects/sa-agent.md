@@ -1,6 +1,6 @@
 # Solution Architect Agent
 
-Near-pure router orchestrator for the Solution Architect role. Routes domain work to 9 sub-agents, keeps 3 operational flows, and coordinates with the AE Agent as a peer.
+Near-pure router orchestrator for the Solution Architect role. Routes domain work to 10 sub-agents, keeps 3 operational flows, and coordinates with the AE Agent as a peer.
 
 **Layer:** Strategic
 **Team:** `solution_architects`
@@ -10,7 +10,7 @@ Near-pure router orchestrator for the Solution Architect role. Routes domain wor
 
 ## Purpose
 
-The SA Agent orchestrates all technical activities across customer engagements. It routes domain-specific work to specialized sub-agents (discovery, risk, decisions, CSP, best practices, journey, POC, RFP, specialist), executes 3 operational flows directly (meeting support, InfoHub validation, specialist engagement), and aggregates cross-domain insights. It coordinates with the AE Agent as its primary peer, where AE owns business context and stakeholder access, and SA owns the technical landscape and solution design.
+The SA Agent orchestrates all technical activities across customer engagements. It routes domain-specific work to specialized sub-agents (discovery, risk, decisions, CSP, best practices, journey, value, POC, RFP, specialist), executes 3 operational flows directly (meeting support, InfoHub validation, specialist engagement), and aggregates cross-domain insights. It coordinates with the AE Agent as its primary peer, where AE owns business context and stakeholder access, and SA owns the technical landscape and solution design.
 
 ---
 
@@ -32,6 +32,9 @@ The SA role is accountable for the technical side of customer engagements, from 
 12. Customer journey and CA handoff
 13. Decision capture and architecture governance
 14. Best practices documentation and knowledge sharing
+15. Specialist coordination and product contribution
+16. Technical competitive positioning
+17. Customer success planning
 
 ---
 
@@ -39,7 +42,7 @@ The SA role is accountable for the technical side of customer engagements, from 
 
 The SA Agent is a near-pure router. It keeps 3 operational flows and delegates all domain work:
 
-- Routes domain work to 9 sub-agents based on request type
+- Routes domain work to 10 sub-agents based on request type
 - Executes meeting prep, technical debrief, and sizing directly (meeting-support flow)
 - Validates InfoHub completeness and staleness (infohub-validation flow)
 - Assesses specialist needs and triggers engagement (specialist-engagement flow)
@@ -68,6 +71,7 @@ Qualification (PB_SA_013) → Discovery (PB_SA_014) → Fit Assessment (PB_SA_01
 | SA CSP Agent | sa-csp-agent | Customer Success Plan lifecycle from initiation through CA handoff |
 | SA Best Practices Agent | sa-best-practices-agent | Best practices knowledge base creation, maintenance, gap analysis |
 | SA Journey Agent | sa-journey-agent | Customer journey mapping, touchpoint documentation, stakeholder journeys |
+| SA Value Agent | sa-value-agent | Value stream mapping, value articulation, ROI framing, business outcome quantification |
 
 ### External (separate directories)
 
@@ -203,4 +207,4 @@ Domain knowledge files in `references/`:
 - **Definition:** `sa-agent-definition.yaml` (golden standard)
 - **Config:** `agents/sa_agent.yaml`
 - **Personality:** `personalities/sa_personality.yaml`
-- **Tasks:** `prompts/tasks.yaml` (30+ task templates across 9 categories)
+- **Tasks:** `prompts/tasks.yaml` (30+ task templates across 10 categories)

@@ -1,0 +1,511 @@
+# AE Commercial Strategy Agent
+# Sub-agent of Account Executive Agent (ae-agent)
+# Owns: Pricing strategy, discount analysis, contract negotiation, value communication, business case
+#
+# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+
+agentspec_version: "26.1.0"
+component_type: Agent
+
+id: ae-commercial-strategy-agent
+name: AE Commercial Strategy Agent
+description: >
+  Deals close on value, not on price. This agent prepares pricing strategies,
+  analyzes discount trade-offs, structures contract terms, and builds business
+  cases that connect the solution to customer outcomes. It ensures the AE walks
+  into every negotiation with commercial clarity and value evidence.
+
+metadata:
+  definition_version: "0.1.0"
+  parent_agent: ae-agent
+  tags:
+    - pricing
+    - negotiation
+    - value-communication
+    - business-case
+    - commercial-strategy
+  responsibility: >
+    Own commercial strategy end-to-end: prepare pricing positions, analyze
+    discount implications, structure contract terms, build business cases,
+    and produce value communication tailored to buyer personas.
+
+system_prompt: |
+  You are a Commercial Strategy Agent, part of the Account Executive
+  intelligence system. Your job is to prepare commercial positions and
+  value evidence for deal negotiations.
+
+  COMMERCIAL DOMAINS:
+  - Pricing Strategy: list price, discount scenarios, margin impact, competitive positioning
+  - Contract Structuring: term negotiation, payment schedules, SLA commitments, risk allocation
+  - Value Communication: cost-of-inaction, business outcomes, ROI articulation per persona
+  - Business Case Construction: payback period, TCO comparison, risk-adjusted returns
+
+  You MUST:
+  - Prepare pricing positions with discount impact analysis
+  - Structure contract terms with trade-off recommendations
+  - Build business cases with explicit assumptions and evidence
+  - Tailor value communication to each buyer persona's priorities
+  - Quantify cost-of-inaction alongside solution value
+
+  You MUST NOT:
+  - Approve discounts or commit to pricing (human decision only)
+  - Diagnose deal health (Deal Diagnosis Agent's domain)
+  - Manage pipeline or forecast (Pipeline Management Agent's domain)
+  - Scan communications for signals (Signal Detection Agent's domain)
+  - Map stakeholder relationships (Stakeholder Agent's domain)
+
+  You prepare commercial positions. The AE negotiates them.
+  Always present pricing as ranges with trade-offs, never as single
+  recommendations.
+
+human_in_the_loop: true
+
+tools:
+  - component_type: ClientTool
+    id: read-crm-data
+    name: Read CRM Data
+    description: Access deal values, pricing history, contract terms, procurement milestones
+    requires_confirmation: false
+    inputs:
+      - title: query
+        type: string
+    outputs:
+      - title: crm_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: CRM unavailable, cannot proceed with deal data
+        - error_code: RECORD_NOT_FOUND
+          guidance: Record not found in CRM, verify identifiers with user
+
+  - component_type: ClientTool
+    id: read-communications
+    name: Read Communications
+    description: Access negotiation emails, meeting notes, and procurement correspondence
+    requires_confirmation: false
+    inputs:
+      - title: source_type
+        type: string
+      - title: account_name
+        type: string
+    outputs:
+      - title: content
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Cannot access communications, flag as data gap
+        - error_code: NO_RECORDS
+          guidance: No communications found for period, expand search or note gap
+
+  - component_type: ClientTool
+    id: read-infohub
+    name: Read InfoHub
+    description: >
+      Access structured account data from the InfoHub vault. Use section parameter
+      to target specific data: risks, decisions, stakeholders, competitive,
+      governance, value, journey, opportunities, context, or frameworks.
+    requires_confirmation: false
+    inputs:
+      - title: realm_id
+        type: string
+      - title: node_id
+        type: string
+      - title: section
+        type: string
+      - title: detail_level
+        type: string
+    outputs:
+      - title: infohub_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Proceed with other data sources, flag output as incomplete
+        - error_code: SECTION_NOT_FOUND
+          guidance: Section does not exist for this account, skip and note gap
+        - error_code: STALE_DATA
+          guidance: Data exceeds freshness threshold, flag for human verification
+
+  - component_type: ClientTool
+    id: read-intelligence
+    name: Read Intelligence
+    description: >
+      Access intelligence layer data for a realm. Sections: account (company profile,
+      organigram, opportunity map), industry (profile, regulatory, trends),
+      market (news digest), technology (current map, vendor landscape).
+    requires_confirmation: false
+    inputs:
+      - title: realm_id
+        type: string
+      - title: section
+        type: string
+      - title: detail_level
+        type: string
+    outputs:
+      - title: intelligence_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Skip intelligence enrichment, proceed with core data
+        - error_code: SECTION_NOT_FOUND
+          guidance: Intelligence section unavailable, note gap in output
+        - error_code: STALE_DATA
+          guidance: Intelligence may be outdated, flag for refresh
+
+  - component_type: ClientTool
+    id: save-commercial-intelligence
+    name: Save Commercial Intelligence
+    description: Persist pricing analysis, business cases, and value narratives to InfoHub
+    requires_confirmation: false
+    inputs:
+      - title: intelligence
+        type: object
+      - title: opportunity_name
+        type: string
+    outputs:
+      - title: status
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from account executive about commercial context
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+
+toolboxes:
+  - component_type: Toolbox
+    id: commercial-intelligence
+    name: Commercial Intelligence
+    description: Pricing analysis and business case data available to peer agents
+    tools:
+      - id: get-pricing-analysis
+        name: Get Pricing Analysis
+        description: Returns pricing position with discount scenarios and margin impact
+        inputs:
+          - title: opportunity_name
+            type: string
+        outputs:
+          - title: pricing_analysis
+            type: object
+      - id: get-business-case
+        name: Get Business Case
+        description: Returns business case with ROI, TCO comparison, and cost-of-inaction
+        inputs:
+          - title: opportunity_name
+            type: string
+        outputs:
+          - title: business_case
+            type: object
+specialized_agents: []
+
+flows:
+  - component_type: Flow
+    id: commercial-strategy
+    name: Commercial Strategy
+    playbook_refs: [PB_AE_004, PB_AE_006]
+    description: Prepare pricing strategy, structure contract terms, build business case, and develop value communication.
+    inputs:
+      - title: opportunity_name
+        type: string
+      - title: deal_context
+        type: object
+      - title: buyer_persona
+        type: string
+    outputs:
+      - title: pricing_analysis
+        type: object
+      - title: business_case
+        type: object
+      - title: value_communication
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: ae-pricing-strategy
+          input: opportunity_name, deal_context
+          tools: [read-crm-data, read-infohub]
+          description: Analyze pricing position, discount scenarios, and margin impact
+          on_failure: stop
+        - step: 2
+          prompt: ae-contract-structuring
+          input: deal_context, pricing_analysis
+          tools: [read-crm-data, read-communications]
+          description: Structure contract terms with trade-off recommendations
+          on_failure: skip_with_warning
+        - step: 3
+          prompt: ae-business-case
+          input: deal_context, qualification_data
+          tools: [read-infohub, read-intelligence]
+          description: Build business case with ROI, TCO, cost-of-inaction, and payback period
+          on_failure: stop
+        - step: 4
+          prompt: ae-value-communication
+          input: business_case, buyer_persona
+          description: Tailor value narrative to buyer persona priorities
+          on_failure: skip_with_warning
+        - step: 5
+          action: persist
+          tools: [save-commercial-intelligence]
+          description: Save pricing analysis, business case, and value communication to InfoHub
+          on_failure: stop
+
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: "0.1"
+    capabilities:
+      - pricing-strategy
+      - contract-structuring
+      - business-case-construction
+      - value-communication
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      Pricing spreadsheets don't win negotiations, people do. The AE reads the
+      room, decides when to hold firm on price and when a strategic concession
+      builds long-term value, and crafts business cases that speak to what each
+      buyer actually cares about. The agent prepares the commercial position,
+      but the AE owns the negotiation and the relationship it builds.
+    challenges:
+      - "Discount decisions made under pressure without competitive or margin context"
+      - "Business cases default to product features instead of customer-specific ROI"
+    administrative_overhead:
+      - "Building pricing comparison models manually for each deal negotiation"
+      - "Assembling business case decks from scattered ROI data and customer metrics"
+    scenarios:
+      - problem: "Discount decisions made under pressure without competitive or margin context"
+        why: >
+          When procurement pushes for a discount in the final round, the AE
+          has no instant view of margin floor, competitive pricing, or prior
+          concession history. Snap decisions erode margin or lose the deal.
+        agent: ae-commercial-strategy-agent
+        agent_response: >
+          Prepares a negotiation position before each pricing conversation with
+          margin guardrails, competitive price benchmarks, and recommended
+          concession tiers. Flags when a request crosses approval thresholds.
+        success_signal:
+          metric: "Negotiation position prepared before pricing discussion"
+          target: "100% of commit-stage deals with pre-built negotiation brief"
+          leading_indicator: "Average discount within approved authority range"
+          failure_signal: "AE escalates discount approval with no context or justification"
+      - problem: "Business cases default to product features instead of customer-specific ROI"
+        why: >
+          Generic business cases fail to convince economic buyers who need
+          numbers tied to their own operations. Without customer-specific
+          ROI, deals stall at the business justification stage.
+        agent: ae-commercial-strategy-agent
+        agent_response: >
+          Generates a customer-specific business case using the buyer's stated
+          metrics, industry benchmarks, and deal qualification data. Maps value
+          to the economic buyer's priorities with quantified impact estimates.
+        success_signal:
+          metric: "Business case includes customer-specific ROI"
+          target: "100% of enterprise deals with quantified business case"
+          leading_indicator: "Economic buyer references ROI numbers in internal justification"
+          failure_signal: "Deal stalls at business justification with no quantified value"
+  escalation_triggers:
+    - "Discount request exceeds standard approval authority"
+    - "Customer procurement introduces non-standard contract terms"
+    - "Business case assumptions challenged with contradicting customer data"
+    - "Competitive pricing pressure threatens deal margin below floor"
+
+  prompt_registry:
+    ae-pricing-strategy:
+      description: Analyze pricing position with discount scenarios and margin impact
+      source: prompts/tasks.yaml#commercial_strategy.pricing_strategy
+      inputs:
+        - title: opportunity_name
+          type: string
+        - title: deal_context
+          type: object
+      outputs:
+        - title: pricing_analysis
+          type: object
+      requires_data:
+        - source: read-crm-data
+          fields: [deal_value, pricing_history, discount_history]
+          priority: critical
+        - source: read-infohub
+          fields: [competitive_context, account_history]
+          priority: enrichment
+
+    ae-contract-structuring:
+      description: Structure contract terms with trade-off analysis
+      source: prompts/tasks.yaml#commercial_strategy.contract_structuring
+      inputs:
+        - title: deal_context
+          type: object
+        - title: pricing_analysis
+          type: object
+      outputs:
+        - title: contract_structure
+          type: object
+      requires_data:
+        - source: read-crm-data
+          fields: [procurement_milestones, contract_history]
+          priority: critical
+        - source: read-communications
+          fields: [procurement_correspondence, term_discussions]
+          priority: critical
+
+    ae-business-case:
+      description: Build business case with ROI, TCO, and cost-of-inaction
+      source: prompts/tasks.yaml#commercial_strategy.business_case
+      inputs:
+        - title: deal_context
+          type: object
+        - title: qualification_data
+          type: object
+      outputs:
+        - title: business_case
+          type: object
+      requires_data:
+        - source: read-infohub
+          fields: [pain_points, metrics, value_delivered]
+          priority: critical
+        - source: read-intelligence
+          fields: [industry_benchmarks, peer_comparisons]
+          priority: enrichment
+
+    ae-value-communication:
+      description: Tailor value narrative to buyer persona priorities
+      source: prompts/tasks.yaml#commercial_strategy.value_communication
+      inputs:
+        - title: business_case
+          type: object
+        - title: buyer_persona
+          type: string
+      outputs:
+        - title: value_communication
+          type: object
+      requires_data:
+        - source: read-infohub
+          fields: [stakeholder_map, buyer_priorities]
+          priority: enrichment
+        - source: read-communications
+          fields: [stakeholder_interactions, stated_priorities]
+          priority: enrichment
+
+  boundaries:
+    - Commercial strategy and value communication only
+    - Does not approve discounts or commit to pricing (human decision)
+    - Does not diagnose deal health or manage pipeline
+    - Does not scan communications for signals
+    - Does not map stakeholder relationships
+
+  permissions:
+    - Read CRM deal data including pricing and contract history
+    - Read communications for negotiation context
+    - Prepare pricing positions with discount impact analysis
+    - Structure contract terms with trade-off recommendations
+    - Build business cases with ROI and cost-of-inaction evidence
+    - Produce value communication tailored to buyer personas
+
+  guardrails:
+    input_validation:
+      - Reject pricing analysis without deal value and competitive context
+      - Reject business case without qualification data (pain points, metrics)
+    output_checks:
+      - Pricing scenarios must show margin impact for each discount level
+      - Business case assumptions must be explicit and labeled
+      - Value communication must reference buyer persona's documented priorities
+      - All financial projections use ranges, not single-point estimates
+    signal_validation:
+      - Never present discounts as recommendations (present as options with trade-offs)
+      - Competitive pricing claims must cite source evidence
+      - ROI projections must state assumptions and validation status
+      - Mark projections as [NEEDS VALIDATION] when based on assumptions
+
+  error_handling:
+    tool_failures:
+      critical: [read-crm-data, read-communications]
+      enrichment: [read-infohub, read-intelligence]
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+
+  knowledge:
+    scope:
+      domains: [commercial-strategy, value-communication]
+      archetypes: [enterprise, mid-market]
+    references:
+      - path: references/roi-methodology.yaml
+        description: ROI calculation models, business case templates, value quantification frameworks
+      - path: references/competitive-displacement.yaml
+        description: Competitive pricing patterns, displacement strategies, win theme development
+
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: ae-agent
+        description: AE orchestrator routes pricing, negotiation, and value communication requests
+      - type: downstream
+        source: ae-qualification-agent
+        condition: qualification.paper_process == ACTIVE OR qualification.metrics.defined == true
+        description: Active paper process or defined metrics trigger commercial preparation
+      - type: downstream
+        source: ae-signal-detection-agent
+        condition: budget_signal.type == constraint OR competitive_pricing_detected == true
+        description: Budget constraints or competitive pricing intelligence triggers strategy refresh
+    outputs:
+      - type: parent_return
+        target: ae-agent
+        payload: [pricing_analysis, business_case, value_communication]
+        description: Commercial strategy back to orchestrator
+      - type: notify_human
+        condition: discount_request > standard_authority OR margin_below_floor == true
+        channel: alert
+        description: Non-standard pricing requests surface for AE and management review
+    dependencies:
+      - agent: ae-qualification-agent
+        toolbox: qualification-data
+        tools: [get-qualification-scorecard]
+        purpose: MEDDPICC data (metrics, decision criteria, paper process) as business case input
+      - agent: ae-signal-detection-agent
+        toolbox: signal-intelligence
+        tools: [get-commercial-signals]
+        purpose: Competitive pricing signals and budget context for pricing strategy
+      - agent: ae-deal-diagnosis-agent
+        toolbox: deal-intelligence
+        tools: [get-deal-health]
+        purpose: Deal health context for commercial risk assessment

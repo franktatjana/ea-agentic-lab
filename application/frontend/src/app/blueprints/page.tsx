@@ -363,7 +363,7 @@ export default function BlueprintHubPage() {
                     <card.icon className={`h-5 w-5 ${card.color}`} />
                     <span className="font-semibold">{card.title}</span>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <ArrowRight className="h-4 w-4 text-blue-500 dark:text-amber-400" />
                 </div>
                 <p className="text-2xl font-bold mb-2">{card.count}</p>
                 <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>

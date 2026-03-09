@@ -34,6 +34,7 @@
 #   ae-meeting-prep-agent        — Call briefs, QBR materials, post-call summaries
 #   ae-opportunity-hygiene-agent — Weekly checks, stale alerts, CRM checklists
 #   ae-pipeline-gen-agent        — Prospecting, outreach strategy, SDR coordination
+#   ae-commercial-strategy-agent — Negotiation, pricing, value communication, business case
 
 # ============================================================
 # AGENT SPEC STANDARD ZONE
@@ -50,7 +51,7 @@ description: >
   Aggregates cross-domain insights when a request spans multiple agents.
   Escalates to human when deal conditions or risk thresholds require judgment.
   Does not execute domain tasks directly. All analysis, scoring, and preparation
-  is delegated to 8 specialized sub-agents.
+  is delegated to 9 specialized sub-agents.
 
 metadata:
   definition_version: "0.2.0"
@@ -85,9 +86,11 @@ system_prompt: |
   - Call prep, QBR materials, post-call summaries → Meeting Preparation Agent
   - Weekly hygiene checks, paper process tracking, stale alerts, CRM checklists → Opportunity Hygiene Agent
   - Prospecting, outreach strategy, SDR coordination, pipe gen targets → Pipeline Generation Agent
+  - Pricing strategy, discount analysis, contract terms, value communication → Commercial Strategy Agent
   - Close plan creation, mutual action plan tracking → Deal Diagnosis Agent (close-plan-management flow)
   - Discovery call preparation, structured questions → Meeting Preparation Agent (discovery-preparation flow)
   - Territory planning, account tiering, whitespace analysis → Pipeline Management Agent (territory-planning flow)
+  - Cross-functional coordination, handoff tracking → Opportunity Hygiene Agent (coordination flow)
 
   CROSS-DOMAIN REQUESTS:
   When a request spans multiple domains (e.g., "prepare for QBR and check deal health"),
@@ -302,6 +305,26 @@ tools:
       target_agent: ae-opportunity-hygiene-agent
 
   - component_type: ClientTool
+    id: invoke-commercial-strategy
+    name: Invoke Commercial Strategy Agent
+    description: Route to Commercial Strategy Agent for pricing strategy, discount analysis, contract terms, value communication, or business case construction
+    requires_confirmation: false
+    inputs:
+      - title: task
+        type: string
+      - title: account_context
+        type: object
+      - title: deal_context
+        type: object
+    outputs:
+      - title: result
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: agent-registry
+      target_agent: ae-commercial-strategy-agent
+
+  - component_type: ClientTool
     id: invoke-pipeline-gen
     name: Invoke Pipeline Generation Agent
     description: Route to Pipeline Generation Agent for prospecting research, outreach strategy, SDR coordination, or pipe gen tracking
@@ -323,39 +346,7 @@ tools:
 
 # Orchestrator exposes no toolbox: all service queries route through sub-agent toolboxes
 toolboxes: []
-specialized_agents:
-- component_type: SpecializedAgent
-  id: ae-agent-proactive
-  name: Account Executive Agent (Proactive)
-  description: 'Proactive mode: monitors signals across sub-agents and surfaces risks and opportunities before being asked'
-  agent:
-    $component_ref: ae-agent
-  agent_specialization_parameters:
-    additional_instructions: |
-      Focus on early warning and opportunity surfacing. Continuously poll
-      sub-agents for signals that need attention: stale deals from Hygiene,
-      champion-gone-dark from Stakeholder Intelligence, forecast risks from
-      Pipeline Management, competitive threats from Signal Detection.
-      Prioritize timeliness over depth. Push alerts to the AE rather than
-      waiting for requests. Keep outputs concise with clear severity and
-      recommended next action.
-    human_in_the_loop: true
-- component_type: SpecializedAgent
-  id: ae-agent-analytical
-  name: Account Executive Agent (Analytical)
-  description: 'Analytical mode: deep cross-domain synthesis for deal strategy and portfolio review'
-  agent:
-    $component_ref: ae-agent
-  agent_specialization_parameters:
-    additional_instructions: |
-      Focus on cross-domain synthesis and pattern recognition. When a request
-      arrives, query multiple sub-agents and weave their outputs into a
-      unified analysis. Connect deal health with qualification gaps, link
-      stakeholder signals with pipeline risks, map competitive threats
-      against champion strength. Prioritize depth and defensibility over
-      speed. Include confidence levels, caveats, and evidence trails.
-      Suitable for deal reviews, forecast commits, and QBR preparation.
-    human_in_the_loop: true
+specialized_agents: []
 # Orchestrator has no flows: all domain workflows are owned by sub-agents
 flows: []
 
@@ -375,6 +366,7 @@ a2a:
       - commercial-signal-detection
       - meeting-preparation
       - opportunity-hygiene
+      - commercial-strategy
     input_modes:
       - text/plain
       - application/json
@@ -402,12 +394,34 @@ x-ea-agent:
       workforce that handles the data-heavy, repetitive tasks so
       they can focus on relationships and closing deals.
 
+    human_matters_summary: >
+      The agent surfaces signals, prepares materials, and keeps data current,
+      but the AE brings relationship instinct, negotiation judgment, and the
+      credibility that closes enterprise deals.
+
+    human_matters_goal: >
+      Every meeting is prepared, every decision is data-informed, but the
+      deal closes because the AE built trust no agent can replicate.
+
+    goals_summary: >
+      The AE succeeds when pipeline stays healthy, deals progress on signal
+      not gut feel, and admin work never crowds out selling time.
+
     goals:
       - "Hit quota consistently by never missing a deal signal"
       - "Cut administrative overhead from 60% of time to under 20%"
       - "Maintain 3-5x pipeline coverage without manual territory planning"
       - "Keep CRM and forecast data current without field-by-field updates"
       - "Walk into every meeting fully prepared with zero prep time"
+      - "Every deal has a documented close plan shared with the customer"
+      - "Account plans refreshed quarterly with tiered prioritization"
+      - "Negotiation positions backed by competitive intelligence and value evidence"
+      - "Executive sponsor identified and engaged on every strategic deal"
+      - "Value articulated through business outcomes, not product features"
+      - "Cross-functional coordination with zero dropped handoffs"
+      - "Competitive positioning updated before every customer-facing interaction"
+      - "Win/loss patterns documented and applied to active deals"
+      - "Expansion opportunities identified in every renewal conversation"
 
     role_context: >
       The enterprise Account Executive owns the full sales cycle:
@@ -549,16 +563,111 @@ x-ea-agent:
         automated_by: ae-pipeline-gen-agent
       - text: "Coordinating with SDR/BDR team without shared targeting criteria"
         automated_by: ae-pipeline-gen-agent
+      - text: "Manually building mutual close plans from scattered deal notes and meeting summaries"
+        automated_by: ae-deal-diagnosis-agent
+      - text: "Assembling value narratives by hunting through case studies and ROI data"
+        automated_by: ae-deal-diagnosis-agent
+      - text: "Scanning news feeds, competitor announcements, and customer press releases for deal-relevant changes"
+        automated_by: ae-signal-detection-agent
+      - text: "Manually checking customer social media and earnings calls for buying signals"
+        automated_by: ae-signal-detection-agent
+      - text: "Pulling data from 4-5 systems to build a cross-domain deal health view"
+        automated_by: ae-agent
+      - text: "Manually triaging alerts from different tools to decide what to work on first"
+        automated_by: ae-agent
+      - text: "Coordinating follow-ups across stakeholder, deal, and pipeline teams after a trigger event"
+        automated_by: ae-agent
+      - text: "Building a portfolio-level quarter-close plan by aggregating individual deal statuses"
+        automated_by: ae-agent
+
+    scenarios:
+      - problem: "A complete deal health picture requires data from qualification, stakeholder, signals, and pipeline, but each lives in a different system"
+        why: >
+          When each dimension is assessed in isolation, the AE misses
+          interaction effects: a weak champion combined with a new competitor
+          and a stalling paper process is not three small problems, it is one
+          critical deal at risk. No single sub-agent sees the full picture.
+        agent: ae-agent
+        agent_response: >
+          Triggers parallel assessments from deal diagnosis, stakeholder
+          intelligence, signal detection, and qualification agents. Aggregates
+          findings into a unified deal health view with cross-domain risk flags
+          that no single agent could surface alone.
+        success_signal:
+          metric: "Cross-domain deal health report produced"
+          target: "< 5 minutes vs 45+ minutes of manual aggregation"
+          leading_indicator: "AE uses unified view instead of checking 4 separate dashboards"
+          failure_signal: "Deal review starts with 20 minutes of data collection"
+
+      - problem: "Multiple sub-agents flag urgent actions simultaneously, and the AE cannot determine which deserves attention first"
+        why: >
+          Without priority arbitration, the AE either context-switches between
+          competing alerts or defaults to the loudest signal. The highest-impact
+          action gets buried under lower-priority noise from well-meaning agents.
+        agent: ae-agent
+        agent_response: >
+          Evaluates all pending agent outputs against deal value, stage urgency,
+          and signal severity. Produces a single prioritized action list for the
+          day with clear rationale for sequencing. Defers low-priority items
+          without losing them.
+        success_signal:
+          metric: "AE starts day with single prioritized action list"
+          target: "One consolidated view vs 5+ separate agent alerts"
+          leading_indicator: "Highest-value action completed first each day"
+          failure_signal: "AE manually checks each sub-agent dashboard to decide what to do"
+
+      - problem: "A champion departure triggers stakeholder re-mapping, meeting prep for the new contact, deal reassessment, and qualification re-scoring, but each agent acts independently"
+        why: >
+          If each sub-agent responds to the same trigger in isolation, the AE
+          gets fragmented recommendations with no coordinated response plan.
+          Actions contradict or duplicate each other, and timing is uncoordinated.
+        agent: ae-agent
+        agent_response: >
+          Detects cascade triggers and routes the signal to all affected
+          sub-agents simultaneously. Collects their outputs and assembles a
+          coordinated response plan with sequenced actions and clear ownership
+          per step.
+        success_signal:
+          metric: "Cascade response coordinated across 3+ agents"
+          target: "Coordinated plan delivered within 2 hours of trigger"
+          leading_indicator: "No duplicate or contradicting recommendations from sub-agents"
+          failure_signal: "AE discovers conflicting sub-agent suggestions days after the trigger"
+
+      - problem: "Quarter close demands forecast accuracy, deal acceleration, and next-quarter pipeline gen simultaneously across the full portfolio"
+        why: >
+          Without portfolio-level orchestration, the AE treats each deal as an
+          island. Cross-deal patterns like common objections, shared stakeholders,
+          or overlapping procurement timelines go unnoticed, and next-quarter
+          pipeline gen stops entirely during the close push.
+        agent: ae-agent
+        agent_response: >
+          Runs a portfolio-level assessment across all agents. Surfaces
+          cross-deal patterns, identifies the highest-leverage actions for the
+          remaining quarter, and ensures pipeline gen continues in parallel
+          with current-quarter close activities.
+        success_signal:
+          metric: "Portfolio-level priorities visible in one view"
+          target: "Zero deals missed in quarter-close push"
+          leading_indicator: "Next-quarter pipeline gen runs uninterrupted during close"
+          failure_signal: "New quarter opens with pipeline gap because gen stopped during close"
 
     capabilities:
-      - "Deal health diagnosis"
-      - "Pipeline forecasting"
-      - "Stakeholder intelligence"
-      - "Commercial signal detection"
-      - "MEDDPICC qualification"
-      - "Meeting preparation"
-      - "CRM hygiene automation"
-      - "Pipeline generation"
+      - "Deal progression and close planning"
+      - "Pipeline health and forecast accuracy"
+      - "Stakeholder mapping and relationship building"
+      - "Commercial awareness and market intelligence"
+      - "Deal qualification (MEDDPICC)"
+      - "Meeting preparation and follow-through"
+      - "Deal record accuracy and visibility"
+      - "Pipeline generation and prospecting"
+      - "Account planning and territory strategy"
+      - "Negotiation and commercial structuring"
+      - "Executive engagement and sponsorship"
+      - "Value communication and business case"
+      - "Cross-functional deal coordination"
+      - "Competitive positioning"
+      - "Deal review and win/loss learning"
+      - "Renewal, expansion, and customer growth"
 
     with_this_agent:
       - "Know which deals are healthy and which need intervention right now"
@@ -575,6 +684,14 @@ x-ea-agent:
       - "Articulate value through cost-of-inaction and business outcomes, not product features"
       - "Handle objections with a systematic process: acknowledge, clarify, respond with evidence, confirm"
       - "Plan territory with account tiering and three-horizon pipeline mapping"
+      - "Negotiate with confidence backed by competitive intelligence and deal-specific value evidence"
+      - "Engage executive sponsors with tailored messaging and track C-level alignment on strategic deals"
+      - "Build business cases that quantify cost-of-inaction and translate capabilities into buyer outcomes"
+      - "Coordinate SA, legal, procurement, delivery, and specialists without dropped handoffs"
+      - "Position against competitors at deal level with displacement strategies and technical win themes"
+      - "Turn deal retrospectives into pattern recognition that improves execution on active opportunities"
+      - "Identify expansion opportunities during renewal conversations and partner with CA on growth plays"
+      - "Keep account plans current with tiered prioritization and systematic coverage across the territory"
 
     public_resources:
       - title: "B2B Sales Methodologies Overview"
@@ -613,29 +730,28 @@ x-ea-agent:
         is owned by a sub-agent that operates independently with its own
         tools, flows, boundaries, and prompt registry.
       domains:
-        - domain: Deal Progression
+        - domain: Deal Progression and Close Planning
           why: >
-            Advance deals by diagnosing health, unsticking stalls,
-            learning from losses, resurrecting winnable opportunities.
+            The AE advances deals through stages with clear close plans,
+            mutual action plans shared with the customer, and structured
+            intervention when deals stall.
           agent: ae-deal-diagnosis-agent
           contributing_agents:
             - agent: ae-qualification-agent
               provides: MEDDPICC readiness score before stage transitions
-            - agent: ae-signal-detection-agent
-              provides: Competitive threats and pain validation for deal context
             - agent: ae-stakeholder-agent
               provides: Champion health and decision-maker engagement status
           activities:
             - Deal health assessment before stage transitions
-            - Stall root cause analysis when deals stop moving
-            - Win/loss review after deal close
-            - Resurrection candidate identification from closed-lost
+            - Close plan creation with mutual action milestones
+            - Stall root cause analysis and intervention
+            - Resurrection assessment for closed-lost opportunities
           cadence: per-deal, triggered by stage change or stall detection
 
-        - domain: Pipeline & Forecast
+        - domain: Pipeline Health and Forecast Accuracy
           why: >
-            Own forecast accuracy and pipeline coverage.
-            Leadership plans hiring and targets from commit confidence.
+            The AE owns forecast accuracy. Leadership plans hiring, targets,
+            and investments based on commit confidence the AE provides.
           agent: ae-pipeline-mgmt-agent
           contributing_agents:
             - agent: ae-deal-diagnosis-agent
@@ -645,124 +761,277 @@ x-ea-agent:
             - agent: ae-opportunity-hygiene-agent
               provides: Data quality scores affecting pipeline accuracy
           activities:
-            - Forecast commit scoring per deal with evidence
+            - Evidence-based forecast commit scoring per deal
             - Pipeline coverage analysis against quota target
             - Next-best-action prioritization across portfolio
-            - Territory and account planning for pipeline generation
+            - Quarterly pipeline review with leadership
           cadence: weekly pipeline review, quarterly territory planning
 
-        - domain: Stakeholder Alignment
+        - domain: Stakeholder Mapping and Relationship Building
           why: >
-            Track influence flows across 5-8 stakeholders per deal,
-            if champions are engaged, if relationships are cooling.
+            The AE builds and maintains relationships across 5-8 stakeholders
+            per deal: champions, economic buyers, technical evaluators, and
+            blockers. Relationship depth determines deal velocity.
           agent: ae-stakeholder-agent
           contributing_agents:
             - agent: ae-signal-detection-agent
-              provides: Sentiment shifts and relationship signals from communications
+              provides: Sentiment shifts and relationship signals
             - agent: ae-meeting-prep-agent
-              provides: Meeting history and interaction frequency data
+              provides: Meeting history and interaction frequency
           activities:
             - Decision-making unit mapping per opportunity
-            - Champion health and engagement tracking
-            - Executive briefing preparation tailored to stakeholder priorities
-            - Relationship transfer during customer handoff
+            - Champion development and engagement
+            - Multi-threading across buying committee
+            - Relationship handoff during customer transition
           cadence: continuous per active deal
 
-        - domain: Commercial Signal Intelligence
+        - domain: Commercial Awareness and Market Intelligence
           why: >
-            Surface budget shifts, competitive mentions, expansion
-            hints from emails, Slack, notes before they become surprises.
+            The AE stays informed about budget shifts, competitive moves,
+            and expansion signals across their accounts and acts on them
+            before they become surprises or missed opportunities.
           agent: ae-signal-detection-agent
           contributing_agents:
             - agent: ae-stakeholder-agent
-              provides: Contact frequency data indicating engagement changes
+              provides: Contact frequency and engagement changes
             - agent: ae-opportunity-hygiene-agent
-              provides: CRM field changes that correlate with commercial signals
+              provides: CRM field changes correlating with commercial signals
           activities:
-            - Budget and procurement signal scanning
-            - Competitive threat detection and positioning intelligence
+            - Budget and procurement timing awareness
+            - Competitive positioning intelligence gathering
             - Expansion and upsell opportunity identification
-            - Pain point validation from customer communications
-          cadence: continuous, processes new communications as they arrive
+            - Customer pain point validation and deepening
+          cadence: continuous, acting on signals as they emerge
 
-        - domain: Deal Qualification
+        - domain: Deal Qualification (MEDDPICC)
           why: >
-            Expose qualification gaps early. Turn gut feel into
-            evidence-based deal confidence via MEDDPICC.
+            The AE qualifies deals with evidence, not gut feel. Structured
+            qualification exposes gaps early and prevents investment in
+            unwinnable opportunities.
           agent: ae-qualification-agent
           contributing_agents:
             - agent: ae-stakeholder-agent
-              provides: Economic Buyer and Champion data for E and C dimensions
+              provides: Economic Buyer and Champion data
             - agent: ae-signal-detection-agent
-              provides: Pain and Competition evidence for I and C dimensions
+              provides: Pain and Competition evidence
             - agent: ae-deal-diagnosis-agent
-              provides: Decision Criteria and Process data for D dimensions
+              provides: Decision Criteria and Process data
             - agent: ae-pipeline-mgmt-agent
-              provides: Metrics data for M dimension
+              provides: Metrics data
             - agent: ae-opportunity-hygiene-agent
-              provides: Paper Process status for P dimension
+              provides: Paper Process status
           activities:
-            - MEDDPICC dimension scoring with evidence from CRM and communications
-            - Qualification gap identification and closing recommendations
-            - Qualification scorecard generation for deal review
-            - Pre-commit qualification validation before forecast submission
+            - MEDDPICC dimension scoring with evidence
+            - Qualification gap identification and closing plan
+            - Deal review scorecard preparation
+            - Pre-commit qualification validation
           cadence: per-deal, before stage transitions and forecast commits
 
-        - domain: Meeting Lifecycle
+        - domain: Meeting Preparation and Follow-Through
           why: >
-            Prepare every meeting, capture every action.
-            Without this, context is lost between touches.
+            The AE prepares for every customer interaction and ensures
+            actions are captured and followed through. Context lost between
+            meetings is trust lost with the customer.
           agent: ae-meeting-prep-agent
           contributing_agents:
             - agent: ae-deal-diagnosis-agent
-              provides: Current deal health and risks for call brief context
+              provides: Current deal health and risks
             - agent: ae-stakeholder-agent
-              provides: Attendee profiles, preferences, and relationship history
+              provides: Attendee profiles and relationship history
             - agent: ae-qualification-agent
-              provides: Open qualification gaps to address in the meeting
+              provides: Open qualification gaps to address
           activities:
-            - Call brief assembly with deal context, risks, and stakeholder history
-            - QBR material preparation around value delivered and expansion
-            - Post-call summary with captured actions and next steps
-            - Demo preparation with tailored talking points
-          cadence: per meeting, weekly for recurring internal syncs
+            - Pre-meeting brief with deal context and objectives
+            - QBR preparation around value delivered and expansion
+            - Post-meeting action capture and follow-up
+            - Demo and workshop talking point preparation
+          cadence: per meeting, weekly for recurring syncs
 
-        - domain: Operational Hygiene
+        - domain: Deal Record Accuracy and Visibility
           why: >
-            CRM data decays within days, paper processes stall silently.
-            Keep data clean without manual updates.
+            The AE is accountable for accurate, current deal data that
+            leadership relies on for forecasting and resource decisions.
+            Inaccurate records cascade into bad business decisions.
           agent: ae-opportunity-hygiene-agent
           contributing_agents:
             - agent: ae-meeting-prep-agent
-              provides: Post-call summaries with field updates to propagate
+              provides: Post-call summaries with field updates
             - agent: ae-signal-detection-agent
-              provides: Detected signals that should be reflected in CRM
+              provides: Signals that should be reflected in deal records
           activities:
-            - Weekly health checks across all active opportunities
+            - Deal data accuracy review across active opportunities
             - Paper process milestone tracking (procurement, legal, security)
-            - Stale deal detection and alert escalation
-            - CRM update checklist generation for human review
-          cadence: weekly hygiene run, daily stale checks
+            - Stale deal identification and status updates
+            - Stage and close date accuracy maintenance
+          cadence: weekly review, daily stale checks
 
-        - domain: Pipeline Generation
+        - domain: Pipeline Generation and Prospecting
           why: >
-            Systematic prospecting, not ad-hoc outreach when coverage drops.
-            Keep the funnel healthy across all three horizons.
+            The AE builds pipeline systematically, not through ad-hoc
+            outreach when coverage drops. Consistent prospecting keeps
+            the funnel healthy across all three horizons.
           agent: ae-pipeline-gen-agent
           contributing_agents:
             - agent: ae-pipeline-mgmt-agent
               provides: Coverage gap data and territory tier priorities
             - agent: ae-signal-detection-agent
-              provides: Market signals and trigger events for prospect targeting
+              provides: Market signals and trigger events for targeting
             - agent: ae-stakeholder-agent
-              provides: Existing relationship network for referral-based outreach
+              provides: Existing relationship network for referrals
           activities:
-            - Prospect research against ideal customer profile criteria
-            - Personalized outreach strategy development per target account
-            - SDR/BDR coordination on joint prospecting activities
-            - Marketing event and content leverage for outreach campaigns
-            - Pipe gen cadence tracking against daily and weekly targets
-          cadence: daily pipe gen activity, weekly conversion review, monthly territory reprioritization
+            - ICP-matched prospect research and prioritization
+            - Personalized outreach strategy per target account
+            - SDR/BDR coordination on joint prospecting
+            - Pipe gen cadence tracking against targets
+          cadence: daily prospecting, weekly conversion review
+
+        - domain: Account Planning and Territory Strategy
+          why: >
+            The AE segments accounts by potential, builds account plans,
+            and prioritizes where to invest time. Territory strategy
+            drives systematic coverage rather than reactive deal chasing.
+          agent: ae-pipeline-mgmt-agent
+          contributing_agents:
+            - agent: ae-pipeline-gen-agent
+              provides: Prospect data and ICP scoring
+            - agent: ae-signal-detection-agent
+              provides: Account-level buying signals and timing
+          activities:
+            - Account tiering by revenue potential and strategic value
+            - Quarterly account plan creation and refresh
+            - Three-horizon pipeline mapping (close, build, seed)
+            - Territory coverage gap analysis
+          cadence: quarterly planning, monthly territory review
+
+        - domain: Negotiation and Commercial Structuring
+          why: >
+            The AE navigates pricing, discounting, contract terms, and
+            procurement processes to close deals that protect margin
+            and meet customer needs.
+          agent: ae-commercial-strategy-agent
+          contributing_agents:
+            - agent: ae-qualification-agent
+              provides: Decision criteria and paper process requirements
+            - agent: ae-opportunity-hygiene-agent
+              provides: Procurement milestone tracking
+            - agent: ae-signal-detection-agent
+              provides: Competitive pricing intelligence
+          activities:
+            - Pricing and discount strategy per deal
+            - Contract term negotiation and trade-off analysis
+            - Procurement process navigation and timeline management
+            - Commercial proposal preparation
+          cadence: per-deal, late stage through close
+
+        - domain: Executive Engagement and Sponsorship
+          why: >
+            The AE builds executive relationships, secures sponsors,
+            and ensures C-level alignment on strategic deals. Deals
+            without executive sponsorship stall at procurement.
+          agent: ae-stakeholder-agent
+          contributing_agents:
+            - agent: ae-meeting-prep-agent
+              provides: Executive briefing preparation
+            - agent: ae-deal-diagnosis-agent
+              provides: Deal context for executive conversations
+          activities:
+            - Executive sponsor identification and engagement plan
+            - C-level meeting preparation and follow-through
+            - Executive alignment on business outcomes and value
+            - Sponsor transition planning during org changes
+          cadence: per strategic deal, quarterly for key accounts
+
+        - domain: Value Communication and Business Case
+          why: >
+            The AE articulates value through cost-of-inaction, business
+            outcomes, and ROI. Product features do not close deals,
+            business impact does.
+          agent: ae-commercial-strategy-agent
+          contributing_agents:
+            - agent: ae-qualification-agent
+              provides: Identified pain points and metrics
+            - agent: ae-meeting-prep-agent
+              provides: Audience-adapted talking points
+            - agent: ae-deal-diagnosis-agent
+              provides: Deal context for value framing
+          activities:
+            - Cost-of-inaction framing for customer stakeholders
+            - Business outcome articulation per buyer persona
+            - ROI and business case co-creation with customer
+            - Value proof during evaluation and POC stages
+          cadence: per-deal, starting at discovery through close
+
+        - domain: Cross-Functional Deal Coordination
+          why: >
+            The AE is the deal quarterback, coordinating SA, legal,
+            procurement, delivery, and specialists to move deals forward.
+            Dropped handoffs between functions kill deal momentum.
+          agent: ae-opportunity-hygiene-agent
+          contributing_agents:
+            - agent: ae-deal-diagnosis-agent
+              provides: Deal context and resource requirements
+            - agent: ae-meeting-prep-agent
+              provides: Meeting coordination across functions
+          activities:
+            - SA engagement coordination for technical validation
+            - Legal and procurement process orchestration
+            - Delivery handoff preparation and timing
+            - Specialist resource request and coordination
+          cadence: continuous per active deal
+
+        - domain: Competitive Positioning
+          why: >
+            The AE positions against competitors at the deal level,
+            leveraging differentiation, win themes, and displacement
+            strategies tailored to each competitive scenario.
+          agent: ae-signal-detection-agent
+          contributing_agents:
+            - agent: ae-deal-diagnosis-agent
+              provides: Competitive context from deal health analysis
+            - agent: ae-meeting-prep-agent
+              provides: Competitive talking points for customer meetings
+          activities:
+            - Competitive landscape assessment per deal
+            - Battlecard application to specific deal scenarios
+            - Win theme development and messaging
+            - Competitive objection preparation
+          cadence: per-competitive-deal, refreshed at stage transitions
+
+        - domain: Deal Review and Win/Loss Learning
+          why: >
+            The AE participates in deal reviews, retrospectives, and
+            win/loss analysis. Patterns from past deals, applied to
+            active ones, compound into higher win rates over time.
+          agent: ae-deal-diagnosis-agent
+          contributing_agents:
+            - agent: ae-pipeline-mgmt-agent
+              provides: Portfolio-level patterns and trends
+            - agent: ae-qualification-agent
+              provides: Qualification patterns across won/lost deals
+          activities:
+            - Structured deal review with leadership
+            - Win/loss retrospective after deal close
+            - Pattern identification across deal outcomes
+            - Lessons applied to active deal strategies
+          cadence: per-deal-close, quarterly pattern review
+
+        - domain: Renewal, Expansion, and Customer Growth
+          why: >
+            The AE identifies expansion opportunities in existing accounts,
+            manages renewal risk early, and partners with CA on growth
+            strategies. The cheapest pipeline is the installed base.
+          agent: ae-pipeline-mgmt-agent
+          contributing_agents:
+            - agent: ae-stakeholder-agent
+              provides: Relationship health and expansion contacts
+            - agent: ae-signal-detection-agent
+              provides: Usage signals and expansion indicators
+          activities:
+            - Renewal risk assessment 90+ days before contract end
+            - Expansion opportunity identification from usage patterns
+            - Cross-sell and upsell strategy per account
+            - CA partnership on growth planning
+          cadence: quarterly account review, triggered by renewal timeline
 
     sub_agents:
       - name: Deal Diagnosis Agent
@@ -789,6 +1058,9 @@ x-ea-agent:
       - name: Pipeline Generation Agent
         id: ae-pipeline-gen-agent
         purpose: Prospecting research, outreach strategy, SDR coordination, pipe gen cadence tracking
+      - name: Commercial Strategy Agent
+        id: ae-commercial-strategy-agent
+        purpose: Pricing strategy, discount analysis, contract negotiation preparation, value communication, business case construction
 
   fallback_model: null
 
@@ -947,11 +1219,18 @@ x-ea-agent:
             receiver_action: Domain-specific impact assessment within each agent's scope
 
   escalation_triggers:
-    - Forecast variance exceeds 15% (to Sales Lead)
-    - HIGH severity commercial risk detected (to Sales Lead)
-    - Customer threatens cancellation (to Sales Lead and Senior Manager)
-    - Champion gone dark for 21+ days (to Sales Lead)
-    - Competitive threat at deal level (to CI Agent for deeper analysis)
+    - "Forecast variance exceeds 15% from commit (to Sales Lead)"
+    - "HIGH severity commercial risk detected on active deal (to Sales Lead)"
+    - "Customer threatens cancellation or evaluation of alternatives (to Sales Lead and Senior Manager)"
+    - "Champion gone dark for 21+ days with no response to outreach (to Sales Lead)"
+    - "Competitive threat identified at deal level (to CI Agent)"
+    - "Deal stalled for 2+ weeks with no stage progression (to Sales Lead)"
+    - "Negotiation requires discount beyond standard authority (to Senior Manager)"
+    - "Executive sponsor disengaged or replaced mid-cycle (to Sales Lead)"
+    - "Cross-functional dependency blocking deal progress for 5+ days (to Senior Manager)"
+    - "Discovery findings reveal technical requirements beyond current product scope (to SA Agent and PM)"
+    - "Renewal risk detected 90+ days before contract end (to CA Agent and Sales Lead)"
+    - "Win/loss pattern indicates systemic issue across multiple deals (to Senior Manager)"
 
   human_in_the_loop_conditions:
     - Review required before publishing commercial risk assessments

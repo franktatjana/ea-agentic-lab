@@ -5,6 +5,9 @@ import { VariantNode } from "./VariantNode";
 import { PromptNode } from "./PromptNode";
 import { SubAgentNode } from "./SubAgentNode";
 import { OrchestratorNode } from "./OrchestratorNode";
+import { OutputNode } from "./OutputNode";
+import { DestinationNode } from "./DestinationNode";
+import { SubAgentGroupNode } from "./SubAgentGroupNode";
 
 export const nodeTypes = {
   agentNode: AgentNode,
@@ -14,4 +17,7 @@ export const nodeTypes = {
   promptNode: PromptNode,
   subAgentNode: SubAgentNode,
   orchestratorNode: OrchestratorNode,
+  outputNode: OutputNode,
+  destinationNode: DestinationNode,
+  subAgentGroupNode: SubAgentGroupNode,
 } as const;

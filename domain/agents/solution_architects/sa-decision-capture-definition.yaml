@@ -205,6 +205,93 @@ a2a:
     - application/yaml
     - text/markdown
 x-ea-agent:
+  profile:
+    human_matters_summary: >
+      Technical decisions often emerge implicitly in conversation. The SA
+      recognizes when a statement is a decision versus a preference, understands
+      the architectural weight of each choice, and ensures stakeholders grasp
+      consequences before commitments become permanent. The agent documents,
+      but the SA validates significance and catches what was left unsaid.
+    challenges:
+      - "Technical decisions are made in meetings but never documented, leaving no rationale trail"
+      - "New decisions conflict with prior ADRs that no one remembers or reviews before committing"
+      - "Irreversible architecture choices get made without the right stakeholders in the room"
+      - "Alternatives considered are not captured, so future teams cannot understand why an approach was chosen"
+    administrative_overhead:
+      - "Reviewing meeting transcripts line by line to extract which statements were actual decisions"
+      - "Cross-referencing new decisions against the existing decision log to detect conflicts"
+      - "Drafting Architecture Decision Records with rationale, alternatives, and consequences for each significant choice"
+      - "Tracking decision attribution when multiple participants claim or dispute ownership of a choice"
+    scenarios:
+      - problem: "Technical decisions are made in meetings but never documented, leaving no rationale trail"
+        why: >
+          When decisions go unrecorded, the team revisits the same choices months later with
+          no memory of why the original path was chosen. Architecture drifts, onboarding new
+          team members becomes slower, and conflicting implementations emerge across workstreams.
+        agent: sa-decision-capture-agent
+        agent_response: >
+          Extracts decisions from meeting notes with exact attribution, classifies architecture
+          impact using scope and reversibility dimensions, and generates ADRs for significant
+          choices. Cross-references against the existing decision log to flag conflicts.
+        success_signal:
+          metric: "Technical decisions documented within 24h of the meeting"
+          target: "100% of technical review and design session decisions captured with rationale"
+          leading_indicator: "Decision log entries created automatically after each technical meeting"
+          failure_signal: "Team revisits a decision that was already made because no record exists"
+      - problem: "New decisions conflict with prior ADRs that no one remembers or reviews before committing"
+        why: >
+          Architecture coherence breaks down when each meeting makes decisions in isolation.
+          A team selects a message broker that contradicts an existing integration pattern ADR,
+          and the inconsistency surfaces only during implementation when it is expensive to fix.
+        agent: sa-decision-capture-agent
+        agent_response: >
+          Automatically cross-references every extracted decision against the existing decision
+          log and ADR repository. Flags conflicts with specific references to the contradicting
+          record, so the SA can resolve the conflict before implementation begins.
+        success_signal:
+          metric: "Decision conflicts detected before implementation"
+          target: "100% of new decisions checked against existing ADRs before finalization"
+          leading_indicator: "Conflict alerts surface during the same meeting cycle as the new decision"
+          failure_signal: "Architecture inconsistency discovered during implementation or code review"
+      - problem: "Irreversible architecture choices get made without the right stakeholders in the room"
+        why: >
+          Technology selections, data model changes, and integration patterns that are costly or
+          impossible to reverse get decided in meetings where only a subset of affected stakeholders
+          are present. When the missing stakeholders learn of the decision later, they either accept
+          a suboptimal choice or force an expensive reversal that delays the project.
+        agent: sa-decision-capture-agent
+        agent_response: >
+          Classifies each extracted decision by reversibility (reversible, costly-to-reverse,
+          irreversible) and cross-references the meeting attendees against the stakeholder map.
+          Flags irreversible decisions where required stakeholders were absent, giving the SA
+          the opportunity to validate the decision before it becomes permanent.
+        success_signal:
+          metric: "Irreversible decisions validated by required stakeholders"
+          target: "100% of irreversible decisions have sign-off from all required stakeholders before finalization"
+          leading_indicator: "Stakeholder gap alert raised within 24h of the meeting where the decision was made"
+          failure_signal: "Irreversible decision reversed after implementation because a key stakeholder was not consulted"
+      - problem: "Alternatives considered are not captured, so future teams cannot understand why an approach was chosen"
+        why: >
+          Without documented alternatives, future architects and engineers cannot distinguish
+          between a deliberate choice and a default one. They waste time re-evaluating options
+          that were already rejected for good reasons, or they avoid changing a decision that
+          was actually a compromise made under time pressure rather than a principled selection.
+        agent: sa-decision-capture-agent
+        agent_response: >
+          Extracts alternatives discussed during meetings and documents them alongside the chosen
+          approach in each ADR. Captures the rationale for rejection of each alternative, including
+          constraints, trade-offs, and context that informed the final choice, so future teams
+          have the full decision landscape.
+        success_signal:
+          metric: "ADRs with documented alternatives and rejection rationale"
+          target: "100% of ADRs for significant decisions include at least two alternatives with rejection rationale"
+          leading_indicator: "New team members reference ADR alternatives section instead of re-proposing rejected approaches"
+          failure_signal: "Team re-evaluates a previously rejected alternative because no record of the original analysis exists"
+  escalation_triggers:
+    - "Irreversible technical decision detected without stakeholder quorum"
+    - "New decision conflicts with an existing Architecture Decision Record"
+    - "Significant decision made without documented alternatives considered"
+    - "Decision attribution unclear, multiple conflicting accounts of who decided"
   prompt_registry:
     sa-decision-capture-analyze:
       description: Extract raw decisions from meeting notes
@@ -230,6 +317,20 @@ x-ea-agent:
       - source: read-infohub
         fields: [existing_adrs, decision_log]
         priority: enrichment
+  boundaries:
+    - Decision capture and documentation only, does not make technical decisions
+    - Does not conduct technical discovery or requirements gathering
+    - Does not assess risk beyond decision impact classification
+    - Does not override or reverse decisions without stakeholder authority
+    - Does not attribute decisions without specific evidence
+
+  permissions:
+    - Read meeting notes and discussion content from communications
+    - Read existing decision logs and ADRs from InfoHub
+    - Create Architecture Decision Records when warranted
+    - Classify decision impact and reversibility
+    - Detect conflicts with existing documented decisions
+
   guardrails:
     input_validation:
     - rule: Decision capture requires meeting notes or discussion content

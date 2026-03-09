@@ -22,12 +22,22 @@
 
 | Capability | Skills | Status |
 |------------|--------|--------|
-| Deal Diagnosis | SK_AE_001 | Active |
-| Pipeline Management | SK_AE_002 | Active |
-| Stakeholder Intelligence | SK_AE_003 | Active |
-| Commercial Signal Detection | SK_AE_004 | Active |
-| Meeting Preparation | SK_AE_005 | Active |
-| Opportunity Hygiene | SK_AE_006 | Active |
+| Deal Progression and Close Planning | SK_AE_001 | Active |
+| Pipeline Health and Forecast Accuracy | SK_AE_002 | Active |
+| Stakeholder Mapping and Relationship Building | SK_AE_003 | Active |
+| Commercial Awareness and Market Intelligence | SK_AE_004 | Active |
+| Deal Qualification (MEDDPICC) | SK_AE_007 | Active |
+| Meeting Preparation and Follow-Through | SK_AE_005 | Active |
+| Deal Record Accuracy and Visibility | SK_AE_006 | Active |
+| Pipeline Generation and Prospecting | SK_AE_008 | Active |
+| Account Planning and Territory Strategy | SK_AE_002 | Active |
+| Negotiation and Commercial Structuring | SK_AE_001 | Active |
+| Executive Engagement and Sponsorship | SK_AE_003 | Active |
+| Value Communication and Business Case | SK_AE_001 | Active |
+| Cross-Functional Deal Coordination | orchestrator | Active |
+| Competitive Positioning | SK_AE_004 | Active |
+| Deal Review and Win/Loss Learning | SK_AE_001 | Active |
+| Renewal, Expansion, and Customer Growth | SK_AE_002 | Active |
 
 ---
 
@@ -37,14 +47,24 @@ The AE Agent monitors CRM stage changes, customer communications, and meeting no
 
 ---
 
-## Core Functions
+## Key Responsibilities
 
-- Monitor CRM stage changes and pipeline health
-- Detect commercial risks (budget delays, decision deferrals, competitor activity)
-- Track follow-ups and action items from customer meetings
-- Generate meeting briefs with commercial context
-- Identify relationship health signals (champion engagement, escalation patterns)
-- Flag forecast risks with severity classification
+1. Deal progression and close planning
+2. Pipeline health and forecast accuracy
+3. Stakeholder mapping and relationship building
+4. Commercial awareness and market intelligence
+5. Deal qualification (MEDDPICC)
+6. Meeting preparation and follow-through
+7. Deal record accuracy and visibility
+8. Pipeline generation and prospecting
+9. Account planning and territory strategy
+10. Negotiation and commercial structuring
+11. Executive engagement and sponsorship
+12. Value communication and business case
+13. Cross-functional deal coordination
+14. Competitive positioning
+15. Deal review and win/loss learning
+16. Renewal, expansion, and customer growth
 
 ---
 

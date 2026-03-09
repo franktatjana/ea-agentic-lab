@@ -6,13 +6,11 @@ import { useRouter, redirect } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
-  Workflow,
   ArrowRight,
   Users,
   FileCode2,
   Zap,
   ChevronDown,
-  ChevronRight,
   Bot,
   LayoutList,
   ClipboardList,
@@ -104,14 +102,88 @@ function AgentBadge({ agentId }: { agentId: string }) {
   );
 }
 
-interface WorkflowStep {
-  step: number;
-  prompt: string;
-  input: string;
-  description: string;
+const EXPAND_THRESHOLD = 5;
+
+function ExpandableList<T>({
+  header,
+  items,
+  renderItem,
+}: {
+  header?: React.ReactNode;
+  items: T[];
+  renderItem: (item: T, index: number) => React.ReactNode;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, EXPAND_THRESHOLD);
+  const remaining = items.length - EXPAND_THRESHOLD;
+
+  return (
+    <div>
+      {header}
+      <ul className="space-y-2">
+        {visible.map((item, i) => renderItem(item, i))}
+      </ul>
+      {remaining > 0 && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`} />
+          {expanded ? "Show less" : `Show ${remaining} more`}
+        </button>
+      )}
+    </div>
+  );
 }
 
-type ProfileTab = "overview" | "role" | "operations" | "knowledge" | "sub-agents" | "playbooks" | "collaboration" | "runbooks";
+function ExpandableListCard({
+  icon,
+  title,
+  summary,
+  listLabel,
+  borderClass,
+  titleClass,
+  items,
+  renderItem,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  summary?: string;
+  listLabel?: string;
+  borderClass: string;
+  titleClass: string;
+  items: string[];
+  renderItem: (item: string, index: number) => React.ReactNode;
+}) {
+  return (
+    <Card className={`border-l-4 ${borderClass}`}>
+      <CardContent className="p-7">
+        <div className="flex items-center gap-2 mb-4">
+          {icon}
+          <h3 className={`text-xs font-semibold uppercase tracking-wider ${titleClass}`}>
+            {title}
+          </h3>
+        </div>
+        {summary && (
+          <p className="text-[15px] leading-[1.8] text-foreground/90 mb-5">
+            {summary}
+          </p>
+        )}
+        <ExpandableList
+          header={listLabel ? (
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2.5">
+              {listLabel}
+            </p>
+          ) : undefined}
+          items={items}
+          renderItem={renderItem}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+type ProfileTab = "overview" | "role" | "operations" | "knowledge" | "sub-agents" | "playbooks" | "collaboration";
 
 export default function AgentProfileDetailPage({
   params,
@@ -121,7 +193,6 @@ export default function AgentProfileDetailPage({
   const { agentId } = use(params);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
-  const [expandedFlow, setExpandedFlow] = useState<string | null>(null);
 
   const { data: def, isLoading } = useQuery({
     queryKey: ["definition", agentId],
@@ -172,6 +243,8 @@ export default function AgentProfileDetailPage({
   // Profile data
   const profile = ext?.profile as AgentProfile | undefined;
   const profileWhy = profile?.why ?? "";
+  const humanMattersSummary = profile?.human_matters_summary ?? "";
+  const goalsSummary = profile?.goals_summary ?? "";
   const profileGoals = profile?.goals ?? [];
   const roleContext = profile?.role_context ?? "";
   const challenges = profile?.challenges ?? [];
@@ -210,7 +283,6 @@ export default function AgentProfileDetailPage({
   const teamStyle = category ? TEAM_STYLES[category] : undefined;
   const dotColor = teamStyle?.dot ?? "bg-muted-foreground";
 
-  const hasRunbooks = def.flows && def.flows.length > 0;
 
 
   return (
@@ -362,22 +434,6 @@ export default function AgentProfileDetailPage({
             Collaboration
           </button>
         )}
-        {hasRunbooks && (
-          <button
-            onClick={() => setActiveTab("runbooks")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
-              activeTab === "runbooks"
-                ? "bg-violet-500/15 text-violet-400 shadow-sm"
-                : "text-muted-foreground hover:text-violet-400"
-            }`}
-          >
-            <Workflow className="h-4 w-4" />
-            Runbooks
-            <span className="text-xs opacity-60 ml-0.5">
-              {def.flows.length}
-            </span>
-          </button>
-        )}
         <Link
           href={`/agents/definitions?agent=${agentId}`}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors text-muted-foreground hover:text-slate-400"
@@ -446,24 +502,21 @@ export default function AgentProfileDetailPage({
               {(profileGoals.length > 0 || isHumanPaired) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {profileGoals.length > 0 && (
-                    <Card className="border-l-4 border-l-emerald-500/50">
-                      <CardContent className="p-7">
-                        <div className="flex items-center gap-2 mb-4">
-                          <Crosshair className="h-4 w-4 text-emerald-400" />
-                          <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-400">
-                            Goals
-                          </h3>
-                        </div>
-                        <ul className="space-y-3">
-                          {profileGoals.map((goal, i) => (
-                            <li key={i} className="flex items-start gap-2.5 text-[15px]">
-                              <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
-                              <span className="text-foreground/90">{goal}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </CardContent>
-                    </Card>
+                    <ExpandableListCard
+                      icon={<Crosshair className="h-4 w-4 text-emerald-400" />}
+                      title="Goals"
+                      summary={goalsSummary}
+                      listLabel="What good looks like"
+                      borderClass="border-l-emerald-500/50"
+                      titleClass="text-emerald-400"
+                      items={profileGoals}
+                      renderItem={(goal, i) => (
+                        <li key={i} className="flex items-start gap-2.5 text-[15px]">
+                          <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+                          <span className="text-foreground/90">{goal}</span>
+                        </li>
+                      )}
+                    />
                   )}
                   {isHumanPaired && (
                     <Card className="border-l-4 border-l-purple-500/50">
@@ -474,25 +527,26 @@ export default function AgentProfileDetailPage({
                             Why the Human Matters
                           </h3>
                         </div>
-                        <p className="text-[15px] leading-[1.8] text-foreground/90 mb-4">
-                          The agent handles data gathering, analysis, and preparation, but the
-                          human brings judgment, relationships, and strategic decisions that no
-                          model can replace.
-                        </p>
+                        {humanMattersSummary && (
+                          <p className="text-[15px] leading-[1.8] text-foreground/90 mb-4">
+                            {humanMattersSummary}
+                          </p>
+                        )}
                         {escalation && escalation.length > 0 && (
-                          <div>
-                            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2.5">
-                              The agent escalates when
-                            </p>
-                            <ul className="space-y-2">
-                              {escalation.map((trigger, i) => (
-                                <li key={i} className="flex items-start gap-2.5 text-sm">
-                                  <AlertTriangle className="h-3.5 w-3.5 mt-[3px] text-amber-400 shrink-0" />
-                                  <span className="text-foreground/80">{trigger}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
+                          <ExpandableList
+                            header={
+                              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2.5">
+                                The agent escalates when
+                              </p>
+                            }
+                            items={escalation}
+                            renderItem={(trigger, i) => (
+                              <li key={i} className="flex items-start gap-2.5 text-sm">
+                                <AlertTriangle className="h-3.5 w-3.5 mt-[3px] text-amber-400 shrink-0" />
+                                <span className="text-foreground/80">{trigger}</span>
+                              </li>
+                            )}
+                          />
                         )}
                       </CardContent>
                     </Card>
@@ -509,20 +563,24 @@ export default function AgentProfileDetailPage({
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                       {activityMap.domains.map((d) => (
-                        <div
+                        <Link
                           key={d.domain}
-                          className="rounded-lg border border-border/50 p-4 hover:border-border transition-colors"
+                          href={`/agents/definitions?agent=${d.agent}`}
+                          className="block"
                         >
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`h-2 w-2 rounded-full ${dotColor} shrink-0`} />
-                            <span className="text-sm font-medium text-foreground">
-                              {d.domain}
-                            </span>
+                          <div className="rounded-lg border border-border/50 p-4 hover:border-border hover:bg-muted/30 transition-colors h-full">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className={`h-2 w-2 rounded-full ${dotColor} shrink-0`} />
+                              <span className="text-sm font-medium text-foreground">
+                                {d.domain}
+                              </span>
+                            </div>
+                            <p className="text-xs leading-relaxed text-muted-foreground mb-2">
+                              {d.why}
+                            </p>
+                            <AgentBadge agentId={d.agent} />
                           </div>
-                          <p className="text-xs leading-relaxed text-muted-foreground">
-                            {d.why}
-                          </p>
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   </CardContent>
@@ -617,65 +675,6 @@ export default function AgentProfileDetailPage({
             </div>
           )}
 
-          {/* Stakeholder Landscape */}
-          {stakeholders && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {stakeholders.customer_side && stakeholders.customer_side.length > 0 && (
-                <Card className="border-l-4 border-l-blue-500/40">
-                  <CardContent className="p-6">
-                    <Section
-                      icon={Network}
-                      title="Customer Stakeholders"
-                      color="text-blue-400"
-                    >
-                      <ul className="space-y-3">
-                        {stakeholders.customer_side.map((s, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-[15px]">
-                            <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-blue-400/60 shrink-0" />
-                            <div>
-                              <span>{stakeholderText(s)}</span>
-                              {stakeholderAgent(s) && (
-                                <div className="mt-1">
-                                  <AgentBadge agentId={stakeholderAgent(s)!} />
-                                </div>
-                              )}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </Section>
-                  </CardContent>
-                </Card>
-              )}
-              {stakeholders.internal_team && stakeholders.internal_team.length > 0 && (
-                <Card className="border-l-4 border-l-purple-500/40">
-                  <CardContent className="p-6">
-                    <Section
-                      icon={Network}
-                      title="Internal Team"
-                      color="text-purple-400"
-                    >
-                      <ul className="space-y-3">
-                        {stakeholders.internal_team.map((s, i) => (
-                          <li key={i} className="flex items-start gap-2.5 text-[15px]">
-                            <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-purple-400/60 shrink-0" />
-                            <div>
-                              <span>{stakeholderText(s)}</span>
-                              {stakeholderAgent(s) && (
-                                <div className="mt-1">
-                                  <AgentBadge agentId={stakeholderAgent(s)!} />
-                                </div>
-                              )}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </Section>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
         </div>
       )}
 
@@ -894,38 +893,13 @@ export default function AgentProfileDetailPage({
               </CardContent>
             </Card>
           )}
+
         </div>
       )}
 
       {/* Sub-agents tab */}
       {activeTab === "sub-agents" && subAgents.length > 0 && (
         <div className="space-y-6">
-          <Card>
-            <CardContent className="p-5">
-              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                Each agent is atomic and self-contained: it carries its own domain
-                knowledge, tools, runbooks, and boundaries. Described in YAML
-                specifications, not coded, making them portable across runtimes
-                and platforms.
-              </p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {[
-                  { label: "Atomic", detail: "Smallest indivisible unit of its business domain" },
-                  { label: "Self-Contained", detail: "Carries own knowledge, tools, prompts, and memory" },
-                  { label: "Independently Deployable", detail: "Own YAML spec, updatable without touching others" },
-                  { label: "Loosely Coupled", detail: "Communicates through orchestrator and defined handoffs" },
-                  { label: "Single Responsibility", detail: "Owns one business domain end-to-end" },
-                  { label: "Business Capability", detail: "Maps to a business function, not a technical layer" },
-                ].map((p) => (
-                  <div key={p.label} className="bg-muted/30 rounded-md p-2.5">
-                    <p className="text-xs font-medium">{p.label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{p.detail}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {subAgents.map((sa) => {
               const meta = sa.id ? subAgentLookup[sa.id] : undefined;
@@ -943,7 +917,7 @@ export default function AgentProfileDetailPage({
                         <Bot className="h-4 w-4 text-purple-400 shrink-0" />
                         <h3 className="font-medium">{sa.name}</h3>
                       </div>
-                      {sa.id && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />}
+                      {sa.id && <ArrowRight className="h-3.5 w-3.5 text-blue-500 dark:text-amber-400 shrink-0 mt-0.5" />}
                     </div>
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       {sa.purpose}
@@ -965,6 +939,11 @@ export default function AgentProfileDetailPage({
                             {meta.prompt_count} prompt{meta.prompt_count > 1 ? "s" : ""}
                           </span>
                         )}
+                        {meta.knowledge_ref_count > 0 && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-400/10 text-emerald-400">
+                            {meta.knowledge_ref_count} knowledge ref{meta.knowledge_ref_count > 1 ? "s" : ""}
+                          </span>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -972,6 +951,10 @@ export default function AgentProfileDetailPage({
               );
             })}
           </div>
+
+          <p className="text-xs text-muted-foreground/60 text-center pt-2">
+            Each agent is atomic, self-contained, and independently deployable. Described in YAML specifications, portable across runtimes and platforms.
+          </p>
         </div>
       )}
 
@@ -983,7 +966,7 @@ export default function AgentProfileDetailPage({
             <div className={`bg-muted/30 rounded-md p-3 ${isClickable ? "hover:bg-muted/50 transition-colors" : ""}`}>
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium">{p.playbook}</p>
-                {isClickable && <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />}
+                {isClickable && <ArrowRight className="h-3 w-3 text-blue-500 dark:text-amber-400 shrink-0" />}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">{p.scope}</p>
             </div>
@@ -1185,76 +1168,6 @@ export default function AgentProfileDetailPage({
         </div>
       )}
 
-      {/* Runbooks tab */}
-      {activeTab === "runbooks" && hasRunbooks && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {def.flows.map((flow) => {
-            const flowAny = flow as unknown as Record<string, unknown>;
-            const flowExt = (flowAny["x-ea-agent"] ?? {}) as Record<
-              string,
-              unknown
-            >;
-            const steps = flowExt.workflow_shorthand as
-              | WorkflowStep[]
-              | undefined;
-            const isExpanded = expandedFlow === flow.id;
-            const hasSteps = steps && steps.length > 0;
-
-            return (
-              <Card
-                key={flow.id}
-                className={`border-l-4 border-l-blue-400/50 transition-colors ${hasSteps ? "cursor-pointer hover:border-l-blue-400" : ""}`}
-                onClick={() => {
-                  if (hasSteps) {
-                    setExpandedFlow(isExpanded ? null : flow.id);
-                  }
-                }}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-medium mb-1">{flow.name}</h3>
-                    {hasSteps &&
-                      (isExpanded ? (
-                        <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                      ))}
-                  </div>
-                  {flow.description && (
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {flow.description}
-                    </p>
-                  )}
-                  {hasSteps && !isExpanded && (
-                    <p className="text-xs text-muted-foreground/60 mt-2">
-                      {steps.length} steps
-                    </p>
-                  )}
-                  {hasSteps && isExpanded && (
-                    <div className="mt-3 border-t border-border/50 pt-3 space-y-2">
-                      {steps.map((step) => (
-                        <div key={step.step} className="flex gap-3 text-sm">
-                          <span className="text-xs font-mono text-blue-400/70 mt-0.5 shrink-0 w-4 text-right">
-                            {step.step}
-                          </span>
-                          <div>
-                            <span>{step.description}</span>
-                            {step.input && (
-                              <span className="text-muted-foreground/50 text-xs ml-1">
-                                ({step.input})
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
 
     </div>
   );

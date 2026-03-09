@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { HelpPopover } from "@/components/help-popover";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { LucideIcon } from "lucide-react";
 
 interface HandoffStep {
@@ -33,10 +34,16 @@ interface HandoffFlow {
   steps: HandoffStep[];
 }
 
+const KNOWN_ACRONYMS = new Set(["sa", "ae", "ca", "pm", "ve", "ci", "rfp", "poc", "pov", "csp", "ii", "aci", "mna", "adr", "qbr", "ebr", "nps", "csat", "sm", "ps"]);
+
 function agentKeyToShortName(key: string): string {
   const name = key.replace(/_agent$/, "").replace(/_/g, " ");
   const words = name.split(" ");
-  if (words.length === 1) return words[0].charAt(0).toUpperCase() + words[0].slice(1);
+  if (words.length === 1) {
+    const w = words[0].toLowerCase();
+    if (KNOWN_ACRONYMS.has(w)) return w.toUpperCase();
+    return words[0].charAt(0).toUpperCase() + words[0].slice(1);
+  }
   return words.map(w => w.charAt(0).toUpperCase()).join("");
 }
 
@@ -88,6 +95,150 @@ function buildGovernanceFlows(defs: Array<{ id: string; name: string }> | undefi
   return steps;
 }
 
+const FLOW_COLORS: Record<string, string> = {
+  "Pre-Sales": "text-blue-500 dark:text-blue-400",
+  "Post-Sales": "text-teal-500 dark:text-teal-400",
+  "Governance": "text-green-500 dark:text-green-400",
+};
+
+function HandoffColumn({ flow, fromFilter, toFilter }: { flow: HandoffFlow; fromFilter: string; toFilter: string }) {
+  const filtered = useMemo(() => {
+    return flow.steps.filter((s) => {
+      if (fromFilter !== "all" && s.from !== fromFilter) return false;
+      if (toFilter !== "all" && s.to !== toFilter) return false;
+      return true;
+    });
+  }, [flow.steps, fromFilter, toFilter]);
+
+  const colorClass = FLOW_COLORS[flow.label] ?? "text-muted-foreground";
+
+  return (
+    <Card className="h-full">
+      <CardContent className="p-4">
+        <p className={`text-xs font-medium uppercase tracking-wider mb-3 ${colorClass}`}>
+          {flow.label}
+        </p>
+        <div className="space-y-1.5">
+          {filtered.length === 0 && (
+            <p className="text-xs text-muted-foreground/60 py-2 text-center">No matches</p>
+          )}
+          {filtered.map((step, i) => (
+            <Popover key={i}>
+              <PopoverTrigger asChild>
+                <button className="flex items-center gap-1.5 w-full text-left rounded-md px-2 py-1.5 -mx-2 hover:bg-accent/50 transition-colors">
+                  <Badge variant="outline" className="text-xs shrink-0">{step.from}</Badge>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                  <Badge variant="outline" className="text-xs shrink-0">{step.to}</Badge>
+                  <span className="text-xs text-muted-foreground ml-1 truncate">{step.trigger}</span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-80">
+                <div className="flex items-center gap-2 mb-2">
+                  <Badge variant="outline" className="text-xs">{step.from}</Badge>
+                  <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                  <Badge variant="outline" className="text-xs">{step.to}</Badge>
+                  <span className={`text-[10px] font-medium uppercase tracking-wider ml-auto ${colorClass}`}>
+                    {flow.label}
+                  </span>
+                </div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
+                  {step.trigger}
+                </p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {step.description}
+                </p>
+              </PopoverContent>
+            </Popover>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InteractionMap({ flows }: { flows: HandoffFlow[] }) {
+  const [fromFilter, setFromFilter] = useState<string>("all");
+  const [toFilter, setToFilter] = useState<string>("all");
+
+  const roles = useMemo(() => {
+    const set = new Set<string>();
+    for (const flow of flows) {
+      for (const step of flow.steps) { set.add(step.from); set.add(step.to); }
+    }
+    return Array.from(set).sort();
+  }, [flows]);
+
+  const totalSteps = flows.reduce((n, f) => n + f.steps.length, 0);
+  const filteredCount = flows.reduce((n, f) => {
+    return n + f.steps.filter((s) => {
+      if (fromFilter !== "all" && s.from !== fromFilter) return false;
+      if (toFilter !== "all" && s.to !== toFilter) return false;
+      return true;
+    }).length;
+  }, 0);
+
+  const hasFilter = fromFilter !== "all" || toFilter !== "all";
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <h2 className="text-lg font-semibold">Interaction Map</h2>
+        <HelpPopover title="Handoff Chains">
+          Agents collaborate through defined handoff chains. Each arrow represents
+          a trigger event that passes context from one agent to another.
+          Click any handoff to see what triggers it and what context is passed.
+        </HelpPopover>
+      </div>
+      <p className="text-sm text-muted-foreground mb-4">
+        Primary handoff chains between agents. Click a step to see the trigger and context passed.
+      </p>
+
+      <div className="flex items-center gap-3 mb-4">
+        <Select value={fromFilter} onValueChange={setFromFilter}>
+          <SelectTrigger className="w-[160px] h-8 text-xs">
+            <SelectValue placeholder="From role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All sources</SelectItem>
+            {roles.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+
+        <Select value={toFilter} onValueChange={setToFilter}>
+          <SelectTrigger className="w-[160px] h-8 text-xs">
+            <SelectValue placeholder="To role" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All targets</SelectItem>
+            {roles.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        {hasFilter && (
+          <button
+            onClick={() => { setFromFilter("all"); setToFilter("all"); }}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Clear
+          </button>
+        )}
+
+        <span className="text-xs text-muted-foreground ml-auto">
+          {filteredCount} of {totalSteps} handoffs
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {flows.map((flow) => (
+          <HandoffColumn key={flow.label} flow={flow} fromFilter={fromFilter} toFilter={toFilter} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function AgentsHubPage() {
   const { data: playbooks } = useQuery({
     queryKey: ["playbooks"],
@@ -118,7 +269,18 @@ export default function AgentsHubPage() {
     ];
   }, [aeDefinition, definitions]);
 
-  const profileCount = definitions?.filter(d => d.has_profile && d.category !== "Governance").length ?? 0;
+  const subAgentIds = useMemo(() => {
+    if (!definitions) return new Set<string>();
+    const ids = new Set<string>();
+    for (const d of definitions) {
+      for (const sa of d.sub_agents ?? []) {
+        if (typeof sa === "object" && sa.id) ids.add(sa.id);
+      }
+    }
+    return ids;
+  }, [definitions]);
+
+  const profileCount = definitions?.filter(d => d.has_profile && d.category !== "Governance" && !subAgentIds.has(d.id)).length ?? 0;
   const totalAgentCount = definitions?.length ?? 0;
 
   const NAV_CARDS: { href: string; icon: LucideIcon; title: string; count: number | string; description: string; color: string; bg: string; border: string }[] = [
@@ -197,7 +359,7 @@ export default function AgentsHubPage() {
                     <card.icon className={`h-5 w-5 ${card.color}`} />
                     <span className="font-semibold">{card.title}</span>
                   </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  <ArrowRight className="h-4 w-4 text-blue-500 dark:text-amber-400" />
                 </div>
                 <p className="text-2xl font-bold mb-2">{card.count}</p>
                 <p className="text-xs text-muted-foreground leading-relaxed">{card.description}</p>
@@ -209,55 +371,7 @@ export default function AgentsHubPage() {
 
       <Separator />
 
-      <div>
-        <div className="flex items-center gap-2 mb-1">
-          <h2 className="text-lg font-semibold">Interaction Map</h2>
-          <HelpPopover title="Handoff Chains">
-            Agents collaborate through defined handoff chains. Each arrow represents
-            a trigger event that passes context from one agent to another.
-            Click any handoff to see what triggers it and what context is passed.
-          </HelpPopover>
-        </div>
-        <p className="text-sm text-muted-foreground mb-4">
-          Primary handoff chains between agents. Click a step to see the trigger and context passed.
-        </p>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {handoffFlows.map((flow) => (
-            <Card key={flow.label}>
-              <CardContent className="p-5">
-                <h3 className={`text-sm font-semibold mb-3 ${flow.color}`}>{flow.label}</h3>
-                <div className="space-y-2">
-                  {flow.steps.map((step, i) => (
-                    <Popover key={i}>
-                      <PopoverTrigger asChild>
-                        <button className="flex items-center gap-2 w-full text-left group rounded-md px-2 py-1.5 -mx-2 hover:bg-accent/50 transition-colors">
-                          <Badge variant="outline" className="text-xs shrink-0">{step.from}</Badge>
-                          <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                          <Badge variant="outline" className="text-xs shrink-0">{step.to}</Badge>
-                          <span className="text-xs text-muted-foreground ml-1 truncate">{step.trigger}</span>
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent align="start" className="w-80">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="outline" className="text-xs">{step.from}</Badge>
-                          <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                          <Badge variant="outline" className="text-xs">{step.to}</Badge>
-                        </div>
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">
-                          {step.trigger}
-                        </p>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
-                          {step.description}
-                        </p>
-                      </PopoverContent>
-                    </Popover>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
+      <InteractionMap flows={handoffFlows} />
     </div>
   );
 }

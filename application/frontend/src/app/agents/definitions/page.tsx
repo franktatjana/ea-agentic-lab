@@ -37,7 +37,16 @@ import {
   UserCheck,
   ShieldOff,
   FileText,
+  Handshake,
+  Cpu,
+  Eye,
+  Briefcase,
+  Truck,
+  Settings,
+  Target,
+  Cog,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +62,7 @@ import {
 } from "@/components/ui/sheet";
 import { MetricCard } from "@/components/metric-card";
 import { HelpPopover } from "@/components/help-popover";
+import { YamlContentViewer } from "@/components/yaml-content-viewer";
 import { nodeTypes } from "@/components/flow/nodes";
 import { buildFlowGraph, buildOrchestrationGraph, classifyRoutingSeverity, type RoutingRule } from "@/lib/flow/transform-definition";
 import type { AgentDefinition, AgentDefinitionSummary } from "@/types";
@@ -105,9 +115,6 @@ function PromptCard({
       </div>
       {entry.description ? (
         <p className="text-xs text-muted-foreground leading-relaxed">{String(entry.description)}</p>
-      ) : null}
-      {entry.source ? (
-        <p className="text-xs text-muted-foreground/60 font-mono mt-1 truncate">{String(entry.source)}</p>
       ) : null}
     </div>
   );
@@ -240,6 +247,8 @@ function PromptFlyoutContent({
 
 
 function KnowledgeFlyoutContent({ knowledgeRef }: { knowledgeRef: Record<string, unknown> }) {
+  const content = knowledgeRef.content as Record<string, unknown> | undefined;
+
   return (
     <>
       <SheetHeader>
@@ -259,7 +268,14 @@ function KnowledgeFlyoutContent({ knowledgeRef }: { knowledgeRef: Record<string,
             <span className="font-mono">{String(knowledgeRef.path)}</span>
           </div>
         ) : null}
-        <p className="text-xs text-muted-foreground/60 mt-3">Content served by the Knowledge Q&amp;A Service at retrieval time based on agent scope and workflow step context.</p>
+
+        {content && typeof content === "object" ? (
+          <div className="mt-4">
+            <YamlContentViewer data={content} />
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground/60 mt-3">Content served by the Knowledge Q&amp;A Service at retrieval time based on agent scope and workflow step context.</p>
+        )}
       </div>
     </>
   );
@@ -359,18 +375,20 @@ function FlowGraph({
   onFlowClick,
   onPromptClick,
   colorMode,
+  subAgentMeta,
 }: {
   def: AgentDefinition;
   expandedFlowId: string | null;
   onFlowClick: (flowId: string | null) => void;
   onPromptClick?: (promptKey: string) => void;
   colorMode: "dark" | "light";
+  subAgentMeta?: { id: string; prompt_count: number }[];
 }) {
   const { fitView } = useReactFlow();
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(
-    () => buildFlowGraph(def, expandedFlowId),
-    [def, expandedFlowId],
+    () => buildFlowGraph(def, expandedFlowId, subAgentMeta),
+    [def, expandedFlowId, subAgentMeta],
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
@@ -532,11 +550,6 @@ function DefinitionDetail({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const ext = (def as any)["x-ea-agent"] as Record<string, unknown> | undefined;
   const promptRegistry = ext?.prompt_registry as Record<string, Record<string, unknown>> | undefined;
-  const guardrails = ext?.guardrails as Record<string, unknown> | undefined;
-  const errorHandling = ext?.error_handling as Record<string, unknown> | undefined;
-  const toolFailures = errorHandling?.tool_failures as Record<string, unknown> | undefined;
-  const criticalTools = (toolFailures?.critical ?? []) as string[];
-  const enrichmentTools = (toolFailures?.enrichment ?? []) as string[];
   const boundaries = ext?.boundaries as Array<string | Record<string, unknown>> | undefined;
   const permissions = ext?.permissions as string[] | undefined;
   const escalation = ext?.escalation_triggers as Array<string | Record<string, unknown>> | undefined;
@@ -558,13 +571,27 @@ function DefinitionDetail({
   const provideTo = handoffs?.provide_to as Record<string, unknown> | undefined;
   const humanEscalation = handoffs?.human_escalation as string | undefined;
   const assets = ext?.assets as Array<Record<string, unknown>> | undefined;
-  const validation = ext?.validation as Record<string, unknown> | undefined;
-  const outputConstraints = validation?.output_constraints as Record<string, unknown> | undefined;
-  const humanInTheLoopConditions = ext?.human_in_the_loop_conditions as string[] | undefined;
+
   const profile = ext?.profile as Record<string, unknown> | undefined;
   const subAgentsDef = (profile?.sub_agents ?? ext?.sub_agents) as Array<Record<string, unknown>> | undefined;
   const peerAgentsDef = (profile?.peer_agents ?? ext?.peer_agents) as Array<Record<string, unknown>> | undefined;
 
+  const humanMattersSummary = profile?.human_matters_summary as string | undefined;
+  const humanMattersGoal = profile?.human_matters_goal as string | undefined;
+  const profileWhy = profile?.why as string | undefined;
+  const goalsSummary = profile?.goals_summary as string | undefined;
+  const rawChallenges = (profile?.challenges ?? []) as Array<string | Record<string, string>>;
+  const challenges = rawChallenges.map((c) => (typeof c === "string" ? { text: c } : c));
+  const rawOverhead = (profile?.administrative_overhead ?? []) as Array<string | Record<string, string>>;
+  const adminOverhead = rawOverhead.map((a) => (typeof a === "string" ? { text: a } : a));
+  const scenarios = (profile?.scenarios ?? []) as Array<{
+    problem: string;
+    why?: string;
+    agent: string;
+    agent_response: string;
+    success_signal?: { metric?: string; target?: string; leading_indicator?: string; failure_signal?: string };
+  }>;
+  const a2aCapabilities = ((def.a2a as Record<string, unknown>)?.agent_card as Record<string, unknown>)?.capabilities as string[] | undefined;
   const parentAgent = def.metadata?.parent_agent as string | undefined;
   const isHumanPaired = def.human_in_the_loop;
   const responsibility = def.metadata?.responsibility as string | undefined;
@@ -618,59 +645,34 @@ function DefinitionDetail({
       </div>
 
       {/* Identity cards: always visible above tabs */}
-      {parentAgent && (
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="bg-muted/50 rounded-lg border border-blue-500/20 p-4">
-              <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3" /> Why This Agent Exists
-              </h3>
-              <ul className="space-y-2">
-                {String(def.description).trim()
-                  .split(/\.\s+/)
-                  .filter(Boolean)
-                  .map((point, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs">
-                    <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />
-                    <span className="text-foreground/85 leading-relaxed">
-                      {point.charAt(0).toUpperCase() + point.slice(1).replace(/\.$/, "")}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            {isHumanPaired && (
-              <div className="bg-muted/50 rounded-lg border border-purple-500/20 p-4">
-                <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                  <UserCheck className="h-3 w-3" /> Why the Human Matters
-                </h3>
-                <p className="text-xs text-foreground/85 leading-relaxed mb-3">
-                  The agent handles data gathering, analysis, and preparation, but the
-                  human brings judgment, relationships, and strategic decisions that no
-                  model can replace.
-                </p>
-                {escalation && escalation.length > 0 && (
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1.5">
-                      The agent escalates when
-                    </p>
-                    <ul className="space-y-1.5">
-                      {escalation.map((trigger, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs">
-                          <AlertTriangle className="h-3 w-3 mt-[2px] text-amber-400 shrink-0" />
-                          <span className="text-foreground/80">
-                            {typeof trigger === "string" ? trigger : String((trigger as Record<string, unknown>).trigger ?? trigger)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-muted/50 rounded-lg border border-blue-500/20 p-4">
+          <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <Sparkles className="h-3 w-3" /> Why This Agent Exists
+          </h3>
+          <p className="text-xs text-foreground/85 leading-relaxed">
+            {(() => { const t = profileWhy ?? String(def.description); const i = t.indexOf(". "); return i === -1 ? t : <>{t.slice(0, i + 1)}<br /><br />{t.slice(i + 2)}</>; })()}
+          </p>
+          {goalsSummary && (
+            <p className="text-xs text-blue-400/80 dark:text-blue-300/70 italic mt-2">{goalsSummary}</p>
+          )}
+        </div>
+        {isHumanPaired && (humanMattersSummary || humanMattersGoal) && (
+          <div className="bg-muted/50 rounded-lg border border-purple-500/20 p-4">
+            <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <UserCheck className="h-3 w-3" /> Why the Human Matters
+            </h3>
+            {humanMattersSummary && (
+              <p className="text-xs text-foreground/85 leading-relaxed">
+                {(() => { const t = humanMattersSummary; const i = t.indexOf(". "); return i === -1 ? t : <>{t.slice(0, i + 1)}<br /><br />{t.slice(i + 2)}</>; })()}
+              </p>
+            )}
+            {humanMattersGoal && (
+              <p className="text-xs text-purple-400/80 dark:text-purple-300/70 italic mt-2">{humanMattersGoal}</p>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Showcase disclaimer */}
       <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-amber-500/20 bg-amber-500/5 text-xs text-muted-foreground leading-relaxed">
@@ -687,6 +689,9 @@ function DefinitionDetail({
         <TabsList className="w-full justify-start">
           {isOrchestrator && routingRules.length > 0 && <TabsTrigger value="orchestration">Orchestration</TabsTrigger>}
           {flowCount > 0 && <TabsTrigger value="runbooks">Runbooks</TabsTrigger>}
+          {(scenarios.length > 0 || challenges.length > 0 || adminOverhead.length > 0 || (escalation && escalation.length > 0) || (a2aCapabilities && a2aCapabilities.length > 0)) && (
+            <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
+          )}
           <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
           {(deferTo || provideTo) && <TabsTrigger value="interactions">Interactions</TabsTrigger>}
           <TabsTrigger value="guardrails">Guardrails</TabsTrigger>
@@ -728,48 +733,10 @@ function DefinitionDetail({
               <div className="flex items-center justify-end mb-2">
                 <span className="text-xs text-muted-foreground">Click a runbook to expand its prompt chain</span>
               </div>
-              {/* Permissions & Boundaries (top-level agents only) */}
-              {!parentAgent && (permissions?.length || boundaries?.length) ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {permissions && permissions.length > 0 && (
-                    <div className="bg-muted/50 rounded-xl border border-green-500/20 p-3">
-                      <h4 className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <ShieldCheck className="h-3 w-3" /> Permissions
-                        <HelpPopover title="Permissions">Actions and data access this agent is explicitly authorized to perform within its scope.</HelpPopover>
-                      </h4>
-                      <ul className="space-y-2.5">
-                        {permissions.map((p, i) => (
-                          <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                            <span className="text-green-400/50 shrink-0 mt-0.5">&#10003;</span>
-                            {p}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {boundaries && boundaries.length > 0 && (
-                    <div className="bg-muted/50 rounded-xl border border-red-500/20 p-3">
-                      <h4 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                        <ShieldOff className="h-3 w-3" /> Boundaries
-                        <HelpPopover title="Boundaries">Hard constraints the agent must never cross, regardless of instructions or context.</HelpPopover>
-                      </h4>
-                      <ul className="space-y-2.5">
-                        {boundaries.map((b, i) => (
-                          <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                            <span className="text-red-400/50 shrink-0 mt-0.5">&#8226;</span>
-                            {typeof b === "string" ? b : String((b as Record<string, unknown>).rule ?? b)}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
               {/* Flow canvas */}
               <div className="h-[500px] rounded-xl border border-border bg-background overflow-hidden">
                 <ReactFlowProvider>
-                  <FlowGraph def={def} expandedFlowId={activeFlowId} onFlowClick={setActiveFlowId} onPromptClick={(key) => { if (promptRegistry?.[key]) setActivePromptKey(key); }} colorMode={flowColorMode} />
+                  <FlowGraph def={def} expandedFlowId={activeFlowId} onFlowClick={setActiveFlowId} onPromptClick={(key) => { if (promptRegistry?.[key]) setActivePromptKey(key); }} colorMode={flowColorMode} subAgentMeta={allDefinitions?.map((d) => ({ id: d.id, prompt_count: d.prompt_count }))} />
                 </ReactFlowProvider>
               </div>
             </div>
@@ -893,7 +860,6 @@ function DefinitionDetail({
               <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <Workflow className="h-3 w-3" /> Routing Rules
                 <HelpPopover title="Routing Rules">Reactive rules that fire when a sub-agent detects a signal. Each rule defines a source, target, trigger condition, and context to forward.</HelpPopover>
-                <Badge variant="secondary" className="text-xs ml-1">{routingRules.length}</Badge>
               </h3>
               <div className="rounded-md border border-border/50 overflow-hidden">
                 <table className="w-full text-xs">
@@ -910,7 +876,8 @@ function DefinitionDetail({
                     {routingRules.map((rule, i) => {
                       const sev = classifyRoutingSeverity(rule);
                       const dimmed = severityFilter !== null && sev !== severityFilter;
-                      const sourceName = titleCase(rule.watch.replace(/-agent$/, "").replace(/^ae-/, ""));
+                      const watchStr = Array.isArray(rule.watch) ? rule.watch.join(", ") : String(rule.watch ?? "");
+                      const sourceName = titleCase(watchStr.replace(/-agent/g, "").replace(/ae-/g, ""));
                       const targetName = titleCase(rule.route_to.replace(/-agent$/, "").replace(/^ae-/, ""));
                       return (
                         <tr key={i} className={`border-t border-border/30 transition-colors ${dimmed ? "opacity-20" : "hover:bg-muted/30"}`}>
@@ -941,65 +908,311 @@ function DefinitionDetail({
           </TabsContent>
         )}
 
-        {/* Capabilities tab */}
-        <TabsContent value="capabilities" className="space-y-6 mt-3">
-
-          {/* ── Execution ── */}
-          <div className="space-y-4">
-            <h2 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-[0.15em] flex items-center gap-1.5">Execution
-              <HelpPopover title="Execution">Tools, sub-agents, and generated assets the agent uses to take action and produce deliverables.</HelpPopover>
-            </h2>
-
-          {/* Tools */}
-          {toolCount > 0 && (
-            <div>
-              <h3 className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <Wrench className="h-3 w-3" /> Tools
-                <HelpPopover title="Tools">External integrations the agent can invoke: CRM queries, APIs, document generation, or data lookups. Risk level indicates confirmation requirements.</HelpPopover>
-                <Badge variant="secondary" className="text-xs ml-1">{toolCount}</Badge>
-              </h3>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                {(def.tools ?? []).map((tool, i) => {
-                  const tExt = ((tool as unknown as Record<string, unknown>)["x-ea-agent"] ?? {}) as Record<string, unknown>;
-                  return (
-                    <div key={i} className="bg-muted/50 rounded-md p-2.5">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <Wrench className="h-3 w-3 text-green-400 shrink-0" />
-                        <span className="text-xs font-medium truncate">{tool.name}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground line-clamp-2">{tool.description ?? ""}</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {Boolean((tool as unknown as Record<string, unknown>).requires_confirmation) && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400">confirmation</span>
-                        )}
-                        {Boolean(tExt.risk) && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${
-                            tExt.risk === "high" ? "bg-red-400/10 text-red-400"
-                              : tExt.risk === "medium" ? "bg-amber-400/10 text-amber-400"
-                              : "bg-green-400/10 text-green-400"
-                          }`}>{String(tExt.risk)}</span>
-                        )}
-                        {criticalTools.includes(tool.id) && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-red-400/10 text-red-400">critical</span>
-                        )}
-                        {enrichmentTools.includes(tool.id) && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-cyan-400/10 text-cyan-400">enrichment</span>
-                        )}
-                      </div>
+        {/* Scenarios tab: challenges, admin overhead, escalation */}
+        <TabsContent value="scenarios" className="space-y-8 mt-4">
+          {/* Scenario cards: Problem → Agent Response → Outcome */}
+          {scenarios.length > 0 && scenarios.map((s, i) => {
+            const relatedOverhead = adminOverhead.filter((a) =>
+              a.automated_by ? a.automated_by === s.agent : s.agent === agentId
+            );
+            const responseSteps = s.agent_response.split(/\.\s+/).filter(Boolean).map((step) =>
+              step.endsWith(".") ? step : `${step}.`
+            );
+            return (
+              <div key={i}>
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Scenario {i + 1}</span>
+                  {s.agent !== agentId && (
+                    <Link
+                      href={`/agents/definitions?agent=${s.agent}`}
+                      className="text-xs bg-purple-500/10 border border-purple-500/30 rounded-md px-2 py-1 text-purple-400 hover:bg-purple-500/20 transition-colors"
+                    >
+                      {titleCase(s.agent.replace(/-agent$/, ""))}
+                    </Link>
+                  )}
+                </div>
+                <div className={`grid items-stretch gap-0 ${relatedOverhead.length > 0 ? "grid-cols-[1fr_auto_1fr_auto_1fr_auto_1fr]" : "grid-cols-[1fr_auto_1fr_auto_1fr]"}`}>
+                  {/* Problem + Why */}
+                  <div className="bg-muted/50 rounded-xl border border-red-500/20 p-5 flex flex-col">
+                    <div className="flex items-center gap-2 mb-3">
+                      <AlertTriangle className="h-4 w-4 text-red-400" />
+                      <span className="text-sm font-semibold text-red-400">Problem</span>
                     </div>
-                  );
-                })}
+                    <p className="text-sm text-foreground leading-relaxed font-medium">{s.problem}</p>
+                    {s.why && (
+                      <p className="text-sm text-muted-foreground leading-relaxed mt-2">{s.why}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center px-2"><ArrowRight className="h-5 w-5 text-blue-500 dark:text-yellow-400" /></div>
+                  {/* Agent Response as list */}
+                  <div className="bg-muted/50 rounded-xl border border-blue-500/20 p-5 flex flex-col">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Bot className="h-4 w-4 text-blue-400" />
+                      <span className="text-sm font-semibold text-blue-400">Agent Response</span>
+                    </div>
+                    <ul className="space-y-2">
+                      {responseSteps.map((step, si) => (
+                        <li key={si} className="flex items-start gap-2 text-sm text-foreground leading-relaxed">
+                          <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />
+                          {step}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  {/* Overhead Eliminated (only if there are related items) */}
+                  {relatedOverhead.length > 0 && (<>
+                    <div className="flex items-center px-2"><ArrowRight className="h-5 w-5 text-blue-500 dark:text-yellow-400" /></div>
+                    <div className="bg-muted/50 rounded-xl border border-green-500/15 border-dashed p-5 flex flex-col">
+                      <div className="flex items-center gap-2 mb-3">
+                        <ShieldCheck className="h-4 w-4 text-green-400" />
+                        <span className="text-sm font-semibold text-green-400">Overhead Eliminated</span>
+                      </div>
+                      <ul className="space-y-2">
+                        {relatedOverhead.map((a, j) => (
+                          <li key={j} className="flex items-start gap-2 text-sm text-foreground/90 leading-relaxed">
+                            <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-green-400 shrink-0" />
+                            {a.text}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </>)}
+                  <div className="flex items-center px-2"><ArrowRight className="h-5 w-5 text-blue-500 dark:text-yellow-400" /></div>
+                  {/* Outcome: Success + Escalation */}
+                  <div className="bg-muted/50 rounded-xl border border-green-500/20 p-5 flex flex-col">
+                    <div className="flex items-center gap-2 mb-3">
+                      <ShieldCheck className="h-4 w-4 text-green-400" />
+                      <span className="text-sm font-semibold text-green-400">Outcome</span>
+                    </div>
+                    {s.success_signal && (
+                      <div className="space-y-2">
+                        {s.success_signal.metric && (
+                          <p className="text-sm text-foreground leading-relaxed">{s.success_signal.metric}</p>
+                        )}
+                        {s.success_signal.target && (
+                          <p className="text-sm text-green-400 font-medium">{s.success_signal.target}</p>
+                        )}
+                        {s.success_signal.leading_indicator && (
+                          <p className="text-sm text-muted-foreground">{s.success_signal.leading_indicator}</p>
+                        )}
+                      </div>
+                    )}
+                    {s.success_signal?.failure_signal && (
+                      <div className="pt-3 border-t border-border/50 mt-3">
+                        <p className="text-xs text-amber-400 uppercase tracking-wide font-medium mb-2">Escalates when</p>
+                        <p className="text-sm text-foreground/90 flex items-start gap-2">
+                          <AlertTriangle className="h-4 w-4 mt-[2px] text-amber-400 shrink-0" />
+                          {s.success_signal.failure_signal}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Fallback: no scenarios but has challenges/overhead/escalation → 3 boxes */}
+          {scenarios.length === 0 && (challenges.length > 0 || adminOverhead.length > 0 || (escalation && escalation.length > 0)) && (
+            <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-stretch gap-0">
+              {/* Problems */}
+              <div className="bg-muted/50 rounded-xl border border-red-500/20 p-5 flex flex-col">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="h-4 w-4 text-red-400" />
+                  <span className="text-sm font-semibold text-red-400">Problems</span>
+                </div>
+                <ul className="space-y-2">
+                  {challenges.map((c, ci) => (
+                    <li key={ci} className="flex items-start gap-2 text-sm text-foreground/90">
+                      <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
+                      <span>
+                        {c.text}
+                        {c.solved_by && (
+                          <Link
+                            href={`/agents/definitions?agent=${c.solved_by}`}
+                            className="ml-1.5 text-xs text-purple-400 hover:underline"
+                          >
+                            {titleCase(c.solved_by.replace(/-agent$/, ""))}
+                          </Link>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="flex items-center px-2"><ArrowRight className="h-5 w-5 text-blue-500 dark:text-yellow-400" /></div>
+              {/* Agent handles it */}
+              <div className="bg-muted/50 rounded-xl border border-blue-500/20 p-5 flex flex-col">
+                <div className="flex items-center gap-2 mb-3">
+                  <Bot className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm font-semibold text-blue-400">Agent Handles</span>
+                </div>
+                <p className="text-sm text-foreground/90 leading-relaxed mb-3">
+                  {parentAgent
+                    ? "This agent monitors, analyzes, and acts on each problem automatically."
+                    : "Sub-agents monitor, analyze, and act on each problem automatically."}
+                </p>
+                {adminOverhead.length > 0 && (
+                  <div className="pt-3 border-t border-border/50">
+                    <p className="text-xs text-green-400 uppercase tracking-wide font-medium mb-2">Overhead eliminated</p>
+                    <ul className="space-y-1.5">
+                      {adminOverhead.map((a, ai) => (
+                        <li key={ai} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-green-400 shrink-0" />
+                          <span>
+                            {a.text}
+                            {a.automated_by && (
+                              <Link
+                                href={`/agents/definitions?agent=${a.automated_by}`}
+                                className="ml-1.5 text-xs text-purple-400 hover:underline"
+                              >
+                                {titleCase(a.automated_by.replace(/-agent$/, ""))}
+                              </Link>
+                            )}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center px-2"><ArrowRight className="h-5 w-5 text-blue-500 dark:text-yellow-400" /></div>
+              {/* Outcome: success + escalation */}
+              <div className="bg-muted/50 rounded-xl border border-green-500/20 p-5 flex flex-col">
+                <div className="flex items-center gap-2 mb-3">
+                  <ShieldCheck className="h-4 w-4 text-green-400" />
+                  <span className="text-sm font-semibold text-green-400">Outcome</span>
+                </div>
+                <p className="text-sm text-foreground/90 leading-relaxed">
+                  {parentAgent
+                    ? "Problems detected early, overhead automated, AE focused on judgment calls."
+                    : "Problems resolved, overhead removed, human focused on high-judgment decisions."}
+                </p>
+                {escalation && escalation.length > 0 && (
+                  <div className="pt-3 border-t border-border/50 mt-3">
+                    <p className="text-xs text-amber-400 uppercase tracking-wide font-medium mb-2">Escalates when</p>
+                    <ul className="space-y-1.5">
+                      {escalation.map((trigger, ti) => (
+                        <li key={ti} className="flex items-start gap-2 text-sm text-foreground/90">
+                          <AlertTriangle className="h-4 w-4 mt-[2px] text-amber-400 shrink-0" />
+                          {typeof trigger === "string" ? trigger : String((trigger as Record<string, unknown>).trigger ?? trigger)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
+          {/* Fallback for sub-agents without any scenario data */}
+          {a2aCapabilities && a2aCapabilities.length > 0 && challenges.length === 0 && scenarios.length === 0 && (
+            <div className="bg-muted/50 rounded-xl border border-blue-500/20 p-5">
+              <h4 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-3">
+                Capabilities
+              </h4>
+              <ul className="space-y-2">
+                {a2aCapabilities.map((c, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />
+                    <span className="text-foreground/90 leading-relaxed">
+                      {c.replace(/-/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase())}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Capabilities tab */}
+        <TabsContent value="capabilities" className="space-y-6 mt-3">
+
+          {/* ── Tools | Prompts | Knowledge in 3 columns ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+            {/* Tools */}
+            <div>
+              <h3 className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Wrench className="h-3 w-3" /> Tools
+              </h3>
+              <div className="space-y-1.5">
+                {(def.tools ?? []).map((tool, i) => (
+                  <div key={i} className="bg-muted/50 rounded-md p-2.5">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Wrench className="h-3 w-3 text-green-400 shrink-0" />
+                      <span className="text-xs font-medium truncate">{tool.name}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{tool.description ?? ""}</p>
+                  </div>
+                ))}
+                {toolCount === 0 && (
+                  <p className="text-xs text-muted-foreground">No tools defined</p>
+                )}
+              </div>
+            </div>
+
+            {/* Prompts */}
+            <div>
+              <h3 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <FileCode2 className="h-3 w-3" /> Prompts
+              </h3>
+              <div className="space-y-1.5">
+                {promptCount > 0 ? Object.entries(promptRegistry!).map(([key, entry]) => (
+                  <PromptCard
+                    key={key}
+                    promptKey={key}
+                    entry={entry}
+                    isActive={activePromptKey === key}
+                    onClick={() => setActivePromptKey(key)}
+                  />
+                )) : (
+                  <p className="text-xs text-muted-foreground">No prompts defined</p>
+                )}
+              </div>
+            </div>
+
+            {/* Knowledge */}
+            <div>
+              <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <BookText className="h-3 w-3" /> Knowledge
+              </h3>
+              <div className="space-y-1.5">
+                {knowledgeRefs && knowledgeRefs.length > 0 ? knowledgeRefs.map((ref, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveKnowledgeIdx(i)}
+                    className="w-full bg-muted/50 rounded-md p-2.5 text-left hover:bg-muted/80 hover:border-amber-500/30 border border-transparent transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-start gap-2">
+                      <BookText className="h-3 w-3 text-amber-400 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground group-hover:text-amber-400 transition-colors truncate">
+                          {String(ref.name ?? ref.path)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{String(ref.description ?? "")}</p>
+                      </div>
+                    </div>
+                  </button>
+                )) : (
+                  <p className="text-xs text-muted-foreground">No knowledge references</p>
+                )}
+              </div>
+              <Sheet open={activeKnowledgeIdx !== null} onOpenChange={(open) => { if (!open) setActiveKnowledgeIdx(null); }}>
+                <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
+                  {activeKnowledgeIdx !== null && knowledgeRefs?.[activeKnowledgeIdx] ? (
+                    <KnowledgeFlyoutContent knowledgeRef={knowledgeRefs[activeKnowledgeIdx]} />
+                  ) : null}
+                </SheetContent>
+              </Sheet>
+            </div>
+          </div>
+
+          {/* ── Sub-agents, Peer Agents, Assets ── */}
           {/* Sub-agents (from x-ea-agent) */}
           {subAgentsDef && subAgentsDef.length > 0 && (
-            <div>
+            <div id="sub-agents-section">
               <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <Bot className="h-3 w-3" /> Sub-agents
-                <HelpPopover title="Sub-agents">Dedicated child agents that handle specific sub-tasks. Each carries its own skills, knowledge, and guardrails. Click to navigate to their definition.</HelpPopover>
-                <Badge variant="secondary" className="text-xs ml-1">{subAgentsDef.length}</Badge>
               </h3>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                 {subAgentsDef.map((sa, i) => (
@@ -1024,8 +1237,6 @@ function DefinitionDetail({
             <div>
               <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <Bot className="h-3 w-3" /> Peer Agents
-                <HelpPopover title="Peer Agents">Independent agents representing separate roles that coordinate with this agent as equals. Each peer has its own person and responsibilities.</HelpPopover>
-                <Badge variant="secondary" className="text-xs ml-1">{peerAgentsDef.length}</Badge>
               </h3>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                 {peerAgentsDef.map((pa, i) => (
@@ -1053,8 +1264,6 @@ function DefinitionDetail({
             <div>
               <h3 className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <Download className="h-3 w-3" /> Generated Assets
-                <HelpPopover title="Generated Assets">Deliverables the agent produces as output: reports, summaries, scorecards, or structured documents.</HelpPopover>
-                <Badge variant="secondary" className="text-xs ml-1">{assets.length}</Badge>
               </h3>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                 {assets.map((asset, i) => (
@@ -1069,175 +1278,6 @@ function DefinitionDetail({
             </div>
           )}
 
-          </div>
-
-          {/* ── Intelligence ── */}
-          <div className="space-y-4">
-            <h2 className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-[0.15em] flex items-center gap-1.5">Intelligence
-              <HelpPopover title="Intelligence">Prompts, knowledge, context, and memory that inform the agent&apos;s reasoning and decision-making.</HelpPopover>
-            </h2>
-
-          {/* Prompts */}
-          {promptCount > 0 && (
-            <div>
-              <h3 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <FileCode2 className="h-3 w-3" /> Prompt Registry
-                <HelpPopover title="Prompt Registry">Named prompt templates used across runbooks. Each prompt has defined inputs, outputs, and a source file. Click a card to view the resolved prompt content.</HelpPopover>
-                <Badge variant="secondary" className="text-xs ml-1">{promptCount}</Badge>
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                {Object.entries(promptRegistry!).map(([key, entry]) => (
-                  <PromptCard
-                    key={key}
-                    promptKey={key}
-                    entry={entry}
-                    isActive={activePromptKey === key}
-                    onClick={() => setActivePromptKey(key)}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Knowledge References */}
-          {(knowledgeDomains.length > 0 || (knowledgeRefs && knowledgeRefs.length > 0)) && (
-            <div>
-              <h3 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <BookText className="h-3 w-3" /> Knowledge
-                <HelpPopover title="Knowledge">Domain knowledge the agent reasons against. The platform&apos;s Q&amp;A service retrieves and synthesizes relevant knowledge based on the agent&apos;s scope and current workflow step.</HelpPopover>
-                {knowledgeRefs && knowledgeRefs.length > 0 && <Badge variant="secondary" className="text-xs ml-1">{knowledgeRefs.length} refs</Badge>}
-              </h3>
-              {knowledgeDomains.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {knowledgeDomains.map((d) => (
-                    <span key={d} className="text-[11px] px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-400 border border-amber-400/20">{d}</span>
-                  ))}
-                  {knowledgeArchetypes.map((a) => (
-                    <span key={a} className="text-[11px] px-2 py-0.5 rounded-full bg-amber-400/5 text-amber-400/60 border border-amber-400/10">{a}</span>
-                  ))}
-                </div>
-              )}
-              {knowledgeRefs && knowledgeRefs.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {knowledgeRefs.map((ref, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveKnowledgeIdx(i)}
-                    className="bg-muted/50 rounded-md p-3 text-left hover:bg-muted/80 hover:border-amber-500/30 border border-transparent transition-colors cursor-pointer group"
-                  >
-                    <div className="flex items-start gap-2">
-                      <BookText className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-foreground group-hover:text-amber-400 transition-colors">
-                          {String(ref.name ?? ref.path)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{String(ref.description ?? "")}</p>
-                      </div>
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-amber-400 shrink-0 mt-0.5 transition-colors" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-              )}
-              <Sheet open={activeKnowledgeIdx !== null} onOpenChange={(open) => { if (!open) setActiveKnowledgeIdx(null); }}>
-                <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
-                  {activeKnowledgeIdx !== null && knowledgeRefs?.[activeKnowledgeIdx] ? (
-                    <KnowledgeFlyoutContent knowledgeRef={knowledgeRefs[activeKnowledgeIdx]} />
-                  ) : null}
-                </SheetContent>
-              </Sheet>
-            </div>
-          )}
-
-          {/* Context + Specialized Agents */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {context ? (
-              <div className="bg-muted/50 rounded-lg border border-indigo-500/20 p-3">
-                <h3 className="text-xs font-semibold text-indigo-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Brain className="h-3 w-3" /> Context Window
-                  <HelpPopover title="Context Window">Token budget and loading strategy. Controls how much information fits in a single interaction and how references are prioritized.</HelpPopover>
-                </h3>
-                <div className="space-y-2.5">
-                  {context.token_budget ? (
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-xs text-muted-foreground">token budget:</span>
-                      <span className="text-xs font-medium font-mono">{String(context.token_budget)}</span>
-                    </div>
-                  ) : null}
-                  {context.reserve_for_references ? (
-                    <div className="flex items-baseline justify-between">
-                      <span className="text-xs text-muted-foreground">reserved for refs:</span>
-                      <span className="text-xs font-medium font-mono">{String(context.reserve_for_references)}</span>
-                    </div>
-                  ) : null}
-                  {context.strategy ? (
-                    <div>
-                      <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">strategy</p>
-                      <p className="text-xs text-muted-foreground leading-relaxed">{String(context.strategy)}</p>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-
-            {variantCount > 0 ? (
-              <div className="bg-muted/50 rounded-lg border border-purple-500/20 p-3">
-                <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Users className="h-3 w-3" /> Specialized Agents
-                  <HelpPopover title="Specialized Agents">Variant agents defined inline in the spec. They inherit the parent&apos;s configuration but serve a narrower purpose or persona.</HelpPopover>
-                  <Badge variant="secondary" className="text-xs ml-auto">{variantCount}</Badge>
-                </h3>
-                <div className="space-y-2">
-                  {(def.specialized_agents ?? []).map((sa: Record<string, unknown>, i: number) => (
-                    <div key={i}>
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <Bot className="h-3 w-3 text-purple-400 shrink-0" />
-                        <span className="text-xs font-medium">{String(sa.name)}</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed">{String(sa.description)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Memory + HITL */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-            {memory ? (
-              <div className="bg-muted/50 rounded-lg border border-teal-500/20 p-3 lg:col-span-2">
-                <h3 className="text-xs font-semibold text-teal-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Brain className="h-3 w-3" /> Memory
-                  <HelpPopover title="Memory">What the agent remembers across interactions: deal context, previous analyses, learned patterns, and accumulated intelligence.</HelpPopover>
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2.5">
-                  {Object.entries(memory).map(([key, val]) => (
-                    <div key={key}>
-                      <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">{key.replace(/_/g, " ")}</p>
-                      {Array.isArray(val) ? (
-                        <ul className="space-y-0.5">
-                          {(val as unknown[]).map((item, j) => (
-                            <li key={j} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                              <span className="text-teal-400/50 shrink-0 mt-0.5">&#8226;</span>
-                              {String(item)}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : typeof val === "string" ? (
-                        <p className="text-xs text-muted-foreground">{val}</p>
-                      ) : (
-                        <pre className="text-xs text-muted-foreground whitespace-pre-wrap">{JSON.stringify(val, null, 2)}</pre>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
-          </div>
-
-          </div>
-
         </TabsContent>
 
         {/* Interactions tab: handoffs */}
@@ -1249,7 +1289,6 @@ function DefinitionDetail({
                 <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <ArrowRight className="h-3 w-3" /> Defers To
                   <HelpPopover title="Defers To">Agents this one routes work to when a task falls outside its expertise. Includes trigger scenarios that initiate the handoff.</HelpPopover>
-                  <Badge variant="secondary" className="text-xs ml-auto">{Object.keys(deferTo).length}</Badge>
                 </h3>
                 <div className="space-y-2">
                   {Object.entries(deferTo).map(([agentKey, val]) => {
@@ -1284,7 +1323,6 @@ function DefinitionDetail({
                 <h3 className="text-xs font-semibold text-teal-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <ArrowRight className="h-3 w-3" /> Provides To
                   <HelpPopover title="Provides To">Agents this one shares outputs with, enriching their context with analysis results, signals, or recommendations.</HelpPopover>
-                  <Badge variant="secondary" className="text-xs ml-auto">{Object.keys(provideTo).length}</Badge>
                 </h3>
                 <div className="space-y-2">
                   {Object.entries(provideTo).map(([agentKey, val]) => {
@@ -1313,162 +1351,44 @@ function DefinitionDetail({
         </TabsContent>
         )}
 
-        {/* Guardrails tab: validations + quality + escalation */}
+        {/* Guardrails tab */}
         <TabsContent value="guardrails" className="space-y-3 mt-3">
-          {guardrails ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {Object.entries(guardrails).map(([section, items]) => {
-                const colorMap: Record<string, { border: string; icon: string; bullet: string }> = {
-                  input_validation: { border: "border-red-500/20", icon: "text-red-400", bullet: "text-red-400/60" },
-                  input: { border: "border-red-500/20", icon: "text-red-400", bullet: "text-red-400/60" },
-                  output_checks: { border: "border-blue-500/20", icon: "text-blue-400", bullet: "text-blue-400/60" },
-                  output: { border: "border-blue-500/20", icon: "text-blue-400", bullet: "text-blue-400/60" },
-                  signal_validation: { border: "border-indigo-500/20", icon: "text-indigo-400", bullet: "text-indigo-400/60" },
-                  resource: { border: "border-amber-500/20", icon: "text-amber-400", bullet: "text-amber-400/60" },
-                };
-                const colors = colorMap[section] ?? { border: "border-border", icon: "text-muted-foreground", bullet: "text-muted-foreground/40" };
-                return (
-                  <div key={section} className={`bg-muted/50 rounded-lg border ${colors.border} p-3`}>
-                    <h4 className={`text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5 ${colors.icon}`}>
-                      <ShieldCheck className="h-3 w-3" />
-                      {section.replace(/_/g, " ")}
-                    </h4>
-                    {Array.isArray(items) ? (
-                      <ul className="space-y-1">
-                        {(items as unknown[]).map((item, i) => (
-                          <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
-                            <span className={`${colors.bullet} shrink-0 mt-0.5`}>&#8226;</span>
-                            {typeof item === "string" ? item : (
-                              <span>{Object.entries(item as Record<string, unknown>).map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`).join(", ")}</span>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">{JSON.stringify(items)}</p>
-                    )}
-                  </div>
-                );
-              })}
-              {isHumanPaired && humanInTheLoopConditions && humanInTheLoopConditions.length > 0 && (
-                <div className="bg-muted/50 rounded-lg border border-blue-500/20 p-3 md:col-span-2">
-                  <h4 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <UserCheck className="h-3 w-3" /> Human-in-the-Loop
-                    <HelpPopover title="Human-in-the-Loop">Conditions that require human review before the agent proceeds. These are mandatory escalation points where judgment, relationships, or strategic decisions matter.</HelpPopover>
+          {/* Human-in-the-Loop + Escalation + Permissions + Boundaries */}
+          {(escalation?.length || permissions?.length || boundaries?.length) ? (() => {
+            const sectionCount = (permissions?.length ? 1 : 0) + (escalation?.length ? 1 : 0) + (boundaries?.length ? 1 : 0);
+            return (
+            <div className={`grid grid-cols-1 gap-3 items-stretch ${sectionCount >= 3 ? "md:grid-cols-3" : sectionCount === 2 ? "md:grid-cols-2" : ""}`}>
+              {permissions && permissions.length > 0 && (
+                <div className="bg-muted/50 rounded-lg border border-green-500/20 p-4">
+                  <h4 className="text-sm font-semibold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4" /> Permissions
                   </h4>
-                  <ul className="space-y-1">
-                    {humanInTheLoopConditions.map((cond, i) => (
-                      <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                        <span className="text-blue-400/50 shrink-0 mt-0.5">&#8226;</span>
-                        {cond}
+                  <ul className="space-y-2">
+                    {permissions.map((p, i) => (
+                      <li key={i} className="text-sm text-muted-foreground leading-relaxed flex items-start gap-2">
+                        <span className="text-green-400/50 shrink-0 mt-1">&#10003;</span>
+                        {p}
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
-            </div>
-          ) : null}
-
-          {/* Error Handling */}
-          {errorHandling && (
-            <div className="bg-muted/50 rounded-lg border border-orange-500/20 p-3">
-              <h4 className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <AlertTriangle className="h-3 w-3" /> Error Handling
-                <HelpPopover title="Error Handling">How the agent behaves when data sources are unavailable or return stale data. Critical tools stop the workflow on failure, enrichment tools allow graceful degradation.</HelpPopover>
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                {criticalTools.length > 0 && (
-                  <div>
-                    <span className="text-[10px] text-red-400 font-medium uppercase tracking-wider">Critical (stop on failure)</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {criticalTools.map((t, i) => (
-                        <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-red-400/10 text-red-400">{t}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {enrichmentTools.length > 0 && (
-                  <div>
-                    <span className="text-[10px] text-cyan-400 font-medium uppercase tracking-wider">Enrichment (degrade gracefully)</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {enrichmentTools.map((t, i) => (
-                        <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-cyan-400/10 text-cyan-400">{t}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <div className="space-y-1.5 border-t border-border/30 pt-2">
-                {errorHandling.on_critical_failure ? (
-                  <div className="flex items-start gap-2 text-xs">
-                    <span className="text-red-400 shrink-0 mt-0.5">&#9632;</span>
-                    <div>
-                      <span className="font-medium text-red-400">Critical failure: </span>
-                      <span className="text-muted-foreground">{String((errorHandling.on_critical_failure as Record<string, unknown>).guidance ?? "")}</span>
-                    </div>
-                  </div>
-                ) : null}
-                {errorHandling.on_enrichment_failure ? (
-                  <div className="flex items-start gap-2 text-xs">
-                    <span className="text-cyan-400 shrink-0 mt-0.5">&#9632;</span>
-                    <div>
-                      <span className="font-medium text-cyan-400">Enrichment failure: </span>
-                      <span className="text-muted-foreground">{String((errorHandling.on_enrichment_failure as Record<string, unknown>).guidance ?? "")}</span>
-                    </div>
-                  </div>
-                ) : null}
-                {errorHandling.on_stale_data ? (
-                  <div className="flex items-start gap-2 text-xs">
-                    <span className="text-amber-400 shrink-0 mt-0.5">&#9632;</span>
-                    <div>
-                      <span className="font-medium text-amber-400">Stale data: </span>
-                      <span className="text-muted-foreground">{String((errorHandling.on_stale_data as Record<string, unknown>).guidance ?? "")}</span>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          )}
-
-          {(quality || escalation?.length) ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {quality ? (
-                <div className="bg-muted/50 rounded-lg border border-purple-500/20 p-3">
-                  <h4 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    Quality Criteria
-                    <HelpPopover title="Quality Criteria">Standards the agent&apos;s output must meet before being considered complete. Acts as a self-check gate.</HelpPopover>
-                  </h4>
-                  {Array.isArray(quality) ? (
-                    <ul className="space-y-1">
-                      {(quality as string[]).map((q, i) => (
-                        <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
-                          <span className="text-purple-400/60 shrink-0 mt-0.5">&#8226;</span>
-                          {q}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <pre className="text-xs text-muted-foreground whitespace-pre-wrap">{JSON.stringify(quality, null, 2)}</pre>
-                  )}
-                </div>
-              ) : null}
-              {escalation && escalation.length > 0 ? (
-                <div className="bg-muted/50 rounded-lg border border-amber-500/20 p-3">
-                  <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              {escalation && escalation.length > 0 && (
+                <div className="bg-muted/50 rounded-lg border border-amber-500/20 p-4">
+                  <h4 className="text-sm font-semibold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                     Escalation Triggers
-                    <HelpPopover title="Escalation Triggers">Conditions that force the agent to pause and escalate to a human or another agent. Prevents autonomous action on high-stakes decisions.</HelpPopover>
                   </h4>
-                  <ul className="space-y-1">
+                  <ul className="space-y-2">
                     {escalation.map((e, i) => (
-                      <li key={i} className="text-xs text-muted-foreground flex items-start gap-2">
-                        <span className="text-amber-400 shrink-0 mt-0.5">&#9888;</span>
+                      <li key={i} className="text-sm text-muted-foreground leading-relaxed flex items-start gap-2">
+                        <span className="text-amber-400 shrink-0 mt-1">&#9888;</span>
                         {typeof e === "string" ? (
                           <span>{e}</span>
                         ) : (
                           <span>
                             <span className="font-medium text-foreground">{String((e as Record<string, unknown>).trigger ?? (e as Record<string, unknown>).condition ?? "")}</span>
                             {(e as Record<string, unknown>).target ? (
-                              <span className="text-xs text-muted-foreground/60 ml-1">&#8594; {String((e as Record<string, unknown>).target)}</span>
+                              <span className="text-sm text-muted-foreground/60 ml-1">&#8594; {String((e as Record<string, unknown>).target)}</span>
                             ) : null}
                           </span>
                         )}
@@ -1476,39 +1396,16 @@ function DefinitionDetail({
                     ))}
                   </ul>
                 </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {/* Permissions + Boundaries */}
-          {(permissions?.length || boundaries?.length) ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {permissions && permissions.length > 0 && (
-                <div className="bg-muted/50 rounded-lg border border-green-500/20 p-3">
-                  <h4 className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <ShieldCheck className="h-3 w-3" /> Permissions
-                    <HelpPopover title="Permissions">Actions and data access this agent is explicitly authorized to perform within its scope.</HelpPopover>
-                  </h4>
-                  <ul className="space-y-1">
-                    {permissions.map((p, i) => (
-                      <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                        <span className="text-green-400/50 shrink-0 mt-0.5">&#10003;</span>
-                        {p}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
               )}
               {boundaries && boundaries.length > 0 && (
-                <div className="bg-muted/50 rounded-lg border border-red-500/20 p-3">
-                  <h4 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <ShieldOff className="h-3 w-3" /> Boundaries
-                    <HelpPopover title="Boundaries">Hard constraints the agent must never cross, regardless of instructions or context.</HelpPopover>
+                <div className="bg-muted/50 rounded-lg border border-red-500/20 p-4">
+                  <h4 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <ShieldOff className="h-4 w-4" /> Boundaries
                   </h4>
-                  <ul className="space-y-1">
+                  <ul className="space-y-2">
                     {boundaries.map((b, i) => (
-                      <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
-                        <span className="text-red-400/50 shrink-0 mt-0.5">&#8226;</span>
+                      <li key={i} className="text-sm text-muted-foreground leading-relaxed flex items-start gap-2">
+                        <span className="text-red-400/50 shrink-0 mt-1">&#8226;</span>
                         {typeof b === "string" ? b : String((b as Record<string, unknown>).rule ?? b)}
                       </li>
                     ))}
@@ -1516,25 +1413,9 @@ function DefinitionDetail({
                 </div>
               )}
             </div>
-          ) : null}
+            );
+          })() : null}
 
-          {/* Validation / Output Constraints */}
-          {outputConstraints && Object.keys(outputConstraints).length > 0 && (
-            <div className="bg-muted/50 rounded-lg border border-cyan-500/20 p-3">
-              <h4 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <ShieldCheck className="h-3 w-3" /> Output Constraints
-                <HelpPopover title="Output Constraints">Structural rules for the agent&apos;s output format: max length, required sections, formatting standards.</HelpPopover>
-              </h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {Object.entries(outputConstraints).map(([key, val]) => (
-                  <div key={key} className="text-xs">
-                    <span className="text-muted-foreground">{key.replace(/_/g, " ")}:</span>{" "}
-                    <span className="font-medium">{String(val)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </TabsContent>
 
         {/* System Prompt tab */}
@@ -1568,37 +1449,40 @@ function DefinitionDetail({
   );
 }
 
-const CATEGORY_ORDER = [
-  "Sales",
-  "Architecture",
-  "Deal Execution",
-  "Delivery",
-  "Leadership",
-  "Intelligence",
-  "Governance",
-  "Specialists",
-  "Operations",
-  "Other",
+interface CategoryTab {
+  category: string;
+  label: string;
+  icon: LucideIcon;
+  color: string;
+  border: string;
+  summary: string;
+}
+
+const CATEGORY_TABS: CategoryTab[] = [
+  { category: "Sales", label: "Sales", icon: Handshake, color: "text-blue-400", border: "border-l-blue-400", summary: "Agents driving commercial strategy, competitive positioning, value quantification, and partner alignment." },
+  { category: "Architecture", label: "Architecture", icon: Cpu, color: "text-purple-400", border: "border-l-purple-400", summary: "Roles owning technical integrity and post-deployment health, backed by process sub-agents." },
+  { category: "Intelligence", label: "Intelligence", icon: Eye, color: "text-cyan-400", border: "border-l-cyan-400", summary: "Autonomous agents covering account, industry, market, and technology research at different scopes and cadences." },
+  { category: "Leadership", label: "Leadership", icon: Briefcase, color: "text-amber-400", border: "border-l-amber-400", summary: "Senior leadership coaching, escalation resolution, and team management." },
+  { category: "Specialists", label: "Specialists", icon: Wrench, color: "text-rose-400", border: "border-l-rose-400", summary: "Domain experts and SMEs providing deep technical and product expertise across engagements." },
+  { category: "Delivery", label: "Delivery", icon: Truck, color: "text-teal-400", border: "border-l-teal-400", summary: "Bridges what was sold with what gets built." },
+  { category: "Deal Execution", label: "Deal Execution", icon: Target, color: "text-orange-400", border: "border-l-orange-400", summary: "Agents supporting deal-level execution, evaluation, and bid response." },
+  { category: "Governance", label: "Background Systems", icon: Settings, color: "text-green-400", border: "border-l-green-400", summary: "Automated agents running on events and schedules, enforcing quality gates across all account activity." },
+  { category: "Operations", label: "Operations", icon: Cog, color: "text-slate-400", border: "border-l-slate-400", summary: "Operational agents handling data hygiene, scheduling, and system maintenance." },
+  { category: "Other", label: "Other", icon: Bot, color: "text-muted-foreground", border: "border-l-muted-foreground", summary: "Agents not yet assigned to a functional area." },
 ];
 
-const CATEGORY_COLORS: Record<string, string> = {
-  Sales: "text-blue-400",
-  Architecture: "text-purple-400",
-  "Deal Execution": "text-orange-400",
-  Delivery: "text-teal-400",
-  Leadership: "text-amber-400",
-  Intelligence: "text-cyan-400",
-  Governance: "text-green-400",
-  Specialists: "text-pink-400",
-  Operations: "text-slate-400",
-  Other: "text-muted-foreground",
-};
+const CATEGORY_ORDER = CATEGORY_TABS.map((t) => t.category);
+
+const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
+  CATEGORY_TABS.map((t) => [t.category, t.color])
+);
 
 function DefinitionsPageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const agentFromUrl = searchParams.get("agent");
   const [selectedAgent, setSelectedAgent] = useState<string | null>(agentFromUrl);
+  const [activeTab, setActiveTab] = useState<string>("Sales");
 
   useEffect(() => {
     setSelectedAgent(agentFromUrl);
@@ -1609,18 +1493,24 @@ function DefinitionsPageInner() {
     queryFn: () => api.listDefinitions(),
   });
 
-  const groupedDefinitions = useMemo(() => {
-    if (!definitions) return [];
+  const grouped = useMemo(() => {
+    if (!definitions) return {} as Record<string, AgentDefinitionSummary[]>;
     const groups: Record<string, AgentDefinitionSummary[]> = {};
     for (const def of definitions) {
       const cat = def.category || "Other";
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(def);
     }
-    return CATEGORY_ORDER
-      .filter((cat) => groups[cat]?.length)
-      .map((cat) => ({ category: cat, agents: groups[cat] }));
+    return groups;
   }, [definitions]);
+
+  const availableTabs = useMemo(
+    () => CATEGORY_TABS.filter((t) => grouped[t.category]?.length),
+    [grouped],
+  );
+
+  const activeTabConfig = CATEGORY_TABS.find((t) => t.category === activeTab);
+  const activeAgents = grouped[activeTab] ?? [];
 
   if (selectedAgent) {
     return (
@@ -1640,11 +1530,11 @@ function DefinitionsPageInner() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-4">
+    <div className="max-w-6xl mx-auto space-y-6">
       <div>
         <div className="flex items-center gap-2">
           <Link
-            href="/agents"
+            href="/agents/profiles"
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -1657,8 +1547,8 @@ function DefinitionsPageInner() {
           </HelpPopover>
         </div>
         <p className="text-muted-foreground mt-1">
-          Agent specification files following Oracle Agent Spec 26.1.0. Each definition
-          encodes flows, prompts, tools, knowledge, and guardrails.
+          {definitions?.length ?? 0} agent specifications across {availableTabs.length} functional
+          areas, encoding flows, prompts, tools, knowledge, and guardrails.
         </p>
       </div>
 
@@ -1684,31 +1574,42 @@ function DefinitionsPageInner() {
             />
           </div>
 
-          <Separator />
-
-          <div className="space-y-6">
-            {groupedDefinitions.map(({ category, agents }) => (
-              <div key={category}>
-                <div className="flex items-center gap-2 mb-3">
-                  <h2 className={`text-sm font-semibold ${CATEGORY_COLORS[category] ?? "text-muted-foreground"}`}>
-                    {category}
-                  </h2>
-                  <Badge variant="secondary" className="text-xs">
-                    {agents.length}
-                  </Badge>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {agents.map((def) => (
-                    <DefinitionCard
-                      key={def.id}
-                      def={def}
-                      onSelect={() => setSelectedAgent(def.id)}
-                    />
-                  ))}
-                </div>
-              </div>
+          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 overflow-x-auto">
+            {availableTabs.map((tab) => (
+              <button
+                key={tab.category}
+                onClick={() => setActiveTab(tab.category)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+                  activeTab === tab.category
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <tab.icon className={`h-4 w-4 ${tab.color}`} />
+                {tab.label}
+                <span className="text-xs text-muted-foreground/60 ml-0.5">
+                  {grouped[tab.category]?.length ?? 0}
+                </span>
+              </button>
             ))}
           </div>
+
+          {activeTabConfig && (
+            <div>
+              <div className={`rounded-lg border ${activeTabConfig.border} bg-muted/50 px-4 py-3 mb-5`}>
+                <p className={`text-sm ${activeTabConfig.color}`}>{activeTabConfig.summary}</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {activeAgents.map((def) => (
+                  <DefinitionCard
+                    key={def.id}
+                    def={def}
+                    onSelect={() => setSelectedAgent(def.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

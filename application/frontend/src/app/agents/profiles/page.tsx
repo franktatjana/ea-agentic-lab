@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -17,6 +18,12 @@ import type { AgentDefinitionSummary } from "@/types";
 
 function stripAgentSuffix(name: string) {
   return name.replace(/ Agent$/, "");
+}
+
+function firstSentence(text: string): string {
+  if (!text) return "";
+  const match = text.match(/^[^.!?]+[.!?]/);
+  return match ? match[0].trim() : text.trim();
 }
 
 function buildMeta(agent: AgentDefinitionSummary): string {
@@ -35,6 +42,7 @@ function buildMeta(agent: AgentDefinitionSummary): string {
 }
 
 export default function AgentProfilesPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("Sales");
 
   const { data: allDefs, isLoading } = useQuery({
@@ -45,8 +53,15 @@ export default function AgentProfilesPage() {
   const { teamMembers, governanceAgents, grouped } = useMemo(() => {
     if (!allDefs) return { teamMembers: [], governanceAgents: [], grouped: {} as Record<string, AgentDefinitionSummary[]> };
 
+    const subAgentIds = new Set<string>();
+    for (const d of allDefs) {
+      for (const sa of d.sub_agents ?? []) {
+        if (typeof sa === "object" && sa.id) subAgentIds.add(sa.id);
+      }
+    }
+
     const members = allDefs.filter(
-      (d) => d.has_profile && d.category !== "Governance"
+      (d) => d.has_profile && d.category !== "Governance" && !subAgentIds.has(d.id)
     );
     const governance = allDefs.filter((d) => d.category === "Governance");
 
@@ -111,7 +126,11 @@ export default function AgentProfilesPage() {
 
       <div className="grid grid-cols-4 gap-4">
         <MetricCard label="Roles" value={totalRoles} />
-        <MetricCard label="Total Agents" value={totalAgents} />
+        <MetricCard
+          label="Total Agents"
+          value={totalAgents}
+          onClick={() => router.push("/agents/definitions")}
+        />
         <MetricCard label="Autonomous" value={autonomous} />
         <MetricCard label="Human-Paired" value={humanPaired} />
       </div>
@@ -149,23 +168,42 @@ export default function AgentProfilesPage() {
                       <h3 className="text-lg font-semibold">
                         {stripAgentSuffix(agent.name)}
                       </h3>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+                      <ArrowRight className="h-4 w-4 text-blue-500 dark:text-amber-400 shrink-0 mt-1" />
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-                      {String(agent.description).split(".").filter(Boolean).slice(0, 2).join(".").trim()}.
-                    </p>
-                    {agent.capabilities.length > 0 && (
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3">
-                        {agent.capabilities.map((cap) => (
-                          <span
-                            key={cap}
-                            className="text-sm text-foreground"
-                          >
-                            {cap}
-                          </span>
-                        ))}
+                    <div className="space-y-1.5 mb-3">
+                      <div className="flex gap-2">
+                        <span className="text-[10px] uppercase tracking-wider text-blue-400 shrink-0 mt-0.5 w-10">Role</span>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {agent.role_context
+                            ? firstSentence(agent.role_context)
+                            : String(agent.description).split(".").filter(Boolean).slice(0, 2).join(".").trim() + "."}
+                        </p>
                       </div>
-                    )}
+                      {agent.goals_summary && (
+                        <div className="flex gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-emerald-400 shrink-0 mt-0.5 w-10">Goal</span>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {firstSentence(agent.goals_summary)}
+                          </p>
+                        </div>
+                      )}
+                      {agent.why && (
+                        <div className="flex gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-amber-400 shrink-0 mt-0.5 w-10">Why</span>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {firstSentence(agent.why)}
+                          </p>
+                        </div>
+                      )}
+                      {agent.human_matters_summary && (
+                        <div className="flex gap-2">
+                          <span className="text-[10px] uppercase tracking-wider text-purple-400 shrink-0 mt-0.5 w-10">Human</span>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {firstSentence(agent.human_matters_summary)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground/50">
                       {buildMeta(agent)}
                     </p>
@@ -191,7 +229,7 @@ export default function AgentProfilesPage() {
                       <h3 className="font-semibold">
                         {stripAgentSuffix(agent.name)}
                       </h3>
-                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-1" />
+                      <ArrowRight className="h-3.5 w-3.5 text-blue-500 dark:text-amber-400 shrink-0 mt-1" />
                     </div>
                     <p className="text-sm text-muted-foreground leading-relaxed mb-3">
                       {agent.description}

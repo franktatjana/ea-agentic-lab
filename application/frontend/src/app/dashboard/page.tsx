@@ -665,7 +665,7 @@ function PortfolioByRealm({ nodes }: { nodes: DashboardNode[] }) {
               <Link href={`/realms/${realmId}`} className="flex items-center gap-2 group">
                 <Building2 className="h-4 w-4 text-primary" />
                 <h3 className="font-semibold group-hover:text-primary transition-colors">{realm_name}</h3>
-                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <ArrowRight className="h-3.5 w-3.5 text-blue-500/50 dark:text-amber-400/50 opacity-0 group-hover:opacity-100 transition-opacity" />
               </Link>
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <span>{realmNodes.length} node{realmNodes.length !== 1 ? "s" : ""}</span>

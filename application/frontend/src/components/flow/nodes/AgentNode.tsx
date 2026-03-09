@@ -14,8 +14,11 @@ function AgentNodeComponent({ data }: NodeProps) {
 
   return (
     <div className="bg-card border-2 border-primary/30 rounded-xl px-5 py-4 shadow-md min-w-64 max-w-80 text-center">
+      <Handle type="source" position={Position.Top} id="destinations" className="!bg-muted-foreground" />
       <Handle type="source" position={Position.Bottom} className="!bg-muted-foreground" />
+      <Handle type="source" position={Position.Bottom} id="prompts" className="!bg-muted-foreground" />
       <Handle type="source" position={Position.Left} id="tools" className="!bg-muted-foreground" />
+      <Handle type="source" position={Position.Right} id="outputs" className="!bg-muted-foreground" />
       <Handle type="source" position={Position.Right} id="variants" className="!bg-muted-foreground" />
 
       <div className="flex items-center justify-center gap-2 mb-2">
