@@ -30,8 +30,7 @@ export function buildFlowGraph(
   const nodes: Node[] = [];
   const edges: Edge[] = [];
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ext = (def as any)["x-ea-agent"] as Record<string, unknown> | undefined;
+  const ext = def["x-ea-agent"];
   const promptRegistry = ext?.prompt_registry as Record<string, Record<string, unknown>> | undefined;
   const profile = ext?.profile as Record<string, unknown> | undefined;
   const subAgents = ((profile?.sub_agents ?? ext?.sub_agents ?? []) as Array<Record<string, unknown>>);
@@ -59,8 +58,7 @@ export function buildFlowGraph(
   const flowPositions = centerRow(flows.length, FLOW_GAP, flowY);
   flows.forEach((flow, i) => {
     const pos = flowPositions[i];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const flowExt = ((flow as any)["x-ea-agent"] ?? {}) as Record<string, unknown>;
+    const flowExt = (flow["x-ea-agent"] ?? {}) as Record<string, unknown>;
     const steps = (flowExt.workflow_shorthand ?? []) as Array<Record<string, unknown>>;
     const isExpanded = expandedFlowId === flow.id;
 

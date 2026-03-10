@@ -547,8 +547,7 @@ function DefinitionDetail({
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ext = (def as any)["x-ea-agent"] as Record<string, unknown> | undefined;
+  const ext = def["x-ea-agent"];
   const promptRegistry = ext?.prompt_registry as Record<string, Record<string, unknown>> | undefined;
   const boundaries = ext?.boundaries as Array<string | Record<string, unknown>> | undefined;
   const permissions = ext?.permissions as string[] | undefined;
@@ -651,7 +650,7 @@ function DefinitionDetail({
             <Sparkles className="h-3 w-3" /> Why This Agent Exists
           </h3>
           <p className="text-xs text-foreground/85 leading-relaxed">
-            {(() => { const t = profileWhy ?? String(def.description); const i = t.indexOf(". "); return i === -1 ? t : <>{t.slice(0, i + 1)}<br /><br />{t.slice(i + 2)}</>; })()}
+            {(() => { const t = profileWhy ?? String(def.description); const m = t.match(/(?<=[a-z])\.\s+(?=[A-Z])/); if (!m || m.index === undefined) return t; const i = m.index; return <>{t.slice(0, i + 1)}<br /><br />{t.slice(i + m[0].length)}</>; })()}
           </p>
           {goalsSummary && (
             <p className="text-xs text-blue-400/80 dark:text-blue-300/70 italic mt-2">{goalsSummary}</p>
@@ -664,7 +663,7 @@ function DefinitionDetail({
             </h3>
             {humanMattersSummary && (
               <p className="text-xs text-foreground/85 leading-relaxed">
-                {(() => { const t = humanMattersSummary; const i = t.indexOf(". "); return i === -1 ? t : <>{t.slice(0, i + 1)}<br /><br />{t.slice(i + 2)}</>; })()}
+                {(() => { const t = humanMattersSummary; const m = t.match(/(?<=[a-z])\.\s+(?=[A-Z])/); if (!m || m.index === undefined) return t; const i = m.index; return <>{t.slice(0, i + 1)}<br /><br />{t.slice(i + m[0].length)}</>; })()}
               </p>
             )}
             {humanMattersGoal && (
@@ -745,9 +744,7 @@ function DefinitionDetail({
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
               {(def.flows ?? []).map((flow, i) => {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const flowAny = flow as any;
-                const flowExt = (flowAny["x-ea-agent"] ?? {}) as Record<string, unknown>;
+                const flowExt = (flow["x-ea-agent"] ?? {}) as Record<string, unknown>;
                 const steps = flowExt.workflow_shorthand as Array<Record<string, unknown>> | undefined;
                 const isActive = activeFlowId === flow.id;
                 return (
@@ -1359,7 +1356,7 @@ function DefinitionDetail({
             return (
             <div className={`grid grid-cols-1 gap-3 items-stretch ${sectionCount >= 3 ? "md:grid-cols-3" : sectionCount === 2 ? "md:grid-cols-2" : ""}`}>
               {permissions && permissions.length > 0 && (
-                <div className="bg-muted/50 rounded-lg border border-green-500/20 p-4">
+                <div className="bg-muted/50 rounded-lg border border-green-500/20 p-4 max-h-80 overflow-y-auto">
                   <h4 className="text-sm font-semibold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4" /> Permissions
                   </h4>
@@ -1374,7 +1371,7 @@ function DefinitionDetail({
                 </div>
               )}
               {escalation && escalation.length > 0 && (
-                <div className="bg-muted/50 rounded-lg border border-amber-500/20 p-4">
+                <div className="bg-muted/50 rounded-lg border border-amber-500/20 p-4 max-h-80 overflow-y-auto">
                   <h4 className="text-sm font-semibold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                     Escalation Triggers
                   </h4>
@@ -1398,7 +1395,7 @@ function DefinitionDetail({
                 </div>
               )}
               {boundaries && boundaries.length > 0 && (
-                <div className="bg-muted/50 rounded-lg border border-red-500/20 p-4">
+                <div className="bg-muted/50 rounded-lg border border-red-500/20 p-4 max-h-80 overflow-y-auto">
                   <h4 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <ShieldOff className="h-4 w-4" /> Boundaries
                   </h4>
