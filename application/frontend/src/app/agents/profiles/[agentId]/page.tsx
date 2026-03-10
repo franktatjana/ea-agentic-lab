@@ -1062,7 +1062,7 @@ export default function AgentProfileDetailPage({
             <Card className="border-l-4 border-l-amber-400/50">
               <CardContent className="p-5">
                 <Section
-                  icon={Zap}
+                  icon={AlertTriangle}
                   title={`Escalation Triggers${humanEscalation ? ` (default: ${humanEscalation})` : ""}`}
                   color="text-amber-400"
                 >
@@ -1075,7 +1075,7 @@ export default function AgentProfileDetailPage({
                           key={i}
                           className="flex items-start gap-2.5 text-sm"
                         >
-                          <Zap className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
                           <span>{text}</span>
                         </li>
                       );

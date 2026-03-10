@@ -1373,7 +1373,7 @@ function DefinitionDetail({
               {escalation && escalation.length > 0 && (
                 <div className="bg-muted/50 rounded-lg border border-amber-500/20 p-4 max-h-80 overflow-y-auto">
                   <h4 className="text-sm font-semibold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    Escalation Triggers
+                    <AlertTriangle className="h-4 w-4" /> Escalation Triggers
                   </h4>
                   <ul className="space-y-2">
                     {escalation.map((e, i) => (
