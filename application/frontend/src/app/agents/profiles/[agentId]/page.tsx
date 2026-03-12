@@ -617,12 +617,18 @@ export default function AgentProfileDetailPage({
                           </div>
                         )}
                         <ul className="space-y-2">
-                          {items.map((ch, idx) => (
-                            <li key={idx} className="flex items-start gap-2 text-[14px]">
+                          {items.flatMap((ch, idx) => [
+                            <li key={`ch-${idx}`} className="flex items-start gap-2 text-[14px]">
                               <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
                               <span className="text-foreground/90 leading-relaxed">{challengeText(ch)}</span>
-                            </li>
-                          ))}
+                            </li>,
+                            ...challengeOverhead(ch).map((oh, oi) => (
+                              <li key={`oh-${idx}-${oi}`} className="flex items-start gap-2 text-[14px]">
+                                <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
+                                <span className="text-foreground/90 leading-relaxed">{oh}</span>
+                              </li>
+                            )),
+                          ])}
                         </ul>
                       </div>
                     ))}
@@ -630,19 +636,23 @@ export default function AgentProfileDetailPage({
                 </Section>
               );
             }
+            const allItems = challenges.flatMap((ch) => [
+              challengeText(ch),
+              ...challengeOverhead(ch),
+            ]);
             return (
               <Card className="border-l-4 border-l-red-500/40">
                 <CardContent className="p-6">
                   <Section
                     icon={AlertTriangle}
-                    title={`Role Challenges (${challenges.length})`}
+                    title={`Role Challenges (${allItems.length})`}
                     color="text-red-400"
                   >
                     <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
-                      {challenges.map((ch, idx) => (
+                      {allItems.map((text, idx) => (
                         <li key={idx} className="flex items-start gap-2.5 text-[15px]">
                           <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
-                          <span className="text-foreground/80 leading-relaxed">{challengeText(ch)}</span>
+                          <span className="text-foreground/80 leading-relaxed">{text}</span>
                         </li>
                       ))}
                     </ul>
