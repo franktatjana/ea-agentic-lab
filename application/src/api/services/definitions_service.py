@@ -46,11 +46,16 @@ class DefinitionsService:
         return self.CATEGORY_MAP.get(top_dir, "Other")
 
     def list_definitions(self) -> list[dict]:
-        """Return summary list of all agent definitions found."""
-        definitions = []
-        if not self.agents_path.is_dir():
-            return definitions
+        """Return summary list of all agent definitions found.
 
+        Category assignment follows the parent chain: sub-agents inherit
+        their orchestrator's category rather than being bucketed by directory.
+        """
+        if not self.agents_path.is_dir():
+            return []
+
+        # Pass 1: parse all files, record directory-based category and parent_agent
+        raw: list[dict] = []
         for def_file in sorted(self.agents_path.rglob("*-definition.yaml")):
             try:
                 data = yaml.safe_load(def_file.read_text(encoding="utf-8"))
@@ -59,12 +64,12 @@ class DefinitionsService:
 
                 metadata = data.get("metadata", {})
                 tags = metadata.get("tags", []) if isinstance(metadata, dict) else []
-
                 ext = data.get("x-ea-agent", {})
                 profile = ext.get("profile", {})
                 handoffs_data = ext.get("handoffs", {})
+                parent_agent = metadata.get("parent_agent") if isinstance(metadata, dict) else None
 
-                definitions.append({
+                raw.append({
                     "id": data.get("id", def_file.stem),
                     "name": data.get("name", def_file.stem),
                     "description": data.get("description", ""),
@@ -74,7 +79,8 @@ class DefinitionsService:
                     "flow_count": len(data.get("flows", [])),
                     "tool_count": len(data.get("tools", [])),
                     "prompt_count": len(ext.get("prompt_registry", {})),
-                    "category": self._derive_category(def_file),
+                    "_dir_category": self._derive_category(def_file),
+                    "_parent_agent": parent_agent,
                     "tags": tags,
                     "human_in_the_loop": data.get("human_in_the_loop", False),
                     "capabilities": profile.get("capabilities", []),
@@ -90,6 +96,18 @@ class DefinitionsService:
                 })
             except Exception:
                 continue
+
+        # Pass 2: resolve category — sub-agents inherit their orchestrator's category
+        id_to_category = {r["id"]: r["_dir_category"] for r in raw}
+        definitions = []
+        for entry in raw:
+            parent_id = entry.pop("_parent_agent", None)
+            dir_cat = entry.pop("_dir_category")
+            if parent_id and parent_id in id_to_category:
+                entry["category"] = id_to_category[parent_id]
+            else:
+                entry["category"] = dir_cat
+            definitions.append(entry)
 
         return definitions
 

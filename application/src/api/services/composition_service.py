@@ -87,7 +87,7 @@ class CompositionService:
             return {"error": f"Unknown domain: {domain}"}
 
         # Check track constraints
-        track_order = {"poc": 0, "economy": 1, "fast_track": 2, "premium": 3}
+        track_order = {"economy": 0, "fast_track": 1, "premium": 2}
         min_track = arch_def.get("minimum_track")
         if min_track and track_order.get(track, 0) < track_order.get(min_track, 0):
             warnings.append(f"Track '{track}' is below minimum '{min_track}' for this archetype")
