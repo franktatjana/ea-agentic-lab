@@ -576,10 +576,9 @@ export default function AgentProfileDetailPage({
                                 {d.domain}
                               </span>
                             </div>
-                            <p className="text-xs leading-relaxed text-muted-foreground mb-2">
+                            <p className="text-xs leading-relaxed text-muted-foreground">
                               {d.why}
                             </p>
-                            <AgentBadge agentId={d.agent} />
                           </div>
                         </Link>
                       ))}
