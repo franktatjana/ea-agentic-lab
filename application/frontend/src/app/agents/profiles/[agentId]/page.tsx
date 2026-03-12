@@ -77,9 +77,6 @@ function challengeText(entry: ChallengeEntry): string {
 function challengeAgent(entry: ChallengeEntry): string | undefined {
   return typeof entry === "string" ? undefined : entry.solved_by;
 }
-function challengeOverhead(entry: ChallengeEntry): string[] {
-  return typeof entry === "string" ? [] : (entry.specific_overhead ?? []);
-}
 function overheadText(entry: OverheadEntry): string {
   return typeof entry === "string" ? entry : entry.text;
 }
@@ -596,37 +593,64 @@ export default function AgentProfileDetailPage({
       {/* Role tab */}
       {activeTab === "role" && (
         <div className="space-y-6">
-          {challenges.length > 0 && (
-            <Card className="border-l-4 border-l-red-500/40">
-              <CardContent className="p-6">
+          {challenges.length > 0 && (() => {
+            const hasAgents = challenges.some((ch) => challengeAgent(ch));
+            if (hasAgents) {
+              const grouped = challenges.reduce<Record<string, ChallengeEntry[]>>((acc, ch) => {
+                const agent = challengeAgent(ch) ?? "_ungrouped";
+                if (!acc[agent]) acc[agent] = [];
+                acc[agent].push(ch);
+                return acc;
+              }, {});
+              return (
                 <Section
                   icon={AlertTriangle}
-                  title={`Role Challenges (${challenges.length})`}
+                  title={`Role Challenges & Overhead (${challenges.length})`}
                   color="text-red-400"
                 >
-                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
-                    {challenges.flatMap((ch, idx) => {
-                      const overhead = challengeOverhead(ch);
-                      return [
-                        <li key={`ch-${idx}`} className="flex items-start gap-2.5 text-[15px]">
-                          <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-red-400/60 shrink-0" />
-                          <span className="text-foreground/80 leading-relaxed">{challengeText(ch)}</span>
-                        </li>,
-                        ...overhead.map((oh, oi) => (
-                          <li key={`oh-${idx}-${oi}`} className="flex items-start gap-2.5 text-[15px]">
-                            <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-muted-foreground/30 shrink-0" />
-                            <span className="text-muted-foreground leading-relaxed">
-                              <span className="font-semibold text-foreground/60">Overhead:</span> {oh}
-                            </span>
-                          </li>
-                        )),
-                      ];
-                    })}
-                  </ul>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(grouped).map(([agent, items]) => (
+                      <div key={agent} className="rounded-xl border border-border/50 bg-muted/30 p-4">
+                        {agent !== "_ungrouped" && (
+                          <div className="mb-3">
+                            <AgentBadge agentId={agent} />
+                          </div>
+                        )}
+                        <ul className="space-y-2">
+                          {items.map((ch, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-[14px]">
+                              <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
+                              <span className="text-foreground/90 leading-relaxed">{challengeText(ch)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
                 </Section>
-              </CardContent>
-            </Card>
-          )}
+              );
+            }
+            return (
+              <Card className="border-l-4 border-l-red-500/40">
+                <CardContent className="p-6">
+                  <Section
+                    icon={AlertTriangle}
+                    title={`Role Challenges (${challenges.length})`}
+                    color="text-red-400"
+                  >
+                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+                      {challenges.map((ch, idx) => (
+                        <li key={idx} className="flex items-start gap-2.5 text-[15px]">
+                          <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
+                          <span className="text-foreground/80 leading-relaxed">{challengeText(ch)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </Section>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
         </div>
       )}
