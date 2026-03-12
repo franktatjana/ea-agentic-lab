@@ -197,6 +197,7 @@ export default function AgentProfileDetailPage({
   const { agentId } = use(params);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   const { data: def, isLoading } = useQuery({
     queryKey: ["definition", agentId],
@@ -610,30 +611,38 @@ export default function AgentProfileDetailPage({
                   title={`Role Challenges & Overhead (${challenges.length})`}
                   color="text-red-400"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(grouped).map(([agent, items]) => (
-                      <div key={agent} className="rounded-xl border border-border/50 bg-muted/30 p-4">
-                        {agent !== "_ungrouped" && (
-                          <div className="mb-3">
-                            <AgentBadge agentId={agent} />
-                          </div>
-                        )}
-                        <ul className="space-y-2">
-                          {items.flatMap((ch, idx) => [
-                            <li key={`ch-${idx}`} className="flex items-start gap-2 text-[14px]">
-                              <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
-                              <span className="text-foreground/90 leading-relaxed">{challengeText(ch)}</span>
-                            </li>,
-                            ...challengeOverhead(ch).map((oh, oi) => (
-                              <li key={`oh-${idx}-${oi}`} className="flex items-start gap-2 text-[14px]">
-                                <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
-                                <span className="text-foreground/90 leading-relaxed">{oh}</span>
-                              </li>
-                            )),
-                          ])}
-                        </ul>
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {Object.entries(grouped).map(([agent, items]) => {
+                      const isExpanded = expandedGroups[agent] ?? false;
+                      const allItems = items.flatMap((ch) => [
+                        challengeText(ch),
+                        ...challengeOverhead(ch),
+                      ]);
+                      return (
+                        <div key={agent} className="rounded-xl border border-border/50 bg-muted/30">
+                          <button
+                            className="w-full flex items-center justify-between gap-2 p-4 text-left"
+                            onClick={() => setExpandedGroups((prev) => ({ ...prev, [agent]: !prev[agent] }))}
+                          >
+                            <div className="flex items-center gap-2">
+                              {agent !== "_ungrouped" ? <AgentBadge agentId={agent} /> : null}
+                              <span className="text-xs text-muted-foreground">{allItems.length} items</span>
+                            </div>
+                            <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                          </button>
+                          {isExpanded && (
+                            <ul className="space-y-2 px-4 pb-4">
+                              {allItems.map((text, idx) => (
+                                <li key={idx} className="flex items-start gap-2 text-[14px]">
+                                  <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
+                                  <span className="text-foreground/90 leading-relaxed">{text}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </Section>
               );
