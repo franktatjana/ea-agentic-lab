@@ -77,6 +77,9 @@ function challengeText(entry: ChallengeEntry): string {
 function challengeAgent(entry: ChallengeEntry): string | undefined {
   return typeof entry === "string" ? undefined : entry.solved_by;
 }
+function challengeOverhead(entry: ChallengeEntry): string[] {
+  return typeof entry === "string" ? [] : (entry.specific_overhead ?? []);
+}
 function overheadText(entry: OverheadEntry): string {
   return typeof entry === "string" ? entry : entry.text;
 }
