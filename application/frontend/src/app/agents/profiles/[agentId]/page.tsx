@@ -13,7 +13,6 @@ import {
   ChevronDown,
   Bot,
   LayoutList,
-  ClipboardList,
   ListChecks,
   Briefcase,
   Target,
@@ -77,9 +76,6 @@ function challengeText(entry: ChallengeEntry): string {
 }
 function challengeAgent(entry: ChallengeEntry): string | undefined {
   return typeof entry === "string" ? undefined : entry.solved_by;
-}
-function challengeOverhead(entry: ChallengeEntry): string[] {
-  return typeof entry === "string" ? [] : (entry.specific_overhead ?? []);
 }
 function overheadText(entry: OverheadEntry): string {
   return typeof entry === "string" ? entry : entry.text;
@@ -620,22 +616,14 @@ export default function AgentProfileDetailPage({
                             <AgentBadge agentId={agent} />
                           </div>
                         )}
-                        <div className="space-y-2">
+                        <ul className="space-y-2">
                           {items.map((ch, idx) => (
-                            <div key={idx}>
-                              <div className="flex items-start gap-2 text-[14px]">
-                                <AlertTriangle className="h-3.5 w-3.5 mt-[3px] text-red-400 shrink-0" />
-                                <span className="text-foreground/90 leading-relaxed">{challengeText(ch)}</span>
-                              </div>
-                              {challengeOverhead(ch).map((oh, oi) => (
-                                <div key={oi} className="flex items-start gap-2 text-[13px] ml-5 mt-1">
-                                  <ClipboardList className="h-3 w-3 mt-[3px] text-rose-400/70 shrink-0" />
-                                  <span className="text-muted-foreground leading-relaxed">{oh}</span>
-                                </div>
-                              ))}
-                            </div>
+                            <li key={idx} className="flex items-start gap-2 text-[14px]">
+                              <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
+                              <span className="text-foreground/90 leading-relaxed">{challengeText(ch)}</span>
+                            </li>
                           ))}
-                        </div>
+                        </ul>
                       </div>
                     ))}
                   </div>
