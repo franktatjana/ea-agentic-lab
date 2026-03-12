@@ -29,14 +29,12 @@ function formatLabel(s: string): string {
 }
 
 const TRACK_COLORS: Record<string, string> = {
-  poc: "border-blue-600/40",
   economy: "border-green-600/40",
   premium: "border-purple-600/40",
   fast_track: "border-orange-600/40",
 };
 
 const TRACK_BADGE_COLORS: Record<string, string> = {
-  poc: "bg-blue-600/20 text-blue-400 border-blue-600/30",
   economy: "bg-green-600/20 text-green-400 border-green-600/30",
   premium: "bg-purple-600/20 text-purple-400 border-purple-600/30",
   fast_track: "bg-orange-600/20 text-orange-400 border-orange-600/30",
@@ -98,12 +96,6 @@ function TrackCard({ trackKey, track }: { trackKey: string; track: Record<string
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">SA allocation</dt>
                   <dd className="capitalize">{String(resources.sa_allocation)}</dd>
-                </div>
-              )}
-              {resources.max_concurrent_pocs != null && (
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Max concurrent</dt>
-                  <dd>{String(resources.max_concurrent_pocs)} POCs</dd>
                 </div>
               )}
               {resources.max_concurrent_nodes != null && (
@@ -343,12 +335,12 @@ export default function BlueprintHubPage() {
           <HelpPopover title="What are Blueprints?">
             Reference blueprints are composable templates that define which
             playbooks, canvases, checklists, and governance rules apply to a
-            given engagement archetype. Each blueprint varies by track (POC,
-            Economy, Premium, Fast Track) to match the engagement&apos;s service
+            given engagement archetype. Each blueprint varies by track (Economy,
+            Premium, Fast Track) to match the engagement&apos;s service
             tier.
           </HelpPopover>
         </div>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-[15px] text-muted-foreground mt-1">
           Engagement composition starts here: archetypes classify the pattern, blueprints assemble the playbooks, and tracks control depth and governance.
         </p>
       </div>
@@ -361,7 +353,7 @@ export default function BlueprintHubPage() {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <card.icon className={`h-5 w-5 ${card.color}`} />
-                    <span className="font-semibold">{card.title}</span>
+                    <span className="text-[15px] font-semibold">{card.title}</span>
                   </div>
                   <ArrowRight className="h-4 w-4 text-blue-500 dark:text-amber-400" />
                 </div>
@@ -379,7 +371,7 @@ export default function BlueprintHubPage() {
 
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-lg font-semibold">Engagement Tracks</h2>
+              <h2 className="text-[15px] font-semibold">Engagement Tracks</h2>
               <HelpPopover title="What are Tracks?">
                 Tracks are service tiers that control the depth, SLA, and
                 resource allocation of every engagement. Each blueprint
@@ -389,13 +381,13 @@ export default function BlueprintHubPage() {
                 urgency, and engagement type.
               </HelpPopover>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="text-[15px] text-muted-foreground mb-4">
               Tracks determine why certain playbooks are required, blocked, or optional for a given
               engagement. They control SLA commitments, resource allocation, governance cadence,
               and canvas depth.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(tracksData.tracks as Record<string, Record<string, unknown>>).map(([key, track]) => (
                 <TrackCard key={key} trackKey={key} track={track} />
               ))}

@@ -117,7 +117,7 @@ export default function AgentProfilesPage() {
             decompose into specialist agents. See DDR-021 for the taxonomy.
           </HelpPopover>
         </div>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-[15px] text-muted-foreground mt-1">
           {totalRoles} roles across {TEAM_TAB_ORDER.length} functional areas,
           backed by {totalAgents} agents including sub-agents and system
           functions.
@@ -131,8 +131,8 @@ export default function AgentProfilesPage() {
           value={totalAgents}
           onClick={() => router.push("/agents/definitions")}
         />
-        <MetricCard label="Autonomous" value={autonomous} />
-        <MetricCard label="Human-Paired" value={humanPaired} />
+        <MetricCard label="Autonomous" value={autonomous} description="Agents that operate independently without human-in-the-loop review" />
+        <MetricCard label="Human-Paired" value={humanPaired} description="Agents that require human review or approval before acting" />
       </div>
 
       <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1 overflow-x-auto">
@@ -173,7 +173,7 @@ export default function AgentProfilesPage() {
                     <div className="space-y-1.5 mb-3">
                       <div className="flex gap-2">
                         <span className="text-[10px] uppercase tracking-wider text-blue-400 shrink-0 mt-0.5 w-10">Role</span>
-                        <p className="text-sm text-muted-foreground leading-relaxed">
+                        <p className="text-[15px] text-muted-foreground leading-relaxed">
                           {agent.role_context
                             ? firstSentence(agent.role_context)
                             : String(agent.description).split(".").filter(Boolean).slice(0, 2).join(".").trim() + "."}
@@ -182,7 +182,7 @@ export default function AgentProfilesPage() {
                       {agent.goals_summary && (
                         <div className="flex gap-2">
                           <span className="text-[10px] uppercase tracking-wider text-emerald-400 shrink-0 mt-0.5 w-10">Goal</span>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
+                          <p className="text-[15px] text-muted-foreground leading-relaxed">
                             {firstSentence(agent.goals_summary)}
                           </p>
                         </div>
@@ -190,7 +190,7 @@ export default function AgentProfilesPage() {
                       {agent.why && (
                         <div className="flex gap-2">
                           <span className="text-[10px] uppercase tracking-wider text-amber-400 shrink-0 mt-0.5 w-10">Why</span>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
+                          <p className="text-[15px] text-muted-foreground leading-relaxed">
                             {firstSentence(agent.why)}
                           </p>
                         </div>
@@ -198,7 +198,7 @@ export default function AgentProfilesPage() {
                       {agent.human_matters_summary && (
                         <div className="flex gap-2">
                           <span className="text-[10px] uppercase tracking-wider text-purple-400 shrink-0 mt-0.5 w-10">Human</span>
-                          <p className="text-sm text-muted-foreground leading-relaxed">
+                          <p className="text-[15px] text-muted-foreground leading-relaxed">
                             {firstSentence(agent.human_matters_summary)}
                           </p>
                         </div>
@@ -217,7 +217,7 @@ export default function AgentProfilesPage() {
 
       {isGovernance && (
         <div>
-          <p className="text-muted-foreground mb-5">
+          <p className="text-[15px] text-muted-foreground mb-5">
             {GOVERNANCE_STYLE.summary}
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -226,15 +226,15 @@ export default function AgentProfilesPage() {
                 <Card className="h-full border-l-4 border-l-green-400 hover:border-accent hover:border-l-4 transition-colors">
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between gap-3 mb-2">
-                      <h3 className="font-semibold">
+                      <h3 className="text-[15px] font-semibold">
                         {stripAgentSuffix(agent.name)}
                       </h3>
                       <ArrowRight className="h-3.5 w-3.5 text-blue-500 dark:text-amber-400 shrink-0 mt-1" />
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+                    <p className="text-[15px] text-muted-foreground leading-relaxed mb-3">
                       {agent.description}
                     </p>
-                    <p className="text-sm text-muted-foreground/50">
+                    <p className="text-xs text-muted-foreground/50">
                       {buildMeta(agent)}
                     </p>
                   </CardContent>

@@ -284,20 +284,22 @@ function KnowledgeFlyoutContent({ knowledgeRef }: { knowledgeRef: Record<string,
 function DefinitionCard({
   def,
   onSelect,
+  isSubAgent = false,
 }: {
   def: AgentDefinitionSummary;
   onSelect: () => void;
+  isSubAgent?: boolean;
 }) {
   return (
     <Card
-      className="cursor-pointer hover:border-primary/30 transition-colors"
+      className={`cursor-pointer hover:border-primary/30 transition-colors ${isSubAgent ? "border-dashed opacity-90" : ""}`}
       onClick={onSelect}
     >
       <CardContent className="p-4">
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-2">
-            <FileCode2 className="h-4 w-4 text-purple-400" />
-            <span className="font-semibold text-sm">{def.name}</span>
+            <FileCode2 className={`h-4 w-4 ${isSubAgent ? "text-muted-foreground" : "text-purple-400"}`} />
+            <span className="text-[15px] font-semibold">{def.name}</span>
           </div>
           <Badge variant="secondary" className="text-xs">
             v{String((def.metadata as Record<string, unknown>)?.definition_version ?? "1")}
@@ -319,6 +321,75 @@ function DefinitionCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function OrchestratorList({
+  orchestrators,
+  subAgentsByParent,
+  onSelect,
+}: {
+  orchestrators: AgentDefinitionSummary[];
+  subAgentsByParent: Record<string, AgentDefinitionSummary[]>;
+  onSelect: (id: string) => void;
+}) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  return (
+    <div className="space-y-6">
+      {orchestrators.map((orch) => {
+        const children = subAgentsByParent[orch.id] ?? [];
+        const isCollapsed = collapsed[orch.id] ?? false;
+        const toggle = (e: React.MouseEvent) => {
+          e.stopPropagation();
+          setCollapsed((prev) => ({ ...prev, [orch.id]: !prev[orch.id] }));
+        };
+        return (
+          <div key={orch.id} className="rounded-lg border border-border bg-card">
+            <div className="flex items-start gap-3 p-4">
+              {children.length > 0 ? (
+                <button onClick={toggle} className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground transition-colors">
+                  {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+              ) : (
+                <FileCode2 className="h-5 w-5 text-purple-400 mt-0.5 shrink-0" />
+              )}
+              <div
+                className="flex-1 min-w-0 cursor-pointer"
+                onClick={() => onSelect(orch.id)}
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[15px] font-semibold hover:text-purple-400 transition-colors">{orch.name}</span>
+                  <Badge variant="secondary" className="text-xs">
+                    v{String((orch.metadata as Record<string, unknown>)?.definition_version ?? "1")}
+                  </Badge>
+                  {children.length > 0 && (
+                    <Badge variant="outline" className="text-xs border-purple-600/30 text-purple-400 bg-purple-600/10">
+                      {children.length} sub-agents
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{orch.description}</p>
+                <div className="flex gap-2 flex-wrap mt-2">
+                  <Badge variant="outline" className="text-xs border-blue-600/30 text-blue-400 bg-blue-600/10">{orch.flow_count} flows</Badge>
+                  <Badge variant="outline" className="text-xs border-green-600/30 text-green-400 bg-green-600/10">{orch.tool_count} tools</Badge>
+                  <Badge variant="outline" className="text-xs border-amber-600/30 text-amber-400 bg-amber-600/10">{orch.prompt_count} prompts</Badge>
+                </div>
+              </div>
+            </div>
+            {children.length > 0 && !isCollapsed && (
+              <div className="border-t border-border px-4 pb-4 pt-3 bg-muted/20 rounded-b-lg">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Sub-agents</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {children.map((def) => (
+                    <DefinitionCard key={def.id} def={def} onSelect={() => onSelect(def.id)} isSubAgent />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -385,6 +456,7 @@ function FlowGraph({
   subAgentMeta?: { id: string; prompt_count: number }[];
 }) {
   const { fitView } = useReactFlow();
+  const router = useRouter();
 
   const { nodes: initialNodes, edges: initialEdges } = useMemo(
     () => buildFlowGraph(def, expandedFlowId, subAgentMeta),
@@ -406,8 +478,11 @@ function FlowGraph({
     } else if (node.type === "promptNode" && onPromptClick) {
       const promptKey = (node.data as Record<string, unknown>)?.promptKey as string | undefined;
       if (promptKey) onPromptClick(promptKey);
+    } else if (node.type === "subAgentGroupNode") {
+      const agentId = (node.data as Record<string, unknown>)?.agentId as string | undefined;
+      if (agentId) router.push(`/agents/definitions?agent=${agentId}`);
     }
-  }, [expandedFlowId, onFlowClick, onPromptClick]);
+  }, [expandedFlowId, onFlowClick, onPromptClick, router]);
 
   return (
     <ReactFlow
@@ -612,7 +687,7 @@ function DefinitionDetail({
           <ArrowLeft className="h-4 w-4" />
           Back
         </button>
-        {parentAgent && (
+        {parentAgent ? (
           <>
             <span className="text-muted-foreground/40">/</span>
             <Link
@@ -622,24 +697,35 @@ function DefinitionDetail({
               {titleCase(parentAgent).replace(/ Agent$/, "")} Profile
             </Link>
           </>
-        )}
+        ) : profile?.role_context ? (
+          <>
+            <span className="text-muted-foreground/40">/</span>
+            <Link
+              href={`/agents/profiles/${def.id}`}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {def.name.replace(/ Agent$/, "")} Profile
+            </Link>
+          </>
+        ) : null}
       </div>
 
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold mb-1">{def.name}</h1>
         {responsibility && (
-          <p className="text-muted-foreground text-sm leading-relaxed max-w-3xl">{responsibility}</p>
+          <p className="text-muted-foreground text-[15px] leading-relaxed max-w-3xl">{responsibility}</p>
         )}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-muted-foreground">
           <span>v{String((def.metadata as Record<string, unknown>)?.definition_version ?? "0.1.0")}</span>
           <span>Spec {def.agentspec_version}</span>
           {isHumanPaired && <span className="text-blue-400">HITL</span>}
+          {isOrchestrator && <span className="text-amber-400">Orchestrator</span>}
           {parentAgent && <span className="text-purple-400">Sub-agent</span>}
           <span className="flex items-center gap-1"><Workflow className="h-3 w-3" /> {flowCount} {flowCount === 1 ? "runbook" : "runbooks"}</span>
           <span className="flex items-center gap-1"><Wrench className="h-3 w-3" /> {toolCount} {toolCount === 1 ? "tool" : "tools"}</span>
           <span className="flex items-center gap-1"><FileCode2 className="h-3 w-3" /> {promptCount} {promptCount === 1 ? "prompt" : "prompts"}</span>
-          {variantCount > 0 && <span>{variantCount} variant{variantCount !== 1 ? "s" : ""}</span>}
+
         </div>
       </div>
 
@@ -647,7 +733,7 @@ function DefinitionDetail({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="bg-muted/50 rounded-lg border border-blue-500/20 p-4">
           <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-            <Sparkles className="h-3 w-3" /> Why This Agent Exists
+            <Sparkles className="h-3 w-3" /> Purpose
           </h3>
           <p className="text-xs text-foreground/85 leading-relaxed">
             {(() => { const t = profileWhy ?? String(def.description); const m = t.match(/(?<=[a-z])\.\s+(?=[A-Z])/); if (!m || m.index === undefined) return t; const i = m.index; return <>{t.slice(0, i + 1)}<br /><br />{t.slice(i + m[0].length)}</>; })()}
@@ -659,7 +745,7 @@ function DefinitionDetail({
         {isHumanPaired && (humanMattersSummary || humanMattersGoal) && (
           <div className="bg-muted/50 rounded-lg border border-purple-500/20 p-4">
             <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-              <UserCheck className="h-3 w-3" /> Why the Human Matters
+              <UserCheck className="h-3 w-3" /> Human Role
             </h3>
             {humanMattersSummary && (
               <p className="text-xs text-foreground/85 leading-relaxed">
@@ -933,11 +1019,11 @@ function DefinitionDetail({
                   <div className="bg-muted/50 rounded-xl border border-red-500/20 p-5 flex flex-col">
                     <div className="flex items-center gap-2 mb-3">
                       <AlertTriangle className="h-4 w-4 text-red-400" />
-                      <span className="text-sm font-semibold text-red-400">Problem</span>
+                      <span className="text-[15px] font-semibold text-red-400">Problem</span>
                     </div>
-                    <p className="text-sm text-foreground leading-relaxed font-medium">{s.problem}</p>
+                    <p className="text-[15px] text-foreground leading-relaxed font-medium">{s.problem}</p>
                     {s.why && (
-                      <p className="text-sm text-muted-foreground leading-relaxed mt-2">{s.why}</p>
+                      <p className="text-[15px] text-muted-foreground leading-relaxed mt-2">{s.why}</p>
                     )}
                   </div>
                   <div className="flex items-center px-2"><ArrowRight className="h-5 w-5 text-blue-500 dark:text-yellow-400" /></div>
@@ -945,11 +1031,11 @@ function DefinitionDetail({
                   <div className="bg-muted/50 rounded-xl border border-blue-500/20 p-5 flex flex-col">
                     <div className="flex items-center gap-2 mb-3">
                       <Bot className="h-4 w-4 text-blue-400" />
-                      <span className="text-sm font-semibold text-blue-400">Agent Response</span>
+                      <span className="text-[15px] font-semibold text-blue-400">Agent Response</span>
                     </div>
                     <ul className="space-y-2">
                       {responseSteps.map((step, si) => (
-                        <li key={si} className="flex items-start gap-2 text-sm text-foreground leading-relaxed">
+                        <li key={si} className="flex items-start gap-2 text-[15px] text-foreground leading-relaxed">
                           <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />
                           {step}
                         </li>
@@ -962,11 +1048,11 @@ function DefinitionDetail({
                     <div className="bg-muted/50 rounded-xl border border-green-500/15 border-dashed p-5 flex flex-col">
                       <div className="flex items-center gap-2 mb-3">
                         <ShieldCheck className="h-4 w-4 text-green-400" />
-                        <span className="text-sm font-semibold text-green-400">Overhead Eliminated</span>
+                        <span className="text-[15px] font-semibold text-green-400">Overhead Eliminated</span>
                       </div>
                       <ul className="space-y-2">
                         {relatedOverhead.map((a, j) => (
-                          <li key={j} className="flex items-start gap-2 text-sm text-foreground/90 leading-relaxed">
+                          <li key={j} className="flex items-start gap-2 text-[15px] text-foreground/90 leading-relaxed">
                             <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-green-400 shrink-0" />
                             {a.text}
                           </li>
@@ -979,25 +1065,25 @@ function DefinitionDetail({
                   <div className="bg-muted/50 rounded-xl border border-green-500/20 p-5 flex flex-col">
                     <div className="flex items-center gap-2 mb-3">
                       <ShieldCheck className="h-4 w-4 text-green-400" />
-                      <span className="text-sm font-semibold text-green-400">Outcome</span>
+                      <span className="text-[15px] font-semibold text-green-400">Outcome</span>
                     </div>
                     {s.success_signal && (
                       <div className="space-y-2">
                         {s.success_signal.metric && (
-                          <p className="text-sm text-foreground leading-relaxed">{s.success_signal.metric}</p>
+                          <p className="text-[15px] text-foreground leading-relaxed">{s.success_signal.metric}</p>
                         )}
                         {s.success_signal.target && (
-                          <p className="text-sm text-green-400 font-medium">{s.success_signal.target}</p>
+                          <p className="text-[15px] text-green-400 font-medium">{s.success_signal.target}</p>
                         )}
                         {s.success_signal.leading_indicator && (
-                          <p className="text-sm text-muted-foreground">{s.success_signal.leading_indicator}</p>
+                          <p className="text-[15px] text-muted-foreground">{s.success_signal.leading_indicator}</p>
                         )}
                       </div>
                     )}
                     {s.success_signal?.failure_signal && (
                       <div className="pt-3 border-t border-border/50 mt-3">
                         <p className="text-xs text-amber-400 uppercase tracking-wide font-medium mb-2">Escalates when</p>
-                        <p className="text-sm text-foreground/90 flex items-start gap-2">
+                        <p className="text-[15px] text-foreground/90 flex items-start gap-2">
                           <AlertTriangle className="h-4 w-4 mt-[2px] text-amber-400 shrink-0" />
                           {s.success_signal.failure_signal}
                         </p>
@@ -1016,11 +1102,11 @@ function DefinitionDetail({
               <div className="bg-muted/50 rounded-xl border border-red-500/20 p-5 flex flex-col">
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle className="h-4 w-4 text-red-400" />
-                  <span className="text-sm font-semibold text-red-400">Problems</span>
+                  <span className="text-[15px] font-semibold text-red-400">Problems</span>
                 </div>
                 <ul className="space-y-2">
                   {challenges.map((c, ci) => (
-                    <li key={ci} className="flex items-start gap-2 text-sm text-foreground/90">
+                    <li key={ci} className="flex items-start gap-2 text-[15px] text-foreground/90">
                       <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
                       <span>
                         {c.text}
@@ -1042,9 +1128,9 @@ function DefinitionDetail({
               <div className="bg-muted/50 rounded-xl border border-blue-500/20 p-5 flex flex-col">
                 <div className="flex items-center gap-2 mb-3">
                   <Bot className="h-4 w-4 text-blue-400" />
-                  <span className="text-sm font-semibold text-blue-400">Agent Handles</span>
+                  <span className="text-[15px] font-semibold text-blue-400">Agent Handles</span>
                 </div>
-                <p className="text-sm text-foreground/90 leading-relaxed mb-3">
+                <p className="text-[15px] text-foreground/90 leading-relaxed mb-3">
                   {parentAgent
                     ? "This agent monitors, analyzes, and acts on each problem automatically."
                     : "Sub-agents monitor, analyze, and act on each problem automatically."}
@@ -1054,7 +1140,7 @@ function DefinitionDetail({
                     <p className="text-xs text-green-400 uppercase tracking-wide font-medium mb-2">Overhead eliminated</p>
                     <ul className="space-y-1.5">
                       {adminOverhead.map((a, ai) => (
-                        <li key={ai} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <li key={ai} className="flex items-start gap-2 text-[15px] text-muted-foreground">
                           <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-green-400 shrink-0" />
                           <span>
                             {a.text}
@@ -1078,9 +1164,9 @@ function DefinitionDetail({
               <div className="bg-muted/50 rounded-xl border border-green-500/20 p-5 flex flex-col">
                 <div className="flex items-center gap-2 mb-3">
                   <ShieldCheck className="h-4 w-4 text-green-400" />
-                  <span className="text-sm font-semibold text-green-400">Outcome</span>
+                  <span className="text-[15px] font-semibold text-green-400">Outcome</span>
                 </div>
-                <p className="text-sm text-foreground/90 leading-relaxed">
+                <p className="text-[15px] text-foreground/90 leading-relaxed">
                   {parentAgent
                     ? "Problems detected early, overhead automated, AE focused on judgment calls."
                     : "Problems resolved, overhead removed, human focused on high-judgment decisions."}
@@ -1090,7 +1176,7 @@ function DefinitionDetail({
                     <p className="text-xs text-amber-400 uppercase tracking-wide font-medium mb-2">Escalates when</p>
                     <ul className="space-y-1.5">
                       {escalation.map((trigger, ti) => (
-                        <li key={ti} className="flex items-start gap-2 text-sm text-foreground/90">
+                        <li key={ti} className="flex items-start gap-2 text-[15px] text-foreground/90">
                           <AlertTriangle className="h-4 w-4 mt-[2px] text-amber-400 shrink-0" />
                           {typeof trigger === "string" ? trigger : String((trigger as Record<string, unknown>).trigger ?? trigger)}
                         </li>
@@ -1105,12 +1191,12 @@ function DefinitionDetail({
           {/* Fallback for sub-agents without any scenario data */}
           {a2aCapabilities && a2aCapabilities.length > 0 && challenges.length === 0 && scenarios.length === 0 && (
             <div className="bg-muted/50 rounded-xl border border-blue-500/20 p-5">
-              <h4 className="text-sm font-semibold text-blue-400 uppercase tracking-wider mb-3">
+              <h4 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-3">
                 Capabilities
               </h4>
               <ul className="space-y-2">
                 {a2aCapabilities.map((c, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm">
+                  <li key={i} className="flex items-start gap-2 text-[15px]">
                     <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />
                     <span className="text-foreground/90 leading-relaxed">
                       {c.replace(/-/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase())}
@@ -1124,6 +1210,52 @@ function DefinitionDetail({
 
         {/* Capabilities tab */}
         <TabsContent value="capabilities" className="space-y-6 mt-3">
+
+          {/* Orchestrators: Sub-agents first, then Assets, then Tools/Prompts/Knowledge */}
+          {/* Non-orchestrators: Tools/Prompts/Knowledge first, then Sub-agents, Peers, Assets */}
+
+          {/* Sub-agents (shown first for orchestrators) */}
+          {isOrchestrator && subAgentsDef && subAgentsDef.length > 0 && (
+            <div id="sub-agents-section">
+              <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Bot className="h-3 w-3" /> Sub-agents
+              </h3>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                {subAgentsDef.map((sa, i) => (
+                  <Link
+                    key={i}
+                    href={`/agents/definitions?agent=${sa.id ?? ""}`}
+                    className="bg-muted/50 rounded-md p-2.5 hover:bg-muted/80 transition-colors"
+                  >
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <Bot className="h-3 w-3 text-purple-400 shrink-0" />
+                      <span className="text-xs font-medium truncate">{String(sa.name ?? sa.id ?? "")}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">{String(sa.purpose ?? "")}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Assets (shown second for orchestrators) */}
+          {isOrchestrator && assets && assets.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <Download className="h-3 w-3" /> Generated Assets
+              </h3>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                {assets.map((asset, i) => (
+                  <div key={i} className="bg-muted/50 rounded-md p-2.5">
+                    <span className="text-xs font-medium font-mono">{String(asset.id ?? asset.name ?? "")}</span>
+                    {asset.description ? (
+                      <p className="text-xs text-muted-foreground mt-0.5">{String(asset.description)}</p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Tools | Prompts | Knowledge in 3 columns ── */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
@@ -1143,7 +1275,11 @@ function DefinitionDetail({
                   </div>
                 ))}
                 {toolCount === 0 && (
-                  <p className="text-xs text-muted-foreground">No tools defined</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isOrchestrator
+                      ? "Orchestrators delegate tool usage to their sub-agents."
+                      : "No tools defined"}
+                  </p>
                 )}
               </div>
             </div>
@@ -1163,7 +1299,11 @@ function DefinitionDetail({
                     onClick={() => setActivePromptKey(key)}
                   />
                 )) : (
-                  <p className="text-xs text-muted-foreground">No prompts defined</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isOrchestrator
+                      ? "Orchestrators route work to sub-agents and do not carry their own prompts."
+                      : "No prompts defined"}
+                  </p>
                 )}
               </div>
             </div>
@@ -1204,9 +1344,8 @@ function DefinitionDetail({
             </div>
           </div>
 
-          {/* ── Sub-agents, Peer Agents, Assets ── */}
-          {/* Sub-agents (from x-ea-agent) */}
-          {subAgentsDef && subAgentsDef.length > 0 && (
+          {/* Sub-agents (shown after tools for non-orchestrators) */}
+          {!isOrchestrator && subAgentsDef && subAgentsDef.length > 0 && (
             <div id="sub-agents-section">
               <h3 className="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <Bot className="h-3 w-3" /> Sub-agents
@@ -1256,8 +1395,8 @@ function DefinitionDetail({
             </div>
           )}
 
-          {/* Assets */}
-          {assets && assets.length > 0 && (
+          {/* Assets (shown after peers for non-orchestrators) */}
+          {!isOrchestrator && assets && assets.length > 0 && (
             <div>
               <h3 className="text-xs font-semibold text-orange-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <Download className="h-3 w-3" /> Generated Assets
@@ -1357,12 +1496,12 @@ function DefinitionDetail({
             <div className={`grid grid-cols-1 gap-3 items-stretch ${sectionCount >= 3 ? "md:grid-cols-3" : sectionCount === 2 ? "md:grid-cols-2" : ""}`}>
               {permissions && permissions.length > 0 && (
                 <div className="bg-muted/50 rounded-lg border border-green-500/20 p-4 max-h-80 overflow-y-auto">
-                  <h4 className="text-sm font-semibold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <h4 className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4" /> Permissions
                   </h4>
                   <ul className="space-y-2">
                     {permissions.map((p, i) => (
-                      <li key={i} className="text-sm text-muted-foreground leading-relaxed flex items-start gap-2">
+                      <li key={i} className="text-[15px] text-muted-foreground leading-relaxed flex items-start gap-2">
                         <span className="text-green-400/50 shrink-0 mt-1">&#10003;</span>
                         {p}
                       </li>
@@ -1372,12 +1511,12 @@ function DefinitionDetail({
               )}
               {escalation && escalation.length > 0 && (
                 <div className="bg-muted/50 rounded-lg border border-amber-500/20 p-4 max-h-80 overflow-y-auto">
-                  <h4 className="text-sm font-semibold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4" /> Escalation Triggers
                   </h4>
                   <ul className="space-y-2">
                     {escalation.map((e, i) => (
-                      <li key={i} className="text-sm text-muted-foreground leading-relaxed flex items-start gap-2">
+                      <li key={i} className="text-[15px] text-muted-foreground leading-relaxed flex items-start gap-2">
                         <span className="text-amber-400 shrink-0 mt-1">&#9888;</span>
                         {typeof e === "string" ? (
                           <span>{e}</span>
@@ -1385,7 +1524,7 @@ function DefinitionDetail({
                           <span>
                             <span className="font-medium text-foreground">{String((e as Record<string, unknown>).trigger ?? (e as Record<string, unknown>).condition ?? "")}</span>
                             {(e as Record<string, unknown>).target ? (
-                              <span className="text-sm text-muted-foreground/60 ml-1">&#8594; {String((e as Record<string, unknown>).target)}</span>
+                              <span className="text-sm text-muted-foreground/60 ml-1 inline-flex items-center gap-1"><ArrowRight className="h-3 w-3 inline" />{String((e as Record<string, unknown>).target)}</span>
                             ) : null}
                           </span>
                         )}
@@ -1396,13 +1535,13 @@ function DefinitionDetail({
               )}
               {boundaries && boundaries.length > 0 && (
                 <div className="bg-muted/50 rounded-lg border border-red-500/20 p-4 max-h-80 overflow-y-auto">
-                  <h4 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <h4 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <ShieldOff className="h-4 w-4" /> Boundaries
                   </h4>
                   <ul className="space-y-2">
                     {boundaries.map((b, i) => (
-                      <li key={i} className="text-sm text-muted-foreground leading-relaxed flex items-start gap-2">
-                        <span className="text-red-400/50 shrink-0 mt-1">&#8226;</span>
+                      <li key={i} className="text-[15px] text-muted-foreground leading-relaxed flex items-start gap-2">
+                        <span className="text-red-400 shrink-0 mt-1">&#8856;</span>
                         {typeof b === "string" ? b : String((b as Record<string, unknown>).rule ?? b)}
                       </li>
                     ))}
@@ -1543,7 +1682,7 @@ function DefinitionsPageInner() {
             prompt registry, knowledge, and guardrails into a single structured YAML file.
           </HelpPopover>
         </div>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-[15px] text-muted-foreground mt-1">
           {definitions?.length ?? 0} agent specifications across {availableTabs.length} functional
           areas, encoding flows, prompts, tools, knowledge, and guardrails.
         </p>
@@ -1591,22 +1730,39 @@ function DefinitionsPageInner() {
             ))}
           </div>
 
-          {activeTabConfig && (
-            <div>
-              <div className={`rounded-lg border ${activeTabConfig.border} bg-muted/50 px-4 py-3 mb-5`}>
-                <p className={`text-sm ${activeTabConfig.color}`}>{activeTabConfig.summary}</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {activeAgents.map((def) => (
-                  <DefinitionCard
-                    key={def.id}
-                    def={def}
-                    onSelect={() => setSelectedAgent(def.id)}
+          {activeTabConfig && (() => {
+            const orchestrators = activeAgents.filter((d) => !(d.metadata as Record<string, unknown>)?.parent_agent);
+            const subAgentsByParent = activeAgents.reduce<Record<string, AgentDefinitionSummary[]>>((acc, d) => {
+              const parent = (d.metadata as Record<string, unknown>)?.parent_agent as string | undefined;
+              if (parent) {
+                if (!acc[parent]) acc[parent] = [];
+                acc[parent].push(d);
+              }
+              return acc;
+            }, {});
+            const hasHierarchy = orchestrators.length > 0 && Object.keys(subAgentsByParent).length > 0;
+
+            return (
+              <div>
+                <div className={`rounded-lg border ${activeTabConfig.border} bg-muted/50 px-4 py-3 mb-5`}>
+                  <p className={`text-[15px] ${activeTabConfig.color}`}>{activeTabConfig.summary}</p>
+                </div>
+                {hasHierarchy ? (
+                  <OrchestratorList
+                    orchestrators={orchestrators}
+                    subAgentsByParent={subAgentsByParent}
+                    onSelect={setSelectedAgent}
                   />
-                ))}
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {activeAgents.map((def) => (
+                      <DefinitionCard key={def.id} def={def} onSelect={() => setSelectedAgent(def.id)} />
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
         </>
       )}
     </div>

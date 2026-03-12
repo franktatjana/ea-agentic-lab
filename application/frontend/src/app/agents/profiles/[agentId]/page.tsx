@@ -21,6 +21,8 @@ import {
   BookOpen,
   Library,
   AlertTriangle,
+  ShieldAlert,
+  CheckCircle2,
   Sparkles,
   Crosshair,
   UserCheck,
@@ -75,6 +77,9 @@ function challengeText(entry: ChallengeEntry): string {
 }
 function challengeAgent(entry: ChallengeEntry): string | undefined {
   return typeof entry === "string" ? undefined : entry.solved_by;
+}
+function challengeOverhead(entry: ChallengeEntry): string[] {
+  return typeof entry === "string" ? [] : (entry.specific_overhead ?? []);
 }
 function overheadText(entry: OverheadEntry): string {
   return typeof entry === "string" ? entry : entry.text;
@@ -439,8 +444,8 @@ export default function AgentProfileDetailPage({
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors text-muted-foreground hover:text-slate-400"
         >
           <FileCode2 className="h-4 w-4" />
-          Agent Definition
-          <ArrowRight className="h-3 w-3" />
+          Open Agent Definition
+          <ExternalLink className="h-3 w-3" />
         </Link>
       </div>
 
@@ -473,7 +478,7 @@ export default function AgentProfileDetailPage({
                         <div className="flex items-center gap-2 mb-4">
                           <Sparkles className="h-4 w-4 text-blue-400" />
                           <h3 className="text-xs font-semibold uppercase tracking-wider text-blue-400">
-                            Why This Agent Exists
+                            Purpose
                           </h3>
                         </div>
                         <p className="text-[15px] leading-[1.8] text-foreground/90 mb-5">
@@ -512,7 +517,7 @@ export default function AgentProfileDetailPage({
                       items={profileGoals}
                       renderItem={(goal, i) => (
                         <li key={i} className="flex items-start gap-2.5 text-[15px]">
-                          <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+                          <CheckCircle2 className="h-4 w-4 mt-[2px] text-emerald-400 shrink-0" />
                           <span className="text-foreground/90">{goal}</span>
                         </li>
                       )}
@@ -524,7 +529,7 @@ export default function AgentProfileDetailPage({
                         <div className="flex items-center gap-2 mb-4">
                           <UserCheck className="h-4 w-4 text-purple-400" />
                           <h3 className="text-xs font-semibold uppercase tracking-wider text-purple-400">
-                            Why the Human Matters
+                            Human Role
                           </h3>
                         </div>
                         {humanMattersSummary && (
@@ -542,7 +547,7 @@ export default function AgentProfileDetailPage({
                             items={escalation}
                             renderItem={(trigger, i) => (
                               <li key={i} className="flex items-start gap-2.5 text-sm">
-                                <AlertTriangle className="h-3.5 w-3.5 mt-[3px] text-amber-400 shrink-0" />
+                                <ShieldAlert className="h-3.5 w-3.5 mt-[3px] text-red-400 shrink-0" />
                                 <span className="text-foreground/80">{trigger}</span>
                               </li>
                             )}
@@ -592,88 +597,72 @@ export default function AgentProfileDetailPage({
       {/* Role tab */}
       {activeTab === "role" && (
         <div className="space-y-6">
-          {/* Challenges + Admin overhead side by side */}
-          {(challenges.length > 0 || adminOverhead.length > 0) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {challenges.length > 0 && (
-                <Card className="border-l-4 border-l-amber-500/40">
-                  <CardContent className="p-6">
-                    <Section
-                      icon={ListChecks}
-                      title="Role Challenges"
-                      color="text-amber-400"
-                    >
-                      <div className="space-y-2.5">
-                        {Object.entries(
-                          challenges.reduce<Record<string, string[]>>((groups, item) => {
-                            const agent = challengeAgent(item) ?? "_ungrouped";
-                            if (!groups[agent]) groups[agent] = [];
-                            groups[agent].push(challengeText(item));
-                            return groups;
-                          }, {})
-                        ).map(([agent, items]) => (
-                          <div key={agent} className="rounded-lg border border-border/50 p-4">
-                            {agent !== "_ungrouped" && (
-                              <div className="mb-2.5">
-                                <AgentBadge agentId={agent} />
-                              </div>
-                            )}
-                            <ul className="space-y-2.5">
-                              {items.map((text, i) => (
-                                <li key={i} className="flex items-start gap-2.5 text-[15px]">
-                                  <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
-                                  <span className="text-foreground/80 leading-relaxed">{text}</span>
-                                </li>
-                              ))}
-                            </ul>
+          {challenges.length > 0 && (() => {
+            const hasAgents = challenges.some((ch) => challengeAgent(ch));
+            if (hasAgents) {
+              const grouped = challenges.reduce<Record<string, ChallengeEntry[]>>((acc, ch) => {
+                const agent = challengeAgent(ch) ?? "_ungrouped";
+                if (!acc[agent]) acc[agent] = [];
+                acc[agent].push(ch);
+                return acc;
+              }, {});
+              return (
+                <Section
+                  icon={AlertTriangle}
+                  title={`Role Challenges & Overhead (${challenges.length})`}
+                  color="text-red-400"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(grouped).map(([agent, items]) => (
+                      <div key={agent} className="rounded-xl border border-border/50 bg-muted/30 p-4">
+                        {agent !== "_ungrouped" && (
+                          <div className="mb-3">
+                            <AgentBadge agentId={agent} />
                           </div>
-                        ))}
-                      </div>
-                    </Section>
-                  </CardContent>
-                </Card>
-              )}
-
-              {adminOverhead.length > 0 && (
-                <Card className="border-l-4 border-l-rose-500/40">
-                  <CardContent className="p-6">
-                    <Section
-                      icon={ClipboardList}
-                      title="Administrative Overhead"
-                      color="text-rose-400"
-                    >
-                      <div className="space-y-2.5">
-                        {Object.entries(
-                          adminOverhead.reduce<Record<string, string[]>>((groups, item) => {
-                            const agent = overheadAgent(item) ?? "_ungrouped";
-                            if (!groups[agent]) groups[agent] = [];
-                            groups[agent].push(overheadText(item));
-                            return groups;
-                          }, {})
-                        ).map(([agent, items]) => (
-                          <div key={agent} className="rounded-lg border border-border/50 p-4">
-                            {agent !== "_ungrouped" && (
-                              <div className="mb-2.5">
-                                <AgentBadge agentId={agent} />
+                        )}
+                        <div className="space-y-2">
+                          {items.map((ch, idx) => (
+                            <div key={idx}>
+                              <div className="flex items-start gap-2 text-[14px]">
+                                <AlertTriangle className="h-3.5 w-3.5 mt-[3px] text-red-400 shrink-0" />
+                                <span className="text-foreground/90 leading-relaxed">{challengeText(ch)}</span>
                               </div>
-                            )}
-                            <ul className="space-y-2.5">
-                              {items.map((text, i) => (
-                                <li key={i} className="flex items-start gap-2.5 text-[15px]">
-                                  <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-rose-400 shrink-0" />
-                                  <span className="text-foreground/80 leading-relaxed">{text}</span>
-                                </li>
+                              {challengeOverhead(ch).map((oh, oi) => (
+                                <div key={oi} className="flex items-start gap-2 text-[13px] ml-5 mt-1">
+                                  <ClipboardList className="h-3 w-3 mt-[3px] text-rose-400/70 shrink-0" />
+                                  <span className="text-muted-foreground leading-relaxed">{oh}</span>
+                                </div>
                               ))}
-                            </ul>
-                          </div>
-                        ))}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </Section>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
+                    ))}
+                  </div>
+                </Section>
+              );
+            }
+            return (
+              <Card className="border-l-4 border-l-red-500/40">
+                <CardContent className="p-6">
+                  <Section
+                    icon={AlertTriangle}
+                    title={`Role Challenges (${challenges.length})`}
+                    color="text-red-400"
+                  >
+                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
+                      {challenges.map((ch, idx) => (
+                        <li key={idx} className="flex items-start gap-2.5 text-[15px]">
+                          <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
+                          <span className="text-foreground/80 leading-relaxed">{challengeText(ch)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </Section>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
         </div>
       )}
@@ -691,19 +680,57 @@ export default function AgentProfileDetailPage({
                   title="With This Agent You Can"
                   color={teamStyle?.color ?? "text-muted-foreground"}
                 >
-                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5">
-                    {(withThisAgent.length > 0 ? withThisAgent : capabilities).map((cap: string) => (
-                      <li
-                        key={cap}
-                        className="flex items-start gap-2.5 text-[15px]"
-                      >
-                        <span
-                          className={`mt-[8px] h-1.5 w-1.5 rounded-full ${dotColor} shrink-0`}
-                        />
-                        <span>{cap}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {withThisAgent.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="text-left py-2 pr-4 text-xs font-medium uppercase tracking-wider text-muted-foreground w-[220px]">Category</th>
+                            <th className="text-left py-2 pr-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">What You Can Do</th>
+                            {withThisAgent.some((g) => g.agent) && (
+                              <th className="text-left py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground w-[180px]">Agent</th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {withThisAgent.map((group) =>
+                            group.items.map((item, idx) => {
+                              const colonIdx = item.indexOf(":");
+                              const keyword = colonIdx > -1 ? item.slice(0, colonIdx) : null;
+                              const rest = colonIdx > -1 ? item.slice(colonIdx + 1).trim() : item;
+                              return (
+                                <tr key={`${group.domain}-${idx}`} className={idx === group.items.length - 1 ? "border-b border-border" : ""}>
+                                  {idx === 0 && (
+                                    <td rowSpan={group.items.length} className="py-2.5 pr-4 align-top text-foreground/70 font-medium text-[13px]">
+                                      {group.domain}
+                                    </td>
+                                  )}
+                                  <td className="py-2.5 pr-4 leading-relaxed">
+                                    {keyword && <span className="font-semibold text-foreground">{keyword}:</span>}{" "}
+                                    <span className="text-foreground/80">{rest}</span>
+                                  </td>
+                                  {idx === 0 && withThisAgent.some((g) => g.agent) && (
+                                    <td rowSpan={group.items.length} className="py-2.5 align-top">
+                                      {group.agent && <AgentBadge agentId={group.agent} />}
+                                    </td>
+                                  )}
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5">
+                      {capabilities.map((cap: string) => (
+                        <li key={cap} className="flex items-start gap-2.5 text-[15px]">
+                          <span className={`mt-[8px] h-1.5 w-1.5 rounded-full ${dotColor} shrink-0`} />
+                          <span>{cap}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </Section>
               </CardContent>
             </Card>
@@ -712,7 +739,7 @@ export default function AgentProfileDetailPage({
           {activityMap && (
             <Card>
               <CardContent className="p-5">
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <p className="text-[15px] text-muted-foreground leading-relaxed">
                   {activityMap.purpose}
                 </p>
               </CardContent>
@@ -734,7 +761,7 @@ export default function AgentProfileDetailPage({
                       <h3 className="font-medium">{d.domain}</h3>
                       <span className="text-xs text-muted-foreground/60 shrink-0">{d.cadence}</span>
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{d.why}</p>
+                    <p className="text-[15px] text-muted-foreground leading-relaxed">{d.why}</p>
                     <ul className="space-y-1.5">
                       {d.activities.map((a) => (
                         <li key={a} className="flex items-start gap-2 text-sm">
@@ -821,7 +848,7 @@ export default function AgentProfileDetailPage({
                         <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Customer Side</p>
                         <ul className="space-y-1.5">
                           {stakeholders.customer_side.map((s, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                            <li key={i} className="flex items-start gap-2 text-[15px] text-muted-foreground">
                               <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
                               <span className="flex-1">
                                 <span>{stakeholderText(s)}</span>
@@ -839,7 +866,7 @@ export default function AgentProfileDetailPage({
                         <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Internal Team</p>
                         <ul className="space-y-1.5">
                           {stakeholders.internal_team.map((s, i) => (
-                            <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                            <li key={i} className="flex items-start gap-2 text-[15px] text-muted-foreground">
                               <span className={`mt-[7px] h-1.5 w-1.5 rounded-full ${dotColor}/50 shrink-0`} />
                               <span className="flex-1">
                                 <span>{stakeholderText(s)}</span>
@@ -919,7 +946,7 @@ export default function AgentProfileDetailPage({
                       </div>
                       {sa.id && <ArrowRight className="h-3.5 w-3.5 text-blue-500 dark:text-amber-400 shrink-0 mt-0.5" />}
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
+                    <p className="text-[15px] text-muted-foreground leading-relaxed">
                       {sa.purpose}
                     </p>
                     {meta && (
@@ -1002,7 +1029,7 @@ export default function AgentProfileDetailPage({
             {playbookRaci.context && (
               <Card>
                 <CardContent className="p-5">
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-[15px] text-muted-foreground leading-relaxed">
                     {playbookRaci.context}
                   </p>
                 </CardContent>
@@ -1075,7 +1102,7 @@ export default function AgentProfileDetailPage({
                           key={i}
                           className="flex items-start gap-2.5 text-sm"
                         >
-                          <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                          <ShieldAlert className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
                           <span>{text}</span>
                         </li>
                       );
