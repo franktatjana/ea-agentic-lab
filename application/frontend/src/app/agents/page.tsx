@@ -129,7 +129,7 @@ function HandoffColumn({ flow, fromFilter, toFilter }: { flow: HandoffFlow; from
                   <Badge variant="outline" className="text-xs shrink-0">{step.from}</Badge>
                   <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
                   <Badge variant="outline" className="text-xs shrink-0">{step.to}</Badge>
-                  <span className="text-xs text-muted-foreground ml-1 truncate">{step.trigger}</span>
+                  <span className="text-xs text-muted-foreground ml-1 truncate" title={step.trigger}>{step.trigger}</span>
                 </button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-80">

@@ -520,6 +520,7 @@ export interface ActivityMap {
 export interface ChallengeItem {
   text: string;
   solved_by?: string;
+  specific_overhead?: string[];
 }
 
 export interface OverheadItem {
@@ -562,6 +563,12 @@ export interface PublicResource {
   context?: string;
 }
 
+export interface WithThisAgentDomain {
+  domain: string;
+  agent?: string;
+  items: string[];
+}
+
 export interface AgentProfile {
   why?: string;
   human_matters_summary?: string;
@@ -571,7 +578,7 @@ export interface AgentProfile {
   challenges: ChallengeEntry[];
   administrative_overhead: OverheadEntry[];
   capabilities: string[];
-  with_this_agent?: string[];
+  with_this_agent?: WithThisAgentDomain[];
   key_metrics?: string[];
   qualification_framework?: QualificationFramework;
   stakeholder_landscape?: StakeholderLandscape;

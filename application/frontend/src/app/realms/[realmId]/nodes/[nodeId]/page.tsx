@@ -40,6 +40,8 @@ import {
   Trash2,
   Search,
   History,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1944,6 +1946,7 @@ function BlueprintTab({ realmId, nodeId }: { realmId: string; nodeId: string }) 
   const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
   const [removeReason, setRemoveReason] = useState("");
   const [selectedCanvas, setSelectedCanvas] = useState<string | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const { data: blueprint, isLoading, error } = useQuery({
     queryKey: ["blueprint", realmId, nodeId],
@@ -2503,7 +2506,7 @@ function BlueprintTab({ realmId, nodeId }: { realmId: string; nodeId: string }) 
       )}
 
       {/* Add Playbook Dialog */}
-      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+      <Dialog open={showAddDialog} onOpenChange={(open) => { setShowAddDialog(open); if (!open) { setSelectedAdd(null); setAddSearch(""); setAddReason(""); } }}>
         <DialogContent className="max-w-2xl overflow-hidden">
           <DialogHeader>
             <DialogTitle>Add Playbook</DialogTitle>
@@ -2519,27 +2522,60 @@ function BlueprintTab({ realmId, nodeId }: { realmId: string; nodeId: string }) 
                 className="pl-9"
               />
             </div>
-            <div className="max-h-64 overflow-y-auto border rounded-md overflow-x-hidden">
+            <div className="max-h-72 overflow-y-auto border rounded-md overflow-x-hidden">
               {availablePlaybooks.length === 0 && (
                 <p className="text-xs text-muted-foreground p-3">No playbooks available.</p>
               )}
-              {availablePlaybooks.map(([id, info]) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={`w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2 ${
-                    selectedAdd?.id === id ? "bg-accent" : ""
-                  }`}
-                  onClick={() => setSelectedAdd({ id, name: info.name })}
-                >
-                  <span className="font-mono text-xs text-muted-foreground w-16 shrink-0">{id}</span>
-                  <span className="flex-1 truncate">{info.name}</span>
-                  <span className="text-xs text-muted-foreground">{info.team}</span>
-                </button>
-              ))}
+              {(() => {
+                const grouped: Record<string, [string, { name: string; team: string; category: string; objective: string }][]> = {};
+                for (const entry of availablePlaybooks) {
+                  const cat = entry[1].category || entry[1].team || "other";
+                  if (!grouped[cat]) grouped[cat] = [];
+                  grouped[cat].push(entry);
+                }
+                return Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([cat, entries]) => {
+                  const isExpanded = expandedCategories.has(cat);
+                  const label = cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                  return (
+                    <div key={cat}>
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide bg-muted/40 hover:bg-muted/60 flex items-center gap-1.5 border-b"
+                        onClick={() => setExpandedCategories((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(cat)) next.delete(cat); else next.add(cat);
+                          return next;
+                        })}
+                      >
+                        {isExpanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
+                        {label}
+                        <span className="ml-auto font-normal normal-case tracking-normal">{entries.length}</span>
+                      </button>
+                      {isExpanded && entries.map(([id, info]) => (
+                        <button
+                          key={id}
+                          type="button"
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-accent flex items-center gap-2 border-b last:border-b-0 ${
+                            selectedAdd?.id === id ? "bg-accent" : ""
+                          }`}
+                          onClick={() => setSelectedAdd({ id, name: info.name })}
+                        >
+                          <span className="font-mono text-xs text-muted-foreground w-20 shrink-0">{id}</span>
+                          <span className="flex-1 truncate">{info.name}</span>
+                          {selectedAdd?.id === id && <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                });
+              })()}
             </div>
             {selectedAdd && (
               <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Selected: <span className="font-medium text-foreground">{selectedAdd.name}</span>
+                  <span className="font-mono ml-1">({selectedAdd.id})</span>
+                </p>
                 <div className="flex gap-2">
                   <Select value={addPhase} onValueChange={setAddPhase}>
                     <SelectTrigger className="w-40 text-xs">
@@ -2552,12 +2588,13 @@ function BlueprintTab({ realmId, nodeId }: { realmId: string; nodeId: string }) 
                       <SelectItem value="stabilization">Stabilization</SelectItem>
                     </SelectContent>
                   </Select>
+                  <Input
+                    placeholder="Reason (optional)"
+                    value={addReason}
+                    onChange={(e) => setAddReason(e.target.value)}
+                    className="text-xs"
+                  />
                 </div>
-                <Input
-                  placeholder="Reason for adding (e.g. compliance gap identified)"
-                  value={addReason}
-                  onChange={(e) => setAddReason(e.target.value)}
-                />
               </div>
             )}
           </div>
@@ -2565,14 +2602,14 @@ function BlueprintTab({ realmId, nodeId }: { realmId: string; nodeId: string }) 
             <Button variant="ghost" size="sm" onClick={() => setShowAddDialog(false)}>Cancel</Button>
             <Button
               size="sm"
-              disabled={!selectedAdd || !addReason.trim() || addMutation.isPending}
+              disabled={!selectedAdd || addMutation.isPending}
               onClick={() => {
-                if (selectedAdd && addReason.trim()) {
+                if (selectedAdd) {
                   addMutation.mutate({
                     playbook_id: selectedAdd.id,
                     name: selectedAdd.name,
                     phase: addPhase,
-                    reason: addReason.trim(),
+                    reason: addReason.trim() || "Manual addition",
                   });
                 }
               }}

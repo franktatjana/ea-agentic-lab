@@ -186,7 +186,7 @@ export function buildFlowGraph(
         id: outputId,
         type: "subAgentGroupNode",
         position: { x: outputX, y: outputStartY + i * SIDE_GAP },
-        data: { name: entry.name, promptCount: entry.promptCount },
+        data: { name: entry.name, promptCount: entry.promptCount, agentId: entry.id },
       });
 
       edges.push({
@@ -272,38 +272,6 @@ export function buildFlowGraph(
       source: def.id,
       sourceHandle: "destinations",
       target: destId,
-      type: "smoothstep",
-      style: { stroke: EDGE_COLOR, strokeWidth: 1.5 },
-    });
-  });
-
-  // Variants below outputs (if any)
-  const outputNodeCount = isOrchestrator ? subAgents.length : Object.keys(promptRegistry ?? {}).length;
-  const computedOutputStackHeight = Math.max(0, (outputNodeCount - 1) * SIDE_GAP);
-  const computedOutputStartY = Math.max(-AGENT_H / 2, -computedOutputStackHeight / 2);
-  const variantStackHeight = (variants.length - 1) * SIDE_GAP;
-  const variantStartY = outputNodeCount > 0
-    ? computedOutputStartY + computedOutputStackHeight + SIDE_GAP * 2
-    : -variantStackHeight / 2;
-  const variantX = NODE_W / 2 + FLOW_GAP - 60;
-
-  variants.forEach((variant: Record<string, unknown>, i: number) => {
-    const variantId = String(variant.id ?? `variant-${i}`);
-    nodes.push({
-      id: variantId,
-      type: "variantNode",
-      position: { x: variantX, y: variantStartY + i * SIDE_GAP },
-      data: {
-        name: fixAcronyms(String(variant.name ?? "")),
-        description: String(variant.description ?? ""),
-      },
-    });
-
-    edges.push({
-      id: `${def.id}->${variantId}`,
-      source: def.id,
-      sourceHandle: "variants",
-      target: variantId,
       type: "smoothstep",
       style: { stroke: EDGE_COLOR, strokeWidth: 1.5 },
     });

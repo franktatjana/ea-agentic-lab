@@ -6,12 +6,13 @@ interface MetricCardProps {
   label: string;
   value: string | number;
   trend?: string;
+  description?: string;
   className?: string;
   onClick?: () => void;
   active?: boolean;
 }
 
-export function MetricCard({ label, value, trend, className, onClick, active }: MetricCardProps) {
+export function MetricCard({ label, value, trend, description, className, onClick, active }: MetricCardProps) {
   return (
     <Card
       className={cn(
@@ -21,6 +22,7 @@ export function MetricCard({ label, value, trend, className, onClick, active }: 
         className,
       )}
       onClick={onClick}
+      title={description}
     >
       <CardContent className="px-3 py-2">
         <div className="flex items-center justify-between">

@@ -2,16 +2,28 @@
 
 import { memo } from "react";
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { useRouter } from "next/navigation";
 import { Bot } from "lucide-react";
 
 function SubAgentGroupNodeComponent({ data }: NodeProps) {
-  const { name, promptCount } = data as {
+  const router = useRouter();
+  const { name, promptCount, agentId } = data as {
     name: string;
     promptCount: number;
+    agentId?: string;
+  };
+
+  const handleNavigate = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (agentId) router.push(`/agents/definitions?agent=${agentId}`);
   };
 
   return (
-    <div className="bg-card border border-purple-500/30 rounded-lg px-3 py-2 shadow-sm min-w-48 max-w-64 hover:border-purple-400/60 transition-colors">
+    <div
+      onClick={handleNavigate}
+      className={`bg-card border border-purple-500/30 rounded-lg px-3 py-2 shadow-sm min-w-48 max-w-64 hover:border-purple-400/60 transition-colors ${agentId ? "cursor-pointer hover:shadow-md" : ""}`}
+      title={agentId ? "Click to open definition" : undefined}
+    >
       <Handle type="target" position={Position.Left} className="!bg-purple-400" />
 
       <div className="flex items-center justify-between gap-3">
