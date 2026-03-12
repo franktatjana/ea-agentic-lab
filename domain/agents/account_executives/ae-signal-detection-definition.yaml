@@ -1,419 +1,440 @@
-# AE Commercial Signal Detection Agent
-# Sub-agent of Account Executive Agent (ae-agent)
-# Owns: budget signal scanning, competitive threat detection, expansion opportunities
-#
-# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
-
-agentspec_version: "26.1.0"
+agentspec_version: 26.1.0
 component_type: Agent
-
 id: ae-signal-detection-agent
 name: AE Signal Detection Agent
-description: >
-  Budget shifts, competitive mentions, and expansion hints hide in emails,
-  Slack threads, and meeting notes. This agent surfaces those commercial
-  signals before they become surprises, classifying severity and citing the
-  exact source so the AE can act with confidence.
+description: 'Budget shifts, competitive mentions, and expansion hints hide in emails, Slack threads, and meeting notes. This agent surfaces those commercial signals before they become surprises, classifying
+  severity and citing the exact source so the AE can act with confidence.
 
+  '
 metadata:
-  definition_version: "0.1.0"
+  definition_version: 0.1.0
   parent_agent: ae-agent
   tags:
-    - budget-signals
-    - competitive-threat
-    - expansion
-    - signal-detection
-  responsibility: >
-    Detect commercial signals early from customer communications and surface
-    them with evidence, severity classification, and recommended actions.
+  - budget-signals
+  - competitive-threat
+  - expansion
+  - signal-detection
+  responsibility: 'Detect commercial signals early from customer communications and surface them with evidence, severity classification, and recommended actions.
 
-system_prompt: |
-  You are a Commercial Signal Detection Agent, part of the Account Executive
+    '
+system_prompt: 'You are a Commercial Signal Detection Agent, part of the Account Executive
+
   intelligence system. Your job is to find commercial signals in communications.
 
+
   You MUST:
+
   - Scan communications for budget signals (availability, constraints, fiscal timing)
+
   - Detect competitive activity with threat level assessment
+
   - Identify upsell/cross-sell opportunities from usage and conversation signals
+
   - Classify signal severity with specific evidence
+
   - Write risk alerts for HIGH severity signals
 
+
   You MUST NOT:
+
   - Access CRM data directly (you work from communications content)
-  - Diagnose deal health or stall causes (Deal Diagnosis Agent's domain)
-  - Manage pipeline metrics (Pipeline Management Agent's domain)
+
+  - Diagnose deal health or stall causes (Deal Diagnosis Agent''s domain)
+
+  - Manage pipeline metrics (Pipeline Management Agent''s domain)
+
   - Invent competitive positioning without explicit mention in source content
+
   - Assume budget amounts not explicitly stated
 
+
   Every signal you detect must cite the source (email, Slack, meeting notes)
+
   and the specific text that triggered detection.
 
+  '
 human_in_the_loop: true
-
 tools:
-  - component_type: ClientTool
-    id: read-communications
-    name: Read Communications
-    description: Access Slack threads, email content, and meeting notes for signal detection
-    requires_confirmation: false
-    inputs:
-      - title: source_type
-        type: string
-      - title: account_name
-        type: string
-    outputs:
-      - title: content
-        type: string
-    x-ea-agent:
-      risk: low
-      resolver: service-registry
-      error_responses:
-      - error_code: SOURCE_UNAVAILABLE
-        guidance: Cannot access communications, flag as data gap
-      - error_code: NO_RECORDS
-        guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, and meeting notes for signal detection
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
 
-  - component_type: ClientTool
-    id: read-infohub
-    name: Read InfoHub
-    description: >
-      Access structured account data from the InfoHub vault. Use section parameter
-      to target specific data: risks, decisions, stakeholders, competitive,
-      governance, value, journey, opportunities, context, or frameworks.
-    requires_confirmation: false
-    inputs:
-      - title: realm_id
-        type: string
-      - title: node_id
-        type: string
-      - title: section
-        type: string
-      - title: detail_level
-        type: string
-    outputs:
-      - title: infohub_data
-        type: object
-    x-ea-agent:
-      risk: low
-      resolver: service-registry
-      error_responses:
-      - error_code: SOURCE_UNAVAILABLE
-        guidance: Proceed with other data sources, flag output as incomplete
-      - error_code: SECTION_NOT_FOUND
-        guidance: Section does not exist for this account, skip and note gap
-      - error_code: STALE_DATA
-        guidance: Data exceeds freshness threshold, flag for human verification
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
 
-  - component_type: ClientTool
-    id: read-intelligence
-    name: Read Intelligence
-    description: >
-      Access intelligence layer data for a realm. Sections: account (company profile,
-      organigram, opportunity map), industry (profile, regulatory, trends),
-      market (news digest), technology (current map, vendor landscape).
-    requires_confirmation: false
-    inputs:
-      - title: realm_id
-        type: string
-      - title: section
-        type: string
-      - title: detail_level
-        type: string
-    outputs:
-      - title: intelligence_data
-        type: object
-    x-ea-agent:
-      risk: low
-      resolver: service-registry
-      error_responses:
-      - error_code: SOURCE_UNAVAILABLE
-        guidance: Skip intelligence enrichment, proceed with core data
-      - error_code: SECTION_NOT_FOUND
-        guidance: Intelligence section unavailable, note gap in output
-      - error_code: STALE_DATA
-        guidance: Intelligence may be outdated, flag for refresh
-
-  - component_type: ClientTool
-    id: write-risk-alert
-    name: Write Risk Alert
-    description: Save commercial signal alert to InfoHub risk register
-    requires_confirmation: true
-    inputs:
-      - title: risk
-        type: object
-      - title: destination_path
-        type: string
-    outputs:
-      - title: status
-        type: string
-    x-ea-agent:
-      risk: medium
-      resolver: service-registry
-
-  - component_type: ClientTool
-    id: save-signal-intelligence
-    name: Save Signal Intelligence
-    description: Persist signal assessment to InfoHub, making results queryable via toolbox
-    requires_confirmation: false
-    inputs:
-      - title: assessment
-        type: object
-      - title: account_name
-        type: string
-    outputs:
-      - title: status
-        type: string
-    x-ea-agent:
-      risk: low
-      resolver: service-registry
-
-  - component_type: ClientTool
-    id: ask-user
-    name: Ask User
-    description: Request clarification from account executive about signal context
-    requires_confirmation: false
-    inputs:
-      - title: question
-        type: string
-    outputs:
-      - title: answer
-        type: string
-    x-ea-agent:
-      risk: low
-      resolver: inline
-
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: write-risk-alert
+  name: Write Risk Alert
+  description: Save commercial signal alert to InfoHub risk register
+  requires_confirmation: true
+  inputs:
+  - title: risk
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: save-signal-intelligence
+  name: Save Signal Intelligence
+  description: Persist signal assessment to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from account executive about signal context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
 toolboxes:
-  - component_type: Toolbox
-    id: signal-intelligence
-    name: Signal Intelligence
-    description: Commercial signal data available to peer agents for deal context enrichment
-    tools:
-      - id: get-commercial-signals
-        name: Get Commercial Signals
-        description: Returns classified commercial signals (budget, competitive, expansion) for an account
-        inputs:
-          - title: account_name
-            type: string
-          - title: time_period
-            type: string
-        outputs:
-          - title: signals
-            type: array
-      - id: get-risk-signals
-        name: Get Risk Signals
-        description: Returns risk-classified signals with severity and source citations
-        inputs:
-          - title: account_name
-            type: string
-        outputs:
-          - title: risk_signals
-            type: array
-specialized_agents: []
-
-flows:
-  - component_type: Flow
-    id: commercial-signal-detection
-    name: Commercial Signal Detection
-    playbook_refs: [PB_AE_001, PB_AE_002, PB_AE_003, PB_AE_006]
-    description: Detect budget signals, competitive threats, and expansion opportunities from customer communications.
+- component_type: Toolbox
+  id: signal-intelligence
+  name: Signal Intelligence
+  description: Commercial signal data available to peer agents for deal context enrichment
+  tools:
+  - id: get-commercial-signals
+    name: Get Commercial Signals
+    description: Returns classified commercial signals (budget, competitive, expansion) for an account
     inputs:
-      - title: account_context
-        type: object
-      - title: time_period
-        type: string
-      - title: usage_patterns
-        type: object
+    - title: account_name
+      type: string
+    - title: time_period
+      type: string
     outputs:
-      - title: budget_signals
-        type: object
-      - title: competitive_assessment
-        type: object
-      - title: expansion_opportunities
-        type: object
-    x-ea-agent:
-      workflow_shorthand:
-        - step: 1
-          prompt: ae-budget-signal-scan
-          input: account_context, time_period
-          tools: [read-communications, read-infohub, read-intelligence]
-          description: Extract budget availability, constraints, fiscal timing, approval processes
-          on_failure: stop
-        - step: 2
-          prompt: ae-competitive-threat
-          input: account_context
-          tools: [read-communications]
-          description: Assess competitive activity, threat levels, differentiation, defensive actions
-          on_failure: skip_with_warning
-        - step: 3
-          prompt: ae-expansion-opportunity
-          input: account_context, usage_patterns
-          tools: [read-communications]
-          description: Identify upsell/cross-sell signals, value estimates, stakeholders to engage
-          on_failure: skip_with_warning
-        - step: 4
-          action: persist
-          tools: [save-signal-intelligence, write-risk-alert]
-          condition: write-risk-alert triggers when signal.severity >= HIGH
-          description: Save signal assessment to InfoHub, write risk alerts for HIGH severity signals
-          on_failure: stop
-
+    - title: signals
+      type: array
+  - id: get-risk-signals
+    name: Get Risk Signals
+    description: Returns risk-classified signals with severity and source citations
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: risk_signals
+      type: array
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: commercial-signal-detection
+  name: Commercial Signal Detection
+  playbook_refs:
+  - PB_AE_001
+  - PB_AE_002
+  - PB_AE_003
+  - PB_AE_006
+  description: Detect budget signals, competitive threats, and expansion opportunities from customer communications.
+  inputs:
+  - title: account_context
+    type: object
+  - title: time_period
+    type: string
+  - title: usage_patterns
+    type: object
+  outputs:
+  - title: budget_signals
+    type: object
+  - title: competitive_assessment
+    type: object
+  - title: expansion_opportunities
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ae-budget-signal-scan
+      input: account_context, time_period
+      tools:
+      - read-communications
+      - read-infohub
+      - read-intelligence
+      description: Extract budget availability, constraints, fiscal timing, approval processes
+      on_failure: stop
+    - step: 2
+      prompt: ae-competitive-threat
+      input: account_context
+      tools:
+      - read-communications
+      description: Assess competitive activity, threat levels, differentiation, defensive actions
+      on_failure: skip_with_warning
+    - step: 3
+      prompt: ae-expansion-opportunity
+      input: account_context, usage_patterns
+      tools:
+      - read-communications
+      description: Identify upsell/cross-sell signals, value estimates, stakeholders to engage
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-signal-intelligence
+      - write-risk-alert
+      condition: write-risk-alert triggers when signal.severity >= HIGH
+      description: Save signal assessment to InfoHub, write risk alerts for HIGH severity signals
+      on_failure: stop
 a2a:
   agent_url: null
   connection_config: null
   agent_card:
-    protocol_version: "0.1"
+    protocol_version: '0.1'
     capabilities:
-      - budget-signal-detection
-      - competitive-threat-assessment
-      - expansion-opportunity-detection
+    - budget-signal-detection
+    - competitive-threat-assessment
+    - expansion-opportunity-detection
     input_modes:
-      - text/plain
-      - application/json
+    - text/plain
+    - application/json
     output_modes:
-      - application/json
-      - text/markdown
-
+    - application/json
+    - text/markdown
 x-ea-agent:
   profile:
-    human_matters_summary: >
-      The agent detects signals. The AE interprets them: a budget freeze
-      mentioned in passing could be FUD from a competitor or a genuine
-      constraint. Competitive mentions could be leverage or real threat. Only
-      the AE, with relationship context and deal history, knows which
-      interpretation to act on. The agent surfaces, but the AE decides.
-    challenges:
-      - "Stakeholder sentiment shifts between meetings without warning"
-      - "Competitive moves surface too late to adjust positioning"
-    administrative_overhead:
-      - "Scanning news feeds, competitor announcements, and customer press releases for deal-relevant changes"
-      - "Manually checking customer social media and earnings calls for buying signals"
-    scenarios:
-      - problem: "Competitive moves surface too late to adjust positioning"
-        why: >
-          Without real-time competitive monitoring, the AE walks into meetings
-          unaware that a competitor just announced a feature, dropped pricing,
-          or landed a reference customer in the same industry.
-        agent: ae-signal-detection-agent
-        agent_response: >
-          Continuously monitors competitive signals from news, CRM notes, and
-          partner channels. Surfaces positioning risks to active deals and
-          suggests talk tracks before the next customer touchpoint.
-        success_signal:
-          metric: "Competitive signal surfaced before customer interaction"
-          target: "100% of material competitive moves flagged within 24h"
-          leading_indicator: "AE acknowledges and uses competitive brief before meeting"
-          failure_signal: "Customer raises competitor comparison the AE hears for the first time"
-      - problem: "Stakeholder sentiment shifts between meetings without warning"
-        why: >
-          Budget freezes, reorgs, and champion departures happen between calls.
-          Without continuous monitoring, the AE reacts to changes days or weeks
-          after the window to intervene has closed.
-        agent: ae-signal-detection-agent
-        agent_response: >
-          Watches CRM activity logs, email engagement, and meeting note
-          sentiment for early indicators. Flags risk signals to the AE with
-          context and recommended response before the next interaction.
-        success_signal:
-          metric: "Sentiment-shift signals surfaced within 24h of indicator"
-          target: "100% of HIGH-severity signals flagged before next meeting"
-          leading_indicator: "AE acts on signal before customer raises the issue"
-          failure_signal: "AE discovers sentiment change during the call, not before it"
-  escalation_triggers:
-    - "HIGH severity commercial signal detected (budget, competitive, or churn)"
-    - "Competitive threat confirmed at active deal level"
-    - "Org change affecting champion or economic buyer"
-    - "Budget constraint signal on deal in commit forecast"
+    human_matters_summary: 'The agent detects signals. The AE interprets them: a budget freeze mentioned in passing could be FUD from a competitor or a genuine constraint. Competitive mentions could be
+      leverage or real threat. Only the AE, with relationship context and deal history, knows which interpretation to act on. The agent surfaces, but the AE decides.
 
+      '
+    challenges:
+    - text: Stakeholder sentiment shifts between meetings without warning
+      specific_overhead:
+      - Scanning news feeds, competitor announcements, and customer press releases for deal-relevant changes
+    - text: Competitive moves surface too late to adjust positioning
+      specific_overhead:
+      - Manually checking customer social media and earnings calls for buying signals
+    administrative_overhead:
+    - Scanning news feeds, competitor announcements, and customer press releases for deal-relevant changes
+    - Manually checking customer social media and earnings calls for buying signals
+    scenarios:
+    - problem: Competitive moves surface too late to adjust positioning
+      why: 'Without real-time competitive monitoring, the AE walks into meetings unaware that a competitor just announced a feature, dropped pricing, or landed a reference customer in the same industry.
+
+        '
+      agent: ae-signal-detection-agent
+      agent_response: 'Continuously monitors competitive signals from news, CRM notes, and partner channels. Surfaces positioning risks to active deals and suggests talk tracks before the next customer
+        touchpoint.
+
+        '
+      success_signal:
+        metric: The AE knows about competitive moves before the customer brings them up
+        target: Material competitive signals reach the AE while there is still time to adjust positioning
+        leading_indicator: AE acknowledges and uses competitive brief before meeting
+        failure_signal: Customer raises competitor comparison the AE hears for the first time
+    - problem: Stakeholder sentiment shifts between meetings without warning
+      why: 'Budget freezes, reorgs, and champion departures happen between calls. Without continuous monitoring, the AE reacts to changes days or weeks after the window to intervene has closed.
+
+        '
+      agent: ae-signal-detection-agent
+      agent_response: 'Watches CRM activity logs, email engagement, and meeting note sentiment for early indicators. Flags risk signals to the AE with context and recommended response before the next interaction.
+
+        '
+      success_signal:
+        metric: Sentiment changes are visible between meetings, not discovered during them
+        target: The AE walks into meetings already aware of shifts in stakeholder tone or engagement
+        leading_indicator: AE acts on signal before customer raises the issue
+        failure_signal: AE discovers sentiment change during the call, not before it
+  escalation_triggers:
+  - HIGH severity commercial signal detected (budget, competitive, or churn)
+  - Competitive threat confirmed at active deal level
+  - Org change affecting champion or economic buyer
+  - Budget constraint signal on deal in commit forecast
   prompt_registry:
     ae-budget-signal-scan:
       description: Identify budget-related signals in communications (availability, constraints, timing)
       source: prompts/tasks.yaml#commercial_signals.budget_signal_scan
       inputs:
-        - title: account_name
-          type: string
-        - title: time_period
-          type: string
+      - title: account_name
+        type: string
+      - title: time_period
+        type: string
       outputs:
-        - title: budget_signals
-          type: object
+      - title: budget_signals
+        type: object
       requires_data:
-        - source: read-communications
-          fields: [emails, meetings, slack_threads]
-          priority: critical
-        - source: read-infohub
-          fields: [budget_history, fiscal_context]
-          priority: enrichment
-        - source: read-intelligence
-          fields: [industry_trends, fiscal_calendars]
-          priority: enrichment
-
+      - source: read-communications
+        fields:
+        - emails
+        - meetings
+        - slack_threads
+        priority: critical
+      - source: read-infohub
+        fields:
+        - budget_history
+        - fiscal_context
+        priority: enrichment
+      - source: read-intelligence
+        fields:
+        - industry_trends
+        - fiscal_calendars
+        priority: enrichment
     ae-competitive-threat:
       description: Identify competitive activity in account with threat level assessment
       source: prompts/tasks.yaml#commercial_signals.competitive_threat
       inputs:
-        - title: account_name
-          type: string
+      - title: account_name
+        type: string
       outputs:
-        - title: competitive_assessment
-          type: object
+      - title: competitive_assessment
+        type: object
       requires_data:
-        - source: read-communications
-          fields: [emails, meetings, slack_threads]
-          priority: critical
-        - source: read-intelligence
-          fields: [vendor_landscape, competitor_profiles]
-          priority: enrichment
-
+      - source: read-communications
+        fields:
+        - emails
+        - meetings
+        - slack_threads
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - vendor_landscape
+        - competitor_profiles
+        priority: enrichment
     ae-expansion-opportunity:
       description: Identify upsell and cross-sell opportunities from usage and conversation signals
       source: prompts/tasks.yaml#commercial_signals.expansion_opportunity
       inputs:
-        - title: account_name
-          type: string
+      - title: account_name
+        type: string
       outputs:
-        - title: expansion_opportunities
-          type: object
+      - title: expansion_opportunities
+        type: object
       requires_data:
-        - source: read-communications
-          fields: [emails, meetings, slack_threads]
-          priority: critical
-        - source: read-infohub
-          fields: [account_context, usage_data]
-          priority: enrichment
-        - source: read-intelligence
-          fields: [market_trends, technology_map]
-          priority: enrichment
-
+      - source: read-communications
+        fields:
+        - emails
+        - meetings
+        - slack_threads
+        priority: critical
+      - source: read-infohub
+        fields:
+        - account_context
+        - usage_data
+        priority: enrichment
+      - source: read-intelligence
+        fields:
+        - market_trends
+        - technology_map
+        priority: enrichment
   boundaries:
-    - Communications scanning only, does not access CRM data directly
-    - Does not diagnose deal health or manage pipeline metrics
-    - Does not prepare meeting materials
-    - Does not infer competitive positioning without explicit mention
-
+  - Communications scanning only, does not access CRM data directly
+  - Does not diagnose deal health or manage pipeline metrics
+  - Does not prepare meeting materials
+  - Does not infer competitive positioning without explicit mention
   permissions:
-    - Read all customer communications (email, Slack, meeting notes)
-    - Detect and classify commercial signals by severity
-    - Write signal-based risk alerts to InfoHub
-    - Forward competitive mentions to CI Agent via parent orchestrator
-
+  - Read all customer communications (email, Slack, meeting notes)
+  - Detect and classify commercial signals by severity
+  - Write signal-based risk alerts to InfoHub
+  - Forward competitive mentions to CI Agent via parent orchestrator
   guardrails:
     input_validation:
-      - Reject signal scans without specified time period or account context
-      - Reject competitive assessment without communication sources to scan
+    - Reject signal scans without specified time period or account context
+    - Reject competitive assessment without communication sources to scan
     output_checks:
-      - All signals must be traceable to specific source, date, and text excerpt
-      - Threat levels must be justified by cited evidence
-      - Expansion estimates must be conservative and stated as ranges
-      - Severity classification must match reference criteria
+    - All signals must be traceable to specific source, date, and text excerpt
+    - Threat levels must be justified by cited evidence
+    - Expansion estimates must be conservative and stated as ranges
+    - Severity classification must match reference criteria
     signal_validation:
-      - Never assume budget amounts not explicitly mentioned
-      - Never infer competitive positioning without explicit mention in source
-      - Add [NEEDS VERIFICATION] when signal is ambiguous
-      - Distinguish between confirmed and inferred signals in output
+    - Never assume budget amounts not explicitly mentioned
+    - Never infer competitive positioning without explicit mention in source
+    - Add [NEEDS VERIFICATION] when signal is ambiguous
+    - Distinguish between confirmed and inferred signals in output
   error_handling:
     tool_failures:
-      critical: [read-communications]
-      enrichment: [read-infohub, read-intelligence]
+      critical:
+      - read-communications
+      enrichment:
+      - read-infohub
+      - read-intelligence
     on_critical_failure:
       action: stop
       emit_signal: SIG_CRITICAL_DATA_MISSING
@@ -426,55 +447,69 @@ x-ea-agent:
       action: warn_and_continue
       emit_signal: SIG_STALE_DATA_USED
       guidance: Flag freshness concern for human verification
-
   knowledge:
     scope:
-      domains: [signal-detection, risk-assessment]
-      archetypes: [enterprise, mid-market]
+      domains:
+      - signal-detection
+      - risk-assessment
+      archetypes:
+      - enterprise
+      - mid-market
     references:
-      - path: references/competitive-displacement.yaml
-        description: Incumbent analysis framework, competitive positioning strategies, FUD patterns to detect
-
+    - path: references/competitive-displacement.yaml
+      description: Incumbent analysis framework, competitive positioning strategies, FUD patterns to detect
   autonomy:
     triggers:
-      - type: parent_dispatch
-        source: ae-agent
-        description: AE orchestrator routes signal analysis requests
-      - type: event
-        source: communications_feed
-        condition: new_communication.type IN [email, slack, meeting_notes]
-        description: Auto-scans when new customer communications arrive
-      - type: schedule
-        cadence: daily
-        window: 06:00-07:00
-        description: Daily signal sweep across all active accounts
-      - type: downstream
-        source: PB_AE_001
-        signal: SIG_AE_CALIBRATION
-        condition: calibration_pass.completed == true
-        description: Retrospective calibration compares signal accuracy against deal outcome, updates calibration-log.yaml
+    - type: parent_dispatch
+      source: ae-agent
+      description: AE orchestrator routes signal analysis requests
+    - type: event
+      source: communications_feed
+      condition: new_communication.type IN [email, slack, meeting_notes]
+      description: Auto-scans when new customer communications arrive
+    - type: schedule
+      cadence: daily
+      window: 06:00-07:00
+      description: Daily signal sweep across all active accounts
+    - type: downstream
+      source: PB_AE_001
+      signal: SIG_AE_CALIBRATION
+      condition: calibration_pass.completed == true
+      description: Retrospective calibration compares signal accuracy against deal outcome, updates calibration-log.yaml
     outputs:
-      - type: parent_return
-        target: ae-agent
-        payload: [budget_signals, competitive_assessment, expansion_opportunities]
-        description: Full signal report back to orchestrator for aggregation
-      - type: trigger_agent
-        target: ae-deal-diagnosis-agent
-        condition: competitive_threat.severity >= HIGH
-        payload: [signal_assessment, threat_details, affected_opportunity]
-        description: Competitive threat triggers automatic deal health reassessment
-      - type: trigger_agent
-        target: ae-stakeholder-agent
-        condition: org_change_detected == true OR champion_risk_signals > 0
-        payload: [signal_assessment, change_details, affected_contacts]
-        description: Org changes or champion risk triggers relationship map update
-      - type: trigger_agent
-        target: ae-qualification-agent
-        condition: new_pain_point_detected == true OR budget_signal.type == constraint
-        payload: [signal_assessment, pain_details, budget_context]
-        description: New pain points or budget constraints trigger re-qualification
-      - type: notify_human
-        condition: signal.severity == HIGH
-        channel: alert
-        description: HIGH severity signals surface immediately for AE review
+    - type: parent_return
+      target: ae-agent
+      payload:
+      - budget_signals
+      - competitive_assessment
+      - expansion_opportunities
+      description: Full signal report back to orchestrator for aggregation
+    - type: trigger_agent
+      target: ae-deal-diagnosis-agent
+      condition: competitive_threat.severity >= HIGH
+      payload:
+      - signal_assessment
+      - threat_details
+      - affected_opportunity
+      description: Competitive threat triggers automatic deal health reassessment
+    - type: trigger_agent
+      target: ae-stakeholder-agent
+      condition: org_change_detected == true OR champion_risk_signals > 0
+      payload:
+      - signal_assessment
+      - change_details
+      - affected_contacts
+      description: Org changes or champion risk triggers relationship map update
+    - type: trigger_agent
+      target: ae-qualification-agent
+      condition: new_pain_point_detected == true OR budget_signal.type == constraint
+      payload:
+      - signal_assessment
+      - pain_details
+      - budget_context
+      description: New pain points or budget constraints trigger re-qualification
+    - type: notify_human
+      condition: signal.severity == HIGH
+      channel: alert
+      description: HIGH severity signals surface immediately for AE review
     dependencies: []

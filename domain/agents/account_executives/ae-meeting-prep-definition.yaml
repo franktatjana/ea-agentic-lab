@@ -1,496 +1,527 @@
-# AE Meeting Preparation Agent
-# Sub-agent of Account Executive Agent (ae-agent)
-# Owns: call preparation briefs, QBR materials, post-call summaries
-#
-# LICENSE: CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
-
-agentspec_version: "26.1.0"
+agentspec_version: 26.1.0
 component_type: Agent
-
 id: ae-meeting-prep-agent
 name: AE Meeting Preparation Agent
-description: >
-  The AE's biggest time sink is pulling context from five different systems
-  before a call. This agent assembles call briefs with commercial context
-  and risks, builds QBR materials around value delivered, and captures
-  post-call action items so nothing agreed in the meeting gets lost.
+description: 'The AE''s biggest time sink is pulling context from five different systems before a call. This agent assembles call briefs with commercial context and risks, builds QBR materials around value
+  delivered, and captures post-call action items so nothing agreed in the meeting gets lost.
 
+  '
 metadata:
-  definition_version: "0.1.0"
+  definition_version: 0.1.0
   parent_agent: ae-agent
   tags:
-    - meeting-prep
-    - call-brief
-    - qbr
-    - post-call
-  responsibility: >
-    Ensure every customer meeting has preparation context and every call
-    produces a structured summary with captured actions and decisions.
+  - meeting-prep
+  - call-brief
+  - qbr
+  - post-call
+  responsibility: 'Ensure every customer meeting has preparation context and every call produces a structured summary with captured actions and decisions.
 
-system_prompt: |
-  You are a Meeting Preparation Agent, part of the Account Executive
+    '
+system_prompt: 'You are a Meeting Preparation Agent, part of the Account Executive
+
   intelligence system. Your job is to make every meeting productive.
 
+
   You MUST:
+
   - Prepare call briefs with last interaction summary, open items, objectives, risks
+
   - Generate QBR materials with value delivered, adoption metrics, expansion points
+
   - Produce post-call summaries with decisions, action items (owner + due date), CRM updates
+
   - Pull context from CRM and recent communications
+
   - All dates must be specific, all values must include currency units
 
+
   You MUST NOT:
+
   - Write risk alerts (you are read-only)
-  - Diagnose deal health or pipeline metrics (other agents' domains)
-  - Scan communications for commercial signals (Signal Detection Agent's domain)
+
+  - Diagnose deal health or pipeline metrics (other agents'' domains)
+
+  - Scan communications for commercial signals (Signal Detection Agent''s domain)
+
   - Invent discussion points not grounded in account data
+
   - Assume meeting outcomes not stated in call notes
 
+
   Post-call summaries must capture exactly what was said and decided.
+
   Never add interpretations or assumed commitments.
 
+  '
 human_in_the_loop: true
-
 tools:
-  - component_type: ClientTool
-    id: read-crm-data
-    name: Read CRM Data
-    description: Access account history, opportunity data, and recent interactions
-    requires_confirmation: false
-    inputs:
-      - title: query
-        type: string
-    outputs:
-      - title: crm_data
-        type: object
-    x-ea-agent:
-      risk: low
-      resolver: service-registry
-      error_responses:
-      - error_code: SOURCE_UNAVAILABLE
-        guidance: CRM unavailable, cannot proceed with pipeline data
-      - error_code: RECORD_NOT_FOUND
-        guidance: Record not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access account history, opportunity data, and recent interactions
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with pipeline data
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access recent emails, Slack threads, and meeting notes for context
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
 
-  - component_type: ClientTool
-    id: read-communications
-    name: Read Communications
-    description: Access recent emails, Slack threads, and meeting notes for context
-    requires_confirmation: false
-    inputs:
-      - title: source_type
-        type: string
-      - title: account_name
-        type: string
-    outputs:
-      - title: content
-        type: string
-    x-ea-agent:
-      risk: low
-      resolver: service-registry
-      error_responses:
-      - error_code: SOURCE_UNAVAILABLE
-        guidance: Cannot access communications, flag as data gap
-      - error_code: NO_RECORDS
-        guidance: No communications found for period, expand search or note gap
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
 
-  - component_type: ClientTool
-    id: read-infohub
-    name: Read InfoHub
-    description: >
-      Access structured account data from the InfoHub vault. Use section parameter
-      to target specific data: risks, decisions, stakeholders, competitive,
-      governance, value, journey, opportunities, context, or frameworks.
-    requires_confirmation: false
-    inputs:
-      - title: realm_id
-        type: string
-      - title: node_id
-        type: string
-      - title: section
-        type: string
-      - title: detail_level
-        type: string
-    outputs:
-      - title: infohub_data
-        type: object
-    x-ea-agent:
-      risk: low
-      resolver: service-registry
-      error_responses:
-      - error_code: SOURCE_UNAVAILABLE
-        guidance: Proceed with other data sources, flag output as incomplete
-      - error_code: SECTION_NOT_FOUND
-        guidance: Section does not exist for this account, skip and note gap
-      - error_code: STALE_DATA
-        guidance: Data exceeds freshness threshold, flag for human verification
-
-  - component_type: ClientTool
-    id: read-intelligence
-    name: Read Intelligence
-    description: >
-      Access intelligence layer data for a realm. Sections: account (company profile,
-      organigram, opportunity map), industry (profile, regulatory, trends),
-      market (news digest), technology (current map, vendor landscape).
-    requires_confirmation: false
-    inputs:
-      - title: realm_id
-        type: string
-      - title: section
-        type: string
-      - title: detail_level
-        type: string
-    outputs:
-      - title: intelligence_data
-        type: object
-    x-ea-agent:
-      risk: low
-      resolver: service-registry
-      error_responses:
-      - error_code: SOURCE_UNAVAILABLE
-        guidance: Skip intelligence enrichment, proceed with core data
-      - error_code: SECTION_NOT_FOUND
-        guidance: Intelligence section unavailable, note gap in output
-      - error_code: STALE_DATA
-        guidance: Intelligence may be outdated, flag for refresh
-
-  - component_type: ClientTool
-    id: save-meeting-intelligence
-    name: Save Meeting Intelligence
-    description: Persist call briefs, QBR materials, and post-call summaries to InfoHub
-    requires_confirmation: false
-    inputs:
-      - title: intelligence
-        type: object
-      - title: account_name
-        type: string
-    outputs:
-      - title: status
-        type: string
-    x-ea-agent:
-      risk: low
-      resolver: service-registry
-
-  - component_type: ClientTool
-    id: ask-user
-    name: Ask User
-    description: Request clarification about meeting purpose or attendee context
-    requires_confirmation: false
-    inputs:
-      - title: question
-        type: string
-    outputs:
-      - title: answer
-        type: string
-    x-ea-agent:
-      risk: low
-      resolver: inline
-
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-meeting-intelligence
+  name: Save Meeting Intelligence
+  description: Persist call briefs, QBR materials, and post-call summaries to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: intelligence
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification about meeting purpose or attendee context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
 toolboxes:
-  - component_type: Toolbox
-    id: meeting-intelligence
-    name: Meeting Intelligence
-    description: Call briefs and post-call summaries available to peer agents for context
-    tools:
-      - id: get-call-brief
-        name: Get Call Brief
-        description: Returns preparation brief for upcoming meeting with context, open items, and risks
-        inputs:
-          - title: account_name
-            type: string
-          - title: meeting_date
-            type: string
-        outputs:
-          - title: call_brief
-            type: object
-      - id: get-post-call-summary
-        name: Get Post-Call Summary
-        description: Returns structured call summary with decisions, action items, and CRM update recommendations
-        inputs:
-          - title: account_name
-            type: string
-          - title: call_date
-            type: string
-        outputs:
-          - title: post_call_summary
-            type: object
-specialized_agents: []
-
-flows:
-  - component_type: Flow
-    id: meeting-preparation
-    name: Meeting Preparation
-    playbook_refs: [PB_AE_003]
-    description: Prepare customer call briefs, QBR materials, and generate post-call summaries with action items.
+- component_type: Toolbox
+  id: meeting-intelligence
+  name: Meeting Intelligence
+  description: Call briefs and post-call summaries available to peer agents for context
+  tools:
+  - id: get-call-brief
+    name: Get Call Brief
+    description: Returns preparation brief for upcoming meeting with context, open items, and risks
     inputs:
-      - title: account_context
-        type: object
-      - title: meeting_date
+    - title: account_name
+      type: string
+    - title: meeting_date
+      type: string
+    outputs:
+    - title: call_brief
+      type: object
+  - id: get-post-call-summary
+    name: Get Post-Call Summary
+    description: Returns structured call summary with decisions, action items, and CRM update recommendations
+    inputs:
+    - title: account_name
+      type: string
+    - title: call_date
+      type: string
+    outputs:
+    - title: post_call_summary
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: meeting-preparation
+  name: Meeting Preparation
+  playbook_refs:
+  - PB_AE_003
+  description: Prepare customer call briefs, QBR materials, and generate post-call summaries with action items.
+  inputs:
+  - title: account_context
+    type: object
+  - title: meeting_date
+    type: string
+  - title: attendees
+    type: array
+  - title: call_notes
+    type: string
+  outputs:
+  - title: call_brief
+    type: object
+  - title: qbr_materials
+    type: object
+  - title: post_call_summary
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ae-call-prep
+      input: account_context, meeting_date, attendees, meeting_purpose
+      tools:
+      - read-crm-data
+      - read-communications
+      - read-infohub
+      - read-intelligence
+      description: Last interaction summary, open items, objectives, questions, risks
+      on_failure: stop
+    - step: 2
+      prompt: ae-qbr-prep
+      input: account_context, arr, qbr_type
+      tools:
+      - read-crm-data
+      description: Value delivered, adoption metrics, health scorecard, expansion points
+      on_failure: skip_with_warning
+    - step: 3
+      prompt: ae-post-call-summary
+      input: call_notes
+      description: Executive summary, decisions, action items with owners, follow-up, CRM updates
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-meeting-intelligence
+      description: Save call brief, QBR materials, and post-call summary to InfoHub
+      on_failure: stop
+- component_type: Flow
+  id: discovery-preparation
+  name: Discovery Call Preparation
+  playbook_refs:
+  - PB_AE_006
+  description: Prepare structured discovery call with persona-tailored questions mapped to MEDDPICC dimensions.
+  inputs:
+  - title: account_context
+    type: object
+  - title: attendee_roles
+    type: array
+  - title: known_pain_points
+    type: array
+  outputs:
+  - title: discovery_plan
+    type: object
+  - title: question_set
+    type: array
+  - title: evidence_mapping
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ae-discovery-plan
+      input: account_context, attendee_roles, known_pain_points
+      tools:
+      - read-crm-data
+      - read-communications
+      description: Build discovery plan with persona-specific questions, MEDDPICC mapping, and objection preparation
+      on_failure: stop
+    - step: 2
+      action: persist
+      tools:
+      - save-meeting-intelligence
+      description: Save discovery plan to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - call-preparation
+    - qbr-materials
+    - post-call-summaries
+    - discovery-planning
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'A brief tells the AE what to know. The AE decides what to say, when to listen, and how to adapt when the conversation goes somewhere unexpected. Meeting success depends on human
+      judgment, rapport, and the ability to pivot in real time. The agent assembles context, but the AE runs the conversation.
+
+      '
+    challenges:
+    - text: Discovery stays surface-level without structured question frameworks
+      specific_overhead:
+      - Writing meeting briefs by pulling context from 4-5 different systems
+    - text: Objection handling is improvised rather than systematic
+      specific_overhead:
+      - Capturing action items and follow-ups from meeting notes manually
+    administrative_overhead:
+    - Writing meeting briefs by pulling context from 4-5 different systems
+    - Capturing action items and follow-ups from meeting notes manually
+    scenarios:
+    - problem: Discovery stays surface-level without structured question frameworks
+      why: 'Generic discovery questions yield generic answers. Without structured frameworks tailored to the buyer persona and deal stage, AEs miss the business pain that justifies urgency and budget.
+
+        '
+      agent: ae-meeting-prep-agent
+      agent_response: 'Before each discovery or follow-up meeting, generates a tailored question framework based on deal stage, stakeholder role, and known gaps in qualification data. Includes persona-specific
+        angles and follow-up probes.
+
+        '
+      success_signal:
+        metric: Discovery meetings start with structured context and targeted questions
+        target: Post-meeting notes consistently capture new qualification data
+        leading_indicator: Meeting prep consumed < 5 minutes per meeting
+        failure_signal: Post-meeting notes show no new qualification data captured
+    - problem: Objection handling is improvised rather than systematic
+      why: 'Recurring objections get different answers every time. Without a playbook tied to the deal context, AEs miss proven responses and fail to connect objections back to validated business pain.
+
+        '
+      agent: ae-meeting-prep-agent
+      agent_response: 'Includes known objections and recommended responses in the call brief based on deal stage, competitor presence, and stakeholder concerns. Post-call, captures new objections for the
+        knowledge base.
+
+        '
+      success_signal:
+        metric: Known objections have a prepared response before the meeting starts
+        target: The AE handles objections with context rather than improvising on the spot
+        leading_indicator: New objections captured and added to knowledge base within 24h
+        failure_signal: AE encounters an objection with no prepared response or context
+  escalation_triggers:
+  - Call brief generated with critical data gaps (no CRM or comms data)
+  - Post-call summary reveals unexpected objection not previously flagged
+  - Discovery plan covers fewer than 4 of 8 MEDDPICC dimensions
+  - QBR materials show declining value delivery metrics
+  prompt_registry:
+    ae-call-prep:
+      description: Prepare for upcoming customer call with brief covering context, open items, and risks
+      source: prompts/tasks.yaml#meeting_prep.call_prep
+      inputs:
+      - title: account_name
+        type: string
+      - title: date
         type: string
       - title: attendees
         type: array
-      - title: call_notes
+      - title: meeting_purpose
         type: string
-    outputs:
+      outputs:
       - title: call_brief
         type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - opportunity_context
+        - last_interaction
+        - open_items
+        priority: critical
+      - source: read-communications
+        fields:
+        - recent_emails
+        - meeting_notes
+        - pending_responses
+        priority: critical
+      - source: read-infohub
+        fields:
+        - risk_flags
+        - stakeholder_map
+        priority: enrichment
+      - source: read-intelligence
+        fields:
+        - company_news
+        - industry_context
+        priority: enrichment
+    ae-qbr-prep:
+      description: Prepare Quarterly Business Review materials with value delivered and forward-looking discussion
+      source: prompts/tasks.yaml#meeting_prep.qbr_prep
+      inputs:
+      - title: account_name
+        type: string
+      - title: arr
+        type: number
+      - title: qbr_type
+        type: string
+      outputs:
       - title: qbr_materials
         type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - arr_data
+        - pipeline_health
+        - opportunity_history
+        priority: critical
+      - source: read-infohub
+        fields:
+        - value_delivered
+        - adoption_metrics
+        - open_issues
+        priority: critical
+      - source: read-communications
+        fields:
+        - issue_threads
+        - escalation_history
+        priority: enrichment
+      - source: read-intelligence
+        fields:
+        - industry_trends
+        - roadmap_relevance
+        priority: enrichment
+    ae-post-call-summary:
+      description: Summarize call and extract action items, decisions, and CRM update recommendations
+      source: prompts/tasks.yaml#meeting_prep.post_call_summary
+      inputs:
+      - title: account_name
+        type: string
+      - title: call_notes
+        type: string
+      outputs:
       - title: post_call_summary
         type: object
-    x-ea-agent:
-      workflow_shorthand:
-        - step: 1
-          prompt: ae-call-prep
-          input: account_context, meeting_date, attendees, meeting_purpose
-          tools: [read-crm-data, read-communications, read-infohub, read-intelligence]
-          description: Last interaction summary, open items, objectives, questions, risks
-          on_failure: stop
-        - step: 2
-          prompt: ae-qbr-prep
-          input: account_context, arr, qbr_type
-          tools: [read-crm-data]
-          description: Value delivered, adoption metrics, health scorecard, expansion points
-          on_failure: skip_with_warning
-        - step: 3
-          prompt: ae-post-call-summary
-          input: call_notes
-          description: Executive summary, decisions, action items with owners, follow-up, CRM updates
-          on_failure: skip_with_warning
-        - step: 4
-          action: persist
-          tools: [save-meeting-intelligence]
-          description: Save call brief, QBR materials, and post-call summary to InfoHub
-          on_failure: stop
-
-  - component_type: Flow
-    id: discovery-preparation
-    name: Discovery Call Preparation
-    playbook_refs: [PB_AE_006]
-    description: Prepare structured discovery call with persona-tailored questions mapped to MEDDPICC dimensions.
-    inputs:
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - current_crm_state
+        - opportunity_stage
+        priority: enrichment
+    ae-discovery-plan:
+      description: Build structured discovery plan with persona-tailored questions and MEDDPICC evidence mapping
+      source: prompts/tasks.yaml#meeting_prep.discovery_plan
+      inputs:
       - title: account_context
         type: object
       - title: attendee_roles
         type: array
       - title: known_pain_points
         type: array
-    outputs:
+      outputs:
       - title: discovery_plan
         type: object
-      - title: question_set
-        type: array
-      - title: evidence_mapping
-        type: object
-    x-ea-agent:
-      workflow_shorthand:
-        - step: 1
-          prompt: ae-discovery-plan
-          input: account_context, attendee_roles, known_pain_points
-          tools: [read-crm-data, read-communications]
-          description: Build discovery plan with persona-specific questions, MEDDPICC mapping, and objection preparation
-          on_failure: stop
-        - step: 2
-          action: persist
-          tools: [save-meeting-intelligence]
-          description: Save discovery plan to InfoHub
-          on_failure: stop
-
-a2a:
-  agent_url: null
-  connection_config: null
-  agent_card:
-    protocol_version: "0.1"
-    capabilities:
-      - call-preparation
-      - qbr-materials
-      - post-call-summaries
-      - discovery-planning
-    input_modes:
-      - text/plain
-      - application/json
-    output_modes:
-      - application/json
-      - text/markdown
-
-x-ea-agent:
-  profile:
-    human_matters_summary: >
-      A brief tells the AE what to know. The AE decides what to say, when to
-      listen, and how to adapt when the conversation goes somewhere unexpected.
-      Meeting success depends on human judgment, rapport, and the ability to
-      pivot in real time. The agent assembles context, but the AE runs the
-      conversation.
-    challenges:
-      - "Discovery stays surface-level without structured question frameworks"
-      - "Objection handling is improvised rather than systematic"
-    administrative_overhead:
-      - "Writing meeting briefs by pulling context from 4-5 different systems"
-      - "Capturing action items and follow-ups from meeting notes manually"
-    scenarios:
-      - problem: "Discovery stays surface-level without structured question frameworks"
-        why: >
-          Generic discovery questions yield generic answers. Without structured
-          frameworks tailored to the buyer persona and deal stage, AEs miss the
-          business pain that justifies urgency and budget.
-        agent: ae-meeting-prep-agent
-        agent_response: >
-          Before each discovery or follow-up meeting, generates a tailored question
-          framework based on deal stage, stakeholder role, and known gaps in
-          qualification data. Includes persona-specific angles and follow-up probes.
-        success_signal:
-          metric: "Structured discovery brief available before meeting"
-          target: "100% of discovery and qualification meetings"
-          leading_indicator: "Meeting prep consumed < 5 minutes per meeting"
-          failure_signal: "Post-meeting notes show no new qualification data captured"
-      - problem: "Objection handling is improvised rather than systematic"
-        why: >
-          Recurring objections get different answers every time. Without a
-          playbook tied to the deal context, AEs miss proven responses and
-          fail to connect objections back to validated business pain.
-        agent: ae-meeting-prep-agent
-        agent_response: >
-          Includes known objections and recommended responses in the call brief
-          based on deal stage, competitor presence, and stakeholder concerns.
-          Post-call, captures new objections for the knowledge base.
-        success_signal:
-          metric: "Objection response prepared before meeting"
-          target: "100% of meetings with known objection context included in brief"
-          leading_indicator: "New objections captured and added to knowledge base within 24h"
-          failure_signal: "AE encounters an objection with no prepared response or context"
-  escalation_triggers:
-    - "Call brief generated with critical data gaps (no CRM or comms data)"
-    - "Post-call summary reveals unexpected objection not previously flagged"
-    - "Discovery plan covers fewer than 4 of 8 MEDDPICC dimensions"
-    - "QBR materials show declining value delivery metrics"
-
-  prompt_registry:
-    ae-call-prep:
-      description: Prepare for upcoming customer call with brief covering context, open items, and risks
-      source: prompts/tasks.yaml#meeting_prep.call_prep
-      inputs:
-        - title: account_name
-          type: string
-        - title: date
-          type: string
-        - title: attendees
-          type: array
-        - title: meeting_purpose
-          type: string
-      outputs:
-        - title: call_brief
-          type: object
       requires_data:
-        - source: read-crm-data
-          fields: [opportunity_context, last_interaction, open_items]
-          priority: critical
-        - source: read-communications
-          fields: [recent_emails, meeting_notes, pending_responses]
-          priority: critical
-        - source: read-infohub
-          fields: [risk_flags, stakeholder_map]
-          priority: enrichment
-        - source: read-intelligence
-          fields: [company_news, industry_context]
-          priority: enrichment
-
-    ae-qbr-prep:
-      description: Prepare Quarterly Business Review materials with value delivered and forward-looking discussion
-      source: prompts/tasks.yaml#meeting_prep.qbr_prep
-      inputs:
-        - title: account_name
-          type: string
-        - title: arr
-          type: number
-        - title: qbr_type
-          type: string
-      outputs:
-        - title: qbr_materials
-          type: object
-      requires_data:
-        - source: read-crm-data
-          fields: [arr_data, pipeline_health, opportunity_history]
-          priority: critical
-        - source: read-infohub
-          fields: [value_delivered, adoption_metrics, open_issues]
-          priority: critical
-        - source: read-communications
-          fields: [issue_threads, escalation_history]
-          priority: enrichment
-        - source: read-intelligence
-          fields: [industry_trends, roadmap_relevance]
-          priority: enrichment
-
-    ae-post-call-summary:
-      description: Summarize call and extract action items, decisions, and CRM update recommendations
-      source: prompts/tasks.yaml#meeting_prep.post_call_summary
-      inputs:
-        - title: account_name
-          type: string
-        - title: call_notes
-          type: string
-      outputs:
-        - title: post_call_summary
-          type: object
-      requires_data:
-        - source: read-crm-data
-          fields: [current_crm_state, opportunity_stage]
-          priority: enrichment
-
-    ae-discovery-plan:
-      description: Build structured discovery plan with persona-tailored questions and MEDDPICC evidence mapping
-      source: prompts/tasks.yaml#meeting_prep.discovery_plan
-      inputs:
-        - title: account_context
-          type: object
-        - title: attendee_roles
-          type: array
-        - title: known_pain_points
-          type: array
-      outputs:
-        - title: discovery_plan
-          type: object
-      requires_data:
-        - source: read-crm-data
-          fields: [account_context, qualification_gaps, contact_history]
-          priority: critical
-        - source: read-communications
-          fields: [pain_point_mentions, prior_discussions]
-          priority: enrichment
-        - source: read-infohub
-          fields: [stakeholder_map, discovery_notes]
-          priority: enrichment
-
+      - source: read-crm-data
+        fields:
+        - account_context
+        - qualification_gaps
+        - contact_history
+        priority: critical
+      - source: read-communications
+        fields:
+        - pain_point_mentions
+        - prior_discussions
+        priority: enrichment
+      - source: read-infohub
+        fields:
+        - stakeholder_map
+        - discovery_notes
+        priority: enrichment
   boundaries:
-    - Meeting lifecycle only (before, during debrief, after)
-    - Read-only, does not write risk alerts or modify CRM data
-    - Does not diagnose deals, manage pipeline, or scan for signals
-    - Does not add interpretations beyond what's stated in source content
-
+  - Meeting lifecycle only (before, during debrief, after)
+  - Read-only, does not write risk alerts or modify CRM data
+  - Does not diagnose deals, manage pipeline, or scan for signals
+  - Does not add interpretations beyond what's stated in source content
   permissions:
-    - Read CRM account history and opportunity context
-    - Read recent communications for meeting preparation context
-    - Generate call briefs, QBR materials, and post-call summaries
-    - Recommend CRM updates based on call outcomes (for human review)
-
+  - Read CRM account history and opportunity context
+  - Read recent communications for meeting preparation context
+  - Generate call briefs, QBR materials, and post-call summaries
+  - Recommend CRM updates based on call outcomes (for human review)
   guardrails:
     input_validation:
-      - Reject call prep without account context and meeting date
-      - Reject QBR prep without ARR data and QBR type
-      - Reject post-call summary without call notes
+    - Reject call prep without account context and meeting date
+    - Reject QBR prep without ARR data and QBR type
+    - Reject post-call summary without call notes
     output_checks:
-      - Call objectives limited to 3 actionable items
-      - QBR value claims must be quantified and evidence-backed
-      - Post-call action items must have owners and due dates
-      - All dates specific, all values with currency units
+    - Call objectives limited to 3 actionable items
+    - QBR value claims must be quantified and evidence-backed
+    - Post-call action items must have owners and due dates
+    - All dates specific, all values with currency units
     signal_validation:
-      - Never fabricate prior interactions not in account history
-      - Post-call sentiment based on stated content, not assumed mood
-      - Discussion points must be grounded in account data
-      - CRM update recommendations are suggestions, not automatic changes
+    - Never fabricate prior interactions not in account history
+    - Post-call sentiment based on stated content, not assumed mood
+    - Discussion points must be grounded in account data
+    - CRM update recommendations are suggestions, not automatic changes
   error_handling:
     tool_failures:
-      critical: [read-crm-data, read-communications]
-      enrichment: [read-infohub, read-intelligence]
+      critical:
+      - read-crm-data
+      - read-communications
+      enrichment:
+      - read-infohub
+      - read-intelligence
     on_critical_failure:
       action: stop
       emit_signal: SIG_CRITICAL_DATA_MISSING
@@ -503,83 +534,102 @@ x-ea-agent:
       action: warn_and_continue
       emit_signal: SIG_STALE_DATA_USED
       guidance: Flag freshness concern for human verification
-
   knowledge:
     scope:
-      domains: [meeting-preparation, account-context]
-      archetypes: [enterprise, mid-market]
+      domains:
+      - meeting-preparation
+      - account-context
+      archetypes:
+      - enterprise
+      - mid-market
     references:
-      - path: references/meeting-standards.yaml
-        description: Call brief structure, QBR format and sections, post-call summary template, action item standards
-      - path: references/discovery-framework.yaml
-        description: Discovery question hierarchy (situation/problem/implication/need-payoff), per-persona focus areas, MEDDPICC evidence mapping
-      - path: references/objection-handling.yaml
-        description: Objection handling process (acknowledge/clarify/respond/confirm), common objection categories with response strategies
-      - path: references/value-framework.yaml
-        description: Value articulation structure (why now, value driver, why us, cost of inaction), before/after scenario format
-      - path: references/negotiation-framework.yaml
-        description: Negotiation preparation, pricing strategy, concession trading rules, customer tactics
-      - path: references/competitive-displacement.yaml
-        description: Incumbent analysis, positioning strategies, FUD defense, competitive traps
-      - path: references/roi-methodology.yaml
-        description: ROI model structure, TCO comparison, business case format, sensitivity analysis, value realization timeline
-
+    - path: references/meeting-standards.yaml
+      description: Call brief structure, QBR format and sections, post-call summary template, action item standards
+    - path: references/discovery-framework.yaml
+      description: Discovery question hierarchy (situation/problem/implication/need-payoff), per-persona focus areas, MEDDPICC evidence mapping
+    - path: references/objection-handling.yaml
+      description: Objection handling process (acknowledge/clarify/respond/confirm), common objection categories with response strategies
+    - path: references/value-framework.yaml
+      description: Value articulation structure (why now, value driver, why us, cost of inaction), before/after scenario format
+    - path: references/negotiation-framework.yaml
+      description: Negotiation preparation, pricing strategy, concession trading rules, customer tactics
+    - path: references/competitive-displacement.yaml
+      description: Incumbent analysis, positioning strategies, FUD defense, competitive traps
+    - path: references/roi-methodology.yaml
+      description: ROI model structure, TCO comparison, business case format, sensitivity analysis, value realization timeline
   autonomy:
     triggers:
-      - type: parent_dispatch
-        source: ae-agent
-        description: AE orchestrator routes meeting prep and debrief requests
-      - type: event
-        source: calendar_api
-        condition: meeting.time - now <= 24h AND meeting.type IN [customer, prospect]
-        description: Auto-generates call brief 24h before customer meetings
-      - type: downstream
-        source: ae-stakeholder-agent
-        condition: new_executive_identified == true
-        payload_expected: [executive_profile, relationship_context]
-        description: New executive triggers introductory meeting briefing
-      - type: downstream
-        source: ae-qualification-agent
-        condition: unknown_dimensions >= 3
-        payload_expected: [gap_analysis, discovery_targets]
-        description: Qualification gaps trigger discovery meeting preparation
+    - type: parent_dispatch
+      source: ae-agent
+      description: AE orchestrator routes meeting prep and debrief requests
+    - type: event
+      source: calendar_api
+      condition: meeting.time - now <= 24h AND meeting.type IN [customer, prospect]
+      description: Auto-generates call brief 24h before customer meetings
+    - type: downstream
+      source: ae-stakeholder-agent
+      condition: new_executive_identified == true
+      payload_expected:
+      - executive_profile
+      - relationship_context
+      description: New executive triggers introductory meeting briefing
+    - type: downstream
+      source: ae-qualification-agent
+      condition: unknown_dimensions >= 3
+      payload_expected:
+      - gap_analysis
+      - discovery_targets
+      description: Qualification gaps trigger discovery meeting preparation
     outputs:
-      - type: parent_return
-        target: ae-agent
-        payload: [call_brief, qbr_materials, post_call_summary, discovery_plan]
-        description: Meeting materials back to orchestrator
-      - type: trigger_agent
-        target: ae-opportunity-hygiene-agent
-        condition: post_call_summary.generated == true
-        payload: [post_call_summary, crm_update_recommendations]
-        description: Post-call summary triggers CRM hygiene update
-      - type: notify_human
-        condition: call_brief.ready == true
-        channel: notification
-        description: Call brief ready notification sent to AE before meeting
+    - type: parent_return
+      target: ae-agent
+      payload:
+      - call_brief
+      - qbr_materials
+      - post_call_summary
+      - discovery_plan
+      description: Meeting materials back to orchestrator
+    - type: trigger_agent
+      target: ae-opportunity-hygiene-agent
+      condition: post_call_summary.generated == true
+      payload:
+      - post_call_summary
+      - crm_update_recommendations
+      description: Post-call summary triggers CRM hygiene update
+    - type: notify_human
+      condition: call_brief.ready == true
+      channel: notification
+      description: Call brief ready notification sent to AE before meeting
     consumes_toolboxes:
-      - toolbox: risk-intelligence
-        agent: sa-risk-agent
-        tools: [get-risk-register]
-        reason: Risk context for meeting prep
-      - toolbox: poc-intelligence
-        agent: poc-agent
-        tools: [get-poc-status]
-        reason: POC status for QBR/discovery prep
-      - toolbox: discovery-intelligence
-        agent: sa-discovery-agent
-        tools: [get-discovery-summary]
-        reason: Discovery context for follow-up meetings
+    - toolbox: risk-intelligence
+      agent: sa-risk-agent
+      tools:
+      - get-risk-register
+      reason: Risk context for meeting prep
+    - toolbox: poc-intelligence
+      agent: poc-agent
+      tools:
+      - get-poc-status
+      reason: POC status for QBR/discovery prep
+    - toolbox: discovery-intelligence
+      agent: sa-discovery-agent
+      tools:
+      - get-discovery-summary
+      reason: Discovery context for follow-up meetings
     dependencies:
-      - agent: ae-stakeholder-agent
-        toolbox: stakeholder-intelligence
-        tools: [get-stakeholder-map, get-champion-status]
-        purpose: Attendee relationships and champion health for meeting context
-      - agent: ae-signal-detection-agent
-        toolbox: signal-intelligence
-        tools: [get-commercial-signals]
-        purpose: Latest signals to include in call briefs and talking points
-      - agent: ae-qualification-agent
-        toolbox: qualification-data
-        tools: [get-qualification-gaps]
-        purpose: Qualification gaps to address during meetings
+    - agent: ae-stakeholder-agent
+      toolbox: stakeholder-intelligence
+      tools:
+      - get-stakeholder-map
+      - get-champion-status
+      purpose: Attendee relationships and champion health for meeting context
+    - agent: ae-signal-detection-agent
+      toolbox: signal-intelligence
+      tools:
+      - get-commercial-signals
+      purpose: Latest signals to include in call briefs and talking points
+    - agent: ae-qualification-agent
+      toolbox: qualification-data
+      tools:
+      - get-qualification-gaps
+      purpose: Qualification gaps to address during meetings
