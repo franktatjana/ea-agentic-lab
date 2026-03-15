@@ -2,7 +2,7 @@ agentspec_version: 26.1.0
 component_type: Agent
 id: ca-architecture-agent
 name: CA Architecture Agent
-description: 'Monitors customer-side architecture for changes that affect vendor integrations. Covers architecture discovery, change impact assessment, and integration health tracking. Synthesizes architecture signals into actionable intelligence that helps the Customer Architect maintain alignment between customer infrastructure and vendor solutions.
+description: 'Monitors customer-side architecture for changes that affect vendor integrations. Covers architecture discovery, change impact assessment, integration health tracking, upgrade readiness assessment, and preventive maintenance recommendations. Synthesizes architecture signals into actionable intelligence that helps the Customer Architect maintain alignment between customer infrastructure and vendor solutions.
 
   '
 metadata:
@@ -13,14 +13,16 @@ metadata:
   - integration-health
   - change-impact
   - design-drift
-  responsibility: Monitor customer-side architecture changes, assess change impact on vendor integrations, and track integration health
+  - upgrade-readiness
+  - preventive-maintenance
+  responsibility: Monitor customer-side architecture changes, assess change impact on vendor integrations, track integration health, assess upgrade readiness, and recommend preventive maintenance
 system_prompt: 'You are a Customer Architecture Agent, part of the Customer Architect intelligence
   system. You monitor customer-side architecture for changes that affect vendor integrations.
 
 
   FLOW ROUTING:
 
-  - customer-architecture: Monitor customer architecture changes, assess integration impact, and track architecture-vendor design consistency
+  - customer-architecture: Monitor customer architecture changes, assess integration impact, track architecture-vendor design consistency, assess upgrade readiness, and recommend preventive maintenance
 
 
   You MUST:
@@ -34,6 +36,10 @@ system_prompt: 'You are a Customer Architecture Agent, part of the Customer Arch
   - Track integration health across all customer-vendor touchpoints
 
   - Flag design drift between customer expectations and vendor implementation
+
+  - Assess upgrade readiness before major vendor version releases
+
+  - Recommend preventive maintenance based on configuration drift and patch status
 
 
   You MUST NOT:
@@ -152,11 +158,17 @@ flows:
   id: customer-architecture
   name: Customer Architecture
   playbook_refs: []
-  description: Monitor customer architecture changes, assess integration impact, and track architecture-vendor design consistency
+  description: Monitor customer architecture changes, assess integration impact, track architecture-vendor design consistency, assess upgrade readiness, and recommend preventive maintenance
   inputs:
   - title: account_context
     type: object
   - title: architecture_data
+    type: object
+  - title: upcoming_release
+    type: object
+  - title: patch_status
+    type: object
+  - title: configuration_baseline
     type: object
   outputs:
   - title: architecture_state
@@ -164,6 +176,10 @@ flows:
   - title: change_impacts
     type: array
   - title: integration_health
+    type: object
+  - title: upgrade_readiness
+    type: object
+  - title: preventive_maintenance
     type: object
   x-ea-agent:
     workflow_shorthand:
@@ -183,6 +199,16 @@ flows:
       description: Assess health of customer-vendor integrations
       on_failure: stop
     - step: 4
+      prompt: ca-upgrade-readiness
+      input: account_name, vendor, upcoming_release, architecture_state, integration_summary
+      description: Assess customer environment readiness for upcoming vendor release
+      on_failure: stop
+    - step: 5
+      prompt: ca-preventive-maintenance
+      input: account_name, architecture_state, patch_status, configuration_baseline
+      description: Analyze configuration drift and patch status for preventive maintenance recommendations
+      on_failure: stop
+    - step: 6
       action: persist
       tools:
       - write-ca-artifact
@@ -195,6 +221,8 @@ a2a:
     protocol_version: '0.1'
     capabilities:
     - customer-architecture
+    - upgrade-readiness
+    - preventive-maintenance
     input_modes:
     - text/plain
     - application/json
@@ -265,6 +293,26 @@ x-ea-agent:
         - api_health_status
         - error_logs
         priority: critical
+    ca-upgrade-readiness:
+      description: Assess customer environment readiness for upcoming vendor release
+      source: prompts/tasks.yaml#customer_architecture.upgrade_readiness
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - architecture_state
+        - integration_inventory
+        - vendor_release_requirements
+        priority: critical
+    ca-preventive-maintenance:
+      description: Analyze configuration and patch status for preventive maintenance recommendations
+      source: prompts/tasks.yaml#customer_architecture.preventive_maintenance
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - configuration_baseline
+        - patch_status
+        - known_issues
+        priority: critical
   boundaries:
   - Monitors and assesses customer architecture, does not design architectures
   - Does not make vendor architecture decisions (SA Agent's domain)
@@ -327,6 +375,11 @@ x-ea-agent:
       condition: signal.type IN [SIG_ARCHITECTURE_CHANGE] AND signal.source IN [meeting_notes, support_signals]
       description: Auto-activates when architecture change is detected in meeting notes or support signals
       flow: customer-architecture
+    - type: event
+      source: vendor_release
+      condition: vendor_release.announced == true
+      description: Auto-activates upgrade readiness assessment when a vendor release is announced
+      flow: customer-architecture
     - type: schedule
       source: account_review
       condition: account.status == active AND account.last_architecture_review_days > 90
@@ -339,9 +392,11 @@ x-ea-agent:
       - architecture_state
       - change_impacts
       - integration_health
+      - upgrade_readiness
+      - preventive_maintenance
       description: Full architecture analysis back to CA orchestrator
     - type: notify_human
-      condition: change_impact.severity == CRITICAL OR integration_health.score < threshold
+      condition: change_impact.severity == CRITICAL OR integration_health.score < threshold OR upgrade_readiness.blockers > 0
       channel: alert
       description: Critical architecture changes or degraded integration health surface for CA review
     dependencies: []

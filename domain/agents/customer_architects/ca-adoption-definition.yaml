@@ -2,7 +2,7 @@ agentspec_version: 26.1.0
 component_type: Agent
 id: ca-adoption-agent
 name: CA Adoption Agent
-description: 'Tracks proactive adoption health across customer accounts: adoption scoring, blocker identification, use case expansion discovery, value delivery assessment, QBR preparation, and success story development. Manages two flows, adoption tracking and value realization, to ensure customers achieve expected outcomes and expansion opportunities are surfaced early.
+description: 'Tracks proactive adoption health across customer accounts: adoption scoring, blocker identification, use case expansion discovery, value delivery assessment, QBR preparation, success story development, and customer enablement. Manages three flows, adoption tracking, value realization, and customer enablement, to ensure customers achieve expected outcomes, knowledge gaps are closed, and expansion opportunities are surfaced early.
 
   '
 metadata:
@@ -13,9 +13,10 @@ metadata:
   - value-realization
   - use-case-expansion
   - qbr
-  responsibility: Track adoption health, identify blockers and expansion opportunities, measure value delivery, and prepare QBR content
+  - customer-enablement
+  responsibility: Track adoption health, identify blockers and expansion opportunities, measure value delivery, prepare QBR content, and drive customer enablement for knowledge-type blockers
 system_prompt: 'You are a Customer Adoption Agent, part of the Customer Architect intelligence
-  system. You manage adoption tracking and value realization across two flows.
+  system. You manage adoption tracking, value realization, and customer enablement across three flows.
 
 
   FLOW ROUTING:
@@ -23,6 +24,8 @@ system_prompt: 'You are a Customer Adoption Agent, part of the Customer Architec
   - adoption: Adoption health assessment, blocker identification, and use case expansion discovery (ongoing monitoring, declining metrics)
 
   - value-realization: Value delivery measurement, QBR content preparation, and success story development (quarterly reviews, milestone achievements)
+
+  - customer-enablement: Knowledge gap assessment, training recommendation, and enablement outcome tracking (triggered by recurring knowledge-type adoption blockers)
 
 
   You MUST:
@@ -215,6 +218,47 @@ flows:
       - write-ca-artifact
       description: Save value assessment and QBR content to InfoHub
       on_failure: stop
+- component_type: Flow
+  id: customer-enablement
+  name: Customer Enablement
+  playbook_refs:
+  - PB_CA_010
+  description: Assess customer knowledge gaps from adoption blockers, recommend enablement actions, and track adoption lift after enablement interventions
+  inputs:
+  - title: account_context
+    type: object
+  - title: adoption_blockers
+    type: array
+  outputs:
+  - title: enablement_assessment
+    type: object
+  - title: enablement_recommendations
+    type: array
+  - title: enablement_outcome
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-enablement-assessment
+      input: account_name, adoption_blockers, usage_metrics
+      description: Identify knowledge gaps from adoption blockers classified as knowledge type
+      on_failure: stop
+    - step: 2
+      prompt: ca-training-recommendation
+      input: account_name, knowledge_gaps, customer_context
+      description: Recommend enablement actions based on knowledge gap analysis
+      on_failure: stop
+    - step: 3
+      prompt: ca-enablement-outcome
+      input: account_name, enablement_actions, baseline_metrics, measurement_window_days
+      description: Measure adoption lift within 30 days of enablement intervention
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - write-ca-artifact
+      description: Save enablement assessment and recommendations to InfoHub
+      on_failure: stop
 a2a:
   agent_url: null
   connection_config: null
@@ -223,6 +267,7 @@ a2a:
     capabilities:
     - adoption
     - value-realization
+    - customer-enablement
     input_modes:
     - text/plain
     - application/json
@@ -331,6 +376,36 @@ x-ea-agent:
     ca-success-story:
       description: Develop customer success story content
       source: prompts/tasks.yaml#value_realization.success_story
+    ca-enablement-assessment:
+      description: Assess customer knowledge gaps from adoption blocker patterns
+      source: prompts/tasks.yaml#customer_enablement.enablement_assessment
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - adoption_blockers
+        - usage_metrics
+        - support_tickets
+        priority: critical
+    ca-training-recommendation:
+      description: Recommend enablement actions based on knowledge gap analysis
+      source: prompts/tasks.yaml#customer_enablement.training_recommendation
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - knowledge_gaps
+        - customer_context
+        - available_enablement_resources
+        priority: critical
+    ca-enablement-outcome:
+      description: Track adoption change after enablement intervention
+      source: prompts/tasks.yaml#customer_enablement.enablement_outcome
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - enablement_actions_log
+        - baseline_metrics
+        - post_enablement_metrics
+        priority: critical
   boundaries:
   - Adoption tracking and value realization only, does not design solutions
   - Does not make pricing or commercial decisions
@@ -361,6 +436,7 @@ x-ea-agent:
       - value-realization
       - use-case-expansion
       - qbr
+      - customer-enablement
       archetypes:
       - enterprise
       - mid-market
@@ -409,6 +485,11 @@ x-ea-agent:
       condition: account.next_qbr_days <= 21
       description: Auto-activates value-realization for QBR preparation
       flow: value-realization
+    - type: event
+      source: adoption_blockers
+      condition: adoption_blocker.type == "knowledge" AND blocker.count >= 3
+      description: Auto-activates customer enablement when 3+ knowledge-type blockers detected
+      flow: customer-enablement
     outputs:
     - type: parent_return
       target: ca-agent
@@ -416,7 +497,8 @@ x-ea-agent:
       - adoption_assessment
       - expansion_opportunities
       - value_metrics
-      description: Adoption and value synthesis back to CA orchestrator
+      - enablement_assessment
+      description: Adoption, value, and enablement synthesis back to CA orchestrator
     - type: trigger_agent
       target: ca-health-agent
       condition: adoption.health < 40

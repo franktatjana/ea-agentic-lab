@@ -246,11 +246,16 @@ flows:
       description: Analyze quarterly support patterns for QBR preparation
       on_failure: skip_with_warning
     - step: 3
+      prompt: ca-support-backlog-trend
+      input: account_name, open_issue_count, agreed_threshold, prior_period_counts
+      description: Track open issue backlog against threshold, detect upward trends, recommend intervention when threshold exceeded for 2+ consecutive periods
+      on_failure: skip_with_warning
+    - step: 4
       prompt: ca-support-health-assessment
       input: account_name, recent_signals, health_score, engagement_track
       description: Assess how support health affects overall account health
       on_failure: stop
-    - step: 4
+    - step: 5
       action: persist
       tools:
       - write-ca-artifact
@@ -400,6 +405,17 @@ x-ea-agent:
         - resolution_metrics
         - escalation_patterns
         priority: critical
+    ca-support-backlog-trend:
+      description: Analyze support backlog trajectory against threshold and recommend intervention
+      source: prompts/tasks.yaml#support_intelligence.support_backlog_trend
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - open_issue_count
+        - agreed_threshold
+        - prior_period_counts
+        - backlog_age_distribution
+        priority: critical
     ca-support-health-assessment:
       description: Assess how support health affects overall account health
       source: prompts/tasks.yaml#support_intelligence.support_health_assessment
@@ -451,6 +467,12 @@ x-ea-agent:
       condition: account.active == true AND account.last_health_check_days > 30
       description: Auto-activates customer-health for accounts without recent health check
       flow: customer-health
+    - type: schedule
+      source: support_backlog
+      condition: account.active == true AND account.open_issue_count > account.agreed_backlog_threshold
+      description: Weekly check for support backlog threshold breach, triggers support-intelligence when backlog exceeds agreed threshold
+      flow: support-intelligence
+      frequency: weekly
     - type: event
       source: renewal_calendar
       condition: account.months_until_renewal <= 6 AND account.health_score < 60

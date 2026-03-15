@@ -268,6 +268,16 @@ flows:
       description: Compile product-related VoC for PM team
       on_failure: skip_with_warning
     - step: 11
+      prompt: ca-feedback-outcome-tracking
+      input: account_name, open_feedback_items, pm_action_log
+      description: Check whether PM acted on previously routed product feedback items
+      on_failure: skip_with_warning
+    - step: 12
+      prompt: ca-feedback-customer-notification
+      input: account_name, feedback_outcomes, stakeholder_contacts
+      description: Prepare customer communication about product feedback outcomes (shipped, roadmap planned, declined with rationale)
+      on_failure: skip_with_warning
+    - step: 13
       action: persist
       tools:
       - write-ca-artifact
@@ -462,6 +472,26 @@ x-ea-agent:
         - bug_reports
         - support_themes
         priority: critical
+    ca-feedback-outcome-tracking:
+      description: Check PM action status on previously routed product feedback items
+      source: prompts/tasks.yaml#voice_of_customer.feedback_outcome_tracking
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - open_feedback_items
+        - pm_action_log
+        - feedback_routing_history
+        priority: critical
+    ca-feedback-customer-notification:
+      description: Prepare customer communication about product feedback outcomes
+      source: prompts/tasks.yaml#voice_of_customer.feedback_customer_notification
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - feedback_outcomes
+        - stakeholder_contacts
+        - original_feedback_context
+        priority: critical
   boundaries:
   - Customer journey tracking and VoC collection only, does not create success plans
   - Does not modify health scores or risk assessments directly
@@ -539,6 +569,11 @@ x-ea-agent:
       source: quarterly_cycle
       condition: quarter.end_approaching == true
       description: Quarterly VoC trend analysis and QBR content preparation
+      flow: voice-of-customer
+    - type: schedule
+      source: feedback_outcome_cycle
+      condition: days_since_last_check >= 30 AND open_feedback_items.count > 0
+      description: 30-day cycle to check feedback outcome status on all open product feedback items
       flow: voice-of-customer
     outputs:
     - type: parent_return
