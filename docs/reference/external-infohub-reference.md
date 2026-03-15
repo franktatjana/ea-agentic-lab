@@ -153,7 +153,7 @@ Playbooks that produce customer deliverables write directly to the External Info
 
 ## Related Documentation
 
-- [Knowledge Vault Architecture](../architecture/system/knowledge-vault-architecture.md): full three-vault model, data flows, and security boundaries
+- [Vault Architecture](../architecture/system/vault-architecture.md): full three-vault model, data flows, and security boundaries
 - [External InfoHub Lifecycle](../guides/for-practitioners/external-infohub-lifecycle.md): creation, active use, handoff, and post-sales maintenance
 - [Internal InfoHub Reference](internal-infohub-reference.md): vendor-internal counterpart to this hub
 - [DDR-001: Three-Vault Knowledge Architecture](../decisions/DDR_001_three_vault_knowledge_architecture.md): decision rationale for the three-vault separation

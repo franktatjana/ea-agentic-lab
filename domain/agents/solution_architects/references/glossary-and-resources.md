@@ -16,7 +16,7 @@
 
 ## External Resources
 
-- TOGAF ADM Framework: architecture decision methodology
+- Architecture Decision Records (ADR): methodology for capturing and documenting architecture decisions
 - SWOT Analysis: strategic assessment framework (PB_STR_004)
 - Decision Tree Analysis: structured decision evaluation (PB_STR_006)
 - Risk Heat Map: visual risk prioritization (PB_STR_204)

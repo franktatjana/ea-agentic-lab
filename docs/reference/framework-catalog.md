@@ -250,9 +250,9 @@ See: [Customer Success Playbooks](../guides/for-practitioners/customer-success-p
 
 | ID | Framework | Source | When to Use | Output |
 |----|-----------|--------|-------------|--------|
-| **PB_SA_004** | **Five Whys Analysis** | Toyota Production System | Root cause needed | Root cause + countermeasures |
-| **PB_AE_001** | **Retrospective** | Agile + Five Whys | Deal won/lost | Learnings + process improvements |
-| **PB_AE_002** | **Account Planning** | Enterprise Sales + Five Whys | Annual planning | Account plan + blockers resolved |
+| **PB_SA_004** | **Situation Diagnostic** | Iterative causal analysis (adapted from Toyota Production System) | Shift in engagement, stakeholder, or deal dynamics | Root cause + countermeasures |
+| **PB_AE_001** | **Retrospective** | Agile + Situation Diagnostic | Deal won/lost | Learnings + process improvements |
+| **PB_AE_002** | **Account Planning** | Enterprise Sales + Situation Diagnostic | Annual planning | Account plan + blockers resolved |
 | **PB_AE_003** | **Sales QBR** | Enterprise Sales Ops | Quarterly sales review | Pipeline health + revenue attainment + forecast accuracy |
 | **PB_CA_001** | **Customer QBR** | Customer Success Best Practice | Quarterly customer review | Adoption progress + value realization + success plan refresh |
 

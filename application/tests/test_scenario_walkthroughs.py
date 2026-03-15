@@ -473,11 +473,11 @@ class TestDealClosureScenario:
             "PB_AE_001 should trigger on SIG_COM_002"
         )
 
-    def test_retrospective_has_five_whys(self, strategic_playbooks):
+    def test_retrospective_has_situation_diagnostic(self, strategic_playbooks):
         data = strategic_playbooks["PB_AE_001"]
         questions = data.get("key_questions", {})
         assert "five_whys_for_wins" in questions or "five_whys_for_losses" in questions, (
-            "PB_AE_001 should include Five Whys analysis"
+            "PB_AE_001 should include situation diagnostic analysis"
         )
 
     def test_account_planning_playbook_exists(self, strategic_playbooks):

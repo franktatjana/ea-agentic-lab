@@ -373,6 +373,7 @@ function CadenceView({ cadence }: { cadence: Record<string, unknown> }) {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 function MarketIntelCard({ data, badge }: { data: Record<string, unknown>; badge?: string }) {
+  const [open, setOpen] = useState(false);
   const meta = data.metadata as Record<string, unknown> | undefined;
   const execSummary = data.executive_summary as string | undefined;
   const compMoves = data.competitive_moves as Record<string, unknown>[] | undefined;
@@ -405,9 +406,14 @@ function MarketIntelCard({ data, badge }: { data: Record<string, unknown>; badge
             </span>
           )}
           {badge && <Badge variant="outline" className="text-xs ml-auto">{badge}</Badge>}
+          <div className="ml-auto">
+            <button onClick={() => setOpen(o => !o)} className="p-0.5 rounded hover:bg-muted/50 transition-colors" aria-label={open ? "Collapse" : "Expand"}>
+              <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${open ? "" : "-rotate-90"}`} />
+            </button>
+          </div>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-5">
+      {open && <CardContent className="space-y-5">
         {execSummary && (
           <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
             <p className="text-sm whitespace-pre-line">{execSummary.trim()}</p>
@@ -542,7 +548,7 @@ function MarketIntelCard({ data, badge }: { data: Record<string, unknown>; badge
             </div>
           </div>
         )}
-      </CardContent>
+      </CardContent>}
     </Card>
   );
 }
@@ -804,6 +810,7 @@ const THREAT_COLORS: Record<string, string> = {
 };
 
 function CompetitiveIntelligencePanel({ data }: { data: Record<string, unknown> }) {
+  const [open, setOpen] = useState(false);
   const summary = data.summary as Record<string, unknown> | undefined;
   const battlecard = data.battlecard as Record<string, unknown> | undefined;
   const winThemes = data.win_themes as Record<string, unknown> | undefined;
@@ -839,10 +846,15 @@ function CompetitiveIntelligencePanel({ data }: { data: Record<string, unknown> 
             and active CI actions. Updated continuously from field intelligence,
             market monitoring, and knowledge vault insights.
           </HelpPopover>
-          <Badge variant="outline" className="text-xs ml-auto">CI Agent</Badge>
+          <div className="ml-auto flex items-center gap-2">
+            <Badge variant="outline" className="text-xs">CI Agent</Badge>
+            <button onClick={() => setOpen(o => !o)} className="p-0.5 rounded hover:bg-muted/50 transition-colors" aria-label={open ? "Collapse" : "Expand"}>
+              <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${open ? "" : "-rotate-90"}`} />
+            </button>
+          </div>
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-5">
+      {open && <CardContent className="space-y-5">
         {summary && (
           <div className="space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
@@ -1171,7 +1183,7 @@ function CompetitiveIntelligencePanel({ data }: { data: Record<string, unknown> 
             {!!data.update_reason && <> &middot; {String(data.update_reason)}</>}
           </p>
         )}
-      </CardContent>
+      </CardContent>}
     </Card>
   );
 }
@@ -1201,7 +1213,7 @@ function NarrativeBanner({
         <div className="flex items-start gap-3">
           <BookOpen className="h-4 w-4 text-primary/60 shrink-0 mt-0.5" />
           <div className="space-y-2 min-w-0">
-            <p className="text-sm leading-relaxed whitespace-pre-line">{text}</p>
+            <p className="text-sm leading-relaxed">{text}</p>
             {background && purpose && (
               <p className="text-xs text-muted-foreground">
                 <span className="font-medium">Purpose:</span> {purpose}
@@ -3823,7 +3835,7 @@ function StakeholdersTab({ realmId, nodeId }: { realmId: string; nodeId: string 
 
 // -- Markdown prose wrapper for vault content --
 
-const PROSE_CLASSES = "prose prose-invert prose-sm max-w-none prose-headings:scroll-mt-4 prose-a:text-blue-400 prose-code:text-orange-300 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-border prose-table:text-sm prose-th:text-left";
+const PROSE_CLASSES = "prose dark:prose-invert prose-sm max-w-none prose-headings:scroll-mt-4 prose-a:text-blue-600 dark:prose-a:text-blue-400 prose-code:text-orange-600 dark:prose-code:text-orange-300 prose-code:before:content-none prose-code:after:content-none prose-pre:bg-zinc-100 dark:prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-border prose-table:text-sm prose-th:text-left";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function VaultMarkdown({ content }: { content: string }) {
@@ -3850,6 +3862,8 @@ function SignalsTab({ realmId, nodeId }: { realmId: string; nodeId: string }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fieldNotes = (vault.field_notes as any[]) || [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sourceDocuments = (vault.source_documents as any[]) || [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const marketIntel = vault.market_intelligence as Record<string, any> | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const agentWork = (vault.agent_work as any[]) || [];
@@ -3863,6 +3877,7 @@ function SignalsTab({ realmId, nodeId }: { realmId: string; nodeId: string }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricCard label="Meetings" value={meetings.length} />
         <MetricCard label="Field Notes" value={fieldNotes.length} />
+        <MetricCard label="Source Documents" value={sourceDocuments.length} />
         <MetricCard label="Agent Analyses" value={agentWork.length} />
         <MetricCard label="Market Intel" value={marketIntel ? "Available" : "None"} />
       </div>
@@ -3919,6 +3934,37 @@ function SignalsTab({ realmId, nodeId }: { realmId: string; nodeId: string }) {
                   </AccordionTrigger>
                   <AccordionContent>
                     <VaultMarkdown content={note.content} />
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Source Documents */}
+      {sourceDocuments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileText className="h-4 w-4" />
+              Source Documents
+              <Badge className="text-xs ml-1">{sourceDocuments.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Accordion type="single" collapsible className="w-full">
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {sourceDocuments.map((doc: any, i: number) => (
+                <AccordionItem key={i} value={`doc-${i}`}>
+                  <AccordionTrigger className="text-sm">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs shrink-0">{doc.folder}</Badge>
+                      <span>{doc.title}</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <VaultMarkdown content={doc.content} />
                   </AccordionContent>
                 </AccordionItem>
               ))}
@@ -4839,6 +4885,10 @@ function ExternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
 // -- Internal InfoHub (Vendor Only) Tab --
 
 function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: string }) {
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const isOpen = (id: string) => open[id] === true;
+  const toggle = (id: string) => setOpen(p => ({ ...p, [id]: !isOpen(id) }));
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, isLoading, error } = useQuery<Record<string, any>>({
     queryKey: ["internal-infohub", realmId, nodeId],
@@ -4887,10 +4937,15 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
                 Critical (&lt;60). Recalculated weekly or on significant events
                 like executive meetings, risk changes, or milestone completions.
               </HelpPopover>
-              <Badge variant="outline" className="text-xs ml-auto">Governance Agents</Badge>
+              <div className="ml-auto flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">Governance Agents</Badge>
+                <button onClick={() => toggle("health")} className="p-0.5 rounded hover:bg-muted/50 transition-colors" aria-label={isOpen("health") ? "Collapse" : "Expand"}>
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen("health") ? "" : "-rotate-90"}`} />
+                </button>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          {isOpen("health") && <CardContent className="space-y-4">
             {(() => {
               const hs = healthScore.health_score as Record<string, unknown> | undefined;
               const score = (hs?.current ?? healthScore.overall_score) as number | undefined;
@@ -5035,7 +5090,7 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
                 </>
               );
             })()}
-          </CardContent>
+          </CardContent>}
         </Card>
       )}
 
@@ -5046,10 +5101,15 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
               <AlertTriangle className="h-4 w-4" />
               Risk Register
               <Badge className="text-xs ml-1">{riskList.length}</Badge>
-              <Badge variant="outline" className="text-xs ml-auto">Risk Radar Agent</Badge>
+              <div className="ml-auto flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">Risk Radar Agent</Badge>
+                <button onClick={() => toggle("risks")} className="p-0.5 rounded hover:bg-muted/50 transition-colors" aria-label={isOpen("risks") ? "Collapse" : "Expand"}>
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen("risks") ? "" : "-rotate-90"}`} />
+                </button>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          {isOpen("risks") && <CardContent>
             <div className="space-y-2">
               {riskList.map((risk, i) => {
                 const severity = String(risk.severity || "medium").toLowerCase();
@@ -5071,7 +5131,7 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
                 );
               })}
             </div>
-          </CardContent>
+          </CardContent>}
         </Card>
       )}
 
@@ -5082,10 +5142,15 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
               <ClipboardList className="h-4 w-4" />
               Action Tracker
               <Badge className="text-xs ml-1">{actionList.length}</Badge>
-              <Badge variant="outline" className="text-xs ml-auto">Task Shepherd</Badge>
+              <div className="ml-auto flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">Task Shepherd</Badge>
+                <button onClick={() => toggle("actions")} className="p-0.5 rounded hover:bg-muted/50 transition-colors" aria-label={isOpen("actions") ? "Collapse" : "Expand"}>
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen("actions") ? "" : "-rotate-90"}`} />
+                </button>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          {isOpen("actions") && <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -5110,7 +5175,7 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
+          </CardContent>}
         </Card>
       )}
 
@@ -5121,10 +5186,15 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
               <GitCommitVertical className="h-4 w-4" />
               Decision Tracking
               <Badge className="text-xs ml-1">{decisions.length}</Badge>
-              <Badge variant="outline" className="text-xs ml-auto">Decision Registrar</Badge>
+              <div className="ml-auto flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">Decision Registrar</Badge>
+                <button onClick={() => toggle("decisions")} className="p-0.5 rounded hover:bg-muted/50 transition-colors" aria-label={isOpen("decisions") ? "Collapse" : "Expand"}>
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen("decisions") ? "" : "-rotate-90"}`} />
+                </button>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          {isOpen("decisions") && <CardContent>
             <Accordion type="single" collapsible>
               {decisions.map((d, i) => (
                 <AccordionItem key={i} value={`dec-${i}`}>
@@ -5158,7 +5228,7 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
                 </AccordionItem>
               ))}
             </Accordion>
-          </CardContent>
+          </CardContent>}
         </Card>
       )}
 
@@ -5169,10 +5239,15 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
               <Users className="h-4 w-4" />
               Internal Stakeholder Profiles
               <Badge className="text-xs ml-1">{stakeholders.length}</Badge>
-              <Badge variant="outline" className="text-xs ml-auto">AE Agent</Badge>
+              <div className="ml-auto flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">AE Agent</Badge>
+                <button onClick={() => toggle("stakeholders")} className="p-0.5 rounded hover:bg-muted/50 transition-colors" aria-label={isOpen("stakeholders") ? "Collapse" : "Expand"}>
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen("stakeholders") ? "" : "-rotate-90"}`} />
+                </button>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          {isOpen("stakeholders") && <CardContent>
             <Accordion type="single" collapsible>
               {stakeholders.map((s, i) => {
                 const name = String(s.name || s._filename || `Stakeholder ${i + 1}`).replace(/\.yaml$/, "").replace(/[-_]/g, " ");
@@ -5192,7 +5267,7 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
                 );
               })}
             </Accordion>
-          </CardContent>
+          </CardContent>}
         </Card>
       )}
 
@@ -5205,10 +5280,15 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
               <BookOpen className="h-4 w-4" />
               Framework Analysis
               <Badge className="text-xs ml-1">{frameworks.length}</Badge>
-              <Badge variant="outline" className="text-xs ml-auto">Strategic Playbooks</Badge>
+              <div className="ml-auto flex items-center gap-2">
+                <Badge variant="outline" className="text-xs">Strategic Playbooks</Badge>
+                <button onClick={() => toggle("frameworks")} className="p-0.5 rounded hover:bg-muted/50 transition-colors" aria-label={isOpen("frameworks") ? "Collapse" : "Expand"}>
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen("frameworks") ? "" : "-rotate-90"}`} />
+                </button>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          {isOpen("frameworks") && <CardContent>
             <Accordion type="single" collapsible>
               {frameworks.map((fw, i) => (
                 <AccordionItem key={i} value={`fw-${i}`}>
@@ -5219,7 +5299,7 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
                 </AccordionItem>
               ))}
             </Accordion>
-          </CardContent>
+          </CardContent>}
         </Card>
       )}
 
@@ -5231,12 +5311,16 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
             <CardTitle className="text-base flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               Operating Cadence
-              <Badge variant="outline" className="text-xs ml-auto">Governance Agents</Badge>
+              <div className="ml-auto">
+                <button onClick={() => toggle("cadence")} className="p-0.5 rounded hover:bg-muted/50 transition-colors" aria-label={isOpen("cadence") ? "Collapse" : "Expand"}>
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen("cadence") ? "" : "-rotate-90"}`} />
+                </button>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          {isOpen("cadence") && <CardContent>
             <CadenceView cadence={cadence as Record<string, unknown>} />
-          </CardContent>
+          </CardContent>}
         </Card>
       )}
 
@@ -5247,9 +5331,14 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
               <Bot className="h-4 w-4" />
               Agent Scratchpads
               <Badge className="text-xs ml-1">{agentWork.length}</Badge>
+              <div className="ml-auto">
+                <button onClick={() => toggle("agentWork")} className="p-0.5 rounded hover:bg-muted/50 transition-colors" aria-label={isOpen("agentWork") ? "Collapse" : "Expand"}>
+                  <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${isOpen("agentWork") ? "" : "-rotate-90"}`} />
+                </button>
+              </div>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          {isOpen("agentWork") && <CardContent>
             <Accordion type="single" collapsible>
               {agentWork.map((work, i) => (
                 <AccordionItem key={i} value={`aw-${i}`}>
@@ -5262,7 +5351,7 @@ function InternalInfoHubTab({ realmId, nodeId }: { realmId: string; nodeId: stri
                 </AccordionItem>
               ))}
             </Accordion>
-          </CardContent>
+          </CardContent>}
         </Card>
       )}
     </div>

@@ -5,7 +5,7 @@
 **Status:** Production Ready
 **Companion to:** [Tool Design Principles](tool-design-principles.md) Section 4
 
-Every agent definition must pass this checklist before it ships. The framework provides four failure patterns (stop, skip_with_warning, escalate, retry) documented in the [Operational Playbook Spec](../playbooks/operational-playbook-spec.md). This checklist ensures they are wired consistently into every agent.
+Every agent definition must pass this checklist before it ships. The framework provides four failure patterns (stop, skip_with_warning, escalate, retry) documented in the [Playbook System](../playbooks/playbook-system.md). This checklist ensures they are wired consistently into every agent.
 
 ---
 

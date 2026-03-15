@@ -38,7 +38,31 @@ export function buildFlowGraph(
 
   const flows = def.flows ?? [];
   const tools = def.tools ?? [];
-  const variants = def.specialized_agents ?? [];
+
+  // Split tools early so side heights can inform flowY
+  const DEST_PATTERNS = /^(write|save|send|update|notify|publish|create)/i;
+  const INVOKE_PATTERN = /^invoke\s/i;
+  const inputTools = tools.filter((t) => !DEST_PATTERNS.test(t.name) && !(isOrchestrator && INVOKE_PATTERN.test(t.name)));
+  const destTools = tools.filter((t) => DEST_PATTERNS.test(t.name));
+
+  // Pre-compute side stack heights to derive a safe flowY
+  const MAX_VISIBLE = 8;
+  const promptKeys = Object.keys(promptRegistry ?? {});
+  const outputCount = isOrchestrator ? subAgents.length : Math.min(promptKeys.length, MAX_VISIBLE);
+
+  const inputStackHeight = Math.max(0, (inputTools.length - 1) * SIDE_GAP);
+  const inputStartY = Math.max(-AGENT_H / 2, -inputStackHeight / 2);
+  const inputBottomY = inputTools.length > 0 ? inputStartY + inputStackHeight : -AGENT_H / 2;
+
+  const outputStackHeight = Math.max(0, (outputCount - 1) * SIDE_GAP);
+  const outputStartY = Math.max(-AGENT_H / 2, -outputStackHeight / 2);
+  const outputBottomY = outputCount > 0 ? outputStartY + outputStackHeight : -AGENT_H / 2;
+
+  const sideBottomY = Math.max(inputBottomY, outputBottomY);
+  const flowY = Math.max(AGENT_H / 2 + ROW_GAP, sideBottomY + ROW_GAP);
+
+  // Use a wider gap between flows when one is expanded to prevent prompt-chain overlap with siblings
+  const effectiveFlowGap = expandedFlowId !== null ? Math.max(FLOW_GAP, 320) : FLOW_GAP;
 
   // Agent node centered
   nodes.push({
@@ -54,8 +78,7 @@ export function buildFlowGraph(
   });
 
   // Flows spread horizontally below agent
-  const flowY = AGENT_H / 2 + ROW_GAP;
-  const flowPositions = centerRow(flows.length, FLOW_GAP, flowY);
+  const flowPositions = centerRow(flows.length, effectiveFlowGap, flowY);
   flows.forEach((flow, i) => {
     const pos = flowPositions[i];
     const flowExt = (flow["x-ea-agent"] ?? {}) as Record<string, unknown>;
@@ -125,16 +148,7 @@ export function buildFlowGraph(
     }
   });
 
-  // Split tools: read/input tools go left, write/save tools go right as destinations
-  const DEST_PATTERNS = /^(write|save|send|update|notify|publish|create)/i;
-  const INVOKE_PATTERN = /^invoke\s/i;
-  const inputTools = tools.filter((t) => !DEST_PATTERNS.test(t.name) && !(isOrchestrator && INVOKE_PATTERN.test(t.name)));
-  const destTools = tools.filter((t) => DEST_PATTERNS.test(t.name));
-
   // Input tools flanking left of agent
-  // Clamp: never start above the agent's top edge
-  const inputStackHeight = (inputTools.length - 1) * SIDE_GAP;
-  const inputStartY = Math.max(-AGENT_H / 2, -inputStackHeight / 2);
   const toolX = -NODE_W / 2 - FLOW_GAP;
 
   inputTools.forEach((tool, i) => {
@@ -177,9 +191,6 @@ export function buildFlowGraph(
       ),
       promptCount: metaMap.get(String(sa.id))?.prompt_count ?? 0,
     }));
-    const outputStackHeight = Math.max(0, (groupEntries.length - 1) * SIDE_GAP);
-    const outputStartY = Math.max(-AGENT_H / 2, -outputStackHeight / 2);
-
     groupEntries.forEach((entry, i) => {
       const outputId = `sa-group-${entry.id}`;
       nodes.push({
@@ -200,9 +211,7 @@ export function buildFlowGraph(
     });
   } else {
     // Sub-agent or standalone: show individual prompt nodes on right
-    // Cap at 8 to keep graph readable; flows below provide access to the rest
-    const promptKeys = Object.keys(promptRegistry ?? {});
-    const MAX_VISIBLE = 8;
+    // Cap at MAX_VISIBLE to keep graph readable; flows below provide access to the rest
     const visibleKeys = promptKeys.slice(0, MAX_VISIBLE);
     const outputEntries = visibleKeys.map((key) => ({
       name: fixAcronyms(
@@ -213,8 +222,6 @@ export function buildFlowGraph(
       ),
       description: String(promptRegistry?.[key]?.description ?? ""),
     }));
-    const outputStackHeight = Math.max(0, (outputEntries.length - 1) * SIDE_GAP);
-    const outputStartY = Math.max(-AGENT_H / 2, -outputStackHeight / 2);
 
     outputEntries.forEach((entry, i) => {
       const outputId = `output-${i}`;

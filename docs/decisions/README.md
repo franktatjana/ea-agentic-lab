@@ -119,6 +119,10 @@ Git history captures file-level changes. The Status History section captures *wh
 | [DDR-019](DDR_019_agent_system_domain_model.md) | Agent System Domain Model | ACCEPTED |
 | [DDR-020](DDR_020_profile_definition_generation_pipeline.md) | Profile and Definition Generation Pipeline | ACCEPTED |
 | [DDR-021](DDR_021_agent_taxonomy.md) | Agent Taxonomy | ACCEPTED |
+| [DDR-022](DDR_022_knowledge_qa_service_evolution.md) | Knowledge Q&A Service Evolution | ACCEPTED |
+| [DDR-023](DDR_023_prompt_data_dependencies.md) | Prompt Data Dependencies | ACCEPTED |
+| [DDR-024](DDR_024_runtime_binding_architecture.md) | Runtime Binding Architecture | ACCEPTED |
+| [DDR-025](DDR_025_methodology_reference_architecture.md) | Methodology Reference Architecture | ACCEPTED |
 
 ### Architecture Decision Records
 

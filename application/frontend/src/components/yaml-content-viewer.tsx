@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toTitleCase } from "@/lib/title-case";
 
 function humanize(key: string): string {
-  return key
-    .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+  return toTitleCase(key);
 }
 
 // Light: 600/700 shades for contrast on white. Dark: 400 shades for glow on black.

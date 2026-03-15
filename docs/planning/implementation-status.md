@@ -1,7 +1,7 @@
 # EA Agentic Lab - Implementation Status
 
-**Last Updated:** 2026-03-06
-**Status:** Domain model defined, 149 playbooks authored (109 `PB_` + 8 `OP_` + 32 specialist), 47 agents configured, web application functional with dashboard, canvas rendering, and node management
+**Last Updated:** 2026-03-13
+**Status:** Domain model defined, 149 playbooks authored, 40 agent definitions across 13 roles, web application functional with 28 pages covering dashboard, canvas, agents, blueprints, orchestration, and presentation views
 
 ---
 
@@ -20,8 +20,8 @@ The domain layer (`domain/`) contains all business logic definitions: agents, pl
 | Component | Count | Location | Status |
 |-----------|-------|----------|--------|
 | Playbook YAMLs | 149 | `domain/playbooks/{team}/` | Authored |
-| Agent configs | 47 | `domain/agents/{team}/agents/` | Configured |
-| Personality specs | 47 | `domain/agents/{team}/personalities/` | Configured |
+| Agent configs | 40 | `domain/agents/{team}/agents/` | Configured |
+| Personality specs | 40 | `domain/agents/{team}/personalities/` | Configured |
 | Skill definitions | 8 | `domain/agents/{team}/skills/` | Authored |
 | Task prompt files | 17 | `domain/agents/{team}/prompts/tasks.yaml` | Authored |
 | Templates | 8 | `domain/playbooks/templates/` | Authored |
@@ -29,43 +29,59 @@ The domain layer (`domain/`) contains all business logic definitions: agents, pl
 | Operational playbooks | 8 | `domain/playbooks/operational/` | Authored |
 | Catalogs | 5 | `domain/catalogs/` | Authored |
 
-### 2. Agents (27 configured)
+### 2. Agents (40 definitions, 13 roles)
 
-All agents have YAML configuration, personality specifications with anti-hallucination controls, and task prompts (CAF format). None have runtime implementations yet.
+All agents have YAML configuration, personality specifications with anti-hallucination controls, and task prompts (CAF format). None have runtime implementations yet. Taxonomy defined in [DDR-021](../decisions/DDR_021_agent_taxonomy.md).
 
-**Leadership Agents (2):**
+**Leadership (2 roles, 2 agents):**
 
 | Agent | Team | Tasks |
 |-------|------|-------|
 | Senior Manager Agent | `leadership/` | 10+ |
 | PM Agent | `product_managers/` | 10+ |
 
-**Sales Agents (4):**
+**Sales (4 roles, 4 agents):**
 
 | Agent | Team | Tasks |
 |-------|------|-------|
 | AE Agent | `account_executives/` | 20+ |
-| CI Agent | `competitive_intelligence/` | 10+ |
 | VE Agent | `value_engineering/` | 25+ |
 | Partner Agent | `partners/` | 10+ |
+| Hyperscaler Account Manager Agent | `hyperscaler_account_managers/` | 10+ |
 
-**Architecture Agents (3):**
+**Architecture (3 roles, 16 agents):**
 
-| Agent | Team | Tasks | Specialist Sub-teams |
-|-------|------|-------|---------------------|
-| SA Agent | `solution_architects/` | 35+ | - |
-| CA Agent | `customer_architects/` | 18+ | - |
-| Specialist Agent | `specialists/` | 10+ | Observability, Search, Security |
-
-**Deal Execution Agents (3):**
-
-| Agent | Team | Tasks |
+| Agent | Type | Tasks |
 |-------|------|-------|
-| RFP Agent | `rfp/` | 10+ |
-| POC Agent | `poc/` | 20+ |
-| InfoSec Agent | `infosec/` | 10+ |
+| SA Agent | Role (router) | 35+ |
+| SA Discovery Agent | Co-located sub-agent | - |
+| SA Technical Risk Agent | Co-located sub-agent | - |
+| SA Decision Capture Agent | Co-located sub-agent | - |
+| SA CSP Agent | Co-located sub-agent | - |
+| SA Best Practices Agent | Co-located sub-agent | - |
+| SA Journey Agent | Co-located sub-agent | - |
+| RFP Agent | External sub-agent | 10+ |
+| POC Agent | External sub-agent | 20+ |
+| Specialist Engagement Agent | External sub-agent | 10+ |
+| Security Specialist | Domain sub-agent | 12 playbooks |
+| Observability Specialist | Domain sub-agent | 10 playbooks |
+| Search Specialist | Domain sub-agent | 10 playbooks |
+| InfoSec Agent | Standalone role (peer to SA) | 10+ |
+| CA Agent | Role | 18+ |
+| Retrospective Agent | CA sub-agent | - |
 
-**Delivery Agents (2):**
+**Intelligence (2 roles, 6 agents):**
+
+| Agent | Type | Tasks |
+|-------|------|-------|
+| CI Agent | Role | 10+ |
+| Account Intelligence Agent | Sub-agent | - |
+| Industry Intelligence Agent | Sub-agent | - |
+| Market News Agent | Sub-agent | - |
+| Tech Signal Scanner | Sub-agent | - |
+| Tech Signal Analyzer | Sub-agent | - |
+
+**Delivery (2 roles, 2 agents):**
 
 | Agent | Team | Tasks |
 |-------|------|-------|
@@ -74,35 +90,20 @@ All agents have YAML configuration, personality specifications with anti-halluci
 
 **Note:** The Support Agent was dissolved (2026-02). Its support-to-account bridge function is now handled by SIG_SUP_* signals in the signal catalog, consumed by the CA Agent via skill SK_CA_001 (Support Intelligence Triage). DSE coordination moved to PS Agent.
 
-**Governance Agents (8):**
+**Governance Agents (10, system infrastructure):**
 
-| Agent | Purpose | Status |
-|-------|---------|--------|
-| Meeting Notes Agent | Extract decisions/actions/risks from meetings | Configured |
-| Nudger Agent | Reminder and escalation enforcement | Configured |
-| Task Shepherd Agent | Action validation and linkage | Configured |
-| Decision Registrar Agent | Decision lifecycle tracking | Configured |
-| Reporter Agent | Weekly digest generation | Configured |
-| Risk Radar Agent | Risk detection and classification | Configured |
-| Playbook Curator Agent | Playbook validation and governance | Configured |
-| InfoHub Curator Agent | Semantic integrity, InfoHub artifact lifecycle | Configured |
-| Knowledge Vault Curator Agent | Vault 3 governance, proposal validation, usage tracking | Configured |
-
-**Specialized Agents:**
-
-| Agent | Purpose | Status |
-|-------|---------|--------|
-| Retrospective Agent | Win/loss analysis, lessons learned | Configured |
-| Tech Signal Scanner | Technology signal detection | Configured |
-| Tech Signal Analyzer | Technology signal analysis | Configured |
-
-**Specialist Sub-teams (3):** Each has a dedicated agent config, personality, and 10 playbooks.
-
-| Specialty | Playbooks | Examples |
-|-----------|-----------|---------|
-| Observability | 10 (PB_OBS_001-010) | Deep discovery, SLO/SLI definition, APM implementation |
-| Search | 10 (PB_SRCH_001-010) | Schema design, relevance tuning, RAG system design |
-| Security | 12 (PB_SEC_001-012) | Use case definition, migration planning, competitive battlecard |
+| Agent | Trigger | Purpose |
+|-------|---------|---------|
+| Meeting Notes Agent | `meeting_ended` | Extract decisions/actions/risks |
+| Task Shepherd Agent | `action_created` | Action validation and linkage |
+| Decision Registrar Agent | `decision_mentioned` | Decision lifecycle tracking |
+| Risk Radar Agent | Various | Risk detection and classification |
+| Nudger Agent | Daily / overdue | Reminder and escalation enforcement |
+| Reporter Agent | Friday 5pm | Weekly digest generation |
+| Signal Matcher Agent | Signal detected | Route signal to correct agent |
+| Playbook Curator Agent | `playbook_modified` | Playbook validation and governance |
+| InfoHub Curator Agent | `artifact_created/updated` | Semantic integrity, InfoHub lifecycle |
+| Knowledge Vault Curator Agent | `knowledge_proposal_received` | Vault 3 governance, proposal validation |
 
 ### 3. Playbooks (149 authored)
 
@@ -166,34 +167,53 @@ All playbooks include `vault_routing` metadata specifying primary vault, rationa
 | `knowledge_service.py` | Knowledge vault CRUD and proposals | Functional |
 | `docs_service.py` | Documentation tree and content serving | Functional |
 
-**Frontend pages:**
+**Frontend pages (28):**
 
 | Page | Route | Key features |
 |------|-------|-------------|
 | Landing | `/` | Framework overview, pillars, lifecycle, personas |
-| Dashboard | `/dashboard` | Portfolio metrics (6 cards), attention items, per-realm node rows with health/risks/pipeline/milestones |
+| About | `/about` | System overview and navigation |
+| Dashboard | `/dashboard` | Portfolio metrics (6 cards), attention items, per-realm node rows |
 | Realm detail | `/realms/[id]` | Profile tabs, node list, competitive landscape, growth strategy |
-| Node detail | `/realms/[id]/nodes/[id]` | Overview, Blueprint, Health, Risks & Actions, Stakeholders tabs, canvas viewer |
+| Node detail | `/realms/[id]/nodes/[id]` | Overview, Blueprint, Health, Risks, Stakeholders, canvas viewer |
+| Agents list | `/agents` | All agent profiles overview |
+| Agent definitions | `/agents/definitions` | YAML-sourced agent definition browser |
+| Agent profiles | `/agents/profiles` | Agent profile cards by functional area |
 | Playbooks | `/playbooks` | Catalog with filters, detail view |
+| Blueprints | `/blueprints` | Blueprint catalog overview |
+| Blueprint archetypes | `/blueprints/archetypes` | Archetype browser |
+| Blueprint reference | `/blueprints/reference` | Reference blueprint compositions |
+| Blueprint view | `/blueprints/view` | Blueprint detail viewer |
+| Canvas | `/canvas` | Canvas spec viewer |
 | Knowledge | `/knowledge` | Knowledge vault with stats, proposals |
+| Orchestration | `/orchestration` | Process orchestration viewer |
 | Documentation | `/docs` | Markdown browser with sidebar tree |
+| Present: blueprints | `/present/blueprints` | Blueprint presentation view |
+| Present: canvas | `/present/canvas` | Canvas presentation view |
+| Present: knowledge | `/present/knowledge` | Knowledge presentation view |
+| Present: node | `/present/node` | Node summary presentation view |
+| Present: orchestration | `/present/orchestration` | Orchestration presentation view |
+| Present: pitch | `/present/pitch` | Account pitch deck |
+| Present: portfolio | `/present/portfolio` | Portfolio presentation view |
+| Present: QBR | `/present/qbr` | Quarterly business review deck |
+| Present: realm | `/present/realm` | Realm summary presentation view |
 
 **Canvas rendering (DDR-010):** 5 canvas assemblers implemented (context, decision, risk governance, value/stakeholders, architecture decision) with generic fallback. Frontend format-dispatch renderer handles 10+ section formats.
 
 ### 6. Documentation
 
-Reorganized (2026-02-10) into reader-intent structure:
+Reorganized (2026-02-10) into reader-intent structure. 149 markdown files total.
 
-| Section | Path | Files | Purpose |
-|---------|------|-------|---------|
-| Architecture | `docs/architecture/` | 26 | System design (agents, playbooks, system) |
-| Operating Model | `docs/operating-model/` | 5 | RACI, engagement phases, realm profiles |
-| Decisions | `docs/decisions/` | 3 | DDR and ADR records |
-| Guides | `docs/guides/` | 10 | For practitioners (6) and developers (4) |
-| Reference | `docs/reference/` | 7 | Catalogs, quick-reference, terminology |
-| Planning | `docs/planning/` | 7 | Gap analyses, status tracking |
+| Section | Path | Purpose |
+|---------|------|---------|
+| Architecture | `docs/architecture/` | System design: agents, playbooks, system design (signal catalog moved here 2026-03-13) |
+| Operating Model | `docs/operating-model/` | RACI, engagement phases, realm profiles |
+| Decisions | `docs/decisions/` | 25 DDR + 7 ADR = 32 decision records |
+| Guides | `docs/guides/` | 16 files: 3 top-level, 9 practitioner, 4 developer |
+| Reference | `docs/reference/` | Catalogs, agent profiles, terminology |
+| Planning | `docs/planning/` | Gap analyses, status tracking (gitignored) |
 
-**Decision records:**
+**Decision records (32):**
 
 | ID | Title | Type | Status |
 |----|-------|------|--------|
@@ -207,6 +227,21 @@ Reorganized (2026-02-10) into reader-intent structure:
 | DDR-008 | Knowledge Vault Learning System | Domain | ACCEPTED |
 | DDR-009 | Stakeholder Stance Classification | Domain | ACCEPTED |
 | DDR-010 | Reports and Canvas Rendering | Domain | ACCEPTED |
+| DDR-011 | Report Generation Pipeline | Domain | ACCEPTED |
+| DDR-012 | Playbook Metadata Standardization | Domain | ACCEPTED |
+| DDR-013 | Knowledge Capture Strategy | Domain | ACCEPTED |
+| DDR-014 | Knowledge to Playbook Feedback | Domain | ACCEPTED |
+| DDR-015 | Curator Agent Specialization | Domain | ACCEPTED |
+| DDR-016 | Skill Architecture | Domain | ACCEPTED |
+| DDR-017 | Support Agent Dissolution | Domain | ACCEPTED |
+| DDR-018 | Agent Definition Alignment | Domain | ACCEPTED |
+| DDR-019 | Agent System Domain Model v3.0 | Domain | ACCEPTED |
+| DDR-020 | Profile Definition Generation Pipeline | Domain | ACCEPTED |
+| DDR-021 | Agent Taxonomy | Domain | ACCEPTED |
+| DDR-022 | Knowledge QA Service Evolution | Domain | ACCEPTED |
+| DDR-023 | Prompt Data Dependencies | Domain | ACCEPTED |
+| DDR-024 | Runtime Binding Architecture | Domain | ACCEPTED |
+| DDR-025 | Methodology Reference Architecture | Domain | ACCEPTED |
 | ADR-001 | Streamlit Playbook Viewer | Architecture | SUPERSEDED |
 | ADR-002 | Next.js Web Application | Architecture | ACCEPTED |
 | ADR-003 | Multi-UI Architecture | Architecture | ACCEPTED |
@@ -233,7 +268,7 @@ ea-agentic-lab/
 ├── application/                  # Application (Streamlit UI + Swift iOS + Python backend)
 ├── data/                         # Runtime data
 ├── domain/
-│   ├── agents/                   # 47 agents across 17 teams
+│   ├── agents/                   # 40 definitions across 13 roles
 │   │   └── {team}/
 │   │       ├── agents/           # Agent config YAML
 │   │       ├── personalities/    # Personality specs
@@ -263,13 +298,13 @@ ea-agentic-lab/
 
 ### Built (domain layer)
 
-- 106 playbook definitions covering strategy, technical, customer success, specialist, operational, delivery, product management, partner, and admin workflows
-- 27 agent configurations with personality specs, anti-hallucination controls, and 200+ task prompts
+- 149 playbook definitions covering strategy, technical, customer success, specialist, operational, delivery, product management, partner, and admin workflows
+- 40 agent definitions with personality specs, anti-hallucination controls, and 200+ task prompts across 13 roles
 - Three-vault knowledge architecture with vault routing on all playbooks
-- Decision documentation framework (DDR + ADR)
+- 32 decision records (25 DDR + 7 ADR)
 - 8 canvas specifications for visual artifacts
 - Operating model with RACI assignments across all teams
-- Documentation restructured by reader intent
+- Documentation restructured by reader intent (149 files, guides with screenshots)
 
 ### Runtime layer (separate project)
 
@@ -325,3 +360,4 @@ Identified during dashboard implementation (documented in DDR-010 Open Questions
 | 2026-02-27 | vault_routing added to all 99 playbooks, PB_CA_002-190 (C06 support/DSE) authored, PB_DEL_001-004 (Delivery Agent) authored, Delivery Agent gap resolved |
 | 2026-02-27 | QBR playbooks enhanced to v2.0: quarter-long prep cadence, interactive agendas, coaching questions, pipeline review techniques, stakeholder tailoring, customer wins framework |
 | 2026-02-27 | RACI added to all playbooks, PM Agent playbooks (PB_PM_001-003), Partner Agent playbooks (PB_PTR_001-003), OP_COM_001 (commercial field ownership), all consistency tasks resolved |
+| 2026-03-13 | DDR-021 agent taxonomy accepted: 40 definitions across 13 roles. HAM Agent added (hyperscaler co-sell). CI Agent moved to Intelligence section. Signal Matcher added to governance (10 total). UI fixes: light theme, TOGAF removed, RFP role visibility, guardrails panel. Docs reorganized for findability: intent navigation, guides rewritten, 16 SA/RFP/process-orchestration screenshots wired. Signal Catalog moved to architecture/system. docs_service.py title extraction fixed. docs/planning gitignored. |

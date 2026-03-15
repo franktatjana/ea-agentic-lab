@@ -1,6 +1,7 @@
 """Documentation API Router - serves markdown docs for the frontend documentation browser."""
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 
 from ..services.docs_service import DocsService, get_docs_service
 
@@ -13,6 +14,18 @@ async def get_docs_tree(
 ):
     """Return the full documentation directory tree for sidebar navigation."""
     return svc.get_tree()
+
+
+@router.get("/docs-assets/{asset_path:path}")
+async def get_doc_asset(
+    asset_path: str,  # Relative path within docs/, e.g. "guides/screenshots/rfp-agent-guardrails.png"
+    svc: DocsService = Depends(get_docs_service),
+):
+    """Serve image assets from the docs/ directory for inline rendering in the docs browser."""
+    file_path = svc.get_asset_path(asset_path)
+    if file_path is None:
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return FileResponse(file_path)
 
 
 @router.get("/docs/{doc_path:path}")

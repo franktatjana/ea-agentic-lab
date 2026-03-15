@@ -780,8 +780,8 @@ For the full decision record on runtime binding, see [DDR-024](../../decisions/D
 ## Related Documents
 
 - [Core Entities](core-entities.md): Realm, Node, InfoHub definitions
-- [Knowledge Architecture](knowledge-architecture.md): Three-vault model and data flow
-- [Signal Catalog](../../reference/signal-catalog.md): Signal definitions and contracts
+- [Vault Architecture](vault-architecture.md): Three-vault model and data flow
+- [Signal Catalog](signal-catalog.md): Signal definitions and contracts
 - [Data Directory Guide](data-directory-guide.md): Vault directory structure
 - [Documentation Principles](../../DOCUMENTATION_PRINCIPLES.md): Artifact formatting standards
 - [Existing Connector Config](../../../domain/config/connectors.yaml): Current connector configuration

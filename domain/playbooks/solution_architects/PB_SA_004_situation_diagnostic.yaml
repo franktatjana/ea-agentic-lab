@@ -6,58 +6,58 @@
 # etc.) are industry-standard methodologies cited for
 # educational context.
 
-# PLAYBOOK: Five Whys Root Cause Analysis
+# PLAYBOOK: Situation Diagnostic
 # Framework operationalization for AI agents
-# Based on Toyota Production System methodology
+# Uses iterative "Why?" technique (Five Whys) to trace surface signals to root causes
 
 # ==============================================================================
 # PLAYBOOK METADATA
 # ==============================================================================
 playbook_id: "PB_SA_004"
-framework_name: "Five Whys Analysis"
-framework_source: "Sakichi Toyoda (Toyota Production System)"
+framework_name: "Situation Diagnostic"
+framework_source: "Iterative causal analysis (adapted from Toyota Production System Five Whys)"
 playbook_mode: "ANALYTICAL"  # Deep-dive analysis to find root causes
 playbook_category: "discovery_investigation"
 intended_agent_role: "sa-agent"
 secondary_agents: ["AE Agent", "Delivery Agent", "CA Agent", "Governance Agent"]
 
-primary_objective: "Identify root causes of problems by iteratively asking 'Why?' to move beyond symptoms to underlying causes, enabling effective corrective action"
+primary_objective: "Diagnose shifts in engagement dynamics, stakeholder behavior, deal momentum, or technical landscape by iteratively asking 'Why?' to trace surface signals to actionable root causes"
 
 vault_routing:
   primary_vault: "Internal Account Hub"
-  rationale: "Root cause analysis typically involves internal assessment of issues, vendor responsibilities, and process gaps. Findings may be sensitive. Customer receives remediation plans, not the raw analysis."
+  rationale: "Diagnostic findings typically involve internal assessment of engagement dynamics, stakeholder shifts, and process gaps. Findings may be sensitive. Customer receives next-step recommendations, not the raw analysis."
   secondary_outputs:
     - vault: "Customer InfoHub"
-      artifact: "Remediation plan and corrective actions (sanitized, shared when appropriate)"
+      artifact: "Recommended next steps and corrective actions (sanitized, shared when appropriate)"
 
 flow_bindings:
   description: "Maps playbook phases to the agent flows that execute them"
   bindings:
-    - phase: "Problem Definition"
+    - phase: "Situation Definition"
       agent: sa-risk-agent
       flow: technical-risk
-      context: "Performance investigation, architecture health check to characterize the problem"
+      context: "Characterize the shift: what changed, when, and what signals indicate it"
     - phase: "Root Cause Investigation (Why chain)"
       agent: sa-risk-agent
       flow: technical-risk
-      context: "Iterative diagnosis through infrastructure, architecture, and integration layers"
+      context: "Iterative diagnosis through stakeholder, technical, commercial, and process layers"
     - phase: "Corrective Action Planning"
       agent: sa-decision-capture-agent
       flow: decision-capture
       context: "Capture corrective decisions as ADRs, document alternatives considered"
 
 when_not_to_use:
-  - "Problem is trivial and cause is obvious"
-  - "Multiple independent causes (use fishbone/Ishikawa instead)"
-  - "Insufficient information about the problem"
-  - "Problem requires statistical analysis (use 6 Sigma tools instead)"
+  - "Cause is already obvious and actionable"
+  - "Multiple independent causes with no common thread (use fishbone/Ishikawa instead)"
+  - "Insufficient information to begin diagnosis"
+  - "Situation requires statistical analysis (use 6 Sigma tools instead)"
   - "Time-critical situation requiring immediate action without analysis"
 
 raci:
   responsible:
     role: "SA Agent"
     agent: "sa_agent"
-    description: "Facilitates Five Whys root cause analysis to identify underlying causes of problems"
+    description: "Facilitates situation diagnostic to trace surface signals to actionable root causes"
 
   accountable:
     role: "SA Manager"
@@ -89,28 +89,40 @@ trigger_conditions:
   automatic:
     - event: "SIG_HLT_001"
       signal_filter: "severity == 'HIGH' OR severity == 'CRITICAL'"
-      description: "High-severity risk identified - root cause analysis recommended"
+      description: "High-severity risk identified, diagnose underlying cause"
 
     - event: "SIG_COM_002"
       signal_filter: "outcome == 'lost'"
-      description: "Deal lost - trigger root cause analysis"
+      description: "Deal lost, diagnose contributing factors"
+
+    - event: "stakeholder_sentiment_shift"
+      description: "Champion or key stakeholder engagement dropped significantly"
+      condition: "$.stakeholder.engagement_delta <= -2"
+
+    - event: "deal_momentum_stall"
+      description: "Deal stage unchanged for 2+ weeks with no documented blocker"
+      condition: "$.opportunity.days_in_stage >= 14 AND $.opportunity.blocker == null"
 
     - event: "recurring_issue_detected"
-      description: "Same issue occurring 3+ times indicates need for root cause analysis"
+      description: "Same issue occurring 3+ times indicates systemic cause"
       condition: "$.issues[?(@.category=='{issue_category}')].length >= 3"
 
     - event: "health_score_declining"
-      description: "Health score dropped 15+ points - analyze root causes"
+      description: "Health score dropped 15+ points, diagnose root cause"
       condition: "$.health_score.change_30d <= -15"
+
+    - event: "engagement_quality_declining"
+      description: "Session attendance or engagement quality dropping across consecutive touchpoints"
 
     - event: "escalation_pattern"
       description: "Multiple escalations on same topic"
 
   manual:
-    - "Team requests root cause analysis for specific issue"
-    - "Post-mortem meeting initiated"
+    - "SA/AE notices a shift they cannot explain from available data"
+    - "Stakeholder went cold after a specific meeting or event"
+    - "Deal stalled with no clear technical or commercial blocker"
     - "Retrospective identifies issue needing deeper analysis"
-    - "AE/SA identifies recurring pattern"
+    - "Recurring pattern across accounts suggests systemic cause"
 
   conditional:
     - condition: "$.actions[?(@.status=='overdue')].length >= 3"
@@ -146,41 +158,41 @@ validation_inputs:
 # KEY QUESTIONS - THE FIVE WHYS PROGRESSION
 # ==============================================================================
 key_questions:
-  problem_definition:
-    - "What is the specific problem or symptom we are analyzing?"
-    - "When did this problem first occur?"
-    - "How frequently does this problem occur?"
-    - "Who is affected by this problem?"
-    - "What is the impact of this problem (quantified if possible)?"
+  situation_definition:
+    - "What shifted? What is different from the expected state?"
+    - "When did this shift first become visible?"
+    - "What signals indicate the shift (behavioral, commercial, technical)?"
+    - "Who is affected or involved in this shift?"
+    - "What is the impact if the situation continues unaddressed?"
 
   why_1_surface_cause:
-    - "Why did this problem occur? (first-level cause)"
+    - "Why did this shift happen? (first-level cause)"
     - "What evidence supports this cause?"
     - "Is this a sufficient explanation or a symptom of something deeper?"
 
   why_2_contributing_factors:
     - "Why did the first-level cause occur?"
     - "What conditions enabled this cause to exist?"
-    - "Are there process gaps that contributed?"
+    - "Are there relationship, process, or timing gaps that contributed?"
 
-  why_3_process_breakdown:
+  why_3_underlying_dynamics:
     - "Why did these conditions exist?"
-    - "What process or system allowed this to happen?"
-    - "Were there controls that failed or were missing?"
+    - "What dynamic (organizational, commercial, technical) allowed this?"
+    - "Were there signals we missed or controls that were absent?"
 
   why_4_systemic_issues:
-    - "Why did the process or controls fail?"
-    - "Is there a organizational or cultural factor?"
-    - "What incentives or constraints contributed?"
+    - "Why did the dynamic or controls fail?"
+    - "Is there an organizational, political, or structural factor?"
+    - "What incentives, constraints, or competing priorities contributed?"
 
   why_5_root_cause:
     - "Why does this systemic issue exist?"
-    - "What is the fundamental reason this happens?"
+    - "What is the fundamental driver behind this situation?"
     - "Have we reached a cause we can actually address?"
 
   validation:
-    - "If we fix this root cause, will the problem be prevented?"
-    - "Is this root cause actionable?"
+    - "If we address this root cause, will the situation improve?"
+    - "Is this root cause actionable within our influence?"
     - "Are there multiple root causes (branch analysis needed)?"
 
 # ==============================================================================
@@ -266,7 +278,7 @@ decision_logic:
           - "Accept residual risk with documentation"
 
 # ==============================================================================
-# FIVE WHYS METHODOLOGY
+# DIAGNOSTIC METHODOLOGY (Iterative "Why?" Technique)
 # ==============================================================================
 methodology:
   principles:
@@ -318,10 +330,10 @@ methodology:
 # ==============================================================================
 expected_outputs:
   primary_artifact:
-    path: "{realm}/{node}/external-infohub/analysis/five_whys_{issue_id}_{YYYY-MM-DD}.md"
+    path: "{realm}/{node}/external-infohub/analysis/situation_diagnostic_{issue_id}_{YYYY-MM-DD}.md"
     format: "markdown"
     sections:
-      - problem_statement
+      - situation_statement
       - analysis_chain
       - root_cause_identification
       - corrective_actions
@@ -329,12 +341,12 @@ expected_outputs:
       - monitoring_plan
 
     schema:
-      problem_statement:
-        - problem: "string"
+      situation_statement:
+        - situation: "string"
         - impact: "string"
-        - frequency: "string"
+        - signals: "array[string]"
         - affected_parties: "array[string]"
-        - first_occurrence: "date"
+        - first_observed: "date"
 
       analysis_chain:
         - level: "integer (1-5+)"
@@ -372,13 +384,13 @@ expected_outputs:
       owner: "string"
       due_date: "date"
       priority: "enum[critical|high|medium|low]"
-      source: "five_whys_analysis"
+      source: "situation_diagnostic"
       source_artifact: "string (path to analysis)"
 
   notifications:
-    - recipient: "Issue Owner"
+    - recipient: "Situation Owner"
       condition: "always"
-      message: "Five Whys analysis complete: {root_cause_summary}"
+      message: "Situation diagnostic complete: {root_cause_summary}"
 
     - recipient: "Governance Agent"
       condition: "root_cause.category == 'process'"
@@ -420,13 +432,13 @@ stop_conditions:
 # ==============================================================================
 validation_checks:
   pre_execution:
-    - "problem_statement is specific and clear"
-    - "context information available"
+    - "situation statement is specific and clear"
+    - "context information available (signals, timeline, affected parties)"
     - "at least one stakeholder input available"
 
   post_execution:
     - "analysis reaches actionable root cause (not just symptom)"
-    - "root cause is specific (not generic like 'human error')"
+    - "root cause is specific (not generic like 'miscommunication')"
     - "at least one corrective action defined"
     - "validation statement explains why this is root cause"
     - "all evidence cited for why answers"
@@ -442,15 +454,15 @@ validation_checks:
 # ==============================================================================
 integrates_with:
   - playbook: "PB_AE_001_retrospective"
-    integration: "Five Whys used for loss analysis root cause"
+    integration: "Situation diagnostic used for loss analysis root cause"
     provides: "Root cause analysis for retrospective findings"
 
   - playbook: "PB_AE_002_account_planning"
-    integration: "Five Whys used to analyze recurring blockers"
+    integration: "Situation diagnostic used to analyze recurring blockers"
     provides: "Root cause for strategic planning decisions"
 
   - playbook: "PB_STR_004_swot_analysis"
-    integration: "Five Whys deepens understanding of weaknesses"
+    integration: "Situation diagnostic deepens understanding of weaknesses"
     provides: "Root cause context for identified weaknesses"
 
 # ==============================================================================
@@ -465,7 +477,7 @@ approval_workflow:
   - reviewer: "SA Agent or Retrospective Agent"
     approval_gate: "Review analysis quality and completeness"
 
-last_updated: "2026-01-21"
-version: "1.0"
+last_updated: "2026-03-15"
+version: "2.0"
 status: "production_ready"
-notes: "Based on Toyota Production System Five Whys methodology"
+notes: "Reframed from Five Whys Analysis to Situation Diagnostic. Uses iterative 'Why?' technique to diagnose engagement, stakeholder, deal, and technical shifts."

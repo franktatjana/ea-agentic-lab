@@ -48,7 +48,7 @@ The system uses two distinct playbook categories:
 
 **Location:** `playbooks/operational/`
 
-**Schema:** See [operational-playbook-spec.md](operational-playbook-spec.md)
+**Schema:** See [playbook-system.md](playbook-system.md)
 
 **Examples:**
 - OP_RSK_001: Register New Risk

@@ -64,6 +64,18 @@ async def get_definition_bundle(
     )
 
 
+@router.get("/definitions/{agent_id}/personality")
+async def get_personality(
+    agent_id: str,
+    svc: DefinitionsService = Depends(get_definitions_service),
+):
+    """Return the parsed personality YAML for an agent."""
+    result = svc.get_personality(agent_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Personality file not found")
+    return result
+
+
 @router.get("/definitions/{agent_id}/prompts/{prompt_key}")
 async def get_prompt_content(
     agent_id: str,

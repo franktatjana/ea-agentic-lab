@@ -40,7 +40,7 @@ const TRACK_BADGE_COLORS: Record<string, string> = {
   fast_track: "bg-orange-600/20 text-orange-400 border-orange-600/30",
 };
 
-function TrackCard({ trackKey, track }: { trackKey: string; track: Record<string, unknown> }) {
+function TrackCard({ trackKey, track, pbIndex }: { trackKey: string; track: Record<string, unknown>; pbIndex: Record<string, string> }) {
   const sla = track.sla as Record<string, unknown> | undefined;
   const resources = track.resources as Record<string, unknown> | undefined;
   const playbookPolicy = track.playbook_policy as Record<string, unknown> | undefined;
@@ -135,26 +135,32 @@ function TrackCard({ trackKey, track }: { trackKey: string; track: Record<string
             </dl>
             {Array.isArray(playbookPolicy.required) && (playbookPolicy.required as string[]).length > 0 && (
               <div className="mt-1">
-                <p className="text-muted-foreground/70 mb-0.5 flex items-center gap-1">
+                <p className="text-muted-foreground/70 mb-1 flex items-center gap-1">
                   <CheckCircle2 className="h-3 w-3 text-green-400" />Required
                 </p>
-                <div className="flex flex-wrap gap-1">
+                <ul className="space-y-0.5">
                   {(playbookPolicy.required as string[]).map((id) => (
-                    <Badge key={id} variant="outline" className="text-[10px]">{id}</Badge>
+                    <li key={id} className="flex items-center gap-1.5 text-xs">
+                      <CheckCircle2 className="h-3 w-3 text-green-400/60 shrink-0" />
+                      <span>{pbIndex[id] ?? id}</span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
             )}
             {Array.isArray(playbookPolicy.blocked) && (playbookPolicy.blocked as string[]).length > 0 && (
               <div className="mt-1">
-                <p className="text-muted-foreground/70 mb-0.5 flex items-center gap-1">
+                <p className="text-muted-foreground/70 mb-1 flex items-center gap-1">
                   <Ban className="h-3 w-3 text-red-400" />Blocked
                 </p>
-                <div className="flex flex-wrap gap-1">
+                <ul className="space-y-0.5">
                   {(playbookPolicy.blocked as string[]).map((id) => (
-                    <Badge key={id} variant="outline" className="text-[10px] text-red-400 border-red-600/30">{id}</Badge>
+                    <li key={id} className="flex items-center gap-1.5 text-xs text-red-400/70">
+                      <Ban className="h-3 w-3 shrink-0" />
+                      <span>{pbIndex[id] ?? id}</span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
             )}
           </div>
@@ -287,6 +293,14 @@ export default function BlueprintHubPage() {
     return archetypes ? Object.keys(archetypes).length : 0;
   }, [archetypesData]);
 
+  const pbIndex = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const pb of playbooks ?? []) {
+      map[pb._id] = (pb.framework_name || pb.name || pb._id) as string;
+    }
+    return map;
+  }, [playbooks]);
+
   const NAV_CARDS = [
     {
       href: "/blueprints/reference",
@@ -389,7 +403,7 @@ export default function BlueprintHubPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {Object.entries(tracksData.tracks as Record<string, Record<string, unknown>>).map(([key, track]) => (
-                <TrackCard key={key} trackKey={key} track={track} />
+                <TrackCard key={key} trackKey={key} track={track} pbIndex={pbIndex} />
               ))}
             </div>
 

@@ -1,6 +1,6 @@
 # Solution Architect Agent
 
-Near-pure router orchestrator for the Solution Architect role. Routes domain work to 10 sub-agents, keeps 3 operational flows, and coordinates with the AE Agent as a peer.
+Near-pure router orchestrator for the Solution Architect role. Routes domain work to 11 sub-agents, keeps 3 operational flows, and coordinates with the AE Agent as a peer.
 
 **Layer:** Strategic
 **Team:** `solution_architects`
@@ -10,7 +10,7 @@ Near-pure router orchestrator for the Solution Architect role. Routes domain wor
 
 ## Purpose
 
-The SA Agent orchestrates all technical activities across customer engagements. It routes domain-specific work to specialized sub-agents (discovery, risk, decisions, CSP, best practices, journey, value, POC, RFP, specialist), executes 3 operational flows directly (meeting support, InfoHub validation, specialist engagement), and aggregates cross-domain insights. It coordinates with the AE Agent as its primary peer, where AE owns business context and stakeholder access, and SA owns the technical landscape and solution design.
+The SA Agent orchestrates all technical activities across customer engagements. It routes domain-specific work to specialized sub-agents (discovery, risk, decisions, CSP, best practices, journey, value, engagement, POC, RFP, specialist), executes 3 operational flows directly (meeting support, InfoHub validation, specialist engagement), and aggregates cross-domain insights. It coordinates with the AE Agent as its primary peer, where AE owns business context and stakeholder access, and SA owns the technical landscape and solution design.
 
 ---
 
@@ -42,7 +42,7 @@ The SA role is accountable for the technical side of customer engagements, from 
 
 The SA Agent is a near-pure router. It keeps 3 operational flows and delegates all domain work:
 
-- Routes domain work to 10 sub-agents based on request type
+- Routes domain work to 11 sub-agents based on request type
 - Executes meeting prep, technical debrief, and sizing directly (meeting-support flow)
 - Validates InfoHub completeness and staleness (infohub-validation flow)
 - Assesses specialist needs and triggers engagement (specialist-engagement flow)
@@ -55,7 +55,9 @@ The SA Agent is a near-pure router. It keeps 3 operational flows and delegates a
 
 The SA engagement follows a sequential chain, each phase supported by dedicated playbooks:
 
-Qualification (PB_SA_013) → Discovery (PB_SA_014) → Fit Assessment (PB_SA_015) → TECHDRIVE (PB_SA_005) / VSM (PB_SA_011) → Solution Design (PB_SA_002/003) → Demo (PB_SA_006) / Evaluation (PB_SA_012) → Value Narrative (PB_SA_009) → Communication (PB_SA_010) → Journey Handoff (PB_SA_007)
+Qualification (PB_SA_013) → Discovery (PB_SA_014) → Fit Assessment (PB_SA_015) → TECHDRIVE (PB_SA_005) / VSM (PB_SA_011) → Solution Design (PB_SA_002/003) → Demo (PB_SA_006) / Evaluation (PB_SA_012) → Value Narrative (PB_SA_009) → Communication (PB_SA_010) → Journey Handoff (PB_SA_007) → Office Hours (PB_SA_016, recurring engagement)
+
+Demo (PB_SA_006) appears at the pursuit stage but is owned by the SA Engagement Agent, which manages it alongside Office Hours and other customer-facing engagements.
 
 ---
 
@@ -65,13 +67,14 @@ Qualification (PB_SA_013) → Discovery (PB_SA_014) → Fit Assessment (PB_SA_01
 
 | Agent | ID | Purpose |
 |-------|----|---------|
-| SA Discovery Agent | sa-discovery-agent | Technical discovery lifecycle, business outcomes, current state, requirements |
+| SA Discovery Agent | sa-discovery-agent | Full discovery lifecycle: initial discovery, follow-up gap closure, async artifact synthesis, periodic refresh |
 | SA Technical Risk Agent | sa-risk-agent | Architecture health, performance, capacity planning, integration risk |
 | SA Decision Capture Agent | sa-decision-capture-agent | Decision extraction from meetings, architecture impact, ADR generation |
 | SA CSP Agent | sa-csp-agent | Customer Success Plan lifecycle from initiation through CA handoff |
 | SA Best Practices Agent | sa-best-practices-agent | Best practices knowledge base creation, maintenance, gap analysis |
 | SA Journey Agent | sa-journey-agent | Customer journey mapping, touchpoint documentation, stakeholder journeys |
 | SA Value Agent | sa-value-agent | Value stream mapping, value articulation, ROI framing, business outcome quantification |
+| SA Engagement Agent | sa-engagement-agent | Customer-facing technical engagements (Office Hours, demos, workshops), embedded discovery |
 
 ### External (separate directories)
 
@@ -114,10 +117,10 @@ Qualification (PB_SA_013) → Discovery (PB_SA_014) → Fit Assessment (PB_SA_01
 
 | ID | Name | Mode | Category |
 |----|------|------|----------|
-| PB_SA_001 | TOGAF ADR | GENERATIVE | architecture_decisions |
+| PB_SA_001 | ADR | GENERATIVE | architecture_decisions |
 | PB_SA_002 | Sizing | GENERATIVE | technical_execution |
 | PB_SA_003 | Solution Description / HLD | GENERATIVE | technical_execution |
-| PB_SA_004 | Five Whys | ANALYTICAL | technical_execution |
+| PB_SA_004 | Situation Diagnostic | ANALYTICAL | discovery_investigation |
 | PB_SA_005 | TECHDRIVE | ASSESSMENT | pursuit_sales_support |
 | PB_SA_006 | Technical Demo Preparation | GENERATIVE | pursuit_sales_support |
 | PB_SA_007 | Customer Journey Mapping | ASSESSMENT | discovery_investigation |
@@ -129,6 +132,7 @@ Qualification (PB_SA_013) → Discovery (PB_SA_014) → Fit Assessment (PB_SA_01
 | PB_SA_013 | SA Engagement Qualification | ASSESSMENT | pursuit_sales_support |
 | PB_SA_014 | Technical Discovery | ASSESSMENT | discovery_investigation |
 | PB_SA_015 | Solution Fit Assessment | ANALYTICAL | discovery_investigation |
+| PB_SA_016 | Office Hours with Enterprise Clients | OPERATIONAL | relationship_governance |
 | PB_STR_004 | SWOT Analysis | ANALYTICAL | strategic_analysis |
 | PB_STR_006 | Decision Tree Analysis | ANALYTICAL | strategic_analysis |
 | PB_STR_204 | Risk Heat Map | ANALYTICAL | strategic_analysis |

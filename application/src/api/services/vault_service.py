@@ -99,6 +99,7 @@ class VaultService:
         return {
             "meetings": self._load_meetings(node_path),
             "field_notes": self._load_markdown_dir(node_path / "raw" / "daily-ops"),
+            "source_documents": self._load_source_documents(node_path / "raw"),
             "frameworks": self._load_markdown_dir(node_path / "internal-infohub" / "frameworks"),
             "journey": self._load_yaml(node_path / "internal-infohub" / "journey" / "customer_journey_map.yaml"),
             "touchpoints": self._load_yaml(node_path / "internal-infohub" / "journey" / "touchpoint_log.yaml"),
@@ -123,6 +124,24 @@ class VaultService:
                 })
         meetings.sort(key=lambda m: m["filename"], reverse=True)
         return meetings
+
+    def _load_source_documents(self, raw_path: Path) -> list[dict[str, Any]]:
+        """Load markdown files from raw/ subfolders, excluding meetings and daily-ops."""
+        excluded = {"meetings", "daily-ops"}
+        results = []
+        if not raw_path.is_dir():
+            return results
+        for subdir in sorted(raw_path.iterdir()):
+            if not subdir.is_dir() or subdir.name in excluded:
+                continue
+            for md_file in sorted(subdir.glob("*.md")):
+                results.append({
+                    "filename": md_file.name,
+                    "folder": subdir.name,
+                    "title": md_file.stem.replace("_", " ").replace("-", " "),
+                    "content": self._read_text(md_file),
+                })
+        return results
 
     def _load_markdown_dir(self, dir_path: Path) -> list[dict[str, Any]]:
         if not dir_path.is_dir():

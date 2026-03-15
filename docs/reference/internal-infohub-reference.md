@@ -194,7 +194,7 @@ The template includes the eight standard directories (`risks/`, `stakeholders/`,
 
 ## Related Documentation
 
-- [Knowledge Vault Architecture](../architecture/system/knowledge-vault-architecture.md): full three-vault model, data flows, and security boundaries
+- [Vault Architecture](../architecture/system/vault-architecture.md): full three-vault model, data flows, and security boundaries
 - [External InfoHub Reference](external-infohub-reference.md): customer-facing counterpart to this hub
 - [DDR-001: Three-Vault Knowledge Architecture](../decisions/DDR_001_three_vault_knowledge_architecture.md): decision rationale for the three-vault separation
 - [Agent Quick Reference](../architecture/agents/agent-quick-reference.md): agent responsibilities and InfoHub path mapping

@@ -154,6 +154,8 @@ v3.0 restores Skills as a distinct layer and adds Runbooks alongside them. A Ski
 
 ## Consequences
 
+> **Historical context (v2.0, superseded):** The following two sections describe what changed from the prior model and what was retained. The current model is v3.0 defined above. v2.0 collapsed Skills into Runbooks, removing composability. v3.0 corrects this by restoring Skills as a distinct, reusable layer.
+
 ### What Changes from v2.0
 
 - **Skills restored as distinct layer.** Skills are the agent's capability catalog (what it can do), separate from runbooks (how it handles scenarios). The v2.0 collapse is reversed.

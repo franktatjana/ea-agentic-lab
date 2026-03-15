@@ -304,4 +304,7 @@ export const api = {
 
   getPromptContent: (agentId: string, promptKey: string) =>
     fetchApi<Record<string, unknown>>(`/definitions/${agentId}/prompts/${promptKey}`),
+
+  getAgentPersonality: (agentId: string) =>
+    fetchApi<Record<string, unknown>>(`/definitions/${agentId}/personality`),
 };

@@ -22,7 +22,7 @@ The Orchestration Agent is a meta-layer that sits above all operational agents. 
 
 ## Architecture Position
 
-[image: Orchestration Pipeline - human input through parser, conflict detector, agent factory, to playbook generator]
+![Process Orchestration in action: parsing an RFP analysis process description into agents, steps, playbooks, conflicts, and gaps](../../guides/screenshots/process-orchestration-rfp-analysis.png)
 
 ```
                     ┌─────────────────────────────────┐
@@ -274,7 +274,7 @@ audit_log:
 
 ---
 
-[image: Orchestration Interaction Flow - describe, parse, decide, generate, report cycle with user decision points]
+![Expanded orchestration result: RFP Technical & Commercial Analysis workflow with agents assigned per step, playbooks referenced, and conflicts with severity levels](../../guides/screenshots/process-orchestration-rfp-workflow-detail.png)
 
 ## Human Interaction Model
 

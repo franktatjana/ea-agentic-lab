@@ -1,0 +1,611 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sa-engagement-agent
+name: SA Engagement Agent
+description: 'Manages customer-facing technical engagements across the sales cycle.
+  Owns recurring engagement formats (Office Hours, technical workshops, demo
+  sessions), embedded discovery, and follow-up coordination. Operates on accounts
+  where the SA maintains the technical relationship, whether alongside a dedicated
+  CA or as the primary engagement owner on accounts without one. Account footprint
+  size, not sales stage, determines the engagement model.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: sa-agent
+  tags:
+  - office-hours
+  - technical-demo
+  - engagement
+  - embedded-discovery
+  - account-governance
+  - customer-facing
+  responsibility: Prepare, support execution, and follow up on customer-facing technical engagements including Office Hours, demos, and technical workshops
+system_prompt: 'You are a Sales Technical Engagement Agent, part of the Solution
+  Architect intelligence system. Your job is to manage customer-facing technical
+  engagements: Office Hours sessions, technical demos, workshops, and other
+  structured touchpoints where the SA represents the technical relationship.
+
+
+  You MUST:
+
+  - Prepare engagement agendas tailored to each client''s context, product version, and primary use case
+
+  - Design embedded discovery questions placed at natural transition points (not as a separate block)
+
+  - Select and prepare demo assets (click-through preferred, live with fallback) matched to client use cases
+
+  - Track engagement quality indicators: discovery answered, next step produced, SA talk ratio
+
+  - Generate follow-up artifacts: client summary, CRM update, AE/CA briefing
+
+  - Maintain engagement continuity by referencing prior conversations and open questions
+
+  - Surface expansion signals from embedded discovery for AE briefing
+
+  - Adapt engagement flow based on client signals (silence, heavy questions, strong interest)
+
+
+  You MUST NOT:
+
+  - Conduct full technical discovery (sa-discovery-agent''s domain, use embedded model only)
+
+  - Design solutions or architecture during engagement sessions
+
+  - Handle support issues (note and route separately)
+
+  - Assess commercial viability or pricing (ae-agent''s domain)
+
+  - Run engagements as sales calls or training sessions
+
+  - Cut the closing block to extend content delivery
+
+
+  When uncertain: surface with a direct question to the client rather than
+  continuing content delivery. Document engagement signals for next session planning.
+
+
+  Tone: conversational, technically credible, attentive to client signals.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section
+    parameter to target specific data: context, stakeholders, engagements, decisions,
+    risks, journey.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: 'Access prior session notes, email threads, and meeting transcripts
+    for engagement continuity.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: source_type
+    type: string
+  - title: time_period
+    type: string
+  outputs:
+  - title: communications
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No prior session notes found, note gap in preparation
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access product release notes and platform updates relevant to client
+    environment.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip product update enrichment, proceed with core preparation
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: write-sa-artifact
+  name: Write Solution Artifact
+  description: Save session summaries, discovery findings, and follow-up artifacts to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from solution architect
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: engagement-intelligence
+  name: Engagement Intelligence
+  description: Engagement findings available to peer agents for account context
+  tools:
+  - id: get-session-summary
+    name: Get Session Summary
+    description: Returns most recent engagement session summary for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: session_summary
+      type: object
+  - id: get-engagement-signals
+    name: Get Engagement Signals
+    description: Returns discovery findings and expansion signals from recent sessions
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: engagement_signals
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: office-hours
+  name: Office Hours
+  playbook_refs:
+  - PB_SA_016
+  description: Prepare, support execution, and follow up on recurring Office Hours sessions with enterprise clients
+  inputs:
+  - title: account_context
+    type: object
+  - title: session_duration
+    type: string
+  - title: prior_session_notes
+    type: object
+  outputs:
+  - title: session_preparation
+    type: object
+  - title: session_summary
+    type: object
+  - title: discovery_findings
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sa-office-hours-preparation
+      input: account_name, prior_session_notes, product_version
+      description: Prepare session agenda, topic blocks, and embedded discovery questions
+      on_failure: stop
+    - step: 2
+      prompt: sa-office-hours-topic-readiness
+      input: agenda_topics
+      description: Validate each topic passes readiness check (value sentence, key facts, misconceptions, next step)
+      on_failure: stop
+    - step: 3
+      prompt: sa-office-hours-demo-preparation
+      input: demo_topics, session_duration
+      description: Select demo format and prepare click-through or live demo assets
+      on_failure: skip_with_warning
+    - step: 4
+      prompt: sa-office-hours-session-support
+      input: session_notes, engagement_signals
+      description: Real-time session flow adaptation based on client engagement signals
+      on_failure: skip_with_warning
+    - step: 5
+      prompt: sa-office-hours-follow-up
+      input: session_notes, discovery_findings, expansion_signals
+      description: Generate client summary, CRM update, AE/CA briefing, and next session planning
+      on_failure: stop
+    - step: 6
+      action: persist
+      tools:
+      - write-sa-artifact
+      description: Save session summary and discovery findings to InfoHub
+      on_failure: stop
+- component_type: Flow
+  id: technical-demo
+  name: Technical Demo
+  playbook_refs:
+  - PB_SA_006
+  description: Prepare and execute technical demos tailored to client use cases, from discovery-to-demo mapping through scenario scripting and environment setup
+  inputs:
+  - title: account_context
+    type: object
+  - title: demo_objectives
+    type: string
+  - title: target_audience
+    type: string
+  outputs:
+  - title: demo_preparation
+    type: object
+  - title: demo_follow_up
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sa-demo-discovery-mapping
+      input: account_name, discovery_findings, demo_objectives
+      description: Map discovery findings to demo scenarios and select demo format
+      on_failure: stop
+    - step: 2
+      prompt: sa-demo-scenario-scripting
+      input: demo_scenarios, target_audience, product_version
+      description: Script demo flow with talking points and transition narratives
+      on_failure: stop
+    - step: 3
+      prompt: sa-demo-environment-preparation
+      input: demo_scenarios, environment_requirements
+      description: Prepare demo environment and verify data/config readiness
+      on_failure: skip_with_warning
+    - step: 4
+      prompt: sa-demo-follow-up
+      input: demo_notes, audience_reactions, next_steps
+      description: Generate demo summary, capture reactions, and recommend follow-up actions
+      on_failure: stop
+    - step: 5
+      action: persist
+      tools:
+      - write-sa-artifact
+      description: Save demo preparation and follow-up artifacts to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - office-hours
+    - technical-demo
+    - customer-engagement
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Customer-facing technical engagements, whether Office
+      Hours, demos, or workshops, are relationship-building conversations, not
+      content delivery mechanisms. The SA brings technical credibility, reads
+      engagement signals in real time, adapts content on the fly, and builds
+      the trust that turns structured touchpoints into the highest-ROI account
+      investment. The agent structures preparation, tracks continuity, and
+      ensures follow-through, but the SA creates the conditions where clients
+      share what really matters.
+
+      '
+    challenges:
+    - text: Recurring sessions become generic product walkthroughs disconnected from client context
+      specific_overhead:
+      - Reviewing prior session notes, account context, and product updates before every session
+    - text: Discovery happens too late (after content delivery) or not at all
+      specific_overhead:
+      - Designing embedded discovery questions tailored to each client's maturity level
+    - text: Closing block gets cut when content overruns, losing the highest-value conversation
+      specific_overhead:
+      - Tracking time allocation across topic blocks to protect the closing block
+    - text: Follow-up falls through the cracks between sessions
+      specific_overhead:
+      - Generating summary emails, CRM updates, and AE/CA briefings within 24 hours
+    administrative_overhead:
+    - Reviewing prior session notes and account context before every session
+    - Designing embedded discovery questions tailored to client maturity
+    - Tracking time allocation to protect the closing block
+    - Generating summary emails, CRM updates, and AE/CA briefings within 24 hours
+    - Maintaining session continuity across monthly or quarterly cadences
+    scenarios:
+    - problem: Recurring sessions become generic product walkthroughs disconnected from client context
+      why: 'When preparation focuses on slides rather than context, the SA
+        defaults to showing everything new instead of what matters to this
+        specific client. The session feels like a broadcast, not a conversation,
+        and the client stops seeing value in attending.
+
+        '
+      agent: sa-engagement-agent
+      agent_response: 'Prepares session agendas by aggregating prior session
+        notes, account context, current product version, and relevant product
+        updates. Generates topic blocks tailored to the client''s primary use
+        case with embedded discovery questions that calibrate content depth
+        to client maturity.
+
+        '
+      success_signal:
+        metric: Sessions with at least one client-specific reference in opening
+        target: 100% of sessions reference prior conversation or client-specific detail
+        leading_indicator: Preparation brief generated 24+ hours before session
+        failure_signal: Client questions the value of recurring sessions
+    - problem: Expansion signals surface but are not captured or acted upon
+      why: 'During Office Hours, clients reveal adjacent use cases, budget cycles,
+        and internal mandates through their questions and engagement patterns.
+        Without structured capture, these signals are lost between sessions
+        and never reach the AE.
+
+        '
+      agent: sa-engagement-agent
+      agent_response: 'Interprets client engagement signals (heavy questions on
+        specific topics, cost inquiries, leadership mandate indicators) and
+        generates structured signal reports. Briefs AE within 24 hours with
+        specific follow-up recommendations.
+
+        '
+      success_signal:
+        metric: Expansion signals captured and briefed to AE within 24 hours
+        target: 100% of detected signals documented with recommended next step
+        leading_indicator: AE confirms receipt and action on briefed signals
+        failure_signal: Expansion opportunity discovered by AE independently months after Office Hours surfaced the signal
+  escalation_triggers:
+  - Client explicitly questions value of recurring session
+  - Three consecutive sessions with no concrete next step
+  - Technical question beyond SA scope requires specialist involvement
+  - Client engagement drops to silence for majority of session
+  prompt_registry:
+    sa-office-hours-preparation:
+      description: Prepare Office Hours session with account context and agenda
+      source: prompts/tasks.yaml#office_hours.session_preparation
+      requires_data:
+      - source: read-infohub
+        fields:
+        - account_context
+        - primary_use_case
+        - product_version
+        - stakeholder_map
+        priority: critical
+      - source: read-communications
+        fields:
+        - prior_session_notes
+        - open_questions
+        - recent_engagement_context
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - product_releases
+        - platform_updates
+        priority: enrichment
+    sa-office-hours-topic-readiness:
+      description: Validate topic readiness for session delivery
+      source: prompts/tasks.yaml#office_hours.topic_readiness_check
+      requires_data:
+      - source: read-infohub
+        fields:
+        - account_context
+        - client_maturity
+        priority: critical
+    sa-office-hours-demo-preparation:
+      description: Select and prepare demo assets for session
+      source: prompts/tasks.yaml#office_hours.demo_preparation
+      requires_data:
+      - source: read-infohub
+        fields:
+        - client_use_cases
+        - product_version
+        priority: critical
+    sa-office-hours-session-support:
+      description: Real-time session flow adaptation based on engagement signals
+      source: prompts/tasks.yaml#office_hours.session_support
+      requires_data:
+      - source: read-communications
+        fields:
+        - session_notes
+        - engagement_signals
+        priority: critical
+    sa-office-hours-follow-up:
+      description: Generate follow-up artifacts from session
+      source: prompts/tasks.yaml#office_hours.follow_up
+      requires_data:
+      - source: read-communications
+        fields:
+        - session_notes
+        - discovery_findings
+        priority: critical
+      - source: read-infohub
+        fields:
+        - account_context
+        - ca_assigned
+        priority: enrichment
+    sa-demo-discovery-mapping:
+      description: Map discovery findings to demo scenarios and select format
+      source: prompts/tasks.yaml#technical_demo.discovery_mapping
+      requires_data:
+      - source: read-infohub
+        fields:
+        - account_context
+        - primary_use_case
+        - product_version
+        - discovery_findings
+        priority: critical
+    sa-demo-scenario-scripting:
+      description: Script demo flow with talking points and transitions
+      source: prompts/tasks.yaml#technical_demo.scenario_scripting
+      requires_data:
+      - source: read-infohub
+        fields:
+        - client_use_cases
+        - product_version
+        - stakeholder_map
+        priority: critical
+    sa-demo-environment-preparation:
+      description: Prepare demo environment and verify readiness
+      source: prompts/tasks.yaml#technical_demo.environment_preparation
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - product_releases
+        - environment_configs
+        priority: critical
+    sa-demo-follow-up:
+      description: Generate demo summary and recommend follow-up actions
+      source: prompts/tasks.yaml#technical_demo.follow_up
+      requires_data:
+      - source: read-communications
+        fields:
+        - demo_notes
+        - audience_reactions
+        priority: critical
+      - source: read-infohub
+        fields:
+        - account_context
+        priority: enrichment
+  boundaries:
+  - Customer-facing technical engagements (Office Hours, demos, workshops), does not replace full technical discovery
+  - Does not design solutions or architectures during engagement sessions
+  - Does not handle support issues (note and route separately)
+  - Does not assess commercial viability or pricing
+  - Does not replace CA cadence calls (complements with technical depth)
+  - Does not own solution design or architecture decisions (engagement surfaces needs, other agents design)
+  permissions:
+  - Read account context, prior session notes, and stakeholder maps
+  - Read product release notes and platform updates
+  - Generate session preparation briefs and follow-up artifacts
+  - Surface engagement signals and expansion opportunities
+  - Write session summaries and discovery findings to InfoHub
+  guardrails:
+    input_validation:
+    - rule: Session must reference a specific account with prior engagement history
+    - rule: Reject preparation requests without client primary use case and product version
+    output_checks:
+    - rule: Session agenda has maximum 4 topic blocks for 60-minute sessions
+    - rule: Closing block (10 min) is protected and never compressed
+    - rule: Every topic passes readiness check before inclusion
+    - rule: Follow-up summary sent within 24 hours of session
+    signal_validation:
+    - rule: Engagement signals reference specific client behavior during session
+    - rule: Expansion signals include recommended next step and AE notification
+  knowledge:
+    scope:
+      domains:
+      - office-hours
+      - technical-demo
+      - embedded-discovery
+      - account-governance
+      - engagement-cadence
+      - customer-facing-engagement
+      archetypes:
+      - enterprise
+      - strategic
+    references:
+    - path: references/discovery-methodology.yaml
+      description: Embedded discovery question model and signal interpretation
+    - path: references/signal-detection.yaml
+      description: Engagement signals and expansion signal patterns
+  error_handling:
+    tool_failures:
+      critical:
+      - read-communications
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot prepare session without prior engagement context
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sa-agent
+      description: SA orchestrator routes customer-facing engagement requests (Office Hours, demos, workshops)
+    - type: event
+      source: cadence_scheduler
+      condition: engagement.next_session <= 5_business_days
+      description: Auto-activates preparation 5 business days before scheduled engagement
+    - type: event
+      source: opportunity_tracker
+      condition: demo_requested == true AND demo_date_set == true
+      description: Auto-activates demo preparation when demo is scheduled
+    outputs:
+    - type: parent_return
+      target: sa-agent
+      payload:
+      - session_preparation
+      - session_summary
+      - discovery_findings
+      - expansion_signals
+      description: Full session artifacts back to SA orchestrator
+    - type: notify_agent
+      target: ae-agent
+      condition: expansion_signals.any.interest_level == strong
+      payload:
+      - expansion_signal
+      - recommended_next_step
+      description: Strong expansion signal triggers AE notification
+    - type: notify_agent
+      target: ca-agent
+      condition: account.ca_assigned == true
+      payload:
+      - session_summary
+      - discovery_findings
+      - health_signals
+      description: CA briefing when dedicated CA is assigned
+    - type: notify_human
+      condition: session.consecutive_no_next_step >= 3 OR client.questions_value == true
+      channel: alert
+      description: Session value concern surfaces for SA Manager review
+    dependencies: []

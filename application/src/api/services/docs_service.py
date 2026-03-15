@@ -89,7 +89,8 @@ class DocsService:
                     stripped = line.strip()
                     if stripped == "---":
                         if in_frontmatter:
-                            break  # End of frontmatter
+                            in_frontmatter = False  # End of frontmatter — keep reading for H1
+                            continue
                         in_frontmatter = True
                         continue
                     if in_frontmatter:
@@ -114,6 +115,22 @@ class DocsService:
             title = filepath.stem.replace("-", " ").replace("_", " ").title()
 
         return title, order
+
+    _ALLOWED_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
+
+    def get_asset_path(self, asset_path: str) -> Optional[Path]:
+        """Return the resolved path to an image asset within docs/, or None if invalid."""
+        safe_path = Path(asset_path)
+        if ".." in safe_path.parts or safe_path.is_absolute():
+            return None
+        full_path = (self.docs_path / safe_path).resolve()
+        if not full_path.is_relative_to(self.docs_path.resolve()):
+            return None
+        if not full_path.is_file():
+            return None
+        if full_path.suffix.lower() not in self._ALLOWED_IMAGE_SUFFIXES:
+            return None
+        return full_path
 
     def get_content(self, doc_path: str) -> Optional[str]:
         """Read a markdown file by its relative path within docs/."""

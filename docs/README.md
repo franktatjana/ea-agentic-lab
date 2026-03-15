@@ -2,6 +2,21 @@
 
 Technical documentation for the EA Agentic Lab, organized by reader intent. Whether you need to understand how the system is designed, why a decision was made, who does what, or how to perform a task, the structure below guides you to the right place.
 
+## Find What You Need
+
+| I want to... | Start here |
+|---|---|
+| Get oriented as a new team member | [HANDBOOK.md](HANDBOOK.md) → [Understanding the System](guides/understanding-the-system.md) |
+| See what the system does for my role (AE, SA, CSM) | [End-to-End Walkthrough by Role](guides/end-to-end-walkthrough.md) |
+| Understand how a specific agent works | [Agent Profiles Index](reference/agent-profiles/index.md) |
+| Apply a specific workflow (POC, CSP, RFP, value engineering) | [Guides for Practitioners](guides/for-practitioners/) |
+| Run the system locally or build a new agent | [Guides for Developers](guides/for-developers/) |
+| Look up a playbook, signal, framework, or skill | [Reference](reference/) |
+| Understand why something was designed a certain way | [Decisions](decisions/README.md) |
+| See the domain model (agents, skills, runbooks, knowledge) | [Domain Model v3.0](architecture/system/domain-model.md) |
+
+---
+
 ## Directory Structure
 
 ```text
@@ -17,7 +32,7 @@ docs/
 ├── reference/                 # Look it up
 ├── decisions/                 # Why was this decided?
 ├── planning/                  # Where are we?
-│   └── audit/                 #   How does it hold up?
+│   └── archive/               #   Historical audits and completed work
 ├── HANDBOOK.md                # One-page orientation for new team members
 ├── DOCUMENTATION_PRINCIPLES.md # Writing standards for this project
 └── llms.txt                   # LLM-readable project summary
@@ -41,7 +56,7 @@ Defines who is responsible for what, during which phase of an engagement. Covers
 
 ## Architecture
 
-The system implements a 47-agent model for strategic account management across three layers: 18 strategic agents that exercise judgment and make recommendations (with 8 AE sub-agents and 6 SA sub-agents operating under routing orchestrators), 10 governance agents that enforce process and maintain artifacts, and 5 intelligence agents that gather and analyze external signals. These documents describe the design.
+The system implements 40 agent definitions across 13 roles for strategic account management. Role agents exercise judgment and make recommendations; sub-agents handle specialized tasks under their parent role; 10 governance agents enforce process quality automatically. The taxonomy is defined in DDR-021. These documents describe the design.
 
 ### Agents
 
@@ -58,12 +73,9 @@ The system implements a 47-agent model for strategic account management across t
 
 | Document | Description |
 |----------|-------------|
-| [playbook-framework.md](architecture/playbooks/playbook-framework.md) | Playbook structure and design principles |
+| [playbook-system.md](architecture/playbooks/playbook-system.md) | Playbook structure, design principles, execution model, authoring guide, and operational spec |
 | [playbook-execution-specification.md](architecture/playbooks/playbook-execution-specification.md) | How playbooks are executed at runtime |
-| [operational-playbook-spec.md](architecture/playbooks/operational-playbook-spec.md) | Micro-playbook format for routine operations |
-| [playbook-creation-guide.md](architecture/playbooks/playbook-creation-guide.md) | How to create new playbooks |
 | [canvas-framework.md](architecture/playbooks/canvas-framework.md) | Visual canvas artifact specifications |
-| [playbook-architecture-fix.md](architecture/playbooks/playbook-architecture-fix.md) | Architecture improvements log |
 | [playbook-model-validation.md](architecture/playbooks/playbook-model-validation.md) | Validation rules for playbook YAML |
 
 ### System Design
@@ -73,8 +85,7 @@ Core data models, schemas, and design principles that underpin the entire platfo
 | Document | Description |
 |----------|-------------|
 | [core-entities.md](architecture/system/core-entities.md) | Realm/Node hierarchy and entity definitions |
-| [knowledge-architecture.md](architecture/system/knowledge-architecture.md) | Three-vault knowledge separation model |
-| [knowledge-vault-architecture.md](architecture/system/knowledge-vault-architecture.md) | Vault architecture: security boundaries, data flows, naming |
+| [vault-architecture.md](architecture/system/vault-architecture.md) | Three-vault knowledge separation model: structure, security boundaries, data flows, and naming |
 | [process-orchestration-overview.md](architecture/system/process-orchestration-overview.md) | Why processes exist, the four registered processes, orchestration pipeline |
 | [process-schema.md](architecture/system/process-schema.md) | Normalized process schema definitions |
 | [conflict-rules.md](architecture/system/conflict-rules.md) | Conflict taxonomy, detection rules, severity levels |
@@ -85,7 +96,7 @@ Core data models, schemas, and design principles that underpin the entire platfo
 | [context-engineering.md](architecture/system/context-engineering.md) | Context budgets and freshness management |
 | [tool-design-principles.md](architecture/system/tool-design-principles.md) | Tool design for AI agents |
 | [playbook-personalization-spec.md](architecture/system/playbook-personalization-spec.md) | Override and customization system |
-| [knowledge-collection-sharing-spec.md](architecture/system/knowledge-collection-sharing-spec.md) | Knowledge collection and sharing rules |
+| [knowledge-lifecycle.md](architecture/system/knowledge-lifecycle.md) | Knowledge collection and sharing rules |
 | [checklist-learning-system.md](architecture/system/checklist-learning-system.md) | Checklist-based learning system design |
 
 ---
@@ -127,7 +138,7 @@ Static lookup materials: catalogs, quick-reference cards, and terminology. These
 |----------|-------------|
 | [agent-quick-reference.md](architecture/agents/agent-quick-reference.md) | Quick reference for all agents |
 | [playbook-catalog.md](reference/playbook-catalog.md) | Catalog of all playbooks |
-| [signal-catalog.md](reference/signal-catalog.md) | Signal definitions and routing |
+| [signal-catalog.md](architecture/system/signal-catalog.md) | Signal definitions and routing |
 | [skill-catalog.md](reference/skill-catalog.md) | Skill definitions: composable workflows, cross-agent imports |
 | [framework-catalog.md](reference/framework-catalog.md) | Strategic frameworks (SWOT, BCG, etc.) |
 | [tech-signal-map.md](reference/tech-signal-map.md) | Technology signal intelligence |
@@ -135,7 +146,7 @@ Static lookup materials: catalogs, quick-reference cards, and terminology. These
 | [blueprint-catalog.md](reference/blueprint-catalog.md) | Blueprint composition: archetypes, tracks, domains |
 | [external-infohub-reference.md](reference/external-infohub-reference.md) | Customer-facing InfoHub reference |
 | [internal-infohub-reference.md](reference/internal-infohub-reference.md) | Vendor-internal InfoHub reference |
-| [agent-profiles/](reference/agent-profiles/index.md) | Individual agent profile cards (30 agents) |
+| [agent-profiles/](reference/agent-profiles/index.md) | Individual agent profile cards (40 definitions) |
 
 ---
 
@@ -143,21 +154,18 @@ Static lookup materials: catalogs, quick-reference cards, and terminology. These
 
 Every significant choice, whether domain-level or technical, is documented as a decision record with context, alternatives considered, and consequences. This creates an audit trail and prevents re-litigating settled decisions.
 
+21 Domain Decision Records (DDR) and 7 Architecture Decision Records (ADR) are indexed in [decisions/README.md](decisions/README.md). Selected highlights:
+
 | Record | Type | Status |
 |--------|------|--------|
+| [DDR-019: Agent System Domain Model](decisions/DDR_019_agent_system_domain_model.md) | Domain | ACCEPTED |
+| [DDR-021: Agent Taxonomy](decisions/DDR_021_agent_taxonomy.md) | Domain | ACCEPTED |
 | [DDR-001: Three-Vault Knowledge Architecture](decisions/DDR_001_three_vault_knowledge_architecture.md) | Domain | ACCEPTED |
-| [DDR-002: Canvas Framework](decisions/DDR_002_canvas_framework.md) | Domain | ACCEPTED |
-| [DDR-003: Domain Specialist Agent Pattern](decisions/DDR_003_domain_specialist_agents.md) | Domain | ACCEPTED |
-| [DDR-004: Technology Signal Intelligence](decisions/DDR_004_tech_signal_intelligence.md) | Domain | ACCEPTED |
 | [DDR-016: Skill Architecture](decisions/DDR_016_skill_architecture.md) | Domain | ACCEPTED |
-| [ADR-001: Streamlit Playbook Viewer](decisions/ADR_001_streamlit_playbook_viewer.md) | Architecture | SUPERSEDED |
 | [ADR-002: Next.js Web Application](decisions/ADR_002_nextjs_web_application.md) | Architecture | ACCEPTED |
-| [ADR-003: Multi-UI Architecture Strategy](decisions/ADR_003_multi_ui_architecture.md) | Architecture | ACCEPTED |
 | [ADR-004: FastAPI Backend](decisions/ADR_004_fastapi_backend.md) | Architecture | ACCEPTED |
-| [ADR-005: Documentation Browser](decisions/ADR_005_documentation_browser.md) | Architecture | ACCEPTED |
-| [DDR-018: Agent Definition Alignment](decisions/DDR_018_agent_definition_alignment.md) | Domain | ACCEPTED |
 
-See [decisions/README.md](decisions/README.md) for the decision documentation framework (DDR vs ADR).
+See [decisions/README.md](decisions/README.md) for the complete index and the DDR vs ADR framework.
 
 ---
 
@@ -167,7 +175,7 @@ Design audits evaluate the system against established agent design principles, i
 
 | Audit | Date | Scope |
 |-------|------|-------|
-| [Agent Design Audit](planning/audit/2025-02-14-agent-design-audit.md) | 2025-02-14 | Agent identity, routing, interfaces, handoffs, context engineering, prompts, testing |
+| [Agent Design Audit](planning/archive/2025-02-14-agent-design-audit.md) | 2025-02-14 | Agent identity, routing, interfaces, handoffs, context engineering, prompts, testing |
 
 **Knowledge base:** Audit criteria are drawn from the [Agent Systems Handbook](https://github.com/tatjanafrank/agent-lab/blob/main/docs/handbook.md), [Lessons Learned](https://github.com/tatjanafrank/agent-lab/blob/main/docs/lessons-learned.md), and [Bookmarks](https://github.com/tatjanafrank/agent-lab/blob/main/docs/bookmarks.md) in the agent-lab repository.
 
@@ -181,14 +189,3 @@ Development notes, gap analyses, and implementation status. These track where we
 |----------|-------------|
 | [implementation-status.md](planning/implementation-status.md) | Overall implementation progress |
 | [prompt-gap-analysis.md](planning/prompt-gap-analysis.md) | Prompt technique gaps per agent |
-
----
-
-## Getting Started
-
-1. **Orientation**: [HANDBOOK.md](HANDBOOK.md) for a one-page overview
-2. **Understand the operating model**: [strategic-accounts.md](operating-model/strategic-accounts.md)
-3. **Explore agent architecture**: [agent-architecture.md](architecture/agents/agent-architecture.md)
-4. **See scenarios in action**: [agent-scenarios.md](architecture/agents/agent-scenarios.md)
-5. **Explore playbooks**: [playbook-framework.md](architecture/playbooks/playbook-framework.md)
-6. **Quick lookup**: [agent-quick-reference.md](architecture/agents/agent-quick-reference.md)

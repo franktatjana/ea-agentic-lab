@@ -282,6 +282,6 @@ canvases:
 
 ## Related Documentation
 
-- [Playbook Framework](playbook-framework.md) - How playbooks work
+- [Playbook System](playbook-system.md) - How playbooks work
 - [Output Contract](../system/output-contract.md) - Artifact output standards
-- [Knowledge Vault Architecture](../system/knowledge-vault-architecture.md) - Data storage model
+- [Vault Architecture](../system/vault-architecture.md) - Data storage model

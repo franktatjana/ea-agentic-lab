@@ -3,7 +3,7 @@
 **Status:** ACCEPTED
 **Date:** 2026-02-09
 **Category:** Domain Decision Record
-**Specification:** [knowledge-architecture.md](../architecture/system/knowledge-architecture.md)
+**Specification:** [vault-architecture.md](../architecture/system/vault-architecture.md)
 
 ## Context
 

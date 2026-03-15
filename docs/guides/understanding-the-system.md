@@ -108,7 +108,11 @@ The system has three agent categories:
 
 **Governance agents (8)** reduce entropy. The Meeting Notes Agent extracts structured artifacts from meeting notes. The Task Shepherd validates every action has an owner, due date, and done criteria. The Nudger follows up on overdue actions with a predictable escalation timeline (Day +1 reminder, Day +3 escalation to manager, Day +5 escalation to governance lead). The Risk Radar tracks risk state transitions with defined SLAs (Identified to Assessed within 24 hours, Assessed to Mitigating within 48 hours).
 
-**The Orchestration Agent (1)** is the meta-layer that transforms process descriptions into agents and playbooks.
+**The Orchestration Agent (1)** is the meta-layer that transforms process descriptions into agents and playbooks. Given a natural-language process description, it parses the workflow, identifies the agents involved, surfaces conflicts between how different agents define the same concept, and flags gaps where no handoff is defined. The result is a structured artifact: named steps, agents assigned per step, referenced playbooks, detected conflicts with severity, and gaps with recommended resolutions.
+
+![Process Orchestration: parsing an RFP analysis process and generating a structured workflow with conflict and gap detection](screenshots/process-orchestration-rfp-analysis.png)
+
+![Expanded orchestration result showing the RFP Technical & Commercial Analysis workflow, agents involved, playbooks referenced, and detected conflicts](screenshots/process-orchestration-rfp-workflow-detail.png)
 
 **How agents communicate**: agents communicate through signals, not shared databases. A signal includes the sending agent, receiving agent, priority, context (realm/node/trigger), and payload. This makes cross-agent coordination explicit and auditable.
 
@@ -218,11 +222,18 @@ The gap is visible across product and field teams within minutes. The SA is alre
 
 ## Related Documentation
 
-- [User Handbook](../HANDBOOK.md): day-to-day usage guide for all roles
+**Next steps:**
+
+- [End-to-End Walkthrough by Role](end-to-end-walkthrough.md): these concepts applied across a full deal from each role's perspective
+- [HANDBOOK.md](../HANDBOOK.md): day-to-day usage guide for all roles, with role-specific workflow sections
+
+**Architecture deep dives:**
+
+- [Domain Model v3.0](../architecture/system/domain-model.md): building blocks, agent layers, and vocabulary (canonical reference)
 - [Agent Responsibilities](../architecture/agents/agent-responsibilities.md): full agent matrix with decision authority and handover triggers
 - [Agent Scenarios](../architecture/agents/agent-scenarios.md): detailed signal-level scenario walkthroughs
-- [Knowledge Vault Architecture](../architecture/system/knowledge-vault-architecture.md): three-vault model, data flows, security boundaries
-- [Playbook Framework](../architecture/playbooks/playbook-framework.md): how consulting frameworks become executable playbooks
+- [Vault Architecture](../architecture/system/vault-architecture.md): three-vault model, data flows, security boundaries
+- [Playbook System](../architecture/playbooks/playbook-system.md): how consulting frameworks become executable playbooks
 - [Canvas Framework](../architecture/playbooks/canvas-framework.md): visual artifact types and rendering pipeline
 - [Core Entities](../architecture/system/core-entities.md): Blueprint, Realm, Node definitions and relationships
 - [External InfoHub Reference](../reference/external-infohub-reference.md): content rules for the customer-facing hub

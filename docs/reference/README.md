@@ -18,7 +18,7 @@ Lookup tables that enumerate all instances of a concept. Each catalog is the sin
 | [playbook-catalog.md](playbook-catalog.md) | All playbooks by customer lifecycle stage, with IDs, owners, and descriptions |
 | [framework-catalog.md](framework-catalog.md) | Consulting frameworks (McKinsey, BCG, Porter, etc.) mapped to agents and playbooks |
 | [blueprint-catalog.md](blueprint-catalog.md) | Blueprint composition: archetypes, engagement tracks, domains, and which playbooks they assemble |
-| [signal-catalog.md](signal-catalog.md) | Signal taxonomy: immutable events that flow between agents, with schemas and routing rules |
+| [signal-catalog.md](../architecture/system/signal-catalog.md) | Signal taxonomy: immutable events that flow between agents, with schemas and routing rules |
 | [tech-signal-map.md](tech-signal-map.md) | Technology intelligence patterns: adoption signals, skills gaps, competitive indicators per realm |
 | [skill-catalog.md](skill-catalog.md) | Named, composable skill workflows owned by agents, indexed for cross-agent discovery |
 
@@ -39,18 +39,19 @@ Structural definitions for the two InfoHub knowledge vaults. These define direct
 
 ## Agent Profiles
 
-30 individual agent cards organized by functional area. Each profile documents the agent's identity, responsibilities, playbook ownership, handoff chains, escalation rules, and personality traits.
+40 agent definitions organized by functional area. Each profile documents the agent's identity, responsibilities, playbook ownership, handoff chains, escalation rules, and personality traits.
 
 See [agent-profiles/index.md](agent-profiles/index.md) for the full index.
 
 | Category | Agents | Focus |
 |----------|--------|-------|
 | [Leadership](agent-profiles/leadership/) | Senior Manager, Product Manager | Strategic oversight, roadmap alignment |
-| [Sales](agent-profiles/sales/) | AE, CI, Value Engineering, Partner | Commercial strategy, competitive positioning |
+| [Sales](agent-profiles/sales/) | AE, VE, Partner, HAM | Commercial strategy, value quantification, hyperscaler co-sell |
 | [Architecture](agent-profiles/architecture/) | SA, CA, Specialist Router | Technical integrity, solution design |
-| [Deal Execution](agent-profiles/deal-execution/) | RFP, POC, InfoSec | Bid management, proof of concept, security |
-| [Delivery](agent-profiles/delivery/) | Delivery, PS, Support | Implementation, services, support ops |
-| [Intelligence](agent-profiles/intelligence/) | Tech Signal Scanner, Analyzer | External signal scanning, technology maps |
-| [Governance](agent-profiles/governance/) | Meeting Notes, Task Shepherd, Decision Registrar, Risk Radar, Nudger, Reporter, Playbook Curator, InfoHub Curator, Knowledge Vault Curator | Process enforcement, quality gates |
+| [InfoSec](agent-profiles/deal-execution/) | InfoSec | Security and compliance enablement |
+| [Deal Execution](agent-profiles/deal-execution/) | RFP, POC | Bid management, proof of concept |
+| [Intelligence](agent-profiles/intelligence/) | CI, Account Intelligence, Industry Intelligence, Market News, Tech Scout Scanner, Tech Scout Analyzer | External signal scanning, technology maps |
+| [Delivery](agent-profiles/delivery/) | Delivery, PS | Implementation, services |
+| [Governance](agent-profiles/governance/) | Meeting Notes, Task Shepherd, Decision Registrar, Risk Radar, Nudger, Reporter, Signal Matcher, Playbook Curator, InfoHub Curator, Knowledge Vault Curator | Process enforcement, quality gates |
 | [Specialists](agent-profiles/specialists/) | Security, Observability, Search | Domain-specific deep expertise |
 | [Meta](agent-profiles/meta/) | Orchestration, Retrospective | System coordination, lessons learned |

@@ -27,7 +27,7 @@ Commercial strategy, competitive positioning, value quantification, and partner 
 | `account_executives/` | Opportunity Hygiene | ae-opportunity-hygiene-agent | sub-agent | CRM data quality and pipeline accuracy |
 | `account_executives/` | Pipeline Gen | ae-pipeline-gen-agent | sub-agent | Prospecting and pipeline generation |
 | `account_executives/` | Pipeline Mgmt | ae-pipeline-mgmt-agent | sub-agent | Pipeline velocity and stage progression |
-| `account_executives/` | Qualification | ae-qualification-agent | sub-agent | MEDDPICC qualification and scoring |
+| `account_executives/` | MEDDPICC | ae-meddpicc-agent | sub-agent | MEDDPICC qualification and scoring |
 | `account_executives/` | Signal Detection | ae-signal-detection-agent | sub-agent | Buying signal identification and routing |
 | `account_executives/` | Stakeholder Intel | ae-stakeholder-agent | sub-agent | Stakeholder mapping and influence analysis |
 | `competitive_intelligence/` | CI Agent | ci-agent | standalone | Competitive intelligence, win/loss insights |
@@ -119,7 +119,7 @@ account_executives/
 ├── ae-deal-diagnosis-definition.yaml   # sub-agent
 ├── ae-meeting-prep-definition.yaml     # sub-agent
 ├── ae-pipeline-mgmt-definition.yaml    # sub-agent
-├── ae-qualification-definition.yaml    # sub-agent
+├── ae-meddpicc-definition.yaml    # sub-agent
 ├── ...                                 # 4 more sub-agent definitions
 ├── ae-agent.md                         # parent profile doc
 ├── agents/

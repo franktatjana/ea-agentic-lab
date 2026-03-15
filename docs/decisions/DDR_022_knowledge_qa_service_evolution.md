@@ -109,8 +109,8 @@ The three-vault model, reference file corpus (82 files across 19 agents), and cu
 ## Reference
 
 - Full specification: [Domain Model](../architecture/system/domain-model.md) Section 4.1 (Knowledge)
-- Knowledge architecture: [Three-Vault Model](../architecture/system/knowledge-architecture.md)
-- Knowledge delivery: [Collection & Sharing Spec](../architecture/system/knowledge-collection-sharing-spec.md)
+- Knowledge architecture: [Three-Vault Model](../architecture/system/vault-architecture.md)
+- Knowledge delivery: [Knowledge Lifecycle](../architecture/system/knowledge-lifecycle.md)
 - Knowledge enricher: `platform/knowledge/knowledge_enricher.py`
 
 ---

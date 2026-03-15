@@ -126,7 +126,7 @@ Budget signals, competitive threat detection, expansion opportunity identificati
 | Competitive threat at deal level | CI Agent | Deeper competitive analysis needed |
 | Budget signal confirmed | ae-deal-diagnosis-agent | Deal health reassessment |
 
-**1.5 AE Qualification Agent** (`ae-qualification-agent`, parent: `ae-agent`)
+**1.5 AE MEDDPICC Agent** (`ae-meddpicc-agent`, parent: `ae-agent`)
 
 MEDDPICC assessment, deal readiness scoring, qualification gap analysis, and evidence-based scorecard generation.
 

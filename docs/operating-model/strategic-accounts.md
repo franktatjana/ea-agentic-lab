@@ -19,6 +19,17 @@ This archetype sits at the **Realm level** (company-wide) rather than Node level
 
 ---
 
+## Account Tiers
+
+The operating model uses four governance levels to organize when and how teams engage with an account. Each level corresponds to a distinct phase of the account lifecycle, with its own scope, blueprints, and handoff triggers. The levels stack: A governs continuously, while B, C, and D each activate at a specific contract milestone.
+
+- **A-Level (Strategic Governance)**: Long-term steering across the full account lifecycle. Operates at the Realm level regardless of deal phase. Covers executive sponsorship, account planning, risk management, and decision tracking. Defined in this document.
+- **B-Level (Pre-Sales)**: All activities before contract signature. Covers qualification, POC, RFP, proposal, and negotiation. Activates when a new opportunity is identified and closes at contract signature. Defined in [Pre-Sales Governance Model](pre-sales-model.md).
+- **C-Level (Post-Sales / Implementation)**: All activities after deal closure. Covers onboarding, adoption, services delivery, support coordination, and customer advocacy. Activates at contract signature. Defined in [Post-Sales Governance Model](post-sales-model.md).
+- **D-Level (Renewal)**: Renewal cycle activities beginning 90 days before contract expiry. Handoff from C-Level triggers this phase. Not yet fully specified; referenced in post-sales handoff points.
+
+---
+
 ## Entity Model
 
 ```text

@@ -181,7 +181,7 @@ Skills formalize what tasks.yaml describes informally. A task is a prompt templa
 
 ## Related Documentation
 
-- [Signal Catalog](signal-catalog.md) - Signal definitions (same catalog pattern)
+- [Signal Catalog](../architecture/system/signal-catalog.md) - Signal definitions (same catalog pattern)
 - [Playbook Catalog](playbook-catalog.md) - Playbook definitions
 - [Agent Architecture](../architecture/agents/agent-architecture.md) - Agent design overview
 - [DDR-016](../decisions/DDR_016_skill_architecture.md) - Architecture decision

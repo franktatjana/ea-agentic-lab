@@ -173,4 +173,4 @@ The frontend at `application/frontend/src/app/orchestration/page.tsx` is a **pro
 - [Orchestration Agent Architecture](../agents/orchestration-agent.md): Full agent architecture, interaction model, and pipeline diagram
 - [Orchestration Agent Profile](../../reference/agent-profiles/meta/orchestration-agent.md): Quick reference card
 - [Core Entities](core-entities.md): Realm, Node, Blueprint, Playbook entity definitions
-- [Signal Catalog](../../reference/signal-catalog.md): Signal definitions consumed and produced by processes
+- [Signal Catalog](signal-catalog.md): Signal definitions consumed and produced by processes

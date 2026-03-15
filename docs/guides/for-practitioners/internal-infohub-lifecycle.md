@@ -141,5 +141,5 @@ Use this checklist for periodic audits of the Internal InfoHub. Governance agent
 
 - [Internal InfoHub Reference](../../reference/internal-infohub-reference.md): What belongs and directory structure
 - [Knowledge Vault Guide](knowledge-vault-guide.md): Overall vault usage
-- [Knowledge Vault Architecture](../../architecture/system/knowledge-vault-architecture.md): Design and security model
+- [Vault Architecture](../../architecture/system/vault-architecture.md): Design and security model
 - [Documentation Principles](../../DOCUMENTATION_PRINCIPLES.md): Writing standards

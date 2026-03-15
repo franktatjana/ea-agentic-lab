@@ -15,6 +15,8 @@ order: 2
 
 B-Level Governance defines all activities **before contract signature**: focused on winning the deal through solution sharing, expert orchestration, and value demonstration. This domain governs pre-sales execution across discovery, qualification, POC, proposal, and negotiation phases.
 
+For definitions of all A/B/C/D tier labels and how they relate, see [Account Tiers](strategic-accounts.md#account-tiers).
+
 ---
 
 [image: Pre-Sales Handoff Flow - how opportunities move from A-Level through B-Level to C-Level with triggers]

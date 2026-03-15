@@ -41,7 +41,7 @@ A comprehensive framework for customer engagement, health management, and value 
 │                                                                              │
 │  LIFECYCLE (PB_CA_5xx)              ANALYSIS (PB_5xx/6xx)                   │
 │  ─────────────────────              ────────────────────                    │
-│  Handoff: PB_CA_501                 Five Whys: PB_SA_004                       │
+│  Handoff: PB_CA_501                 Situation Diagnostic: PB_SA_004            │
 │  Expansion: PB_CA_502               Retrospective: PB_AE_001                   │
 │                                     Account Planning: PB_AE_002                │
 │                                                                              │
@@ -186,10 +186,10 @@ health_triage:
   triggers: "PB_DEL_005_security_stage_adoption"
   reason: "Assess adoption stage and blockers"
 
-# Stage Adoption triggers Five Whys
+# Stage Adoption triggers Situation Diagnostic
 stage_adoption:
   blocker_persists: 30  # days
-  triggers: "PB_SA_004_five_whys_analysis"
+  triggers: "PB_SA_004_situation_diagnostic"
   reason: "Root cause analysis for adoption blocker"
 
 # Health Triage informs Cadence
@@ -305,7 +305,7 @@ health_triage:
 ## References
 
 - [Playbook Catalog](../../reference/playbook-catalog.md)
-- [Signal Catalog](../../reference/signal-catalog.md)
+- [Signal Catalog](../../architecture/system/signal-catalog.md)
 - [Playbook Execution Specification](../../architecture/playbooks/playbook-execution-specification.md)
 
 ## Sources

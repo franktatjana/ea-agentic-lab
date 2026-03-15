@@ -686,5 +686,5 @@ For the decision record, see [DDR-024](../../decisions/DDR_024_runtime_binding_a
 - [Context Engineering](context-engineering.md) - Token budgets, freshness tracking
 - [Prompt Engineering Principles](prompt-engineering-principles.md) - Prompting techniques (CoT, ReAct, etc.)
 - [Playbook Execution Specification](../playbooks/playbook-execution-specification.md) - Execution model
-- [Operational Playbook Specification](../playbooks/operational-playbook-spec.md) - Event-driven procedures
+- [Playbook System](../playbooks/playbook-system.md) - Event-driven procedures and operational playbook spec
 - [Output Contract](output-contract.md) - Artifact format standards

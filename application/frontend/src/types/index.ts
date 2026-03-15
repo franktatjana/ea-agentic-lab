@@ -569,6 +569,20 @@ export interface WithThisAgentDomain {
   items: string[];
 }
 
+export interface AgentKnowledgeReference {
+  path: string;
+  description: string;
+  content?: Record<string, unknown>;
+}
+
+export interface AgentKnowledge {
+  scope?: {
+    domains?: string[];
+    archetypes?: string[];
+  };
+  references?: AgentKnowledgeReference[];
+}
+
 export interface AgentProfile {
   why?: string;
   human_matters_summary?: string;
@@ -586,6 +600,8 @@ export interface AgentProfile {
   activity_map?: ActivityMap;
   playbook_raci?: ProfilePlaybookRaci;
   sub_agents?: AgentProfileSubAgent[];
+  challenge_group_framing?: Record<string, string>;
+  role_tab_intro?: string;
 }
 
 export interface AgentDefinitionSummary {

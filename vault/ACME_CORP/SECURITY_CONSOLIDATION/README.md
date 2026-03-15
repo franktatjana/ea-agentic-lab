@@ -125,7 +125,7 @@ SECURITY_CONSOLIDATION/
 │   ├── decisions/
 │   │   └── decision_log.yaml              # 11 decisions tracked
 │   ├── architecture/
-│   │   └── ADR_001_security_platform.md   # TOGAF ADR
+│   │   └── ADR_001_security_platform.md   # Architecture Decision Record
 │   ├── value/
 │   │   └── value_tracker.yaml             # $840K realized
 │   ├── opportunities/

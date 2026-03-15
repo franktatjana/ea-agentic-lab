@@ -375,6 +375,17 @@ function DocsPageContent() {
                   }
                   return <pre {...props}>{children}</pre>;
                 },
+                img: ({ src, alt, ...props }) => {
+                  if (!src) return null;
+                  // External or absolute images pass through unchanged
+                  if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("/")) {
+                    return <img src={src} alt={alt || ""} {...props} />;
+                  }
+                  // Resolve relative image path against the current document directory
+                  const resolved = resolveDocPath(src, activePath);
+                  if (!resolved) return null;
+                  return <img src={`/api/v1/docs-assets/${resolved}`} alt={alt || ""} {...props} />;
+                },
                 a: ({ href, children, ...props }) => {
                   // External links open in a new tab
                   if (!href || href.startsWith("http://") || href.startsWith("https://")) {

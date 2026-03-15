@@ -27,6 +27,7 @@ export const ROLE_STYLES: Record<string, RoleStyle> = {
   pm:         { label: "Product Manager",     badgeColors: "bg-pink-600/20 text-pink-400 border-pink-600/30",       borderColor: "border-pink-600/30 hover:border-pink-500/50",     activeBorderColor: "border-pink-500/60 bg-pink-600/5",     textColor: "text-pink-400" },
   partner:    { label: "Partner",             badgeColors: "bg-amber-600/20 text-amber-400 border-amber-600/30",   borderColor: "border-amber-600/30 hover:border-amber-500/50",   activeBorderColor: "border-amber-500/60 bg-amber-600/5",   textColor: "text-amber-400" },
   leadership: { label: "Leadership",          badgeColors: "bg-yellow-600/20 text-yellow-400 border-yellow-600/30", borderColor: "border-yellow-600/30 hover:border-yellow-500/50", activeBorderColor: "border-yellow-500/60 bg-yellow-600/5", textColor: "text-yellow-400" },
+  rfp:        { label: "RFP",                 badgeColors: "bg-rose-600/20 text-rose-400 border-rose-600/30",       borderColor: "border-rose-600/30 hover:border-rose-500/50",     activeBorderColor: "border-rose-500/60 bg-rose-600/5",     textColor: "text-rose-400" },
 };
 
 const FALLBACK: RoleStyle = {
@@ -51,6 +52,7 @@ export function getRoleKey(agentRole: string): string {
   if (lower.includes("specialist")) return "specialist";
   if (lower.includes("pm") || lower.includes("product manager")) return "pm";
   if (lower.includes("partner")) return "partner";
+  if (lower.startsWith("rfp") || lower.includes("rfp")) return "rfp";
   return "other";
 }
 

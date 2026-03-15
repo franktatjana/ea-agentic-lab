@@ -2,8 +2,7 @@ agentspec_version: 26.1.0
 component_type: Agent
 id: sa-discovery-agent
 name: SA Discovery Agent
-description: 'Conducts structured technical discovery covering business outcomes, current state, requirements, stakeholders, and timeline. Synthesizes findings into actionable summaries that drive architecture
-  recommendations and solution design.
+description: 'Conducts structured technical discovery covering business outcomes, current state, requirements, stakeholders, and timeline. Manages the full discovery lifecycle: initial structured discovery, targeted follow-up sessions for gap closure, async synthesis from inbound artifacts, and periodic refresh when context drifts. Synthesizes findings into actionable summaries that drive architecture recommendations and solution design.
 
   '
 metadata:
@@ -14,10 +13,21 @@ metadata:
   - requirements
   - architecture
   - stakeholders
-  responsibility: Conduct thorough technical discovery and produce actionable synthesis
+  responsibility: Conduct thorough technical discovery, maintain discovery freshness through follow-ups and refresh cycles, and produce actionable synthesis
 system_prompt: 'You are a Technical Discovery Agent, part of the Solution Architect intelligence
 
-  system. Your job is to conduct structured discovery across five dimensions.
+  system. You manage the full discovery lifecycle across four flows.
+
+
+  FLOW ROUTING:
+
+  - technical-discovery: Full structured discovery across five dimensions (new accounts, new opportunities)
+
+  - follow-up-discovery: Targeted gap closure from prior discovery (open gaps exist, follow-up scheduled)
+
+  - async-discovery-synthesis: Evidence extraction from inbound artifacts without live session (RFIs, diagrams, questionnaires)
+
+  - discovery-refresh: Re-validation when discovery has aged or context signals indicate drift
 
 
   You MUST:
@@ -34,6 +44,10 @@ system_prompt: 'You are a Technical Discovery Agent, part of the Solution Archit
 
   - Flag gaps that need follow-up discovery sessions
 
+  - Track discovery freshness and trigger refresh when context drifts
+
+  - Integrate async evidence from documents and communications between live sessions
+
 
   You MUST NOT:
 
@@ -44,6 +58,10 @@ system_prompt: 'You are a Technical Discovery Agent, part of the Solution Archit
   - Skip stakeholder mapping even for "technical-only" engagements
 
   - Assume requirements without customer validation
+
+  - Treat follow-up sessions as full discovery (focus on gaps, not re-covering known ground)
+
+  - Accept artifact evidence at face value without confidence assessment
 
 
   When uncertain: document the gap, suggest discovery questions to resolve it,
@@ -274,6 +292,152 @@ flows:
       - write-sa-artifact
       description: Save discovery summary to InfoHub
       on_failure: stop
+- component_type: Flow
+  id: follow-up-discovery
+  name: Follow-Up Discovery
+  playbook_refs:
+  - PB_SA_001
+  - PB_SA_005
+  description: Targeted discovery session focused on closing gaps identified in prior discovery. Loads the existing synthesis, generates questions for unresolved dimensions only, and produces an updated summary.
+  inputs:
+  - title: account_context
+    type: object
+  - title: prior_discovery_summary
+    type: object
+  - title: open_gaps
+    type: array
+  outputs:
+  - title: updated_discovery_summary
+    type: object
+  - title: remaining_gaps
+    type: array
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sa-followup-gap-assessment
+      input: account_name, prior_discovery_summary, open_gaps
+      description: Load prior synthesis and identify which dimensions need follow-up, prioritize by deal impact
+      on_failure: stop
+    - step: 2
+      prompt: sa-followup-targeted-questions
+      input: account_name, gap_dimensions, stakeholder_map
+      description: Generate targeted questions for each open gap, mapped to the stakeholders who can answer them
+      on_failure: stop
+    - step: 3
+      prompt: sa-followup-evidence-integration
+      input: account_name, new_findings, prior_discovery_summary
+      description: Integrate new findings into existing discovery summary, reconcile contradictions
+      on_failure: stop
+    - step: 4
+      prompt: sa-followup-delta-report
+      input: account_name, updated_summary, prior_discovery_summary
+      description: Produce delta report showing what changed, what closed, what remains open
+      on_failure: skip_with_warning
+    - step: 5
+      action: persist
+      tools:
+      - write-sa-artifact
+      description: Save updated discovery summary and delta report to InfoHub
+      on_failure: stop
+- component_type: Flow
+  id: async-discovery-synthesis
+  name: Async Discovery Synthesis
+  playbook_refs:
+  - PB_SA_001
+  - PB_SA_005
+  description: Synthesize discovery evidence from documents and communications when no live session is scheduled. Processes inbound artifacts (RFI responses, architecture diagrams, questionnaires, email threads) into structured discovery dimensions.
+  inputs:
+  - title: account_context
+    type: object
+  - title: artifact_refs
+    type: array
+  - title: artifact_type
+    type: string
+  outputs:
+  - title: discovery_extract
+    type: object
+  - title: updated_discovery_summary
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sa-async-artifact-ingestion
+      input: account_name, artifact_refs, artifact_type
+      description: Ingest and classify inbound artifacts, extract discovery-relevant content
+      on_failure: stop
+    - step: 2
+      prompt: sa-async-dimension-mapping
+      input: account_name, extracted_content, existing_discovery_summary
+      description: Map extracted content to discovery dimensions, flag new evidence vs. confirmation vs. contradiction
+      on_failure: stop
+    - step: 3
+      prompt: sa-async-confidence-assessment
+      input: account_name, dimension_mapping
+      description: Assess confidence level per dimension based on evidence quality and source credibility
+      on_failure: skip_with_warning
+    - step: 4
+      prompt: sa-async-synthesis-update
+      input: account_name, dimension_mapping, existing_discovery_summary
+      description: Merge new evidence into discovery summary, mark updated dimensions and remaining gaps
+      on_failure: stop
+    - step: 5
+      action: persist
+      tools:
+      - write-sa-artifact
+      description: Save updated discovery summary and artifact extraction log to InfoHub
+      on_failure: stop
+- component_type: Flow
+  id: discovery-refresh
+  name: Discovery Refresh
+  playbook_refs:
+  - PB_SA_001
+  - PB_SA_005
+  description: Re-validate an existing discovery summary when significant time has passed or context has shifted. Checks for new signals, stakeholder changes, requirement drift, and competitive landscape shifts since the last discovery pass.
+  inputs:
+  - title: account_context
+    type: object
+  - title: existing_discovery_summary
+    type: object
+  - title: refresh_trigger
+    type: string
+  outputs:
+  - title: refreshed_discovery_summary
+    type: object
+  - title: drift_report
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sa-refresh-staleness-scan
+      input: account_name, existing_discovery_summary
+      description: Scan communications, signals, and CRM data for changes since last discovery timestamp
+      on_failure: stop
+    - step: 2
+      prompt: sa-refresh-stakeholder-validation
+      input: account_name, stakeholder_map
+      description: Validate stakeholder map against recent communications, flag role changes, departures, new entrants
+      on_failure: skip_with_warning
+    - step: 3
+      prompt: sa-refresh-requirements-drift
+      input: account_name, requirements, recent_communications
+      description: Detect requirements drift by comparing original requirements against recent customer statements and signals
+      on_failure: stop
+    - step: 4
+      prompt: sa-refresh-competitive-check
+      input: account_name, competitive_landscape
+      description: Check for new competitive signals or vendor mentions since last discovery
+      on_failure: skip_with_warning
+    - step: 5
+      prompt: sa-refresh-drift-synthesis
+      input: account_name, staleness_findings, stakeholder_changes, requirement_drift, competitive_changes
+      description: Synthesize all drift findings into a delta report with recommended actions
+      on_failure: stop
+    - step: 6
+      action: persist
+      tools:
+      - write-sa-artifact
+      description: Save refreshed discovery summary and drift report to InfoHub
+      on_failure: stop
 a2a:
   agent_url: null
   connection_config: null
@@ -281,6 +445,9 @@ a2a:
     protocol_version: '0.1'
     capabilities:
     - technical-discovery
+    - follow-up-discovery
+    - async-discovery-synthesis
+    - discovery-refresh
     input_modes:
     - text/plain
     - application/json
@@ -306,11 +473,19 @@ x-ea-agent:
     - text: Distinguishing confirmed requirements from aspirational wishlists when customers present both as must-haves
       specific_overhead:
       - Tracking which discovery gaps remain open and scheduling follow-up sessions to close them
+    - text: Discovery findings go stale during long sales cycles, but no one re-validates until a late-stage surprise
+      specific_overhead:
+      - Manually comparing current customer statements against discovery notes from months ago
+    - text: Customers send RFI responses, architecture diagrams, and questionnaires between sessions, but the evidence never makes it into the discovery summary
+      specific_overhead:
+      - Manually extracting discovery-relevant content from inbound documents and updating the summary
     administrative_overhead:
     - Manually reviewing weeks of email threads and Slack channels to prepare for a discovery session
     - Synthesizing five discovery dimensions into a coherent summary after each session
     - Cross-referencing stakeholder statements across multiple meetings to detect contradictions
     - Tracking which discovery gaps remain open and scheduling follow-up sessions to close them
+    - Manually comparing current customer statements against discovery notes from months ago to detect drift
+    - Extracting discovery-relevant content from inbound artifacts and reconciling with existing summary
     scenarios:
     - problem: Customers share surface-level requirements without revealing the real business pain driving the project
       why: 'When discovery stays at the feature level, the SA designs a solution that checks boxes but misses the business outcome the customer actually needs. The deal stalls in evaluation because the
@@ -372,11 +547,52 @@ x-ea-agent:
         target: 100% of requirements classified using MoSCoW with business driver traceability
         leading_indicator: Customer validates prioritization before solution design begins
         failure_signal: Solution proposal includes aspirational requirements that inflate scope beyond budget
+    - problem: Follow-up discovery sessions re-cover already-known ground instead of targeting specific gaps
+      why: 'Without a structured gap report from the prior session, the SA defaults to running a mini version of the full discovery. Customers notice the repetition and disengage, reading it as a sign that the vendor is disorganized or not listening. The follow-up session produces diminishing returns while consuming a meeting slot that could have advanced the deal.
+
+        '
+      agent: sa-discovery-agent
+      agent_response: 'Loads the prior discovery synthesis and open gap list, generates targeted questions mapped to the specific stakeholders who can answer them, and produces a focused session plan that covers only unresolved dimensions. After the session, produces a delta report showing what closed and what remains open.
+
+        '
+      success_signal:
+        metric: Gap closure rate per follow-up session
+        target: At least 50% of open gaps closed per follow-up session
+        leading_indicator: Follow-up session agenda references specific gaps, not broad discovery dimensions
+        failure_signal: Customer hears the same questions they answered in a prior session
+    - problem: Customers send technical artifacts between meetings but the evidence never reaches the discovery summary
+      why: 'RFI responses, architecture diagrams, and security questionnaires contain rich discovery evidence, but processing them requires manual extraction and cross-referencing against existing discovery dimensions. When these artifacts sit unprocessed, the SA walks into the next session without the context the customer already provided, eroding trust and wasting session time.
+
+        '
+      agent: sa-discovery-agent
+      agent_response: 'Automatically ingests inbound artifacts, classifies them by type, extracts discovery-relevant content, maps it to discovery dimensions with confidence scores, and merges the evidence into the existing summary. The SA sees an updated discovery state before the next interaction without manual extraction work.
+
+        '
+      success_signal:
+        metric: Artifact evidence integration latency
+        target: Inbound artifacts processed and merged into discovery summary within 4 hours of receipt
+        leading_indicator: Discovery summary reflects artifact evidence before next customer interaction
+        failure_signal: SA asks questions in a session that the customer already answered in a submitted document
+    - problem: Discovery findings go stale during long sales cycles and no one notices until a late-stage surprise
+      why: 'Enterprise deals can span 6-12 months. During that time, stakeholders change roles, requirements evolve, and competitive dynamics shift. If the discovery summary from month two is still treated as current in month eight, the solution proposal can miss critical changes. Late-stage surprises, a new CTO with different priorities, a competitor that entered the picture, requirements that shifted after an org change, force expensive rework or kill the deal entirely.
+
+        '
+      agent: sa-discovery-agent
+      agent_response: 'Monitors discovery age against opportunity activity. When discovery exceeds 30 days on an active deal, scans communications and signals for changes in stakeholders, requirements, and competitive landscape. Produces a drift report highlighting what changed and recommending whether a targeted follow-up or full re-discovery is needed.
+
+        '
+      success_signal:
+        metric: Discovery freshness on active opportunities
+        target: No active opportunity has discovery older than 45 days without a refresh or drift acknowledgment
+        leading_indicator: Drift report generated proactively before SA encounters a surprise
+        failure_signal: Late-stage deal surprise traceable to stale discovery that was never refreshed
   escalation_triggers:
   - Critical discovery gaps found (3+ unresolved dimensions after session)
   - Red flags in requirements that conflict with product capabilities
   - Key stakeholder unwilling to participate in discovery
   - No business driver identified after initial discovery pass
+  - Discovery refresh reveals high-severity drift (stakeholder departure, major requirement change)
+  - Async artifact contradicts existing discovery findings with high confidence
   prompt_registry:
     sa-discovery-preparation:
       description: Prepare for structured technical discovery session
@@ -518,6 +734,159 @@ x-ea-agent:
         - discovery_summary
         - open_gaps
         priority: enrichment
+    sa-followup-gap-assessment:
+      description: Assess open gaps from prior discovery and prioritize by deal impact
+      source: prompts/tasks.yaml#follow_up_discovery.gap_assessment
+      requires_data:
+      - source: read-infohub
+        fields:
+        - discovery_summary
+        - open_gaps
+        - opportunity_details
+        priority: critical
+    sa-followup-targeted-questions:
+      description: Generate targeted questions for each open gap mapped to answering stakeholders
+      source: prompts/tasks.yaml#follow_up_discovery.targeted_questions
+      requires_data:
+      - source: read-infohub
+        fields:
+        - stakeholder_map
+        - open_gaps
+        priority: critical
+    sa-followup-evidence-integration:
+      description: Integrate new findings into existing discovery summary
+      source: prompts/tasks.yaml#follow_up_discovery.evidence_integration
+      requires_data:
+      - source: read-infohub
+        fields:
+        - discovery_summary
+        - account_context
+        priority: critical
+      - source: read-communications
+        fields:
+        - meeting_transcripts
+        - recent_slack_threads
+        priority: critical
+    sa-followup-delta-report:
+      description: Produce delta report showing what changed, closed, and remains open
+      source: prompts/tasks.yaml#follow_up_discovery.delta_report
+      requires_data:
+      - source: read-infohub
+        fields:
+        - discovery_summary
+        priority: critical
+    sa-async-artifact-ingestion:
+      description: Ingest and classify inbound artifacts for discovery-relevant content
+      source: prompts/tasks.yaml#async_discovery.artifact_ingestion
+      requires_data:
+      - source: read-infohub
+        fields:
+        - account_context
+        - discovery_summary
+        priority: critical
+      - source: read-communications
+        fields:
+        - artifact_attachments
+        - email_threads
+        priority: critical
+    sa-async-dimension-mapping:
+      description: Map extracted artifact content to discovery dimensions
+      source: prompts/tasks.yaml#async_discovery.dimension_mapping
+      requires_data:
+      - source: read-infohub
+        fields:
+        - discovery_summary
+        priority: critical
+    sa-async-confidence-assessment:
+      description: Assess confidence per discovery dimension based on evidence quality
+      source: prompts/tasks.yaml#async_discovery.confidence_assessment
+      requires_data:
+      - source: read-infohub
+        fields:
+        - discovery_summary
+        priority: enrichment
+    sa-async-synthesis-update:
+      description: Merge new artifact evidence into discovery summary
+      source: prompts/tasks.yaml#async_discovery.synthesis_update
+      requires_data:
+      - source: read-infohub
+        fields:
+        - discovery_summary
+        - account_context
+        priority: critical
+    sa-refresh-staleness-scan:
+      description: Scan for changes since last discovery timestamp
+      source: prompts/tasks.yaml#discovery_refresh.staleness_scan
+      requires_data:
+      - source: read-infohub
+        fields:
+        - discovery_summary
+        - account_context
+        priority: critical
+      - source: read-communications
+        fields:
+        - recent_slack_threads
+        - email_threads
+        - meeting_transcripts
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - company_profile
+        - industry_trends
+        priority: enrichment
+    sa-refresh-stakeholder-validation:
+      description: Validate stakeholder map against recent communications
+      source: prompts/tasks.yaml#discovery_refresh.stakeholder_validation
+      requires_data:
+      - source: read-infohub
+        fields:
+        - stakeholder_map
+        priority: critical
+      - source: read-communications
+        fields:
+        - meeting_attendees
+        - communication_patterns
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - organigram
+        priority: enrichment
+    sa-refresh-requirements-drift:
+      description: Detect requirements drift against recent customer statements
+      source: prompts/tasks.yaml#discovery_refresh.requirements_drift
+      requires_data:
+      - source: read-infohub
+        fields:
+        - requirements
+        - business_drivers
+        priority: critical
+      - source: read-communications
+        fields:
+        - recent_slack_threads
+        - meeting_transcripts
+        priority: critical
+    sa-refresh-competitive-check:
+      description: Check for new competitive signals since last discovery
+      source: prompts/tasks.yaml#discovery_refresh.competitive_check
+      requires_data:
+      - source: read-infohub
+        fields:
+        - competitive_landscape
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - vendor_landscape
+        - market_news
+        priority: enrichment
+    sa-refresh-drift-synthesis:
+      description: Synthesize drift findings into delta report with recommended actions
+      source: prompts/tasks.yaml#discovery_refresh.drift_synthesis
+      requires_data:
+      - source: read-infohub
+        fields:
+        - discovery_summary
+        - account_context
+        priority: critical
   boundaries:
   - Technical discovery and requirements gathering only, does not design solutions
   - Does not assess technical risk or architecture health
@@ -584,7 +953,28 @@ x-ea-agent:
     - type: event
       source: crm_webhook
       condition: opportunity.stage == STAGE_1 AND opportunity.type == new_business
-      description: Auto-activates for new business opportunities entering pipeline
+      description: Auto-activates technical-discovery for new business opportunities entering pipeline
+      flow: technical-discovery
+    - type: event
+      source: discovery_summary
+      condition: discovery.open_gaps > 0 AND discovery.follow_up_session_scheduled == true
+      description: Auto-activates follow-up-discovery when gaps exist and a follow-up session is scheduled
+      flow: follow-up-discovery
+    - type: event
+      source: artifact_received
+      condition: artifact.type IN [rfi_response, architecture_diagram, technical_questionnaire, security_questionnaire] AND discovery_summary.exists == true
+      description: Auto-activates async-discovery-synthesis when discovery-relevant artifacts arrive for an account with existing discovery
+      flow: async-discovery-synthesis
+    - type: schedule
+      source: discovery_summary
+      condition: discovery.age_days > 30 AND opportunity.stage < CLOSED AND opportunity.last_activity_days < 14
+      description: Auto-activates discovery-refresh when discovery is older than 30 days on an active opportunity
+      flow: discovery-refresh
+    - type: event
+      source: signal_detection
+      condition: signal.type IN [SIG_STAKEHOLDER_CHANGE, SIG_REQUIREMENT_DRIFT, SIG_COMPETITIVE_THREAT] AND discovery_summary.exists == true
+      description: Auto-activates discovery-refresh when signals indicate context has shifted
+      flow: discovery-refresh
     outputs:
     - type: parent_return
       target: sa-agent
@@ -594,6 +984,28 @@ x-ea-agent:
       - requirements
       - gaps
       description: Full discovery synthesis back to SA orchestrator
+    - type: parent_return
+      target: sa-agent
+      flow: follow-up-discovery
+      payload:
+      - updated_discovery_summary
+      - remaining_gaps
+      - delta_report
+      description: Updated discovery with gap closure progress
+    - type: parent_return
+      target: sa-agent
+      flow: async-discovery-synthesis
+      payload:
+      - updated_discovery_summary
+      - discovery_extract
+      description: Discovery evidence extracted from async artifacts
+    - type: parent_return
+      target: sa-agent
+      flow: discovery-refresh
+      payload:
+      - refreshed_discovery_summary
+      - drift_report
+      description: Refreshed discovery with drift analysis
     - type: trigger_agent
       target: sa-csp-agent
       condition: opportunity.stage >= STAGE_2 AND opportunity.arr >= 100000
@@ -602,8 +1014,21 @@ x-ea-agent:
       - requirements
       - stakeholders
       description: Discovery completion triggers CSP initiation for qualifying deals
+    - type: trigger_agent
+      target: sa-engagement-agent
+      flow: follow-up-discovery
+      condition: remaining_gaps > 0 AND remaining_gaps.requires_live_session == true
+      payload:
+      - remaining_gaps
+      - recommended_session_format
+      description: Remaining gaps that need live engagement route to engagement agent for session planning
     - type: notify_human
       condition: discovery.critical_gaps > 0 OR discovery.red_flags > 2
       channel: alert
       description: Critical gaps or multiple red flags surface for SA review
+    - type: notify_human
+      flow: discovery-refresh
+      condition: drift_report.severity == HIGH OR drift_report.stakeholder_changes > 0
+      channel: alert
+      description: High-severity drift or stakeholder changes surface for SA review
     dependencies: []

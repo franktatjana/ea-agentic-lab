@@ -8,7 +8,7 @@ last_updated: "2026-03-01"
 
 # Agent Profiles
 
-The EA Agentic Lab has 47 agent definitions organized under 12 human roles. Each role is a digital twin of a real job function. Some roles operate as a single agent, others decompose into sub-agents when the process requires different tools, guardrails, or autonomy (per DDR-019 holonic criteria). Profiles represent roles. Definitions represent agents.
+The EA Agentic Lab has 40 agent definitions organized under 13 human roles. Each role is a digital twin of a real job function. Some roles operate as a single agent, others decompose into sub-agents when the process requires different tools, guardrails, or autonomy (per DDR-019 holonic criteria). Profiles represent roles. Definitions represent agents.
 
 For design rationale, see [DDR-021: Agent Taxonomy](../../decisions/DDR_021_agent_taxonomy.md). For architecture details, see [Agent Architecture](../../architecture/agents/agent-architecture.md).
 
@@ -16,20 +16,20 @@ For design rationale, see [DDR-021: Agent Taxonomy](../../decisions/DDR_021_agen
 
 ## Sales (4 roles, 4 agents)
 
-Sales roles drive commercial strategy, competitive positioning, value quantification, and partner alignment.
+Sales roles drive commercial strategy, value quantification, partner alignment, and hyperscaler co-sell execution.
 
 | Role | Agent | Purpose | Escalates To |
 |------|-------|---------|--------------|
 | Account Executive | [AE Agent](sales/ae-agent.md) | Commercial clarity and forecast stability | Senior Manager |
-| Competitive Intelligence | [CI Agent](sales/ci-agent.md) | Competitive awareness and positioning | Senior Manager |
 | Value Engineer | [VE Agent](sales/ve-agent.md) | Business value quantification and tracking | Senior Manager |
 | Partner Manager | [Partner Agent](sales/partner-agent.md) | Partner ecosystem alignment | Senior Manager |
+| Hyperscaler Account Manager | [HAM Agent](sales/hyperscaler-account-manager-agent.md) | Co-sell motion, marketplace transactions, and hyperscaler field alignment | Partner Manager |
 
 ---
 
-## Architecture (2 roles, 15 agents)
+## Architecture (3 roles, 16 agents)
 
-Architecture roles maintain technical integrity across engagements. The Solution Architect operates as a near-pure router with 9 sub-agents (6 co-located, 3 external) plus 3 domain specialists. The InfoSec Agent is a standalone peer agent with its own role.
+Architecture roles maintain technical integrity across engagements. The Solution Architect operates as a near-pure router with 9 sub-agents (6 co-located, 3 external) plus 3 domain specialists (12 sub-agents total). The InfoSec Agent is a standalone peer agent with its own role. The Customer Architect is a separate role with 1 sub-agent.
 
 ### Solution Architect
 
@@ -43,7 +43,7 @@ Architecture roles maintain technical integrity across engagements. The Solution
 | SA Best Practices Agent | Co-located sub-agent | Best practices knowledge base |
 | SA Journey Agent | Co-located sub-agent | Customer journey mapping and handoff |
 | [POC Agent](deal-execution/poc-agent.md) | External sub-agent | Proof of concept execution and conversion |
-| [RFP Agent](deal-execution/rfp-agent.md) | External sub-agent | RFP bid strategy and response orchestration |
+| [RFP Agent](deal-execution/rfp-agent.md) | External sub-agent | RFP bid strategy and response orchestration. See also: [Executive Guide](../../guides/rfp-agent.md) |
 | [Specialist Engagement Agent](architecture/specialist-agent.md) | External sub-agent | Domain expertise routing and coordination |
 | [Security Specialist](specialists/security-specialist-agent.md) | Sub-agent | SIEM, threat detection, MITRE ATT&CK |
 | [Observability Specialist](specialists/observability-specialist-agent.md) | Sub-agent | APM, SLO/SLI, distributed tracing |
@@ -64,9 +64,15 @@ Architecture roles maintain technical integrity across engagements. The Solution
 
 ---
 
-## Intelligence (1 role, 5 agents)
+## Intelligence (2 roles, 6 agents)
 
-Intelligence analysis serves the entire account team. One composite role covers account-level, industry-level, market-level, and technology-level research. Each agent handles a different scope with different data sources and cadences.
+Intelligence roles serve the entire account team. Competitive Intelligence is a standalone role focused on positioning and win strategy. The Intelligence Analyst is a composite role covering account-level, industry-level, market-level, and technology-level research.
+
+### Competitive Intelligence
+
+| Role | Agent | Purpose | Escalates To |
+|------|-------|---------|--------------|
+| Competitive Intelligence | [CI Agent](intelligence/ci-agent.md) | Competitive awareness, positioning, and win strategy | Senior Manager |
 
 ### Intelligence Analyst
 
@@ -133,18 +139,21 @@ Nudger -> SM                      (overdue > 5 days)
 
 ## Summary
 
-| Category | Roles | Agents | Sub-agents |
-|----------|-------|--------|------------|
-| Sales | 4 | 4 | 8 |
-| Architecture | 2 | 2 | 14 |
-| InfoSec | 1 | 1 | 0 |
-| Intelligence | 1 | 0 | 5 |
-| Leadership | 2 | 2 | 0 |
-| Delivery | 2 | 2 | 0 |
-| Governance | 0 | 0 | 10 |
-| **Total** | **12** | **11** | **37** |
+"Role agents" are top-level agents that map 1:1 to a human role. "Sub-agents / system agents" are either sub-agents decomposed from a role (e.g., SA Discovery, Retrospective) or autonomous system agents with no human role equivalent (governance agents). Intelligence sub-agents have no parent role agent listed in the taxonomy; they operate as a composite function.
 
-12 roles + 1 system function = 13 categories. 11 role agents + 37 sub-agents = 47 definitions (+ Orchestration Agent as [legacy meta-agent](meta/orchestration-agent.md) outside the taxonomy).
+| Category | Roles | Role agents | Sub-agents / system agents | Definitions |
+|----------|-------|-------------|---------------------------|-------------|
+| Sales | 4 | 4 | 0 | 4 |
+| Architecture (SA) | 1 | 1 | 12 | 13 |
+| InfoSec | 1 | 1 | 0 | 1 |
+| Customer Architect | 1 | 1 | 1 | 2 |
+| Intelligence | 2 | 1 | 5 | 6 |
+| Leadership | 2 | 2 | 0 | 2 |
+| Delivery | 2 | 2 | 0 | 2 |
+| Governance (system) | 0 | 0 | 10 | 10 |
+| **Total** | **13** | **12** | **28** | **40** |
+
+13 roles + 1 system function = 14 categories. 12 role agents + 18 role sub-agents + 10 governance system agents = 40 definitions (+ Orchestration Agent as [legacy meta-agent](meta/orchestration-agent.md) outside the taxonomy).
 
 ---
 

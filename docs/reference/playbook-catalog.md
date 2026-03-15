@@ -2,6 +2,12 @@
 
 Playbooks that guide customer engagements from qualification through renewal and expansion. Each playbook provides structured guidance for agents and human collaborators.
 
+## Machine-Readable Contract
+
+The authoritative playbook definitions are in: **[domain/playbooks/](../../domain/playbooks/)**
+
+This document provides human context. The YAML files are what agents and system components consume.
+
 ## Playbook Taxonomy
 
 Our playbooks are organized by customer lifecycle stage and engagement type:
@@ -20,7 +26,7 @@ Our playbooks are organized by customer lifecycle stage and engagement type:
 │                                                                                  │
 │  TECHNICAL ENABLEMENT        LIFECYCLE TRANSITIONS        ANALYSIS FRAMEWORKS   │
 │  ────────────────────        ─────────────────────        ──────────────────    │
-│  • Technical Workshop        • Pre-to-Post Handoff        • Five Whys           │
+│  • Technical Workshop        • Pre-to-Post Handoff        • Situation Diagnostic │
 │  • Migration Playbook        • Renewal Planning           • Retrospective       │
 │  • POV Execution             • Expansion Planning         • Account Planning    │
 │  • Use Case Adoption         • Offboarding                • SWOT Analysis       │
@@ -156,7 +162,7 @@ Structured response to declining health scores and risk indicators.
 
 **Triage Steps:**
 1. Analyze health score components
-2. Identify root cause with Five Whys
+2. Identify root cause with Situation Diagnostic
 3. Create recovery plan
 4. Engage appropriate resources
 5. Track progress to green
@@ -291,16 +297,17 @@ Systematic approach to identifying and executing expansion opportunities.
 
 Strategic analysis tools integrated into customer success workflows.
 
-### Five Whys Analysis
+### Situation Diagnostic
 
-**Path:** `playbooks/solution_architects/PB_SA_004_five_whys_analysis.yaml`
+**Path:** `playbooks/solution_architects/PB_SA_004_situation_diagnostic.yaml`
 
-Root cause analysis for customer issues and blockers.
+Causal analysis for shifts in engagement dynamics, stakeholder behavior, deal momentum, or technical landscape.
 
 Use when:
-- Customer issue recurs despite resolution attempts
+
+- Stakeholder sentiment shifts without clear cause
+- Deal momentum stalls or engagement quality declines
 - Health score decline with unclear cause
-- Deal loss or significant churn
 - Strategic blocker preventing expansion
 
 ### Retrospective
@@ -517,4 +524,4 @@ For the full playbook library across all teams (149 playbooks), see [domain/play
 ## References
 
 - [Playbook Execution Specification](../architecture/playbooks/playbook-execution-specification.md)
-- [Signal Catalog](signal-catalog.md)
+- [Signal Catalog](../architecture/system/signal-catalog.md)

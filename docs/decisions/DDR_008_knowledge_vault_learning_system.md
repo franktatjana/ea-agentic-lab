@@ -3,7 +3,7 @@
 **Status:** ACCEPTED
 **Date:** 2026-02-11
 **Category:** Domain Decision Record
-**Specification:** [knowledge-vault-architecture.md](../architecture/system/knowledge-vault-architecture.md)
+**Specification:** [vault-architecture.md](../architecture/system/vault-architecture.md)
 **Extends:** [DDR-001: Three-Vault Knowledge Architecture](DDR_001_three_vault_knowledge_architecture.md)
 
 ## Context

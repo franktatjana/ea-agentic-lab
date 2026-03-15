@@ -528,7 +528,7 @@ Both categories execute at **Node level only**.
 
 - [Core Entities](../system/core-entities.md) - Blueprint, Realm, Node definitions
 - [Playbook Specification](../playbooks/playbook-execution-specification.md) - Strategic playbooks
-- [Operational Playbook Spec](../playbooks/operational-playbook-spec.md) - Tactical playbooks
+- [Playbook System](../playbooks/playbook-system.md) - Playbook types, authoring, and operational procedures
 - [Skill Catalog](../../reference/skill-catalog.md) - Composable skill workflows between prompts and playbooks
 
 ---

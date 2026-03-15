@@ -211,6 +211,21 @@ tools:
     risk: medium
     resolver: service-registry
 - component_type: ClientTool
+  id: write-product-gap
+  name: Write Product Gap
+  description: 'Write unmatched or partially-matched RFP requirements to the InfoHub product_gaps section for cross-RFP trend analysis by PM Agent.'
+  requires_confirmation: false
+  inputs:
+  - title: gap_entry
+    type: object
+    description: 'Structured gap: requirement_text, category, frequency_hint, deal_value, rfp_id, match_status (none|partial), notes'
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
   id: read-capability-docs
   name: Read Capability Documentation
   description: 'Access internal product and solution capability documentation. Use section parameter to target specific areas: features, integrations, certifications, roadmap, limitations, or security.
@@ -538,6 +553,52 @@ flows:
       input: rfp_title, customer_feedback, rfp_title, competitor
       description: Analyze RFP outcome for learnings
       on_failure: skip_with_warning
+- component_type: Flow
+  id: product-gap-register
+  name: Product Gap Register
+  description: 'Extracts unmatched and partially-matched requirements from a completed compliance matrix and writes structured gap entries to the InfoHub product_gaps section. A periodic mode produces a
+    trend summary across all registered gaps for PM consumption.'
+  inputs:
+  - title: compliance_matrix
+    type: object
+    description: Completed compliance matrix output from bid-decisions flow
+  - title: rfp_title
+    type: string
+  - title: deal_value
+    type: string
+  - title: mode
+    type: string
+    description: 'per-rfp (default) or trend-summary'
+  - title: time_period
+    type: string
+    description: For trend-summary mode only (e.g. Q1 2025)
+  outputs:
+  - title: product_gap_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: rfp-extract-capability-gaps
+      input: compliance_matrix, rfp_title, deal_value
+      tools:
+      - read-capability-docs
+      description: Extract requirements with no match or partial match from compliance matrix
+      on_failure: skip_with_warning
+    - step: 2
+      prompt: rfp-register-product-gaps
+      input: rfp_title, deal_value, unmatched_requirements, partial_requirements
+      tools:
+      - write-product-gap
+      description: Write structured gap entries to InfoHub product_gaps section
+      on_failure: skip_with_warning
+    - step: 3
+      prompt: rfp-gap-trend-summary
+      input: time_period, mode
+      tools:
+      - read-infohub
+      description: Summarise recurring gaps across all registered RFPs for PM Agent (trend-summary mode only)
+      condition: mode == 'trend-summary'
+      on_failure: skip_with_warning
 a2a:
   agent_url: null
   connection_config: null
@@ -549,6 +610,7 @@ a2a:
     - orchestration
     - quality
     - post-submission
+    - product-gap-register
     input_modes:
     - text/plain
     - application/json
@@ -1025,6 +1087,45 @@ x-ea-agent:
       outputs:
       - title: win-loss-analysis_result
         type: object
+    rfp-extract-capability-gaps:
+      description: Extract requirements with no match or partial match from compliance matrix
+      source: prompts/tasks.yaml#product_gap_register.extract_capability_gaps
+      inputs:
+      - title: compliance_matrix
+        type: object
+      - title: rfp_title
+        type: string
+      - title: deal_value
+        type: string
+      outputs:
+      - title: unmatched_requirements
+        type: array
+      - title: partial_requirements
+        type: array
+    rfp-register-product-gaps:
+      description: Write structured gap entries to InfoHub product_gaps section
+      source: prompts/tasks.yaml#product_gap_register.register_product_gaps
+      inputs:
+      - title: rfp_title
+        type: string
+      - title: deal_value
+        type: string
+      - title: unmatched_requirements
+        type: array
+      - title: partial_requirements
+        type: array
+      outputs:
+      - title: gaps_registered
+        type: object
+    rfp-gap-trend-summary:
+      description: Summarise recurring capability gaps across all RFPs for PM Agent
+      source: prompts/tasks.yaml#product_gap_register.gap_trend_summary
+      inputs:
+      - title: time_period
+        type: string
+      outputs:
+      - title: gap_trend_report
+        type: object
   validation:
     required_dimensions:
     - name: context
@@ -1102,6 +1203,7 @@ x-ea-agent:
     provide_to:
       all_agents: RFP context, deadlines, evaluation criteria
       ae_agent: Competitive positioning insights
+      pm_agent: Unmatched and partial-match capability gaps per RFP, recurring gap trends across portfolio
   human_in_the_loop_conditions:
   - Review required before publishing analysis externally
   - Approval needed for strategic recommendations

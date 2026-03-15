@@ -66,10 +66,10 @@ import { YamlContentViewer } from "@/components/yaml-content-viewer";
 import { nodeTypes } from "@/components/flow/nodes";
 import { buildFlowGraph, buildOrchestrationGraph, classifyRoutingSeverity, type RoutingRule } from "@/lib/flow/transform-definition";
 import type { AgentDefinition, AgentDefinitionSummary } from "@/types";
+import { toTitleCase } from "@/lib/title-case";
 
-const ROLE_ACRONYMS = /\b(Ae|Sa|Ca|Pm|Ve|Ci|Rfp|Poc|Pov|Csp|Ii|Aci|Mna|Adr|Qbr|Ebr|Nps|Csat)\b/g;
 function titleCase(s: string): string {
-  return s.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()).replace(ROLE_ACRONYMS, m => m.toUpperCase());
+  return toTitleCase(s);
 }
 
 function CopyButton({ text }: { text: string }) {
@@ -221,7 +221,7 @@ function PromptFlyoutContent({
           ) : promptContent?.error ? (
             <p className="text-xs text-red-400 py-2">{String(promptContent.error)}</p>
           ) : promptContent?.prompt ? (
-            <pre className="text-xs text-muted-foreground whitespace-pre-wrap bg-muted/50 rounded-md p-3 max-h-80 overflow-y-auto leading-relaxed">
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap bg-muted/50 rounded-md p-3  leading-relaxed">
               {String(promptContent.prompt)}
             </pre>
           ) : (
@@ -232,7 +232,7 @@ function PromptFlyoutContent({
         {promptContent && !promptContent.error && !promptContent.prompt ? (
           <div>
             <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Resolved Content</h4>
-            <pre className="text-xs text-muted-foreground whitespace-pre-wrap bg-muted/50 rounded-md p-3 max-h-80 overflow-y-auto leading-relaxed">
+            <pre className="text-xs text-muted-foreground whitespace-pre-wrap bg-muted/50 rounded-md p-3  leading-relaxed">
               {JSON.stringify(promptContent, null, 2)}
             </pre>
           </div>
@@ -606,6 +606,12 @@ function DefinitionDetail({
     queryFn: () => api.listDefinitions(),
   });
 
+  const { data: personality } = useQuery({
+    queryKey: ["personality", agentId],
+    queryFn: () => api.getAgentPersonality(agentId),
+    retry: false,
+  });
+
   if (isLoading) {
     return (
       <div className="text-sm text-muted-foreground py-12 text-center">
@@ -735,11 +741,11 @@ function DefinitionDetail({
           <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
             <Sparkles className="h-3 w-3" /> Purpose
           </h3>
-          <p className="text-xs text-foreground/85 leading-relaxed">
+          <p className="text-sm text-foreground/85 leading-relaxed">
             {(() => { const t = profileWhy ?? String(def.description); const m = t.match(/(?<=[a-z])\.\s+(?=[A-Z])/); if (!m || m.index === undefined) return t; const i = m.index; return <>{t.slice(0, i + 1)}<br /><br />{t.slice(i + m[0].length)}</>; })()}
           </p>
           {goalsSummary && (
-            <p className="text-xs text-blue-400/80 dark:text-blue-300/70 italic mt-2">{goalsSummary}</p>
+            <p className="text-sm text-blue-400/80 dark:text-blue-300/70 italic mt-2">{goalsSummary}</p>
           )}
         </div>
         {isHumanPaired && (humanMattersSummary || humanMattersGoal) && (
@@ -748,12 +754,12 @@ function DefinitionDetail({
               <UserCheck className="h-3 w-3" /> Human Role
             </h3>
             {humanMattersSummary && (
-              <p className="text-xs text-foreground/85 leading-relaxed">
+              <p className="text-sm text-foreground/85 leading-relaxed">
                 {(() => { const t = humanMattersSummary; const m = t.match(/(?<=[a-z])\.\s+(?=[A-Z])/); if (!m || m.index === undefined) return t; const i = m.index; return <>{t.slice(0, i + 1)}<br /><br />{t.slice(i + m[0].length)}</>; })()}
               </p>
             )}
             {humanMattersGoal && (
-              <p className="text-xs text-purple-400/80 dark:text-purple-300/70 italic mt-2">{humanMattersGoal}</p>
+              <p className="text-sm text-purple-400/80 dark:text-purple-300/70 italic mt-2">{humanMattersGoal}</p>
             )}
           </div>
         )}
@@ -780,6 +786,7 @@ function DefinitionDetail({
           <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
           {(deferTo || provideTo) && <TabsTrigger value="interactions">Interactions</TabsTrigger>}
           <TabsTrigger value="guardrails">Guardrails</TabsTrigger>
+          <TabsTrigger value="personality">Personality</TabsTrigger>
           <TabsTrigger value="system-prompt">System Prompt</TabsTrigger>
           <div className="ml-auto flex items-center gap-1">
             <button
@@ -1021,9 +1028,9 @@ function DefinitionDetail({
                       <AlertTriangle className="h-4 w-4 text-red-400" />
                       <span className="text-[15px] font-semibold text-red-400">Problem</span>
                     </div>
-                    <p className="text-[15px] text-foreground leading-relaxed font-medium">{s.problem}</p>
+                    <p className="text-sm text-foreground leading-relaxed font-medium">{s.problem}</p>
                     {s.why && (
-                      <p className="text-[15px] text-muted-foreground leading-relaxed mt-2">{s.why}</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed mt-2">{s.why}</p>
                     )}
                   </div>
                   <div className="flex items-center px-2"><ArrowRight className="h-5 w-5 text-blue-500 dark:text-yellow-400" /></div>
@@ -1035,8 +1042,8 @@ function DefinitionDetail({
                     </div>
                     <ul className="space-y-2">
                       {responseSteps.map((step, si) => (
-                        <li key={si} className="flex items-start gap-2 text-[15px] text-foreground leading-relaxed">
-                          <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />
+                        <li key={si} className="flex items-start gap-2 text-sm text-foreground leading-relaxed">
+                          <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-blue-400 shrink-0" />
                           {step}
                         </li>
                       ))}
@@ -1052,8 +1059,8 @@ function DefinitionDetail({
                       </div>
                       <ul className="space-y-2">
                         {relatedOverhead.map((a, j) => (
-                          <li key={j} className="flex items-start gap-2 text-[15px] text-foreground/90 leading-relaxed">
-                            <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-green-400 shrink-0" />
+                          <li key={j} className="flex items-start gap-2 text-sm text-foreground/90 leading-relaxed">
+                            <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-green-400 shrink-0" />
                             {a.text}
                           </li>
                         ))}
@@ -1070,20 +1077,20 @@ function DefinitionDetail({
                     {s.success_signal && (
                       <div className="space-y-2">
                         {s.success_signal.metric && (
-                          <p className="text-[15px] text-foreground leading-relaxed">{s.success_signal.metric}</p>
+                          <p className="text-sm text-foreground leading-relaxed">{s.success_signal.metric}</p>
                         )}
                         {s.success_signal.target && (
-                          <p className="text-[15px] text-green-400 font-medium">{s.success_signal.target}</p>
+                          <p className="text-sm text-green-400 font-medium">{s.success_signal.target}</p>
                         )}
                         {s.success_signal.leading_indicator && (
-                          <p className="text-[15px] text-muted-foreground">{s.success_signal.leading_indicator}</p>
+                          <p className="text-sm text-muted-foreground">{s.success_signal.leading_indicator}</p>
                         )}
                       </div>
                     )}
                     {s.success_signal?.failure_signal && (
                       <div className="pt-3 border-t border-border/50 mt-3">
                         <p className="text-xs text-amber-400 uppercase tracking-wide font-medium mb-2">Escalates when</p>
-                        <p className="text-[15px] text-foreground/90 flex items-start gap-2">
+                        <p className="text-sm text-foreground/90 flex items-start gap-2">
                           <AlertTriangle className="h-4 w-4 mt-[2px] text-amber-400 shrink-0" />
                           {s.success_signal.failure_signal}
                         </p>
@@ -1106,8 +1113,8 @@ function DefinitionDetail({
                 </div>
                 <ul className="space-y-2">
                   {challenges.map((c, ci) => (
-                    <li key={ci} className="flex items-start gap-2 text-[15px] text-foreground/90">
-                      <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
+                    <li key={ci} className="flex items-start gap-2 text-sm text-foreground/90">
+                      <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
                       <span>
                         {c.text}
                         {c.solved_by && (
@@ -1130,7 +1137,7 @@ function DefinitionDetail({
                   <Bot className="h-4 w-4 text-blue-400" />
                   <span className="text-[15px] font-semibold text-blue-400">Agent Handles</span>
                 </div>
-                <p className="text-[15px] text-foreground/90 leading-relaxed mb-3">
+                <p className="text-sm text-foreground/90 leading-relaxed mb-3">
                   {parentAgent
                     ? "This agent monitors, analyzes, and acts on each problem automatically."
                     : "Sub-agents monitor, analyze, and act on each problem automatically."}
@@ -1140,8 +1147,8 @@ function DefinitionDetail({
                     <p className="text-xs text-green-400 uppercase tracking-wide font-medium mb-2">Overhead eliminated</p>
                     <ul className="space-y-1.5">
                       {adminOverhead.map((a, ai) => (
-                        <li key={ai} className="flex items-start gap-2 text-[15px] text-muted-foreground">
-                          <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-green-400 shrink-0" />
+                        <li key={ai} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <span className="mt-[6px] h-1.5 w-1.5 rounded-full bg-green-400 shrink-0" />
                           <span>
                             {a.text}
                             {a.automated_by && (
@@ -1166,7 +1173,7 @@ function DefinitionDetail({
                   <ShieldCheck className="h-4 w-4 text-green-400" />
                   <span className="text-[15px] font-semibold text-green-400">Outcome</span>
                 </div>
-                <p className="text-[15px] text-foreground/90 leading-relaxed">
+                <p className="text-sm text-foreground/90 leading-relaxed">
                   {parentAgent
                     ? "Problems detected early, overhead automated, AE focused on judgment calls."
                     : "Problems resolved, overhead removed, human focused on high-judgment decisions."}
@@ -1176,7 +1183,7 @@ function DefinitionDetail({
                     <p className="text-xs text-amber-400 uppercase tracking-wide font-medium mb-2">Escalates when</p>
                     <ul className="space-y-1.5">
                       {escalation.map((trigger, ti) => (
-                        <li key={ti} className="flex items-start gap-2 text-[15px] text-foreground/90">
+                        <li key={ti} className="flex items-start gap-2 text-sm text-foreground/90">
                           <AlertTriangle className="h-4 w-4 mt-[2px] text-amber-400 shrink-0" />
                           {typeof trigger === "string" ? trigger : String((trigger as Record<string, unknown>).trigger ?? trigger)}
                         </li>
@@ -1495,13 +1502,13 @@ function DefinitionDetail({
             return (
             <div className={`grid grid-cols-1 gap-3 items-stretch ${sectionCount >= 3 ? "md:grid-cols-3" : sectionCount === 2 ? "md:grid-cols-2" : ""}`}>
               {permissions && permissions.length > 0 && (
-                <div className="bg-muted/50 rounded-lg border border-green-500/20 p-4 max-h-80 overflow-y-auto">
+                <div className="bg-muted/50 rounded-lg border border-green-500/20 p-4 ">
                   <h4 className="text-xs font-semibold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <ShieldCheck className="h-4 w-4" /> Permissions
                   </h4>
                   <ul className="space-y-2">
                     {permissions.map((p, i) => (
-                      <li key={i} className="text-[15px] text-muted-foreground leading-relaxed flex items-start gap-2">
+                      <li key={i} className="text-sm text-foreground/85 leading-relaxed flex items-start gap-2">
                         <span className="text-green-400/50 shrink-0 mt-1">&#10003;</span>
                         {p}
                       </li>
@@ -1510,13 +1517,13 @@ function DefinitionDetail({
                 </div>
               )}
               {escalation && escalation.length > 0 && (
-                <div className="bg-muted/50 rounded-lg border border-amber-500/20 p-4 max-h-80 overflow-y-auto">
+                <div className="bg-muted/50 rounded-lg border border-amber-500/20 p-4 ">
                   <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <AlertTriangle className="h-4 w-4" /> Escalation Triggers
                   </h4>
                   <ul className="space-y-2">
                     {escalation.map((e, i) => (
-                      <li key={i} className="text-[15px] text-muted-foreground leading-relaxed flex items-start gap-2">
+                      <li key={i} className="text-sm text-foreground/85 leading-relaxed flex items-start gap-2">
                         <span className="text-amber-400 shrink-0 mt-1">&#9888;</span>
                         {typeof e === "string" ? (
                           <span>{e}</span>
@@ -1524,7 +1531,7 @@ function DefinitionDetail({
                           <span>
                             <span className="font-medium text-foreground">{String((e as Record<string, unknown>).trigger ?? (e as Record<string, unknown>).condition ?? "")}</span>
                             {(e as Record<string, unknown>).target ? (
-                              <span className="text-sm text-muted-foreground/60 ml-1 inline-flex items-center gap-1"><ArrowRight className="h-3 w-3 inline" />{String((e as Record<string, unknown>).target)}</span>
+                              <span className="text-xs text-muted-foreground/60 ml-1 inline-flex items-center gap-1"><ArrowRight className="h-3 w-3 inline" />{String((e as Record<string, unknown>).target)}</span>
                             ) : null}
                           </span>
                         )}
@@ -1534,13 +1541,13 @@ function DefinitionDetail({
                 </div>
               )}
               {boundaries && boundaries.length > 0 && (
-                <div className="bg-muted/50 rounded-lg border border-red-500/20 p-4 max-h-80 overflow-y-auto">
+                <div className="bg-muted/50 rounded-lg border border-red-500/20 p-4 ">
                   <h4 className="text-xs font-semibold text-red-400 uppercase tracking-wider mb-3 flex items-center gap-2">
                     <ShieldOff className="h-4 w-4" /> Boundaries
                   </h4>
                   <ul className="space-y-2">
                     {boundaries.map((b, i) => (
-                      <li key={i} className="text-[15px] text-muted-foreground leading-relaxed flex items-start gap-2">
+                      <li key={i} className="text-sm text-foreground/85 leading-relaxed flex items-start gap-2">
                         <span className="text-red-400 shrink-0 mt-1">&#8856;</span>
                         {typeof b === "string" ? b : String((b as Record<string, unknown>).rule ?? b)}
                       </li>
@@ -1552,6 +1559,20 @@ function DefinitionDetail({
             );
           })() : null}
 
+        </TabsContent>
+
+        {/* Personality tab */}
+        <TabsContent value="personality" className="mt-3">
+          {personality && Object.keys(personality).length > 0 ? (
+            <div className="bg-muted/50 rounded-lg border border-border p-5">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-4">
+                <Brain className="h-3.5 w-3.5" /> Personality & Behavior Specification
+              </h3>
+              <YamlContentViewer data={personality} />
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-8 text-center">No personality file found for this agent.</p>
+          )}
         </TabsContent>
 
         {/* System Prompt tab */}

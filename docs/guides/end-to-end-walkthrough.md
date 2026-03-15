@@ -129,6 +129,8 @@ Your role shifts from owner to monitor. You stay engaged for expansion opportuni
 
 You are Alex Thompson, SA assigned to the ACME security consolidation. Your journey begins when the AE creates the engagement and you receive a notification.
 
+![SA Agent overview: purpose, human role description, and key metrics](screenshots/sa-agent-overview.png)
+
 ### Week 1: Technical Qualification
 
 The AE has set up the engagement. You receive a signal from the AE Agent: "New node created: ACME Security Consolidation. Archetype: Competitive Displacement. Domain: Security. Your role: technical lead."
@@ -143,6 +145,8 @@ The AE has set up the engagement. You receive a signal from the AE Agent: "New n
 - Migration complexity (18 months of LegacySIEM data)
 
 You capture findings in the External InfoHub under `opportunities/security_poc/discovery.yaml`. Customer-appropriate findings live here. Your internal assessment of migration risks goes to the Internal InfoHub.
+
+![SA Agent knowledge tab: reference library with frameworks, runbooks, and domain knowledge sources](screenshots/sa-agent-knowledge-library.png)
 
 ### Week 2: POC Design
 
@@ -165,6 +169,8 @@ These criteria go to the External InfoHub (`opportunities/security_poc/success_c
 The plan goes to `opportunities/security_poc/poc_success_plan.yaml` in the External InfoHub.
 
 **Your internal assessment** (Internal InfoHub): "High confidence on criteria 1-3. Criterion 4 (rule migration) is the risk area. LegacySIEM uses proprietary query language. Estimate 60% automated translation, 40% manual rewrite. Need Specialist input on OT/ICS detection coverage."
+
+![SA Agent sub-agents tab showing the 10 specialized sub-agents and their prompt counts](screenshots/sa-agent-subagents.png)
 
 ### Week 2: Request Specialist Support
 
@@ -192,6 +198,8 @@ Consequences: Higher initial deployment effort, but no network changes required
 ```
 
 This ADR goes to the External InfoHub (`architecture/ADR_001_security_platform.md`) because it documents the solution approach the customer is adopting.
+
+![SA Agent operations: what you can do, grouped by domain with keyword prefix for quick scanning](screenshots/sa-agent-operations-by-domain.png)
 
 **What the SA Agent does for you:**
 - Monitors technical risk signals from checkpoint notes

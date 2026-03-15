@@ -580,4 +580,4 @@ Key sections:
 - [Prompt Engineering Principles](prompt-engineering-principles.md) - Prompting techniques
 - [InfoHub Structure](core-entities.md) - Data storage
 - [Playbook Execution](../playbooks/playbook-execution-specification.md) - Task execution
-- [Signal Catalog](../../reference/signal-catalog.md) - Event handling
+- [Signal Catalog](signal-catalog.md) - Event handling

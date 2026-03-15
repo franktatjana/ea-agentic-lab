@@ -12,6 +12,12 @@ Blueprints define what playbooks, canvases, and validation rules apply to a spec
 
 For how blueprints are created and instantiated, see the [Blueprints README](../../domain/blueprints/README.md). For playbook details, see the [Playbook Catalog](playbook-catalog.md).
 
+## Machine-Readable Contract
+
+The authoritative blueprint definitions are in: **[domain/catalogs/archetypes.yaml](../../domain/catalogs/archetypes.yaml)** and **[domain/blueprints/reference/](../../domain/blueprints/reference/)**
+
+This document provides human context. The YAML files are what agents and system components consume.
+
 ## Composition Formula
 
 An engagement is classified along three independent dimensions. The combination determines which playbooks are required, optional, or blocked, and what governance policies apply.

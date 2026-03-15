@@ -29,15 +29,19 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { YamlContentViewer } from "@/components/yaml-content-viewer";
 import { TEAM_STYLES } from "@/lib/agent-profiles-data";
 import type {
   AgentProfile,
+  AgentKnowledge,
   AgentDefinitionSummary,
   ProfilePlaybookEntry,
   ChallengeEntry,
   OverheadEntry,
   StakeholderEntry,
 } from "@/types";
+import { toTitleCase } from "@/lib/title-case";
 
 function Section({
   icon: Icon,
@@ -52,13 +56,17 @@ function Section({
 }) {
   return (
     <div>
-      <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-        <Icon className={`h-4 w-4 ${color}`} />
+      <h2 className={`flex items-center gap-2 text-sm font-semibold uppercase tracking-wide mb-3 ${color}`}>
+        <Icon className="h-4 w-4" />
         {title}
       </h2>
       {children}
     </div>
   );
+}
+
+function toTitleWithAbbreviations(str: string): string {
+  return toTitleCase(str);
 }
 
 function formatAgentId(id: string): string {
@@ -197,7 +205,9 @@ export default function AgentProfileDetailPage({
   const { agentId } = use(params);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  const [withThisAgentExpanded, setWithThisAgentExpanded] = useState(false);
+  const [selectedRef, setSelectedRef] = useState<{ name: string; description: string; content: Record<string, unknown> } | null>(null);
 
   const { data: def, isLoading } = useQuery({
     queryKey: ["definition", agentId],
@@ -252,7 +262,9 @@ export default function AgentProfileDetailPage({
   const goalsSummary = profile?.goals_summary ?? "";
   const profileGoals = profile?.goals ?? [];
   const roleContext = profile?.role_context ?? "";
+  const roleTabIntro = profile?.role_tab_intro as string | undefined;
   const challenges = profile?.challenges ?? [];
+  const challengeGroupFraming = profile?.challenge_group_framing ?? {};
   const adminOverhead = profile?.administrative_overhead ?? [];
   const capabilities = profile?.capabilities ?? [];
   const withThisAgent = profile?.with_this_agent ?? [];
@@ -262,6 +274,9 @@ export default function AgentProfileDetailPage({
   const publicResources = profile?.public_resources ?? [];
   const subAgents = profile?.sub_agents ?? [];
   const playbookRaci = profile?.playbook_raci;
+
+  // Knowledge base
+  const knowledge = ext?.knowledge as AgentKnowledge | undefined;
 
   // Agent operational data
   const escalation = ext?.escalation_triggers as string[] | undefined;
@@ -377,11 +392,6 @@ export default function AgentProfileDetailPage({
           >
             <Briefcase className="h-4 w-4" />
             Operations
-            {activityMap && activityMap.domains.length > 0 && (
-              <span className="text-xs opacity-60 ml-0.5">
-                {activityMap.domains.length}
-              </span>
-            )}
           </button>
         )}
         {(qualFramework || stakeholders || publicResources.length > 0) && (
@@ -590,12 +600,69 @@ export default function AgentProfileDetailPage({
                   </CardContent>
                 </Card>
               )}
+
+              {/* Row 4: Stakeholder Landscape */}
+              {stakeholders && (
+                <Card>
+                  <CardContent className="p-5">
+                    <Section
+                      icon={Network}
+                      title="Stakeholder Landscape"
+                      color={teamStyle?.color ?? "text-muted-foreground"}
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {stakeholders.customer_side && stakeholders.customer_side.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold mb-2 uppercase tracking-wide text-foreground">Customer Side</p>
+                            <ul className="space-y-1.5">
+                              {stakeholders.customer_side.map((s, i) => (
+                                <li key={i} className="flex items-start gap-2 text-[15px] text-muted-foreground">
+                                  <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
+                                  <span className="flex-1">
+                                    <span>{stakeholderText(s)}</span>
+                                    {stakeholderAgent(s) && <AgentBadge agentId={stakeholderAgent(s)!} />}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {stakeholders.internal_team && stakeholders.internal_team.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold mb-2 uppercase tracking-wide text-foreground">Internal Team</p>
+                            <ul className="space-y-1.5">
+                              {stakeholders.internal_team.map((s, i) => (
+                                <li key={i} className="flex items-start gap-2 text-[15px] text-muted-foreground">
+                                  <span className={`mt-[7px] h-1.5 w-1.5 rounded-full ${dotColor}/50 shrink-0`} />
+                                  <span className="flex-1">
+                                    <span>{stakeholderText(s)}</span>
+                                    {stakeholderAgent(s) && <AgentBadge agentId={stakeholderAgent(s)!} />}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </Section>
+                  </CardContent>
+                </Card>
+              )}
         </div>
       )}
 
       {/* Role tab */}
       {activeTab === "role" && (
         <div className="space-y-6">
+          {roleTabIntro && (
+            <Card>
+              <CardContent className="p-5">
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {roleTabIntro}
+                </p>
+              </CardContent>
+            </Card>
+          )}
           {challenges.length > 0 && (() => {
             const hasAgents = challenges.some((ch) => challengeAgent(ch));
             if (hasAgents) {
@@ -608,37 +675,33 @@ export default function AgentProfileDetailPage({
               return (
                 <Section
                   icon={AlertTriangle}
-                  title={`Role Challenges & Overhead (${challenges.length})`}
+                  title="Role Challenges"
                   color="text-red-400"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {Object.entries(grouped).map(([agent, items]) => {
-                      const isExpanded = expandedGroups[agent] ?? false;
-                      const allItems = items.flatMap((ch) => [
-                        challengeText(ch),
-                        ...challengeOverhead(ch),
-                      ]);
+                      const allItems = items.map((ch) => challengeText(ch));
+                      const visible = allItems.slice(0, 3);
+                      const overflow = allItems.length - 3;
+                      const framing = challengeGroupFraming[agent];
                       return (
-                        <div key={agent} className="rounded-xl border border-border/50 bg-muted/30">
-                          <button
-                            className="w-full flex items-center justify-between gap-2 p-4 text-left"
-                            onClick={() => setExpandedGroups((prev) => ({ ...prev, [agent]: !prev[agent] }))}
-                          >
-                            <div className="flex items-center gap-2">
-                              {agent !== "_ungrouped" ? <AgentBadge agentId={agent} /> : null}
-                              <span className="text-xs text-muted-foreground">{allItems.length} items</span>
-                            </div>
-                            <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                          </button>
-                          {isExpanded && (
-                            <ul className="space-y-2 px-4 pb-4">
-                              {allItems.map((text, idx) => (
-                                <li key={idx} className="flex items-start gap-2 text-[14px]">
-                                  <span className="mt-[8px] h-1.5 w-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
-                                  <span className="text-foreground/90 leading-relaxed">{text}</span>
-                                </li>
-                              ))}
-                            </ul>
+                        <div key={agent} className="rounded-xl border border-border/50 bg-muted/30 flex flex-col p-4 gap-3">
+                          {agent !== "_ungrouped" && <AgentBadge agentId={agent} />}
+                          {framing && (
+                            <p className="text-[12px] text-muted-foreground leading-relaxed border-l-2 border-border/60 pl-3">
+                              {framing}
+                            </p>
+                          )}
+                          <ul className="space-y-1.5 flex-1">
+                            {visible.map((text, idx) => (
+                              <li key={idx} className="flex items-start gap-2 text-[13px]">
+                                <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
+                                <span className="text-foreground/90 leading-relaxed">{text}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          {overflow > 0 && (
+                            <span className="text-[11px] text-muted-foreground/60 self-end">+{overflow} more</span>
                           )}
                         </div>
                       );
@@ -647,16 +710,13 @@ export default function AgentProfileDetailPage({
                 </Section>
               );
             }
-            const allItems = challenges.flatMap((ch) => [
-              challengeText(ch),
-              ...challengeOverhead(ch),
-            ]);
+            const allItems = challenges.map((ch) => challengeText(ch));
             return (
               <Card className="border-l-4 border-l-red-500/40">
                 <CardContent className="p-6">
                   <Section
                     icon={AlertTriangle}
-                    title={`Role Challenges (${allItems.length})`}
+                    title="Role Challenges"
                     color="text-red-400"
                   >
                     <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
@@ -683,74 +743,72 @@ export default function AgentProfileDetailPage({
             <Card
               className={`border-l-4 ${teamStyle ? teamStyle.border + "/50" : "border-l-muted-foreground/50"}`}
             >
-              <CardContent className="p-6">
-                <Section
-                  icon={Bot}
-                  title="With This Agent You Can"
-                  color={teamStyle?.color ?? "text-muted-foreground"}
+              <CardContent className="p-0">
+                <button
+                  className="w-full flex items-center justify-between gap-2 p-6 text-left"
+                  onClick={() => setWithThisAgentExpanded((v) => !v)}
                 >
-                  {withThisAgent.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border">
-                            <th className="text-left py-2 pr-4 text-xs font-medium uppercase tracking-wider text-muted-foreground w-[220px]">Category</th>
-                            <th className="text-left py-2 pr-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">What You Can Do</th>
-                            {withThisAgent.some((g) => g.agent) && (
-                              <th className="text-left py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground w-[180px]">Agent</th>
+                  <div className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-wider ${teamStyle?.color ?? "text-muted-foreground"}`}>
+                    <Bot className="h-4 w-4" />
+                    With This Agent You Can
+                  </div>
+                  <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground shrink-0 transition-transform ${withThisAgentExpanded ? "rotate-180" : ""}`} />
+                </button>
+                {withThisAgentExpanded && (
+                  <div className="px-6 pb-6">
+                    {withThisAgent.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border">
+                              <th className="text-left py-2 pr-4 text-xs font-medium uppercase tracking-wider text-muted-foreground w-[220px]">Category</th>
+                              <th className="text-left py-2 pr-4 text-xs font-medium uppercase tracking-wider text-muted-foreground">What You Can Do</th>
+                              {withThisAgent.some((g) => g.agent) && (
+                                <th className="text-left py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground w-[180px]">Agent</th>
+                              )}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {withThisAgent.map((group) =>
+                              group.items.map((item, idx) => {
+                                const colonIdx = item.indexOf(":");
+                                const keyword = colonIdx > -1 ? item.slice(0, colonIdx) : null;
+                                const rest = colonIdx > -1 ? item.slice(colonIdx + 1).trim() : item;
+                                return (
+                                  <tr key={`${group.domain}-${idx}`} className={idx === group.items.length - 1 ? "border-b border-border" : ""}>
+                                    {idx === 0 && (
+                                      <td rowSpan={group.items.length} className="py-2.5 pr-4 align-top text-foreground/70 font-medium text-[13px]">
+                                        {group.domain}
+                                      </td>
+                                    )}
+                                    <td className="py-2.5 pr-4 leading-relaxed">
+                                      {keyword && <span className="font-semibold text-foreground">{keyword}:</span>}{" "}
+                                      <span className="text-foreground/80">{rest}</span>
+                                    </td>
+                                    {idx === 0 && withThisAgent.some((g) => g.agent) && (
+                                      <td rowSpan={group.items.length} className="py-2.5 align-top">
+                                        {group.agent && <AgentBadge agentId={group.agent} />}
+                                      </td>
+                                    )}
+                                  </tr>
+                                );
+                              })
                             )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {withThisAgent.map((group) =>
-                            group.items.map((item, idx) => {
-                              const colonIdx = item.indexOf(":");
-                              const keyword = colonIdx > -1 ? item.slice(0, colonIdx) : null;
-                              const rest = colonIdx > -1 ? item.slice(colonIdx + 1).trim() : item;
-                              return (
-                                <tr key={`${group.domain}-${idx}`} className={idx === group.items.length - 1 ? "border-b border-border" : ""}>
-                                  {idx === 0 && (
-                                    <td rowSpan={group.items.length} className="py-2.5 pr-4 align-top text-foreground/70 font-medium text-[13px]">
-                                      {group.domain}
-                                    </td>
-                                  )}
-                                  <td className="py-2.5 pr-4 leading-relaxed">
-                                    {keyword && <span className="font-semibold text-foreground">{keyword}:</span>}{" "}
-                                    <span className="text-foreground/80">{rest}</span>
-                                  </td>
-                                  {idx === 0 && withThisAgent.some((g) => g.agent) && (
-                                    <td rowSpan={group.items.length} className="py-2.5 align-top">
-                                      {group.agent && <AgentBadge agentId={group.agent} />}
-                                    </td>
-                                  )}
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5">
-                      {capabilities.map((cap: string) => (
-                        <li key={cap} className="flex items-start gap-2.5 text-[15px]">
-                          <span className={`mt-[8px] h-1.5 w-1.5 rounded-full ${dotColor} shrink-0`} />
-                          <span>{cap}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </Section>
-              </CardContent>
-            </Card>
-          )}
-
-          {activityMap && (
-            <Card>
-              <CardContent className="p-5">
-                <p className="text-[15px] text-muted-foreground leading-relaxed">
-                  {activityMap.purpose}
-                </p>
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <ul className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2.5">
+                        {capabilities.map((cap: string) => (
+                          <li key={cap} className="flex items-start gap-2.5 text-[15px]">
+                            <span className={`mt-[8px] h-1.5 w-1.5 rounded-full ${dotColor} shrink-0`} />
+                            <span>{cap}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -803,12 +861,6 @@ export default function AgentProfileDetailPage({
           </div>
           )}
 
-        </div>
-      )}
-
-      {/* Knowledge tab */}
-      {activeTab === "knowledge" && (
-        <div className="space-y-6">
           {qualFramework && (
             <Card>
               <CardContent className="p-5">
@@ -830,11 +882,7 @@ export default function AgentProfileDetailPage({
                           <span className="text-sm font-medium">{dim.name}</span>
                         </div>
                         <p className="text-xs text-muted-foreground">{dim.description}</p>
-                        {dim.supported_by && (
-                          <div className="mt-1">
-                            <AgentBadge agentId={dim.supported_by} />
-                          </div>
-                        )}
+                        {dim.supported_by && <div className="mt-1"><AgentBadge agentId={dim.supported_by} /></div>}
                       </div>
                     ))}
                   </div>
@@ -843,93 +891,98 @@ export default function AgentProfileDetailPage({
             </Card>
           )}
 
-          {stakeholders && (
-            <Card>
-              <CardContent className="p-5">
-                <Section
-                  icon={Network}
-                  title="Stakeholder Landscape"
-                  color="text-muted-foreground"
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {stakeholders.customer_side && stakeholders.customer_side.length > 0 && (
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Customer Side</p>
-                        <ul className="space-y-1.5">
-                          {stakeholders.customer_side.map((s, i) => (
-                            <li key={i} className="flex items-start gap-2 text-[15px] text-muted-foreground">
-                              <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
-                              <span className="flex-1">
-                                <span>{stakeholderText(s)}</span>
-                                {stakeholderAgent(s) && (
-                                  <AgentBadge agentId={stakeholderAgent(s)!} />
-                                )}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {stakeholders.internal_team && stakeholders.internal_team.length > 0 && (
-                      <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">Internal Team</p>
-                        <ul className="space-y-1.5">
-                          {stakeholders.internal_team.map((s, i) => (
-                            <li key={i} className="flex items-start gap-2 text-[15px] text-muted-foreground">
-                              <span className={`mt-[7px] h-1.5 w-1.5 rounded-full ${dotColor}/50 shrink-0`} />
-                              <span className="flex-1">
-                                <span>{stakeholderText(s)}</span>
-                                {stakeholderAgent(s) && (
-                                  <AgentBadge agentId={stakeholderAgent(s)!} />
-                                )}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </Section>
-              </CardContent>
-            </Card>
-          )}
+        </div>
+      )}
 
-          {publicResources.length > 0 && (
-            <Card className="border-l-4 border-l-cyan-500/40">
-              <CardContent className="p-5">
-                <Section
-                  icon={BookOpen}
-                  title="Public Resources"
-                  color="text-cyan-400"
-                >
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {publicResources.map((r, i) => (
-                      <a
-                        key={i}
-                        href={r.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group rounded-lg border border-border/50 p-4 hover:border-cyan-500/40 hover:bg-cyan-500/[0.03] transition-colors"
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-1.5">
-                          <span className="text-sm font-medium text-foreground group-hover:text-cyan-400 transition-colors">
-                            {r.title}
-                          </span>
-                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-cyan-400 shrink-0 mt-0.5 transition-colors" />
-                        </div>
-                        {r.context && (
-                          <p className="text-xs leading-relaxed text-muted-foreground">
-                            {r.context}
-                          </p>
-                        )}
-                      </a>
-                    ))}
-                  </div>
-                </Section>
-              </CardContent>
-            </Card>
-          )}
+      {/* Knowledge tab */}
+      {activeTab === "knowledge" && (
+        <div className="space-y-6">
+          {knowledge && (
+            <>
+              {/* Reference library */}
+              {knowledge.references && knowledge.references.length > 0 && (
+                <Card>
+                  <CardContent className="p-5">
+                    <Section
+                      icon={Library}
+                      title="Reference Library"
+                      color={teamStyle?.color ?? "text-muted-foreground"}
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {knowledge.references.map((ref, i) => {
+                          const name = toTitleWithAbbreviations(
+                            ref.path.replace(/^references\//, "").replace(/\.(yaml|md)$/, "")
+                          );
+                          const contentKeys = ref.content
+                            ? Object.keys(ref.content).map((k) => k.replace(/_/g, " "))
+                            : [];
+                          const isClickable = !!ref.content;
+                          return (
+                            <button
+                              key={i}
+                              disabled={!isClickable}
+                              onClick={() => isClickable && setSelectedRef({ name, description: ref.description, content: ref.content! })}
+                              className={`rounded-lg border border-border/50 bg-muted/20 p-4 space-y-2 text-left w-full transition-colors ${isClickable ? "cursor-pointer hover:border-border hover:bg-muted/40" : ""}`}
+                            >
+                              <p className="text-sm font-semibold text-foreground">{name}</p>
+                              <p className="text-xs text-muted-foreground leading-relaxed">{ref.description}</p>
+                              {contentKeys.length > 0 && (
+                                <div className="flex flex-wrap gap-1 pt-1">
+                                  {contentKeys.slice(0, 4).map((k) => (
+                                    <span key={k} className="px-1.5 py-0.5 rounded bg-muted/60 text-[11px] text-muted-foreground capitalize">
+                                      {k}
+                                    </span>
+                                  ))}
+                                  {contentKeys.length > 4 && (
+                                    <span className="px-1.5 py-0.5 text-[11px] text-muted-foreground/50">+{contentKeys.length - 4}</span>
+                                  )}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </Section>
+                  </CardContent>
+                </Card>
+              )}
 
+              {/* Further reading */}
+              {publicResources.length > 0 && (
+                <Card>
+                  <CardContent className="p-5">
+                    <Section
+                      icon={BookOpen}
+                      title="Further Reading"
+                      color={teamStyle?.color ?? "text-muted-foreground"}
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {publicResources.map((r, i) => (
+                          <a
+                            key={i}
+                            href={r.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`group rounded-lg border border-border/50 p-4 hover:bg-muted/30 transition-colors`}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-1.5">
+                              <span className={`text-sm font-medium text-foreground group-hover:${teamStyle?.color ?? "text-muted-foreground"} transition-colors`}>
+                                {r.title}
+                              </span>
+                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                            </div>
+                            {r.context && (
+                              <p className="text-xs leading-relaxed text-muted-foreground">{r.context}</p>
+                            )}
+                          </a>
+                        ))}
+                      </div>
+                    </Section>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
         </div>
       )}
 
@@ -1204,6 +1257,25 @@ export default function AgentProfileDetailPage({
         </div>
       )}
 
+      {/* Reference detail flyout */}
+      <Sheet open={!!selectedRef} onOpenChange={(open) => !open && setSelectedRef(null)}>
+        <SheetContent className="w-[480px] sm:w-[580px] overflow-y-auto">
+          {selectedRef && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2 text-sm">
+                  <Library className={`h-4 w-4 ${teamStyle?.color ?? "text-muted-foreground"} shrink-0`} />
+                  {selectedRef.name}
+                </SheetTitle>
+                <SheetDescription>{selectedRef.description}</SheetDescription>
+              </SheetHeader>
+              <div className="px-4 pb-6 mt-4">
+                <YamlContentViewer data={selectedRef.content} />
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
 
     </div>
   );

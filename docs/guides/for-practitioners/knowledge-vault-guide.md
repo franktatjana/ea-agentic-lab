@@ -9,7 +9,7 @@ last_updated: "2026-02-10"
 
 # Knowledge Vault Guide
 
-This guide explains how to use the EA Agentic Lab's knowledge vault system in your daily work. It covers where to store content, how to name files, when to create or archive artifacts, and how to find what you need. If you need to understand the architecture behind the vault, see [Knowledge Vault Architecture](../../architecture/system/knowledge-vault-architecture.md).
+This guide explains how to use the EA Agentic Lab's knowledge vault system in your daily work. It covers where to store content, how to name files, when to create or archive artifacts, and how to find what you need. If you need to understand the architecture behind the vault, see [Vault Architecture](../../architecture/system/vault-architecture.md).
 
 ## Where to Store What
 
@@ -243,7 +243,7 @@ All artifacts follow this lifecycle: **Active -> Stale -> Deprecated -> Archived
 
 ## Related Documentation
 
-- [Knowledge Vault Architecture](../../architecture/system/knowledge-vault-architecture.md): Design and security model
+- [Vault Architecture](../../architecture/system/vault-architecture.md): Design and security model
 - [External InfoHub Reference](../../reference/external-infohub-reference.md): Customer hub reference
 - [Internal InfoHub Reference](../../reference/internal-infohub-reference.md): Internal hub reference
 - [Blueprint Catalog](../../reference/blueprint-catalog.md): Archetype and track reference

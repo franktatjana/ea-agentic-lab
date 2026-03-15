@@ -383,7 +383,7 @@ playbook: PB_AE_003_sales_qbr
       agent: ae-pipeline-mgmt-agent
       flow: pipeline-management
     - phase: "Deal Quality Review"
-      agent: ae-qualification-agent
+      agent: ae-meddpicc-agent
       flow: meddpicc-qualification
     - phase: "Competitive Landscape"
       agent: ae-signal-detection-agent

@@ -272,6 +272,6 @@ decision_logic:
 
 ## Related Documentation
 
-- [Playbook Framework](../../architecture/playbooks/playbook-framework.md)
+- [Playbook System](../../architecture/playbooks/playbook-system.md)
 - [Playbook Execution Specification](../../architecture/playbooks/playbook-execution-specification.md)
 - [Playbook Catalog](../../reference/playbook-catalog.md)

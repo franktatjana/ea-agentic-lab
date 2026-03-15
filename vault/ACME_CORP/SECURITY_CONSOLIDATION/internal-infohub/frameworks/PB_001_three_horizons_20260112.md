@@ -30,16 +30,12 @@ ACME Corporation's revenue portfolio shows **high concentration risk in Horizon 
 | Dashboards | Visualization & Reporting | $700,000 | Growing |
 | APM | Performance Monitoring | $700,000 | Growing |
 
-**Assessment**:
-- Strong product adoption (250 active users)
-- Plant observability expansion in progress
-- No immediate churn risk identified
-- Growth potential: 10-15% through user expansion
-
-**Recommended Actions**:
-1. Complete plant observability rollout (June 2026)
-2. Drive dashboard adoption in additional departments
-3. Expand APM to cover remaining 55 services
+| **Assessment** | **Recommended Actions** |
+|----------------|------------------------|
+| Strong product adoption (250 active users) | Complete plant observability rollout (June 2026) |
+| Plant observability expansion in progress | Drive dashboard adoption in additional departments |
+| No immediate churn risk identified | Expand APM to cover remaining 55 services |
+| Growth potential: 10-15% through user expansion | |
 
 ### Horizon 2: Emerging Business (Build & Scale)
 **Pipeline: $800,000 ARR (60% probability)**
@@ -48,17 +44,12 @@ ACME Corporation's revenue portfolio shows **high concentration risk in Horizon 
 |-------------|-------|-------|----------|
 | Security Consolidation | Discovery | $800,000 | Q4 2026 |
 
-**Assessment**:
-- Budget approved by board
-- Strong executive sponsorship (CTO)
-- Competitive situation (Microsoft, LegacySIEM)
-- Timeline aggressive but achievable with POC-first approach
-
-**Recommended Actions**:
-1. Execute POC by March 2026
-2. Secure CTO direct engagement
-3. Build security team champion
-4. Develop TCO justification vs. incumbents
+| **Assessment** | **Recommended Actions** |
+|----------------|------------------------|
+| Budget approved by board | Execute POC by March 2026 |
+| Strong executive sponsorship (CTO) | Secure CTO direct engagement |
+| Competitive situation (Microsoft, LegacySIEM) | Build security team champion |
+| Timeline aggressive but achievable with POC-first approach | Develop TCO justification vs. incumbents |
 
 ### Horizon 3: Future Options (Explore & Experiment)
 **Pipeline: $400,000 ARR (20% probability)**
@@ -67,16 +58,12 @@ ACME Corporation's revenue portfolio shows **high concentration risk in Horizon 
 |-------------|-------|-------|----------|
 | ML/AI Analytics | Concept | $400,000 | 2027+ |
 
-**Assessment**:
-- Early stage, customer has expressed interest in ML capabilities
-- Manufacturing predictive maintenance use case identified
-- Requires successful H2 execution first
-- Long-term strategic play
-
-**Recommended Actions**:
-1. Document ML use cases during security engagement
-2. Identify data science stakeholders
-3. Plan discovery session for Q3 2026
+| **Assessment** | **Recommended Actions** |
+|----------------|------------------------|
+| Early stage, customer has expressed interest in ML capabilities | Document ML use cases during security engagement |
+| Manufacturing predictive maintenance use case identified | Identify data science stakeholders |
+| Requires successful H2 execution first | Plan discovery session for Q3 2026 |
+| Long-term strategic play | |
 
 ## Risk Assessment
 

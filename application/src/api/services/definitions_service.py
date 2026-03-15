@@ -19,6 +19,7 @@ class DefinitionsService:
         "competitive_intelligence": "Intelligence",
         "value_engineering": "Sales",
         "partners": "Sales",
+        "hyperscaler_account_managers": "Sales",
         "account_intelligence": "Intelligence",
         "solution_architects": "Architecture",
         "customer_architects": "Architecture",
@@ -286,6 +287,37 @@ class DefinitionsService:
                 return result
             except Exception:
                 continue
+
+        return None
+
+
+    def get_personality(self, agent_id: str) -> Optional[dict]:
+        """Return parsed personality YAML for an agent matched by agent ID."""
+        if not self.agents_path.is_dir():
+            return None
+
+        for def_file in self.agents_path.rglob("*-definition.yaml"):
+            try:
+                data = yaml.safe_load(def_file.read_text(encoding="utf-8"))
+                if not isinstance(data, dict) or data.get("id") != agent_id:
+                    continue
+            except Exception:
+                continue
+
+            personalities_dir = def_file.parent / "personalities"
+            if not personalities_dir.is_dir():
+                return None
+
+            # Derive expected filename from agent ID: ae-meddpicc-agent → ae_meddpicc_personality.yaml
+            stem = agent_id.removesuffix("-agent").replace("-", "_")
+            expected = personalities_dir / f"{stem}_personality.yaml"
+            if expected.is_file():
+                try:
+                    return yaml.safe_load(expected.read_text(encoding="utf-8")) or {}
+                except Exception:
+                    return None
+
+            return None
 
         return None
 

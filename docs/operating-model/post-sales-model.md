@@ -15,6 +15,8 @@ order: 3
 
 C-Level Governance encompasses all activities **after deal closure**, focused on delivering outcomes: implementation quality, customer success, and long-term growth. This domain governs post-sales execution including onboarding, adoption, support, services delivery, and customer advocacy.
 
+For definitions of all A/B/C/D tier labels and how they relate, see [Account Tiers](strategic-accounts.md#account-tiers).
+
 ---
 
 ## Scope Boundaries

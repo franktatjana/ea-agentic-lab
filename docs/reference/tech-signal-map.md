@@ -363,7 +363,7 @@ ring_rules:
 - [config/technology_scout_config.yaml](../../domain/catalogs/technology_scout_config.yaml) - Technology taxonomy
 - [config/signal_catalog.yaml](../../domain/catalogs/signal_catalog.yaml) - Signal definitions
 - [agents/technology_scout/](../../domain/agents/technology_scout/agents/) - Agent configurations
-- [Signal Catalog](signal-catalog.md) - All system signals
+- [Signal Catalog](../architecture/system/signal-catalog.md) - All system signals
 
 ---
 

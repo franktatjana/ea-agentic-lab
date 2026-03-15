@@ -9,7 +9,7 @@ decision_makers:
   - "Marcus Weber (CTO)"
 context_owner: "Maria Santos (SA)"
 account: "ACME_CORP"
-framework: "TOGAF ADR"
+framework: "Architecture Decision Record"
 linked_playbook: "PB_SA_001"
 ---
 
@@ -196,5 +196,5 @@ Week 7: Executive review, decision
 
 ---
 *ADR created by: SA Agent*
-*Framework: TOGAF Architecture Decision Record*
+*Framework: Architecture Decision Record*
 *Last updated: 2026-01-16*

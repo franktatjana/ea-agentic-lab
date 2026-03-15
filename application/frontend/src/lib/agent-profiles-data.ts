@@ -26,7 +26,7 @@ export const TEAM_STYLES: Record<string, TeamStyle> = {
     border: "border-l-blue-400",
     dot: "bg-blue-400",
     summary:
-      "Agents driving commercial strategy, competitive positioning, value quantification, and partner alignment.",
+      "Agents driving commercial strategy, value quantification, partner alignment, and hyperscaler co-sell execution.",
   },
   Architecture: {
     label: "Architecture",

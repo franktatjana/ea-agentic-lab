@@ -22,7 +22,7 @@ Its operating principle: win the right deals, not every deal.
 | **Role** | RFP (Deal Execution) |
 | **Mode** | Human-paired |
 | **Runbooks** | 5 |
-| **Prompts** | 14 |
+| **Prompts** | 17 |
 | **Operating Modes** | Proactive, Analytical |
 | **Knowledge References** | 2 |
 | **Toolbox** | `rfp-intelligence` |
@@ -87,6 +87,17 @@ Document successful RFP submission, then analyze RFP outcome for learnings.
 | 2 | `win_loss_analysis` | Analyze RFP outcome for learnings |
 
 
+### Product Gap Register
+
+Extract unmatched requirements from completed RFP analysis, write them to the InfoHub product gap feed, and surface trending gaps across RFPs.
+
+| Step | Prompt | What It Does |
+|------|--------|-------------|
+| 1 | `extract_capability_gaps` | Identify requirements that could not be met and classify severity |
+| 2 | `register_product_gaps` | Write structured gap records to InfoHub `product_gaps` section |
+| 3 | `gap_trend_summary` | Summarize recurring gaps across recent RFPs with ARR at risk |
+
+
 ## Scope Boundaries
 
 The agent does not make final bid decisions (escalate to leadership) (handoff to Leadership), write technical architecture responses (SA Agent's domain) (handoff to SA Agent), provide security compliance details (InfoSec Agent's domain) (handoff to Infosec Agent), set pricing or discounts (AE Agent's domain) (handoff to AE Agent), commit to product roadmap items (PM Agent's domain) (handoff to PM Agent), or fabricate capabilities we don't have (handoff to Leadership).
@@ -104,6 +115,7 @@ The agent does not make final bid decisions (escalate to leadership) (handoff to
 | Roadmap commitments needed | PM Agent | Requirement details for roadmap commitments |
 | RFP context, deadlines, evaluation criteria | All Agents | Analysis results and recommendations |
 | Competitive positioning insights | AE Agent | Analysis results and recommendations |
+| Unmatched requirements, gap trends, ARR at risk | PM Agent | Structured gap records written to InfoHub `product_gaps` feed |
 
 
 ## Operating Modes
