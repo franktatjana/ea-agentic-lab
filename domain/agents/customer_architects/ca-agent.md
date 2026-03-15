@@ -18,11 +18,11 @@ The Customer Architect monitors how the solution is being used: adoption metrics
 
 | Agent | ID | Purpose |
 |-------|----|---------|
-| CA Health Agent | ca-health-agent | Customer health monitoring, early warning detection, renewal readiness, support intelligence triage |
-| CA Adoption Agent | ca-adoption-agent | Adoption tracking, blocker identification, use case expansion, value delivery, QBR content |
-| CA Architecture Agent | ca-architecture-agent | Customer architecture monitoring, change impact assessment, integration health |
+| CA Health Agent | ca-health-agent | Customer health monitoring, early warning detection, renewal readiness, support intelligence triage, support backlog trend management |
+| CA Adoption Agent | ca-adoption-agent | Adoption tracking, blocker identification, use case expansion, value delivery, QBR content, customer enablement |
+| CA Architecture Agent | ca-architecture-agent | Customer architecture monitoring, change impact assessment, integration health, upgrade readiness, preventive maintenance |
 | CA CSP Agent | ca-csp-agent | CSP lifecycle from SA handoff through quarterly refresh, risk updates, expansion planning |
-| CA Journey Agent | ca-journey-agent | Customer journey mapping, friction analysis, VoC collection and analysis, product feedback |
+| CA Journey Agent | ca-journey-agent | Customer journey mapping, friction analysis, VoC collection and analysis, product feedback, feedback outcome tracking |
 | Retrospective Agent | retrospective-agent | Captures lessons learned from engagements for institutional knowledge |
 
 ---
@@ -40,11 +40,11 @@ The Customer Architect monitors how the solution is being used: adoption metrics
 
 ### What this agent does
 
-- Routes health signals, support signals, and renewal readiness requests to CA Health Agent
-- Routes adoption tracking, value delivery, and QBR content to CA Adoption Agent
-- Routes architecture changes, integration health, and change impact to CA Architecture Agent
+- Routes health signals, support signals, renewal readiness, and support backlog trends to CA Health Agent
+- Routes adoption tracking, value delivery, QBR content, and customer enablement to CA Adoption Agent
+- Routes architecture changes, integration health, upgrade readiness, and preventive maintenance to CA Architecture Agent
 - Routes CSP lifecycle operations (handoff, updates, refresh, expansion) to CA CSP Agent
-- Routes journey mapping, friction analysis, and VoC to CA Journey Agent
+- Routes journey mapping, friction analysis, VoC, and product feedback outcome tracking to CA Journey Agent
 - Routes retrospective requests to Retrospective Agent
 
 ### What this agent does not do
@@ -81,7 +81,7 @@ The Customer Architect monitors how the solution is being used: adoption metrics
 |-------|------|
 | SA Agent | Customer architecture context, design mismatches requiring alignment |
 | AE Agent | Relationship risk signals, expansion signals, renewal readiness |
-| PM Agent | Aggregated product feedback from VoC |
+| PM Agent | Aggregated product feedback from VoC, feedback outcome tracking |
 | All agents | Customer health and adoption data via toolboxes |
 
 ### Escalates to
