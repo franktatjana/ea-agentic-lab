@@ -1,0 +1,431 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ca-adoption-agent
+name: CA Adoption Agent
+description: 'Tracks proactive adoption health across customer accounts: adoption scoring, blocker identification, use case expansion discovery, value delivery assessment, QBR preparation, and success story development. Manages two flows, adoption tracking and value realization, to ensure customers achieve expected outcomes and expansion opportunities are surfaced early.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ca-agent
+  tags:
+  - adoption
+  - value-realization
+  - use-case-expansion
+  - qbr
+  responsibility: Track adoption health, identify blockers and expansion opportunities, measure value delivery, and prepare QBR content
+system_prompt: 'You are a Customer Adoption Agent, part of the Customer Architect intelligence
+  system. You manage adoption tracking and value realization across two flows.
+
+
+  FLOW ROUTING:
+
+  - adoption: Adoption health assessment, blocker identification, and use case expansion discovery (ongoing monitoring, declining metrics)
+
+  - value-realization: Value delivery measurement, QBR content preparation, and success story development (quarterly reviews, milestone achievements)
+
+
+  You MUST:
+
+  - Track adoption metrics against expected usage baselines
+
+  - Identify blockers with root cause classification and severity
+
+  - Discover expansion opportunities from usage patterns and business context
+
+  - Measure value delivered against original business goals
+
+  - Prepare QBR content with evidence-backed metrics
+
+
+  You MUST NOT:
+
+  - Make pricing or commercial decisions (AE Agent''s domain)
+
+  - Design technical solutions for adoption blockers (SA Agent''s domain)
+
+  - Modify customer success plans directly (CA CSP Agent''s domain)
+
+  - Assume adoption health without usage data evidence
+
+
+  When uncertain: flag the metric for human validation with available data and confidence
+  level.
+
+
+  Tone: proactive, data-driven, opportunity-focused.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-ca-data
+  name: Read Customer Data
+  description: 'Access data sources: Meeting notes, Architecture documents, Design reviews'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: write-ca-artifact
+  name: Write Customer Artifact
+  description: 'Save artifacts: Arch design updates, Integration risk alerts, Design mismatch reports'
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification or additional input from the user
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: adoption-intelligence
+  name: Adoption Intelligence
+  description: Adoption and value metrics available to peer agents for account health context
+  tools:
+  - id: get-adoption-score
+    name: Get Adoption Score
+    description: Returns current adoption health and blocker list
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: adoption_score
+      type: object
+  - id: get-value-metrics
+    name: Get Value Metrics
+    description: Returns value delivery metrics for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: value_metrics
+      type: object
+  - id: get-expansion-opportunities
+    name: Get Expansion Opportunities
+    description: Returns identified use case expansion opportunities
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: expansion_opportunities
+      type: array
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: adoption
+  name: Adoption
+  playbook_refs:
+  - PB_CA_008
+  description: Assess customer adoption health, identify blockers, and discover use case expansion opportunities
+  inputs:
+  - title: account_context
+    type: object
+  - title: usage_metrics
+    type: object
+  outputs:
+  - title: adoption_assessment
+    type: object
+  - title: expansion_opportunities
+    type: array
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-adoption-health
+      input: account_name, months_deployed, use_cases
+      description: Assess customer adoption of solution
+      on_failure: stop
+    - step: 2
+      prompt: ca-adoption-blockers
+      input: account_name, expected_usage, actual_usage, vendor
+      description: Identify what's blocking customer adoption
+      on_failure: stop
+    - step: 3
+      prompt: ca-use-case-expansion
+      input: account_name, current_use_cases, business_context
+      description: Identify new use case opportunities
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - write-ca-artifact
+      description: Save adoption assessment to InfoHub
+      on_failure: stop
+- component_type: Flow
+  id: value-realization
+  name: Value Realization
+  playbook_refs:
+  - PB_CA_009
+  description: Measure and communicate value delivered to customers through adoption metrics, QBR content, and success stories
+  inputs:
+  - title: account_context
+    type: object
+  - title: review_period
+    type: string
+  outputs:
+  - title: value_assessment
+    type: object
+  - title: qbr_content
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-value-delivered
+      input: account_name, vendor, use_cases, deployment_duration
+      description: Assess value delivered to customer
+      on_failure: stop
+    - step: 2
+      prompt: ca-qbr-preparation
+      input: account_name, review_period
+      description: Prepare value content for QBR
+      on_failure: stop
+    - step: 3
+      prompt: ca-success-story
+      input: account_name, achievement, details
+      description: Develop customer success story content
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - write-ca-artifact
+      description: Save value assessment and QBR content to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - adoption
+    - value-realization
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Adoption metrics tell you what is happening, but only the CA knows why. A usage drop might be seasonal, org-change driven, or a genuine satisfaction issue. The agent surfaces patterns and flags anomalies, the CA interprets them in the context of the relationship and decides whether to escalate or wait.
+
+      '
+    challenges:
+    - text: Adoption tracking is manual and inconsistent across accounts
+      specific_overhead:
+      - Collecting usage metrics from customer environments manually
+    - text: Expansion opportunities are discovered reactively, not proactively
+      specific_overhead:
+      - Cross-referencing usage patterns with industry benchmarks to spot expansion signals
+    - text: Value delivery evidence is scattered across usage dashboards, support data, and anecdotal feedback
+      specific_overhead:
+      - Compiling value metrics from multiple sources for QBR preparation
+    scenarios:
+    - problem: Adoption tracking is manual and inconsistent across accounts
+      why: 'Customer adoption signals live in usage dashboards, support tickets, and anecdotal feedback. Without systematic aggregation, some accounts get detailed tracking while others are checked only before QBRs. Inconsistency means adoption risks go undetected until they threaten renewal.
+
+        '
+      agent: ca-adoption-agent
+      agent_response: 'Aggregates adoption signals from usage metrics, support interactions, and engagement patterns into a standardized health score. Applies consistent criteria across accounts, flags declining trends early, and generates targeted enablement recommendations.
+
+        '
+      success_signal:
+        metric: Adoption tracking coverage
+        target: All active accounts have current adoption health updated monthly
+        leading_indicator: Adoption trend alerts trigger proactive outreach before QBR
+        failure_signal: Adoption issues discovered during QBR preparation or at renewal
+    - problem: Value delivery evidence is compiled manually for each QBR
+      why: 'Value metrics live across usage dashboards, support data, and anecdotal feedback. Preparing QBR content means manually pulling from 5+ sources, cross-referencing against original business goals, and formatting into a narrative. This takes days per account and produces inconsistent quality.
+
+        '
+      agent: ca-adoption-agent
+      agent_response: 'Continuously tracks value delivery against original business goals. When QBR preparation triggers, generates pre-compiled value content with metrics, trend analysis, and success story candidates, reducing preparation from days to hours.
+
+        '
+      success_signal:
+        metric: QBR value content preparation time
+        target: QBR value section auto-generated with 80%+ content coverage
+        leading_indicator: CA reviews and refines rather than builds from scratch
+        failure_signal: CA spends 2+ days manually compiling value metrics for each QBR
+  escalation_triggers:
+  - Adoption health drops below 40% of expected usage
+  - Critical blocker persists for 30+ days
+  - Value delivery gap exceeds 30% against original goals
+  - No expansion opportunities identified for 2+ consecutive quarters
+  prompt_registry:
+    ca-adoption-health:
+      description: Assess customer adoption of solution
+      source: prompts/tasks.yaml#adoption.adoption_health
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - usage_metrics
+        - deployment_status
+        - use_case_inventory
+        priority: critical
+    ca-adoption-blockers:
+      description: Identify what is blocking customer adoption
+      source: prompts/tasks.yaml#adoption.adoption_blockers
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - usage_metrics
+        - expected_vs_actual_usage
+        - support_tickets
+        priority: critical
+    ca-use-case-expansion:
+      description: Identify new use case opportunities
+      source: prompts/tasks.yaml#adoption.use_case_expansion
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - current_use_cases
+        - business_context
+        - industry_patterns
+        priority: critical
+    ca-value-delivered:
+      description: Assess value delivered to customer
+      source: prompts/tasks.yaml#value_realization.value_delivered
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - usage_metrics
+        - deployment_outcomes
+        - original_business_goals
+        priority: critical
+    ca-qbr-preparation:
+      description: Prepare value content for QBR
+      source: prompts/tasks.yaml#value_realization.qbr_preparation
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - usage_metrics
+        - health_score
+        - support_summary
+        - value_milestones
+        priority: critical
+    ca-success-story:
+      description: Develop customer success story content
+      source: prompts/tasks.yaml#value_realization.success_story
+  boundaries:
+  - Adoption tracking and value realization only, does not design solutions
+  - Does not make pricing or commercial decisions
+  - Does not modify customer success plans directly
+  - Does not design technical solutions for adoption blockers
+  - Does not replace human judgment on adoption root causes
+  permissions:
+  - Read adoption metrics and usage data from InfoHub
+  - Read account context and deployment status
+  - Read support ticket summaries and engagement patterns
+  - Synthesize adoption health into standardized scores
+  - Flag adoption risks and expansion opportunities for CA review
+  guardrails:
+    input_validation:
+    - rule: Adoption assessment must reference a specific account with usage data
+    - rule: Reject requests without usage metrics or deployment context
+    output_checks:
+    - rule: Every blocker includes root cause classification and severity
+    - rule: Expansion opportunities trace to usage patterns or business context
+    - rule: Value metrics reference original business goals
+    signal_validation:
+    - rule: Adoption health claims must reference specific usage data evidence
+    - rule: Blocker identification must cite measurable gaps between expected and actual usage
+  knowledge:
+    scope:
+      domains:
+      - adoption
+      - value-realization
+      - use-case-expansion
+      - qbr
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/adoption-methodology.yaml
+      description: Adoption scoring frameworks, blocker classification, expansion signals
+    - path: references/value-realization.yaml
+      description: Value measurement frameworks, QBR templates, success story formats
+    - path: references/signal-detection.yaml
+      description: Usage anomaly detection, adoption risk signals
+  error_handling:
+    tool_failures:
+      critical:
+      - read-ca-data
+      enrichment:
+      - ask-user
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ca-agent
+      description: CA orchestrator routes adoption and value requests
+    - type: schedule
+      source: adoption_metrics
+      condition: account.active == true AND account.last_adoption_check_days > 30
+      description: Auto-activates adoption assessment for accounts without recent check
+      flow: adoption
+    - type: event
+      source: usage_metrics
+      condition: usage.current < usage.expected * 0.6
+      description: Auto-activates adoption when usage drops below 60% of expected
+      flow: adoption
+    - type: schedule
+      source: qbr_calendar
+      condition: account.next_qbr_days <= 21
+      description: Auto-activates value-realization for QBR preparation
+      flow: value-realization
+    outputs:
+    - type: parent_return
+      target: ca-agent
+      payload:
+      - adoption_assessment
+      - expansion_opportunities
+      - value_metrics
+      description: Adoption and value synthesis back to CA orchestrator
+    - type: trigger_agent
+      target: ca-health-agent
+      condition: adoption.health < 40
+      payload:
+      - adoption_assessment
+      - blockers
+      description: Low adoption health triggers health agent for escalation
+    - type: notify_human
+      condition: adoption.blockers.critical > 0 OR adoption.expansion_opportunities.high_value > 0
+      channel: alert
+      description: Critical blockers or high-value expansion opportunities surface for CA review
+    dependencies: []

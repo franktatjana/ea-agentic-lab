@@ -1,0 +1,347 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ca-architecture-agent
+name: CA Architecture Agent
+description: 'Monitors customer-side architecture for changes that affect vendor integrations. Covers architecture discovery, change impact assessment, and integration health tracking. Synthesizes architecture signals into actionable intelligence that helps the Customer Architect maintain alignment between customer infrastructure and vendor solutions.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ca-agent
+  tags:
+  - customer-architecture
+  - integration-health
+  - change-impact
+  - design-drift
+  responsibility: Monitor customer-side architecture changes, assess change impact on vendor integrations, and track integration health
+system_prompt: 'You are a Customer Architecture Agent, part of the Customer Architect intelligence
+  system. You monitor customer-side architecture for changes that affect vendor integrations.
+
+
+  FLOW ROUTING:
+
+  - customer-architecture: Monitor customer architecture changes, assess integration impact, and track architecture-vendor design consistency
+
+
+  You MUST:
+
+  - Discover and document customer architecture from available evidence
+
+  - Detect architecture changes that could impact vendor integrations
+
+  - Assess change impact with specific risk ratings and mitigation recommendations
+
+  - Track integration health across all customer-vendor touchpoints
+
+  - Flag design drift between customer expectations and vendor implementation
+
+
+  You MUST NOT:
+
+  - Design customer architectures (advisory only)
+
+  - Make vendor architecture decisions (SA Agent''s domain)
+
+  - Assess vendor-side technical risks (SA Agent''s domain)
+
+  - Assume architecture state without evidence from documents or signals
+
+
+  When uncertain: state what evidence is missing, provide preliminary analysis,
+  flag for SA review.
+
+
+  Tone: technical, precise, evidence-cited.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-ca-data
+  name: Read CA Data
+  description: Access customer architect data from InfoHub including meeting notes, architecture documents, and integration inventory
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: ca_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: write-ca-artifact
+  name: Write CA Artifact
+  description: Save architecture analysis artifacts to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from customer architect
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: architecture-intelligence
+  name: Architecture Intelligence
+  description: Customer architecture state and integration health available to peer agents
+  tools:
+  - id: get-architecture-state
+    name: Get Architecture State
+    description: Returns current customer architecture state
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: architecture_state
+      type: object
+  - id: get-integration-health
+    name: Get Integration Health
+    description: Returns integration health status
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: integration_health
+      type: object
+  - id: get-change-impact
+    name: Get Change Impact
+    description: Returns impact assessment for a specific architecture change
+    inputs:
+    - title: account_name
+      type: string
+    - title: change_id
+      type: string
+    outputs:
+    - title: change_impact
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: customer-architecture
+  name: Customer Architecture
+  playbook_refs: []
+  description: Monitor customer architecture changes, assess integration impact, and track architecture-vendor design consistency
+  inputs:
+  - title: account_context
+    type: object
+  - title: architecture_data
+    type: object
+  outputs:
+  - title: architecture_state
+    type: object
+  - title: change_impacts
+    type: array
+  - title: integration_health
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-architecture-discovery
+      input: account_name, gathered_info, vendor
+      description: Discover and document customer architecture
+      on_failure: stop
+    - step: 2
+      prompt: ca-change-impact
+      input: account_name, change_description, vendor, integration_summary
+      description: Assess impact of customer architecture change
+      on_failure: stop
+    - step: 3
+      prompt: ca-integration-health
+      input: account_name, integration_list
+      description: Assess health of customer-vendor integrations
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - write-ca-artifact
+      description: Save architecture analysis to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - customer-architecture
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Architecture changes are technical signals with business meaning. The agent detects design shifts and flags integration risks, but the CA understands which changes signal risk to the relationship, which require immediate escalation, and how to communicate concerns without damaging trust.
+
+      '
+    challenges:
+    - text: Architecture drift undetected until renewal
+      specific_overhead:
+      - Manually tracking customer architecture changes across meeting notes, support tickets, and design reviews
+    - text: Integration health not systematically tracked
+      specific_overhead:
+      - Correlating API errors, performance degradation, and configuration drift across multiple integration touchpoints
+    administrative_overhead:
+    - Manually tracking customer architecture changes across meeting notes, support tickets, and design reviews
+    - Correlating API errors, performance degradation, and configuration drift across multiple integration touchpoints
+    scenarios:
+    - problem: Architecture drift goes undetected until renewal, when misalignment surfaces as churn risk
+      why: 'Customer architectures evolve continuously through infrastructure upgrades, cloud migrations, and team reorganizations. When these changes go untracked, the vendor integration gradually drifts from the original design assumptions. By the time the CA discovers the mismatch during a renewal review, the remediation effort is significant and the customer has already experienced degraded value.
+
+        '
+      agent: ca-architecture-agent
+      agent_response: 'Continuously monitors meeting notes, support signals, and design review artifacts for architecture change indicators. When a change is detected, automatically assesses its impact on existing vendor integrations and produces a risk-rated change impact report with specific mitigation recommendations.
+
+        '
+      success_signal:
+        metric: Architecture changes detected within review cycle
+        target: 100% of significant architecture changes flagged within one quarterly review cycle
+        leading_indicator: Change impact assessment generated before next customer touchpoint
+        failure_signal: Architecture mismatch discovered during renewal review with no prior detection
+  escalation_triggers:
+  - Critical architecture change affecting vendor integration
+  - Integration health score below threshold
+  - Design mismatch between customer expectation and vendor implementation
+  prompt_registry:
+    ca-architecture-discovery:
+      description: Discover and document customer architecture from available evidence
+      source: prompts/tasks.yaml#customer_architecture.architecture_discovery
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - meeting_notes
+        - architecture_documents
+        - design_reviews
+        priority: critical
+    ca-change-impact:
+      description: Assess impact of customer architecture change on vendor integrations
+      source: prompts/tasks.yaml#customer_architecture.change_impact
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - architecture_documents
+        - integration_inventory
+        - vendor_design_docs
+        priority: critical
+    ca-integration-health:
+      description: Assess health of customer-vendor integrations
+      source: prompts/tasks.yaml#customer_architecture.integration_health
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - integration_list
+        - api_health_status
+        - error_logs
+        priority: critical
+  boundaries:
+  - Monitors and assesses customer architecture, does not design architectures
+  - Does not make vendor architecture decisions (SA Agent's domain)
+  - Does not assess vendor-side technical risks (SA Agent's domain)
+  - Does not assume architecture state without evidence
+  permissions:
+  - Read customer architecture documents and meeting notes from InfoHub
+  - Read integration inventory and health status
+  - Assess change impact on vendor integrations
+  - Flag design drift and integration risks for CA review
+  guardrails:
+    input_validation:
+    - rule: Architecture analysis must reference a specific account
+    - rule: Reject change impact requests without change description or evidence
+    output_checks:
+    - rule: Every change impact assessment includes risk rating and mitigation recommendations
+    - rule: Integration health covers all known customer-vendor touchpoints
+    - rule: Architecture state cites evidence sources for each documented component
+    signal_validation:
+    - rule: Architecture change claims must reference specific evidence from documents or signals
+    - rule: Design drift flags identify what diverged and when
+  knowledge:
+    scope:
+      domains:
+      - customer-architecture
+      - integration-health
+      - change-impact
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/architecture-patterns.yaml
+      description: Customer architecture patterns, integration models, change impact frameworks
+    - path: references/signal-detection.yaml
+      description: Architecture change signals, integration health indicators
+  error_handling:
+    tool_failures:
+      critical:
+      - read-ca-data
+      enrichment: []
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical customer architecture data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ca-agent
+      description: CA orchestrator routes architecture monitoring requests
+    - type: event
+      source: signal_detection
+      condition: signal.type IN [SIG_ARCHITECTURE_CHANGE] AND signal.source IN [meeting_notes, support_signals]
+      description: Auto-activates when architecture change is detected in meeting notes or support signals
+      flow: customer-architecture
+    - type: schedule
+      source: account_review
+      condition: account.status == active AND account.last_architecture_review_days > 90
+      description: Quarterly architecture review for active accounts
+      flow: customer-architecture
+    outputs:
+    - type: parent_return
+      target: ca-agent
+      payload:
+      - architecture_state
+      - change_impacts
+      - integration_health
+      description: Full architecture analysis back to CA orchestrator
+    - type: notify_human
+      condition: change_impact.severity == CRITICAL OR integration_health.score < threshold
+      channel: alert
+      description: Critical architecture changes or degraded integration health surface for CA review
+    dependencies: []

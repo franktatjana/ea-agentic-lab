@@ -1,0 +1,478 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ca-health-agent
+name: CA Health Agent
+description: 'Owns reactive health monitoring for customer accounts: customer health assessment, early warning detection, renewal readiness evaluation, and support intelligence triage. Aggregates health signals across usage, support, engagement, and adoption dimensions to surface actionable insights before health issues escalate.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ca-agent
+  tags:
+  - customer-health
+  - support-intelligence
+  - early-warning
+  - renewal-readiness
+  responsibility: Monitor customer health signals, detect early warnings, assess renewal readiness, and triage support intelligence into account-level insights
+system_prompt: 'You are a Customer Health Agent, part of the Customer Architect intelligence
+  system. You monitor customer health signals across three flows.
+
+
+  FLOW ROUTING:
+
+  - customer-health: Comprehensive health assessment, early warning detection, renewal readiness (scheduled reviews, health score changes)
+
+  - support-intelligence-triage: Real-time support signal processing and account-level routing (incoming SIG_SUP_* signals)
+
+  - support-intelligence: Quarterly support pattern analysis and support-to-health correlation (QBR preparation, trend analysis)
+
+
+  You MUST:
+
+  - Aggregate health signals from usage, support, engagement, and adoption dimensions
+
+  - Detect early warning patterns before they escalate to critical status
+
+  - Assess renewal readiness with specific risk factors and mitigation actions
+
+  - Triage support signals into account-level actions with named owners
+
+  - Track support health trends and correlate with overall account health
+
+
+  You MUST NOT:
+
+  - Design remediation architectures (SA Agent''s domain)
+
+  - Make commercial decisions about renewals (AE Agent''s domain)
+
+  - Modify customer success plans directly (CA CSP Agent''s domain)
+
+  - Assume health status without signal evidence
+
+
+  When uncertain: flag the signal for human review with available evidence
+  and confidence level.
+
+
+  Tone: vigilant, evidence-based, action-oriented.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-ca-data
+  name: Read Customer Data
+  description: 'Access data sources: Meeting notes, Architecture documents, Design reviews'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: write-ca-artifact
+  name: Write Customer Artifact
+  description: 'Save artifacts: Health assessments, Early warnings, Renewal readiness reports, Support intelligence outputs'
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification or additional input from the user
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: health-intelligence
+  name: Health Intelligence
+  description: Health monitoring data available to peer agents for account context
+  tools:
+  - id: get-health-score
+    name: Get Health Score
+    description: Returns current health score and components for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: health_score
+      type: object
+  - id: get-early-warnings
+    name: Get Early Warnings
+    description: Returns active early warning signals for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: early_warnings
+      type: array
+  - id: get-renewal-readiness
+    name: Get Renewal Readiness
+    description: Returns renewal readiness assessment
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: renewal_readiness
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: customer-health
+  name: Customer Health
+  playbook_refs:
+  - PB_CA_007
+  description: Comprehensive customer health monitoring including health assessment, early warning detection, and renewal readiness evaluation
+  inputs:
+  - title: account_context
+    type: object
+  - title: available_signals
+    type: array
+  - title: months_until_renewal
+    type: string
+  outputs:
+  - title: health_assessment
+    type: object
+  - title: early_warnings
+    type: array
+  - title: renewal_readiness
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-health-assessment
+      input: account_name, available_signals
+      description: Comprehensive customer health review
+      on_failure: stop
+    - step: 2
+      prompt: ca-early-warning
+      input: account_name, recent_signals
+      description: Identify early warning signs of trouble
+      on_failure: stop
+    - step: 3
+      prompt: ca-renewal-readiness
+      input: account_name, months_until_renewal, arr
+      description: Assess readiness for upcoming renewal
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - write-ca-artifact
+      description: Save health assessment to InfoHub
+      on_failure: stop
+- component_type: Flow
+  id: support-intelligence-triage
+  name: Support Intelligence Triage
+  description: Receive support signals, enrich with account context, classify root cause, and route appropriate actions to account team
+  inputs:
+  - title: support_signal
+    type: object
+  - title: account_context
+    type: object
+  outputs:
+  - title: action_plan
+    type: object
+  - title: updated_records
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-support-intelligence-triage-analyze
+      input: context
+      description: Analyze incoming support signal with account context
+      on_failure: stop
+    - step: 2
+      prompt: ca-support-intelligence-triage-synthesize
+      input: analysis
+      description: Synthesize findings and classify root cause
+      on_failure: stop
+    - step: 3
+      prompt: ca-support-intelligence-triage-output
+      input: synthesis
+      description: Generate action plan with routing
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - write-ca-artifact
+      description: Save triage output and update health records
+      on_failure: stop
+- component_type: Flow
+  id: support-intelligence
+  name: Support Intelligence
+  description: Analyze support patterns at account level including signal triage, quarterly review, and support health assessment
+  inputs:
+  - title: account_context
+    type: object
+  - title: signal_data
+    type: object
+  - title: quarter
+    type: string
+  outputs:
+  - title: support_intelligence_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-triage-support-signal
+      input: account_name, signal_id, signal_name, signal_payload
+      description: Process incoming support signal and classify for account action
+      on_failure: stop
+    - step: 2
+      prompt: ca-quarterly-support-review
+      input: account_name, quarter, support_pattern_data, prior_quarter
+      description: Analyze quarterly support patterns for QBR preparation
+      on_failure: skip_with_warning
+    - step: 3
+      prompt: ca-support-health-assessment
+      input: account_name, recent_signals, health_score, engagement_track
+      description: Assess how support health affects overall account health
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - write-ca-artifact
+      description: Save support intelligence analysis to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - customer-health
+    - support-intelligence-triage
+    - support-intelligence
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Health signals are data points, but interpreting whether a yellow signal means ''normal fluctuation'' or ''early churn indicator'' requires relationship context that only the human CA has. The agent aggregates and surfaces patterns, the CA decides what warrants action and how to respond without damaging trust.
+
+      '
+    challenges:
+    - text: Health scores aggregate multiple dimensions but don't reveal which one is driving decline
+      specific_overhead:
+      - Manually correlating support ticket spikes with usage drops and engagement gaps
+    - text: Support signals arrive in isolation without account context
+      specific_overhead:
+      - Looking up account health, adoption status, and recent engagement for every support escalation
+    - text: Renewal risk surfaces too late because health monitoring is quarterly, not continuous
+      specific_overhead:
+      - Compiling health check reports for quarterly business reviews from scattered data sources
+    scenarios:
+    - problem: Health score declines are detected only during QBR preparation
+      why: 'Without continuous monitoring, health signals accumulate unnoticed between quarterly reviews. By QBR time, a yellow account may have shifted to red, and the remediation window has shrunk.
+
+        '
+      agent: ca-health-agent
+      agent_response: 'Continuously monitors health signals and triggers early warning alerts when leading indicators cross thresholds. Generates proactive health reports between QBRs so the CA can intervene before the next review cycle.
+
+        '
+      success_signal:
+        metric: Health decline detection lead time
+        target: Flag declining health at least 30 days before it would surface in QBR
+        leading_indicator: Early warning alerts trigger proactive outreach
+        failure_signal: Health issues first surface during QBR preparation
+    - problem: Support signals arrive without account context, making triage reactive
+      why: 'A P1 ticket on a green account means something different than a P1 on a red account. Without automatic context enrichment, the CA spends time looking up account health before deciding how to respond, delaying action on signals that may be urgent.
+
+        '
+      agent: ca-health-agent
+      agent_response: 'Automatically enriches incoming support signals with account health score, adoption status, engagement track, and recent signal history. Classifies the signal''s account-level impact and routes actions to the appropriate team member with full context.
+
+        '
+      success_signal:
+        metric: Support signal context enrichment latency
+        target: Incoming signals enriched and triaged within 1 hour
+        leading_indicator: CA receives pre-classified signals with recommended actions
+        failure_signal: CA manually looks up account context for each support escalation
+    - problem: Renewal risk assessment is point-in-time rather than continuous
+      why: 'Renewal readiness is typically assessed 90 days before contract end. If health has been declining for months, the 90-day window is too short for meaningful intervention. The account team discovers risk when it''s too late to fix.
+
+        '
+      agent: ca-health-agent
+      agent_response: 'Monitors renewal timelines against health trends. When health signals indicate risk on an account approaching renewal, triggers an early renewal readiness assessment with specific risk factors and recommended mitigation actions, giving the account team maximum lead time.
+
+        '
+      success_signal:
+        metric: Renewal risk early detection
+        target: Flag renewal risk at least 120 days before contract end
+        leading_indicator: Accounts with renewal risk get proactive health improvement plans
+        failure_signal: Renewal risk discovered in the 90-day renewal preparation window
+  escalation_triggers:
+  - Health score drops below 40 (RED zone)
+  - Critical support signal on account within 90 days of renewal
+  - Early warning pattern matches known churn indicators
+  - Support volume exceeds 2x quarterly average
+  prompt_registry:
+    ca-health-assessment:
+      description: Comprehensive customer health review
+      source: prompts/tasks.yaml#customer_health.health_assessment
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - usage_metrics
+        - support_tickets
+        - engagement_signals
+        - adoption_scores
+        priority: critical
+    ca-early-warning:
+      description: Identify early warning signs of trouble
+      source: prompts/tasks.yaml#customer_health.early_warning
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - recent_support_signals
+        - usage_trend_data
+        - engagement_frequency
+        priority: critical
+    ca-renewal-readiness:
+      description: Assess readiness for upcoming renewal
+      source: prompts/tasks.yaml#customer_health.renewal_readiness
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - contract_details
+        - health_score
+        - adoption_status
+        - open_issues
+        priority: critical
+    ca-support-intelligence-triage-analyze:
+      description: Analyze incoming support signal with account context
+      source: skills/support-intelligence-triage#step-1
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - support_signal_context
+        - account_context
+        - health_indicators
+        priority: critical
+    ca-support-intelligence-triage-synthesize:
+      description: Synthesize findings and classify root cause
+      source: skills/support-intelligence-triage#step-2
+    ca-support-intelligence-triage-output:
+      description: Generate action plan with routing
+      source: skills/support-intelligence-triage#step-3
+    ca-triage-support-signal:
+      description: Process incoming support signal and classify for account action
+      source: prompts/tasks.yaml#support_intelligence.triage_support_signal
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - support_signal_payload
+        - account_health_score
+        - adoption_status
+        priority: critical
+    ca-quarterly-support-review:
+      description: Analyze quarterly support patterns for QBR preparation
+      source: prompts/tasks.yaml#support_intelligence.quarterly_support_review
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - support_ticket_history
+        - resolution_metrics
+        - escalation_patterns
+        priority: critical
+    ca-support-health-assessment:
+      description: Assess how support health affects overall account health
+      source: prompts/tasks.yaml#support_intelligence.support_health_assessment
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - recent_support_signals
+        - health_score
+        - engagement_track_status
+        priority: critical
+  boundaries:
+  - Health monitoring and signal triage only, does not design remediation plans
+  - Does not modify customer success plans directly
+  - Does not make commercial decisions about renewals or pricing
+  - Does not replace human judgment on health signal interpretation
+  guardrails:
+    input_validation:
+    - rule: Health assessment must reference a specific account
+    - rule: Reject signals without account identifier
+    output_checks:
+    - rule: Every health claim cites signal evidence
+    - rule: Early warnings reference specific threshold crossings
+    - rule: Renewal readiness includes specific risk factors
+    signal_validation:
+    - rule: Health score changes must reference contributing dimensions
+    - rule: Support triage actions must have named owners
+  knowledge:
+    scope:
+      domains:
+      - customer-health
+      - support-intelligence
+      - renewal-readiness
+      archetypes:
+      - enterprise
+      - mid-market
+    references: []
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ca-agent
+      description: CA orchestrator routes health monitoring requests
+    - type: event
+      source: support_signal
+      condition: signal.type STARTS_WITH 'SIG_SUP_'
+      description: Auto-activates support-intelligence-triage on incoming support signals
+      flow: support-intelligence-triage
+    - type: schedule
+      source: health_score
+      condition: account.active == true AND account.last_health_check_days > 30
+      description: Auto-activates customer-health for accounts without recent health check
+      flow: customer-health
+    - type: event
+      source: renewal_calendar
+      condition: account.months_until_renewal <= 6 AND account.health_score < 60
+      description: Auto-activates customer-health with renewal focus when at-risk accounts approach renewal
+      flow: customer-health
+    outputs:
+    - type: parent_return
+      target: ca-agent
+      payload:
+      - health_assessment
+      - early_warnings
+      - renewal_readiness
+      description: Health analysis back to CA orchestrator
+    - type: trigger_agent
+      target: ca-csp-agent
+      condition: health.zone == RED OR health.early_warnings > 2
+      payload:
+      - health_assessment
+      - risk_factors
+      description: Critical health findings trigger CSP risk update
+    - type: notify_human
+      condition: health.zone_change == true OR health.renewal_risk == HIGH
+      channel: alert
+      description: Health zone changes and renewal risk surface for CA review
+    dependencies: []

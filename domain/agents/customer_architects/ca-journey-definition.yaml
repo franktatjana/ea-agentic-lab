@@ -1,0 +1,584 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ca-journey-agent
+name: CA Journey Agent
+description: 'Owns customer experience tracking across the full lifecycle: journey mapping from onboarding through adoption, friction point identification, and Voice of Customer collection and analysis. Operates two flows, customer-journey for phase-based experience tracking and voice-of-customer for systematic VoC signal collection, trend analysis, and closed-loop follow-up.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ca-agent
+  tags:
+  - customer-journey
+  - voice-of-customer
+  - nps
+  - csat
+  - friction-analysis
+  responsibility: Track customer journey from onboarding through adoption, collect and analyze Voice of Customer signals, and surface friction points
+system_prompt: 'You are a Customer Journey Agent, part of the Customer Architect intelligence
+  system. You track the customer experience and Voice of Customer across two flows.
+
+
+  FLOW ROUTING:
+
+  - customer-journey: Journey mapping from onboarding through adoption, friction analysis, journey health assessment (deal close handoff, phase transitions, health checks)
+
+  - voice-of-customer: VoC signal collection (NPS, CSAT, qualitative), trend analysis, closed-loop actions, QBR content, product feedback aggregation (survey cycles, touchpoint events, quarterly reviews)
+
+
+  You MUST:
+
+  - Map the customer journey at each phase transition with specific touchpoints and sentiment
+
+  - Identify friction points with evidence from support data, usage signals, and feedback
+
+  - Collect VoC signals systematically from all available channels
+
+  - Track VoC trends over time to detect sentiment shifts
+
+  - Close the loop on negative feedback with specific follow-up actions
+
+  - Aggregate product-relevant feedback for PM team consumption
+
+
+  You MUST NOT:
+
+  - Create customer success plans (CA CSP Agent''s domain)
+
+  - Make remediation decisions (CA reviews and decides)
+
+  - Modify health scores directly (CA Health Agent''s domain)
+
+  - Assume journey quality without evidence from touchpoints
+
+
+  When uncertain: capture the signal with confidence level and flag for CA interpretation.
+
+
+  Tone: empathetic, pattern-seeking, customer-voice-centered.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-ca-data
+  name: Read CA Data
+  description: Access customer architect account data from InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: ca_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: write-ca-artifact
+  name: Write CA Artifact
+  description: Save customer architect artifacts to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from customer architect
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: journey-intelligence
+  name: Journey Intelligence
+  description: Journey and VoC data available to peer agents for customer context
+  tools:
+  - id: get-journey-health
+    name: Get Journey Health
+    description: Returns journey health and friction points
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: journey_health
+      type: object
+  - id: get-voc-summary
+    name: Get VoC Summary
+    description: Returns VoC metrics and sentiment trends
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: voc_summary
+      type: object
+  - id: get-product-feedback
+    name: Get Product Feedback
+    description: Returns aggregated product feedback for PM team
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: product_feedback
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: customer-journey
+  name: Customer Journey
+  description: Map and monitor the customer experience from onboarding through adoption phases, identify friction points, and assess journey health
+  inputs:
+  - title: account_context
+    type: object
+  - title: journey_data
+    type: object
+  outputs:
+  - title: journey_map
+    type: object
+  - title: friction_points
+    type: array
+  - title: journey_health
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-accept-journey-handoff
+      input: account_name, sa_name, journey_map_link, csp_link
+      description: Receive and validate journey map at deal close
+      on_failure: stop
+    - step: 2
+      prompt: ca-map-onboarding-journey
+      input: account_name, go_live_date, milestones
+      description: Document customer experience during onboarding
+      on_failure: stop
+    - step: 3
+      prompt: ca-map-adoption-journey
+      input: account_name, months_since_golive, adoption_level
+      description: Track customer experience during adoption phase
+      on_failure: stop
+    - step: 4
+      prompt: ca-analyze-journey-health
+      input: account_name, journey_map_link, signals
+      description: Assess overall customer journey health
+      on_failure: stop
+    - step: 5
+      prompt: ca-identify-journey-friction
+      input: account_name, feedback, support_data, usage_signals
+      description: Discover and document friction in customer journey
+      on_failure: stop
+    - step: 6
+      action: persist
+      tools:
+      - write-ca-artifact
+      description: Save journey analysis to InfoHub
+      on_failure: stop
+- component_type: Flow
+  id: voice-of-customer
+  name: Voice of Customer
+  description: Collect, analyze, and act on Voice of Customer signals from NPS, CSAT, qualitative feedback, support interactions, and meetings
+  inputs:
+  - title: account_context
+    type: object
+  - title: feedback_data
+    type: object
+  outputs:
+  - title: voc_summary
+    type: object
+  - title: product_feedback
+    type: object
+  - title: action_items
+    type: array
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-initiate-voc-tracking
+      input: account_name, tier, stakeholders
+      description: Set up VoC tracking for new customer
+      on_failure: stop
+    - step: 2
+      prompt: ca-collect-nps-feedback
+      input: account_name, date, respondent_count, results
+      description: Administer NPS survey and process results
+      on_failure: skip_with_warning
+    - step: 3
+      prompt: ca-collect-csat-feedback
+      input: interaction_type, account_name, date, participants
+      description: Capture satisfaction after key touchpoints
+      on_failure: skip_with_warning
+    - step: 4
+      prompt: ca-capture-qualitative-feedback
+      input: account_name, source_type, date, stakeholder
+      description: Document and categorize qualitative feedback
+      on_failure: skip_with_warning
+    - step: 5
+      prompt: ca-analyze-support-voc
+      input: account_name, time_period, count, summary
+      description: Extract VoC insights from support interactions
+      on_failure: skip_with_warning
+    - step: 6
+      prompt: ca-extract-meeting-voc
+      input: account_name, date, type, notes_summary
+      description: Identify VoC signals from customer meetings
+      on_failure: skip_with_warning
+    - step: 7
+      prompt: ca-voc-trend-analysis
+      input: account_name, time_period, metrics
+      description: Review VoC metrics and identify trends
+      on_failure: stop
+    - step: 8
+      prompt: ca-closed-loop-action
+      input: account_name, feedback_summary, stakeholder, sentiment
+      description: Follow up on VoC feedback
+      on_failure: skip_with_warning
+    - step: 9
+      prompt: ca-voc-qbr-content
+      input: account_name, quarter, voc_summary
+      description: Compile VoC insights for quarterly review
+      on_failure: stop
+    - step: 10
+      prompt: ca-product-feedback-aggregation
+      input: account_name, time_period, sources
+      description: Compile product-related VoC for PM team
+      on_failure: skip_with_warning
+    - step: 11
+      action: persist
+      tools:
+      - write-ca-artifact
+      description: Save VoC analysis and product feedback to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - customer-journey
+    - voice-of-customer
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Journey maps and VoC metrics are representations of customer sentiment, not the sentiment itself. The agent captures and structures signals, but the CA reads between the lines, recognizing when a polite CSAT score masks deeper frustration, when silence from a stakeholder is more telling than their survey response.
+
+      '
+    challenges:
+    - text: Journey mapping happens at onboarding then stops, leaving adoption-phase experience undocumented
+      specific_overhead:
+      - Manually reconstructing the customer experience timeline from scattered support tickets, usage data, and meeting notes
+    - text: VoC is collected but not acted on, creating a closed-loop gap that erodes customer trust
+      specific_overhead:
+      - Tracking which feedback items received follow-up and which fell through the cracks
+    - text: Product feedback gets lost between CS and PM, so recurring customer pain never reaches the roadmap
+      specific_overhead:
+      - Manually aggregating and deduplicating product-related feedback across accounts for PM consumption
+    administrative_overhead:
+    - Manually reconstructing the customer experience timeline from scattered support tickets, usage data, and meeting notes
+    - Tracking which feedback items received follow-up and which fell through the cracks
+    - Manually aggregating and deduplicating product-related feedback across accounts for PM consumption
+    - Compiling VoC metrics and journey summaries for quarterly business reviews
+    - Cross-referencing NPS, CSAT, and qualitative signals to detect sentiment shifts
+    scenarios:
+    - problem: Journey mapping happens at onboarding then stops, leaving adoption-phase experience undocumented
+      why: 'When the journey map goes stale after go-live, friction points accumulate invisibly. The CA has no structured view of how the customer experience is evolving, so problems surface only when the customer escalates or churns. By then, the damage to the relationship is already done and recovery costs far more than prevention.
+
+        '
+      agent: ca-journey-agent
+      agent_response: 'Tracks the customer journey continuously from deal close handoff through onboarding and into adoption. Maps touchpoints, sentiment, and friction at each phase transition, producing an always-current journey map that highlights where the experience is degrading before the customer raises it.
+
+        '
+      success_signal:
+        metric: Journey map currency across customer lifecycle
+        target: Journey map updated within 7 days of each phase transition or significant touchpoint
+        leading_indicator: Friction points identified proactively before customer escalation
+        failure_signal: Customer escalation traces back to friction that existed for weeks without detection
+    - problem: VoC is collected but not acted on, creating a closed-loop gap that erodes customer trust
+      why: 'Customers invest time providing feedback through surveys and meetings. When that feedback disappears into a void with no visible follow-up, customers stop sharing. The CA loses the most valuable signal available, direct customer voice, and the relationship shifts from partnership to vendor management.
+
+        '
+      agent: ca-journey-agent
+      agent_response: 'Systematically collects VoC signals from NPS, CSAT, qualitative feedback, support interactions, and meetings. Tracks each signal through to resolution, generates closed-loop follow-up actions for negative feedback, and compiles trend analysis so the CA can demonstrate responsiveness to customer input.
+
+        '
+      success_signal:
+        metric: Closed-loop rate on negative VoC feedback
+        target: 100% of negative feedback items have a documented follow-up action within 5 business days
+        leading_indicator: Customer acknowledges follow-up in subsequent interaction
+        failure_signal: Customer references prior feedback that received no visible response
+  escalation_triggers:
+  - NPS score drops 20+ points quarter-over-quarter
+  - Journey friction identified at 3+ touchpoints simultaneously
+  - Negative qualitative feedback from economic buyer or champion
+  - Product feedback pattern affects 3+ accounts (systemic issue)
+  prompt_registry:
+    ca-accept-journey-handoff:
+      description: Receive and validate journey map at deal close
+      source: prompts/tasks.yaml#customer_journey.accept_journey_handoff
+    ca-map-onboarding-journey:
+      description: Document customer experience during onboarding
+      source: prompts/tasks.yaml#customer_journey.map_onboarding_journey
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - onboarding_milestones
+        - support_tickets
+        - meeting_notes
+        priority: critical
+    ca-map-adoption-journey:
+      description: Track customer experience during adoption phase
+      source: prompts/tasks.yaml#customer_journey.map_adoption_journey
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - usage_metrics
+        - adoption_scores
+        - feature_utilization
+        priority: critical
+    ca-analyze-journey-health:
+      description: Assess overall customer journey health
+      source: prompts/tasks.yaml#customer_journey.analyze_journey_health
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - journey_map
+        - health_signals
+        - engagement_touchpoints
+        priority: critical
+    ca-identify-journey-friction:
+      description: Discover and document friction in customer journey
+      source: prompts/tasks.yaml#customer_journey.identify_journey_friction
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - support_tickets
+        - customer_feedback
+        - usage_drop_signals
+        priority: critical
+    ca-initiate-voc-tracking:
+      description: Set up VoC tracking for new customer
+      source: prompts/tasks.yaml#voice_of_customer.initiate_voc_tracking
+    ca-collect-nps-feedback:
+      description: Administer NPS survey and process results
+      source: prompts/tasks.yaml#voice_of_customer.collect_nps_feedback
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - nps_survey_results
+        - respondent_details
+        priority: critical
+    ca-collect-csat-feedback:
+      description: Capture satisfaction after key touchpoints
+      source: prompts/tasks.yaml#voice_of_customer.collect_csat_feedback
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - csat_survey_results
+        - interaction_records
+        priority: critical
+    ca-capture-qualitative-feedback:
+      description: Document and categorize qualitative feedback
+      source: prompts/tasks.yaml#voice_of_customer.capture_qualitative_feedback
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - meeting_notes
+        - stakeholder_feedback
+        - qualitative_comments
+        priority: critical
+    ca-analyze-support-voc:
+      description: Extract VoC insights from support interactions
+      source: prompts/tasks.yaml#voice_of_customer.analyze_support_voc
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - support_tickets
+        - support_interaction_logs
+        - sentiment_data
+        priority: critical
+    ca-extract-meeting-voc:
+      description: Identify VoC signals from customer meetings
+      source: prompts/tasks.yaml#voice_of_customer.extract_meeting_voc
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - meeting_notes
+        - meeting_transcripts
+        priority: critical
+    ca-voc-trend-analysis:
+      description: Review VoC metrics and identify trends
+      source: prompts/tasks.yaml#voice_of_customer.voc_trend_analysis
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - voc_metrics_history
+        - nps_trends
+        - csat_trends
+        - feedback_categories
+        priority: critical
+    ca-closed-loop-action:
+      description: Follow up on VoC feedback
+      source: prompts/tasks.yaml#voice_of_customer.closed_loop_action
+    ca-voc-qbr-content:
+      description: Compile VoC insights for quarterly review
+      source: prompts/tasks.yaml#voice_of_customer.voc_qbr_content
+    ca-product-feedback-aggregation:
+      description: Compile product-related VoC for PM team
+      source: prompts/tasks.yaml#voice_of_customer.product_feedback_aggregation
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - product_feedback
+        - feature_requests
+        - bug_reports
+        - support_themes
+        priority: critical
+  boundaries:
+  - Customer journey tracking and VoC collection only, does not create success plans
+  - Does not modify health scores or risk assessments directly
+  - Does not make remediation or intervention decisions
+  - Does not replace human interpretation of customer sentiment
+  permissions:
+  - Read customer journey data and touchpoint records from InfoHub
+  - Read VoC survey results, feedback, and support interaction data
+  - Read meeting notes and transcripts for VoC signal extraction
+  - Write journey maps, friction analyses, and VoC summaries to InfoHub
+  - Flag journey friction and VoC trends for CA review
+  guardrails:
+    input_validation:
+    - rule: Journey tracking must reference a specific account
+    - rule: VoC collection requires identified feedback source and date
+    output_checks:
+    - rule: Friction points must reference specific evidence from touchpoints
+    - rule: VoC trends must span at least two data points before claiming a pattern
+    - rule: Product feedback aggregation must cite source accounts and feedback items
+    signal_validation:
+    - rule: Sentiment claims must reference specific VoC signals, not inferred mood
+    - rule: Journey health assessments must cite touchpoint evidence
+  knowledge:
+    scope:
+      domains:
+      - customer-journey
+      - voice-of-customer
+      - customer-experience
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/journey-mapping-methodology.yaml
+      description: Journey phases, touchpoint taxonomy, friction classification, health scoring
+    - path: references/voc-collection-framework.yaml
+      description: NPS methodology, CSAT touchpoints, qualitative feedback categorization, closed-loop process
+  error_handling:
+    tool_failures:
+      critical:
+      - read-ca-data
+      enrichment: []
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ca-agent
+      description: CA orchestrator routes journey and VoC requests
+    - type: event
+      source: deal_close
+      condition: opportunity.stage == CLOSED_WON
+      description: Deal close triggers journey handoff from SA
+      flow: customer-journey
+    - type: event
+      source: survey_results
+      condition: survey.type IN [nps, csat] AND survey.results_available == true
+      description: NPS/CSAT survey results received triggers VoC collection
+      flow: voice-of-customer
+    - type: event
+      source: meeting_transcript
+      condition: meeting.type == customer_meeting AND transcript.available == true
+      description: Meeting transcript available triggers meeting VoC extraction
+      flow: voice-of-customer
+    - type: schedule
+      source: quarterly_cycle
+      condition: quarter.end_approaching == true
+      description: Quarterly VoC trend analysis and QBR content preparation
+      flow: voice-of-customer
+    outputs:
+    - type: parent_return
+      target: ca-agent
+      payload:
+      - journey_map
+      - friction_points
+      - journey_health
+      description: Journey analysis back to CA orchestrator
+    - type: parent_return
+      target: ca-agent
+      flow: voice-of-customer
+      payload:
+      - voc_summary
+      - product_feedback
+      - action_items
+      description: VoC analysis back to CA orchestrator
+    - type: trigger_agent
+      target: ca-health-agent
+      condition: journey_friction.severity == HIGH OR friction_points.count >= 3
+      payload:
+      - journey_health
+      - friction_points
+      description: Journey friction indicates health risk, triggers health agent assessment
+    - type: trigger_agent
+      target: pm-agent
+      condition: product_feedback.pattern_accounts >= 3
+      payload:
+      - product_feedback
+      description: Product feedback aggregation identifies cross-account patterns for PM team
+    - type: notify_human
+      condition: nps.delta <= -20 AND nps.period == quarter_over_quarter
+      channel: alert
+      description: NPS drops 20+ points quarter-over-quarter surface for CA review
+    - type: notify_human
+      condition: friction_points.simultaneous >= 3
+      channel: alert
+      description: Journey friction cluster at 3+ touchpoints surfaces for CA review
+    - type: notify_human
+      condition: qualitative_feedback.sentiment == negative AND qualitative_feedback.stakeholder_role IN [economic_buyer, champion]
+      channel: alert
+      description: Negative feedback from economic buyer or champion surfaces for CA review
+    dependencies: []

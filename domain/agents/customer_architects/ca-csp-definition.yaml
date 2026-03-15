@@ -1,0 +1,453 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ca-csp-agent
+name: CA CSP Agent
+description: 'Manages the Customer Success Plan lifecycle from SA handoff through quarterly refresh, risk updates, and expansion planning. Owns handoff acceptance, monthly value updates, milestone tracking, quarterly CSP refresh, QBR content extraction, risk management, and expansion planning.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ca-agent
+  tags:
+  - customer-success-plan
+  - csp-lifecycle
+  - milestones
+  - expansion-planning
+  responsibility: Manage the Customer Success Plan lifecycle from SA handoff through quarterly refresh, risk updates, and expansion planning
+system_prompt: 'You are a Customer Success Plan Agent, part of the Customer Architect intelligence
+  system. You manage the full CSP lifecycle.
+
+
+  FLOW ROUTING: Single flow (customer-success-plan) with 7 operational steps. Entry
+  point depends on trigger:
+
+  - Deal close → step 1 (handoff acceptance)
+
+  - Monthly cycle → steps 2-3 (value update + milestone tracking)
+
+  - Quarterly cycle → step 4 (comprehensive refresh)
+
+  - QBR approaching → step 5 (content extraction)
+
+  - Health signal or support escalation → step 6 (risk update)
+
+  - Adoption milestone reached → step 7 (expansion planning)
+
+
+  You MUST:
+
+  - Validate CSP completeness at handoff (reject incomplete handoffs)
+
+  - Track value metrics against original CSP goals monthly
+
+  - Update milestone progress with evidence from adoption data
+
+  - Perform comprehensive quarterly refresh integrating all dimensions
+
+  - Extract QBR-ready content from CSP state
+
+  - Update risk section when health or support signals change
+
+  - Plan expansion when current phase milestones are met
+
+
+  You MUST NOT:
+
+  - Create CSPs from scratch (SA CSP Agent''s domain for pre-sales CSP creation)
+
+  - Make commercial expansion decisions (AE Agent''s domain)
+
+  - Override health assessments (CA Health Agent''s domain)
+
+  - Skip handoff validation even under time pressure
+
+
+  When uncertain: flag the CSP section for CA review with specific concern.
+
+  Tone: structured, milestone-focused, continuity-oriented.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-ca-data
+  name: Read CA Data
+  description: 'Access customer architect account data from InfoHub. Use section parameter to target specific data: usage_metrics, value_milestones, deployment_outcomes, milestone_status, adoption_progress, health_score, support_summary, risk_register, csp_content, adoption_metrics, expansion_opportunities, use_case_inventory.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: ca_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: write-ca-artifact
+  name: Write CA Artifact
+  description: Save updated CSP documents and related artifacts to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from customer architect
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: csp-intelligence
+  name: CSP Intelligence
+  description: CSP status and planning data available to peer agents for account context
+  tools:
+  - id: get-csp-status
+    name: Get CSP Status
+    description: Returns current CSP status and milestone progress
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: csp_status
+      type: object
+  - id: get-csp-risks
+    name: Get CSP Risks
+    description: Returns active CSP risk items
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: csp_risks
+      type: object
+  - id: get-expansion-plan
+    name: Get Expansion Plan
+    description: Returns current expansion planning from CSP
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: expansion_plan
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: customer-success-plan
+  name: Customer Success Plan
+  playbook_refs: []
+  description: Manage CSP lifecycle from handoff acceptance through monthly value updates, milestone tracking, quarterly refresh, QBR content extraction, risk management, and expansion planning
+  inputs:
+  - title: account_context
+    type: object
+  - title: csp_data
+    type: object
+  outputs:
+  - title: csp_status
+    type: object
+  - title: qbr_content
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ca-accept-csp-handoff
+      input: account_name, sa_name, csp_link, handoff_notes
+      description: Receive and validate CSP handoff at deal close
+      on_failure: stop
+    - step: 2
+      prompt: ca-update-csp-value
+      input: account_name, csp_link, review_period
+      description: Monthly update of CSP value metrics
+      on_failure: stop
+    - step: 3
+      prompt: ca-update-csp-milestones
+      input: account_name, current_phase, milestone_list
+      description: Track and update adoption milestones
+      on_failure: stop
+    - step: 4
+      prompt: ca-quarterly-csp-refresh
+      input: account_name, csp_link, quarter
+      description: Comprehensive quarterly CSP review and update
+      on_failure: stop
+    - step: 5
+      prompt: ca-csp-qbr-prep
+      input: account_name, csp_link, qbr_date
+      description: Extract QBR content from CSP
+      on_failure: skip_with_warning
+    - step: 6
+      prompt: ca-csp-risk-update
+      input: account_name, risk_list, recent_signals
+      description: Review and update CSP risk section
+      on_failure: stop
+    - step: 7
+      prompt: ca-csp-expansion-planning
+      input: account_name, current_phase, csp_link, opportunities
+      description: Plan next adoption phase in CSP
+      on_failure: skip_with_warning
+    - step: 8
+      action: persist
+      tools:
+      - write-ca-artifact
+      description: Save updated CSP to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - customer-success-plan
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'CSPs bridge what was promised during sales and what gets delivered. The agent maintains the living document, but the CA decides when to adjust goals (vs. holding the line), when to escalate expansion timing, and how to frame CSP updates for customer-facing reviews.
+
+      '
+    challenges:
+    - text: CSPs go stale between quarterly reviews
+      specific_overhead:
+      - Manually tracking value metrics and milestone progress between formal review cycles
+    - text: Handoff quality varies creating downstream gaps
+      specific_overhead:
+      - Validating CSP completeness at handoff and chasing missing sections from the SA team
+    - text: Risk sections lag behind actual account signals
+      specific_overhead:
+      - Cross-referencing health signals and support escalations against the CSP risk register
+    administrative_overhead:
+    - Manually tracking value metrics and milestone progress between formal review cycles
+    - Validating CSP completeness at handoff and chasing missing sections from the SA team
+    - Cross-referencing health signals and support escalations against the CSP risk register
+    - Extracting QBR-ready content from CSP state across multiple dimensions
+    - Updating expansion plans when adoption milestones are reached
+    scenarios:
+    - problem: CSPs go stale between quarterly reviews
+      why: 'Monthly value metrics and milestone progress accumulate without being reflected in the CSP document. When the quarterly review arrives, the CA spends more time reconstructing what happened than analyzing what it means. Customers notice when the CSP presented in a QBR does not reflect their current reality, eroding trust in the partnership.
+
+        '
+      agent: ca-csp-agent
+      agent_response: 'Runs monthly value updates and milestone tracking against adoption data, keeping the CSP current between quarterly reviews. When the quarterly refresh triggers, the CSP already reflects the latest state, so the CA can focus on strategic analysis rather than data gathering.
+
+        '
+      success_signal:
+        metric: CSP freshness at quarterly review
+        target: CSP reflects data no older than 30 days at quarterly review time
+        leading_indicator: Monthly value and milestone updates completed on schedule
+        failure_signal: QBR reveals CSP data that contradicts current account reality
+  escalation_triggers:
+  - CSP handoff fails validation (missing critical sections)
+  - Milestone slippage exceeds 30 days
+  - CSP risk section contradicts current health assessment
+  - Expansion plan conflicts with customer's stated priorities
+  prompt_registry:
+    ca-accept-csp-handoff:
+      description: Receive and validate CSP handoff at deal close
+      source: prompts/tasks.yaml#customer_success_plan.accept_csp_handoff
+    ca-update-csp-value:
+      description: Monthly update of CSP value metrics
+      source: prompts/tasks.yaml#customer_success_plan.update_csp_value
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - usage_metrics
+        - value_milestones
+        - deployment_outcomes
+        priority: critical
+    ca-update-csp-milestones:
+      description: Track and update adoption milestones
+      source: prompts/tasks.yaml#customer_success_plan.update_csp_milestones
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - milestone_status
+        - adoption_progress
+        priority: enrichment
+    ca-quarterly-csp-refresh:
+      description: Comprehensive quarterly CSP review and update
+      source: prompts/tasks.yaml#customer_success_plan.quarterly_csp_refresh
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - usage_metrics
+        - health_score
+        - support_summary
+        - adoption_status
+        - risk_register
+        priority: critical
+    ca-csp-qbr-prep:
+      description: Extract QBR content from CSP
+      source: prompts/tasks.yaml#customer_success_plan.csp_qbr_prep
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - csp_content
+        - value_milestones
+        - health_score
+        - adoption_metrics
+        priority: critical
+    ca-csp-risk-update:
+      description: Review and update CSP risk section
+      source: prompts/tasks.yaml#customer_success_plan.csp_risk_update
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - recent_support_signals
+        - risk_register
+        - health_score
+        priority: critical
+    ca-csp-expansion-planning:
+      description: Plan next adoption phase in CSP
+      source: prompts/tasks.yaml#customer_success_plan.csp_expansion_planning
+      requires_data:
+      - source: read-ca-data
+        fields:
+        - adoption_status
+        - expansion_opportunities
+        - use_case_inventory
+        priority: enrichment
+  boundaries:
+  - CSP lifecycle management only, does not create CSPs from scratch
+  - Does not make commercial expansion decisions
+  - Does not override health assessments from CA Health Agent
+  - Does not replace human judgment on goal adjustments or escalation timing
+  permissions:
+  - Read account context, usage metrics, and adoption data from InfoHub
+  - Read health scores and support signals for risk updates
+  - Read CSP content for QBR extraction and quarterly refresh
+  - Write updated CSP documents and milestone records to InfoHub
+  - Flag handoff validation failures and milestone slippage for CA review
+  guardrails:
+    input_validation:
+    - rule: CSP operations must reference a specific account
+    - rule: Handoff acceptance requires SA name, CSP link, and handoff notes
+    output_checks:
+    - rule: Value metrics trace to original CSP goals
+    - rule: Milestone updates include evidence from adoption data
+    - rule: Risk updates reference specific health or support signals
+    signal_validation:
+    - rule: Handoff rejection must cite specific missing sections
+    - rule: Milestone slippage claims must include date evidence
+  knowledge:
+    scope:
+      domains:
+      - customer-success-plan
+      - milestones
+      - expansion-planning
+      - value-tracking
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/csp-lifecycle.yaml
+      description: CSP stages, handoff checklist, value metrics framework, milestone tracking templates
+    - path: references/qbr-preparation.yaml
+      description: QBR content extraction rules, presentation structure, metric formatting
+  error_handling:
+    tool_failures:
+      critical:
+      - read-ca-data
+      enrichment: []
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ca-agent
+      description: CA orchestrator routes CSP lifecycle requests
+    - type: event
+      source: sa-csp-agent
+      condition: handoff_completion == true
+      description: SA CSP Agent handoff completion triggers step 1 (handoff acceptance)
+      flow: customer-success-plan
+    - type: schedule
+      source: csp_registry
+      condition: csp.status == active AND cycle == monthly
+      description: Monthly value and milestone update for active CSPs (steps 2-3)
+      flow: customer-success-plan
+    - type: schedule
+      source: csp_registry
+      condition: csp.status == active AND cycle == quarterly
+      description: Quarterly CSP refresh (step 4)
+      flow: customer-success-plan
+    - type: event
+      source: health_signal
+      condition: signal.type IN [health_score_change, support_escalation]
+      description: Health signal triggers risk update (step 6)
+      flow: customer-success-plan
+    - type: event
+      source: calendar
+      condition: qbr.days_until <= 21
+      description: QBR approaching within 21 days triggers QBR prep (step 5)
+      flow: customer-success-plan
+    outputs:
+    - type: parent_return
+      target: ca-agent
+      payload:
+      - csp_status
+      - qbr_content
+      - risk_updates
+      - expansion_plan
+      description: Full CSP lifecycle output back to CA orchestrator
+    - type: trigger_agent
+      target: ca-adoption-agent
+      condition: expansion_planning.new_use_cases > 0
+      payload:
+      - new_use_cases
+      - expansion_plan
+      description: Expansion planning identifies new use cases for adoption agent
+    - type: notify_human
+      condition: handoff.validation == failed
+      channel: alert
+      description: Handoff validation failure surfaces for CA review
+    - type: notify_human
+      condition: milestone.slippage_days > 30
+      channel: alert
+      description: Milestone slippage exceeding 30 days surfaces for CA review
+    - type: notify_human
+      condition: risk_section.contradicts_health_assessment == true
+      channel: alert
+      description: Risk section contradiction with health assessment surfaces for CA review
+    dependencies: []
