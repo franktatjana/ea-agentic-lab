@@ -97,6 +97,16 @@ function overheadAgent(entry: OverheadEntry): string | undefined {
 function stakeholderText(entry: StakeholderEntry): string {
   return typeof entry === "string" ? entry : entry.role;
 }
+function StakeholderLabel({ text }: { text: string }) {
+  const colonIdx = text.indexOf(":");
+  if (colonIdx === -1) return <span>{text}</span>;
+  return (
+    <span>
+      <span className="font-semibold text-foreground">{text.slice(0, colonIdx)}</span>
+      <span>{text.slice(colonIdx)}</span>
+    </span>
+  );
+}
 function stakeholderAgent(entry: StakeholderEntry): string | undefined {
   return typeof entry === "string" ? undefined : entry.connected_via;
 }
@@ -619,7 +629,7 @@ export default function AgentProfileDetailPage({
                                 <li key={i} className="flex items-start gap-2 text-[15px] text-muted-foreground">
                                   <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-muted-foreground/50 shrink-0" />
                                   <span className="flex-1">
-                                    <span>{stakeholderText(s)}</span>
+                                    <StakeholderLabel text={stakeholderText(s)} />
                                     {stakeholderAgent(s) && <AgentBadge agentId={stakeholderAgent(s)!} />}
                                   </span>
                                 </li>
@@ -635,7 +645,7 @@ export default function AgentProfileDetailPage({
                                 <li key={i} className="flex items-start gap-2 text-[15px] text-muted-foreground">
                                   <span className={`mt-[7px] h-1.5 w-1.5 rounded-full ${dotColor}/50 shrink-0`} />
                                   <span className="flex-1">
-                                    <span>{stakeholderText(s)}</span>
+                                    <StakeholderLabel text={stakeholderText(s)} />
                                     {stakeholderAgent(s) && <AgentBadge agentId={stakeholderAgent(s)!} />}
                                   </span>
                                 </li>
