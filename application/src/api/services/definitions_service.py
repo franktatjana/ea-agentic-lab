@@ -36,7 +36,7 @@ class DefinitionsService:
         "infosec": "Deal Execution",
         "specialists": "Specialists",
         "retrospective": "Operations",
-        "field_cto": "Leadership",
+        "field_cto": "Architecture",
         "alliance_architects": "Architecture",
     }
 
