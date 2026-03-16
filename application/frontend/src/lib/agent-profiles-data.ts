@@ -35,7 +35,7 @@ export const TEAM_STYLES: Record<string, TeamStyle> = {
     border: "border-l-purple-400",
     dot: "bg-purple-400",
     summary:
-      "Roles owning technical integrity and post-deployment health, backed by process sub-agents.",
+      "Roles owning technical integrity across pre-sales, post-sales, and partner integration, backed by process sub-agents.",
   },
   Intelligence: {
     label: "Intelligence",
@@ -53,7 +53,7 @@ export const TEAM_STYLES: Record<string, TeamStyle> = {
     border: "border-l-amber-400",
     dot: "bg-amber-400",
     summary:
-      "Senior Manager executes day-to-day coaching and escalation resolution.",
+      "Senior Manager handles coaching and escalation resolution, Field CTO drives cross-account technical strategy and executive advisory.",
   },
   Specialists: {
     label: "Specialists",

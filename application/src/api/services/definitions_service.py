@@ -36,6 +36,8 @@ class DefinitionsService:
         "infosec": "Deal Execution",
         "specialists": "Specialists",
         "retrospective": "Operations",
+        "field_cto": "Leadership",
+        "alliance_architects": "Architecture",
     }
 
     def __init__(self, agents_path: Path):
