@@ -376,7 +376,7 @@ function DocsPageContent() {
                   return <pre {...props}>{children}</pre>;
                 },
                 img: ({ src, alt, ...props }) => {
-                  if (!src) return null;
+                  if (!src || typeof src !== "string") return null;
                   // External or absolute images pass through unchanged
                   if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("/")) {
                     return <img src={src} alt={alt || ""} {...props} />;
