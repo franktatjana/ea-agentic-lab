@@ -4,6 +4,40 @@
 
 ---
 
+## 2026-03-21 - AE Best Practice Audit and Terminology Mapping
+
+### Added
+
+- `references/industry-best-practices.yaml` for AE agent: structured gap analysis against industry standards
+- 6 new AE challenges from industry gaps: transcript-based qualification, revenue cadences, battle card maintenance, in-call coaching, prescriptive multi-threading, buyer-facing mutual action plans
+- Terminology mapping table in domain model: maps YAML keys (`flows:`, `skills/`, `prompt_registry`) to domain concepts (Runbook, Skill, Prompt)
+- Change tracking rule added to CLAUDE.md
+
+### Sources checked
+
+- [Gartner: AI Agents Will Outnumber Sellers 10x](https://www.gartner.com/en/newsroom/press-releases/2025-11-18-gartner-predicts-by-2028-ai-agents-will-outnumber-sellers-by-10x)
+- [Gartner: AI Agents $15T in B2B Purchases](https://www.digitalcommerce360.com/2025/11/28/gartner-ai-agents-15-trillion-in-b2b-purchases-by-2028/)
+- [Gartner: 75% of Buyers Prefer Human Interaction](https://www.gartner.com/en/newsroom/press-releases/2025-08-25-gartner-says-by-2030-that-75-percent-of-b2b-buyers-will-prefer-sales-experiences-that-prioritize-human-interaction-over-ai)
+- [Forrester 2026 B2B Predictions](https://investor.forrester.com/news-releases/news-release-details/forresters-2026-b2b-marketing-sales-and-product-predictions-b2b)
+- [McKinsey: State of AI 2025](https://www.mckinsey.com/capabilities/quantumblack/our-insights/the-state-of-ai)
+- [HBR: Successful Sales Teams Embracing Agentic AI](https://hbr.org/2025/09/how-successful-sales-teams-are-embracing-agentic-ai)
+- [Anthropic: Building Effective Agents](https://www.anthropic.com/research/building-effective-agents)
+- [Anthropic: Multi-Agent Research System](https://www.anthropic.com/engineering/multi-agent-research-system)
+- [Gong: Conversation Intelligence](https://www.gong.io/conversation-intelligence)
+- [Gong: Identify Champions with AI](https://www.gong.io/blog/identify-account-champions-with-ai)
+- [Clari: AI Agents for Revenue](https://www.clari.com/blog/catalyzing-revenue-transformation-with-ai-agents/)
+- [Outreach AI Revenue Platform](https://www.outreach.io/resources/blog/ai-revenue-execution-platform-may-2025-release)
+- [Salesforce Agentforce](https://www.salesforce.com/agentforce/einstein-copilot/)
+- [Microsoft Copilot for Sales 2025 Wave 2](https://learn.microsoft.com/en-us/copilot/release-plan/2025wave2/copilot-sales/)
+- [Force Management: Ascender AI](https://www.forcemanagement.com/newsroom-press/fm-launches-ascender-ai)
+- [Winning by Design + Momentum Partnership](https://www.momentum.io/blog/momentum-partners-with-winning-by-design)
+- [Spotlight.ai: MEDDICC Implementation](https://www.spotlight.ai/post/meddicc-implementation-guide-for-enterprise-sales-teams)
+- [SalesHood: AI Digital Sales Rooms](https://www.globenewswire.com/news-release/2025/12/03/3198525/0/en/SalesHood-Announces-Enhanced-Agentic-AI-Powered-Digital-Sales-Rooms.html)
+- [Competitive Battle Cards 2025](https://www.unleash.so/post/competitive-intelligence-tools-in-2025-building-ai-powered-battlecards-that-actually-win-deals)
+- [Multi-Threading 2025 Guide](https://www.yess.ai/post/multi-threading-2025-guide)
+
+---
+
 ## 2026-03-20 - Prompt Registry Audit (DDR-023 Enforcement)
 
 ### Changed

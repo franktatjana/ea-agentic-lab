@@ -643,7 +643,23 @@ Agent executes runbook
 
 ## Mapping to Current Codebase
 
-The codebase implements all layers. This mapping translates between the domain model and file structures.
+The codebase implements all layers. This mapping translates between the domain model concepts and file structures.
+
+### Terminology Mapping
+
+The YAML key names in definition files do not always match the domain model vocabulary. This table resolves the naming differences so that documentation, code, and conversation use a shared vocabulary.
+
+| Domain Concept | YAML Key / File | Why the name differs |
+|---|---|---|
+| **Runbook** | `flows:` with `workflow_shorthand` | Oracle Agent Spec 26.1.0 uses `flows` as the generic workflow container. In this system, every flow is a runbook: a scenario process that sequences skills or prompts. |
+| **Skill** | Standalone YAML in `skills/` | Skills live outside definition files. The skill catalog (`domain/catalogs/skill_catalog.yaml`) indexes them across agents. |
+| **Prompt** | Entry in `prompts/tasks.yaml` + metadata in `prompt_registry` | Prompt text lives in tasks.yaml (CAF format). Structured metadata (inputs, outputs, requires_data) lives in the definition YAML under `x-ea-agent.prompt_registry`. See [DDR-023](../../decisions/DDR_023_prompt_data_dependencies.md). |
+| **Knowledge** | `x-ea-agent.knowledge` | Scope and references declared in the extension namespace, not the core spec. |
+| **Guardrails** | `x-ea-agent.guardrails` | Same, extension namespace. |
+
+When reading or writing agent definitions: `flows:` means runbook, `skills/` means skill, `prompt_registry` means prompt metadata. Use the domain model terms in documentation and discussion.
+
+### File Location Reference
 
 | Domain Model | Codebase | Location |
 |---|---|---|
