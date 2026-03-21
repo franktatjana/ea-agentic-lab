@@ -2,50 +2,264 @@
 
 ## Unreleased
 
-### Added
+---
 
-- SA playbooks PB_SA_011-015: Value Stream Mapping, Technical Evaluation Execution, SA Engagement Qualification, Technical Discovery, Solution Fit Assessment
-- SA skills SK_SA_011-012: Value Stream Facilitation, Technical Evaluation Design
-- Methodology reference files: discovery-methodology.yaml (enriched), solution-fit-methodology.yaml (new)
-- DDR-025: Methodology Reference Architecture (knowledge_refs pattern for playbook-to-knowledge binding)
-- Canvas Library page at `/canvas` with catalog API endpoint, summary cards, filter tabs (all/core/specialized/planned), and per-canvas cards showing sections, owner, cadence, and data pipeline status
-- Canvas catalog backend: `GET /canvas/catalog` endpoint returning canvas metadata from registry and specs
-- About page with project disclaimer, fictional vendor notice, and CC BY-NC-SA 4.0 license
-- CC BY-NC-SA 4.0 license file
-- Dynamic stats on home page and agents hub (playbooks, blueprints, canvas types fetched from API)
-- Playbook metadata standardization: `playbook_category` and `status` fields across all 72 playbooks
-- Blueprint reference page: summary cards with coverage ratios (archetypes covered X of Y, playbooks referenced X of Y)
-- Playbook catalog: summary cards (All Playbooks, Production Ready, Agent Roles), browse-by-role and browse-by-category filters
-- Decision records: DDR-011 (report generation pipeline), DDR-012 (playbook metadata standardization)
-- Canvas rendering pipeline: 5 canvas-type assemblers (context, decision, risk governance, value/stakeholders, architecture decision) with generic fallback, format-dispatch frontend renderer supporting 10+ section formats
-- Portfolio dashboard with 6 aggregated metrics (active nodes, avg health with trend, critical risks, overdue actions, pipeline ARR, weighted pipeline), attention items section, and per-realm node rows showing health/risks/milestones/commercial data
-- Dashboard backend service aggregating across all realms and nodes in a single API call
-- Landing page at `/` with framework overview, three pillars, lifecycle, personas, and differentiators
-- Signal Matcher Agent for automatic action completion from vault signals
-- Operational playbook `OP_ACT_002` for signal-based action completion pipeline
-- Three new health signals: `SIG_HLT_005`, `SIG_HLT_006`, `SIG_HLT_007` for completion lifecycle
-- Risk detail dialog on node page
-- Documentation ordering via `order:` frontmatter field
-- Decision records: DDR-005 (signal-based action completion), ADR-006 (landing page), DDR-010 (reports and canvas rendering)
+## 2026-03-20 - Prompt Registry Audit (DDR-023 Enforcement)
 
 ### Changed
 
-- SA Agent peer relationship: AE Agent (was incorrectly InfoSec Agent)
-- SA Agent profile (sa-agent.md): full rewrite to match current definition (12 skills, 15 SA playbooks, 9 sub-agents, lifecycle chain)
-- CLAUDE.md SA competency model: added PB_SA_011-015, cross-competency playbooks, lifecycle chain, peer agent, DDR-025 reference
-- Playbook catalog: 2-column grid layout, compact cards with role badge top-right, category as colored text
-- Playbook detail view: icons on all metadata title labels, 3x2 detail card grid
-- Fictional vendor names standardized across all vault data (Titanmetrics, Vizara, DataForge, ShieldOne)
-- Dashboard route `/dashboard` now shows portfolio-level aggregation instead of basic realm tiles
-- Home route `/` is now the landing page, dashboard moved to `/dashboard`
-- Sidebar navigation: added Dashboard, Canvas Library, and About items
-- Removed back buttons from sub-pages (archetypes, blueprints, playbooks, agents), browser back handles navigation
-- Merged agent architecture diagrams into single consolidated doc
-- Backend `docs_service.py` sorts by frontmatter `order` field
+- Audited all 50+ agent definition YAMLs for prompt_registry completeness: every `{variable}` in tasks.yaml prompt text now has a matching entry in inputs/outputs/requires_data metadata
+- 34 definition files updated across AE (7), SA (7), CA (5), governance (6), and standalone agents (9)
+- 1,275 lines of metadata added: missing input fields, output declarations, and requires_data blocks
+
+---
+
+## 2026-03-18 - Frontend Type Fix
 
 ### Fixed
 
-- MEDDPICC playbook viewer crash: `steckbrief.key_outputs` objects with `{artifact, format}` keys were passed as React children instead of extracting the artifact string
+- Narrow `img` src to string before calling `startsWith` (type error in agent profile rendering)
+
+---
+
+## 2026-03-16 - New Roles and UI Formatting
+
+### Added
+
+- Field CTO role with domain-grouped challenges (architecture governance, technical strategy, cross-functional)
+- Alliance Architect role for partner technical alignment
+- Partner Agent split into commercial and technical sub-agents
+- Sales team cadences reference to AE agent (daily pulse, weekly strategy, monthly review, quarterly offsite)
+
+### Changed
+
+- FCTO, CTO, AA, HAM, ISV registered in abbreviations list for uppercase UI rendering
+- Stakeholder landscape: opening keywords (CTO, CIO, etc.) rendered bold + white
+- Field CTO moved from Leadership to Architecture tab
+- Field CTO challenges rewritten: more specific, consequence-driven, grouped by domain
+- All playbook statuses reset to draft (not reviewed yet)
+
+---
+
+## 2026-03-15 - CA Decomposition and SA Expansion
+
+### Changed
+
+- CA Agent decomposed into 6 sub-agents, orchestrator rewritten as pure router
+- CA sub-agents extended with TAM-sourced capabilities
+- ca-agent.md updated with TAM capabilities across sub-agents
+- SA Engagement Agent broadened, Five Whys renamed to Situation Diagnostic
+- SA Discovery Agent expanded to cover full lifecycle
+
+---
+
+## 2026-03-12 - Agent Definitions and UI Polish
+
+### Added
+
+- Full sub-agent challenge lists for SA POC, RFP, Risk, Value agents
+- `read-capability-docs` tool added to RFP agent
+- Shared CSS design tokens, standardized text sizes across pages
+- Agent definitions page: OrchestratorList with foldable sub-agents, icon updates
+
+### Changed
+
+- Challenge groups made collapsible, `with_this_agent` trimmed to single sentence
+- Overhead items shown as challenges with identical formatting
+- Sub-agent category inheritance fixed, POC track removed from composition
+- Agent definition YAMLs updated across domain
+
+### Fixed
+
+- Nested `<a>` hydration error in activity map domain cards
+- Missing `challengeOverhead` helper restored
+
+---
+
+## 2026-03-10 - Challenge/Scenario Parity and UI Polish
+
+### Changed
+
+- Challenge:scenario parity completed across all 49 agents
+- Escalation trigger icon standardized to AlertTriangle across all views
+- UI polish: agent data completion, role count fix
+
+### Fixed
+
+- Overflow, sentence split, duplicates, and type safety issues in agent views
+
+---
+
+## 2026-03-08 - SA Competency Closing
+
+### Changed
+
+- SA competency gaps closed with PB_SA_011-015
+- Playbook renumbering for consistent ID scheme
+- DDR-025 methodology references added
+
+---
+
+## 2026-03-06 - Playbook Taxonomy and Agent Hardening
+
+### Added
+
+- `agent-scaffold.yaml` template for new agent creation
+- DDR-024: Runtime binding specification
+
+### Changed
+
+- All 33 agent configs hardened with 6 standard fields
+- Playbook taxonomy migration to new category system
+- Agent definition hardening across all roles
+- Agent docs updated with sub-agent and governance counts
+- Fixed OP_ intended_agent_role, SA ghost references, stale docs and paths
+
+### Removed
+
+- Accidentally staged domain.zip artifact
+- Obsolete PRD (architecture docs and DDRs supersede it)
+
+---
+
+## 2026-03-05 - DDR-022/023/024 and Error Handling
+
+### Added
+
+- DDR-022: Knowledge evolution from static references to scope-based Q&A service
+- DDR-023: Prompt data dependencies specification
+- DDR-024: Runtime binding specification
+- Three-layer error handling added to all 18 AE/SA agent definitions
+- Acronym fixes, data deps flyout, and ZIP bundle download in UI
+
+---
+
+## 2026-03-04 - SA Decomposition and Autonomy Model
+
+### Added
+
+- Agent autonomy model documentation
+- Autonomy blocks added to all AE sub-agents
+- Save tools and tool references added to AE sub-agent workflows
+
+### Changed
+
+- SA Agent rewritten as near-pure router with 9 sub-agents
+- Frontend sub-agent rendering fixed
+- Hardcoded agent data removed from frontend, role config centralized
+- Definitions UI reorganized
+
+---
+
+## 2026-03-03 - Agent Definitions and Profiles UI
+
+### Added
+
+- AE agent profile detail page and YAML definition
+- Agent definitions, profiles UI, domain model, governance specs (checkpoint)
+
+---
+
+## 2026-02-28 - Agent Spec Refinement
+
+### Changed
+
+- Split Boundaries into Permissions and Boundaries in agent spec template
+
+---
+
+## 2026-02-27 - Playbooks Completion and Agent Profiles
+
+### Added
+
+- RACI matrix added to all playbooks
+- PM and Partner playbooks authored
+- OP_COM_001 playbook added
+- DDR-017: Support Agent dissolution
+- QBR playbooks enhanced with industry best practices (v2.0)
+- `vault_routing` added to all playbooks
+- C06 and Delivery playbooks authored
+
+### Changed
+
+- Agent profiles and framework catalog updated with PM/Partner playbooks
+- Stale counts fixed: 99 to 106 playbooks, 28 to 27 agents
+- Runtime clarified as separate project, Owner terminology note added
+- External source references removed from QBR playbooks
+
+---
+
+## 2026-02-25 - Bug Fix
+
+### Fixed
+
+- Comma in PB_901 filename causing API errors
+
+---
+
+## 2026-02-21 - Data Source Panel
+
+### Added
+
+- Data source panel in UI
+
+---
+
+## 2026-02-16 - Skills Architecture and Intelligence Cluster
+
+### Added
+
+- Skills architecture: agent-scoped skills with cross-agent catalog (DDR-016)
+- Intelligence UI tabs: 10-tab realm overview with backend API
+- Intelligence cluster: ACI, II, Technology Scout agents with playbooks, signals, and vault data
+
+---
+
+## 2026-02-15 - Knowledge Architecture and UI
+
+### Added
+
+- Knowledge capture API, DDR-013 and DDR-014
+- DDR-015: Split Knowledge Curator into InfoHub Curator + Knowledge Vault Curator
+- UI presentation contracts documented for platform independence
+- Page icons, InfoHub reordering, generated customer data
+
+---
+
+## 2026-02-14 - Playbook UI and Metadata
+
+### Added
+
+- `playbook_category` taxonomy with contextual help popovers
+- Target Close metric on dashboard
+
+### Changed
+
+- Playbook UI polish, metadata standardization, fictional vendors, license
+
+---
+
+## 2026-02-13 - Canvas and Portfolio
+
+### Added
+
+- Canvas Library page with catalog rendering
+- Portfolio dashboard with node detail improvements
+- DDR-010: Reports and canvas rendering
+- SA playbooks PB_SA_011-015
+- SA skills SK_SA_011-012
+- DDR-025: Methodology Reference Architecture
+
+### Changed
+
+- SA Agent profile rewritten (12 skills, 15 playbooks, 9 sub-agents)
+- Playbook catalog: 2-column grid, compact cards
+- Dashboard route moved to `/dashboard`, landing page at `/`
+- Fictional vendor names standardized
+
+### Fixed
+
+- MEDDPICC playbook viewer crash: `steckbrief.key_outputs` objects rendered as React children
 
 ---
 
