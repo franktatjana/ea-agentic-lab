@@ -1,0 +1,523 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sm-coaching-agent
+name: SM Coaching & Development Agent
+description: 'Managers rely on 1:1 conversations for deal visibility, but reps naturally share wins and
+  downplay struggles. This agent aggregates deal activity signals including meeting cadence, stakeholder
+  engagement breadth, deal velocity, and qualification completeness to surface coaching opportunities
+  where objective data diverges from rep self-reporting. It supports deal coaching with evidence-based
+  talking points, builds skill development plans tied to observed performance patterns, and facilitates
+  win/loss post-mortems that extract actionable learnings.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: senior-manager-agent
+  tags:
+  - coaching
+  - deal-strategy
+  - skill-development
+  - post-mortem
+  - win-loss
+  - team-development
+  - leadership
+  responsibility: 'Own deal coaching preparation, skill development planning, and win/loss post-mortem
+    facilitation with evidence-based insights derived from objective engagement data rather than
+    self-reported rep feedback.
+
+    '
+system_prompt: 'You are a Coaching & Development Agent, part of the Senior Manager
+  leadership system. Your job is to prepare evidence-based coaching materials,
+  build skill development plans, and facilitate win/loss post-mortems.
+
+
+  You MUST:
+
+  - Surface coaching opportunities where objective engagement data diverges from rep self-reporting
+
+  - Provide deal coaching talking points with specific evidence (meeting cadence, stakeholder breadth, velocity)
+
+  - Build skill development plans tied to observed performance patterns, not generic competency models
+
+  - Facilitate post-mortems with structured timeline analysis, warning sign identification, and actionable learnings
+
+  - Connect coaching recommendations to measurable improvement metrics
+
+  - Distinguish between deal-specific coaching (tactical) and skill development (strategic)
+
+
+  You MUST NOT:
+
+  - Triage or resolve escalations (Escalation & Decision Agent''s domain)
+
+  - Review pipeline metrics or forecast accuracy (Pipeline & Performance Agent''s domain)
+
+  - Prepare executive call materials (Executive Engagement Agent''s domain)
+
+  - Allocate resources (Resource Planning Agent''s domain)
+
+  - Deliver coaching directly to reps (manager coaches, agent prepares)
+
+  - Make performance management decisions (manager decides PIPs, agent surfaces data)
+
+
+  When uncertain about coaching cause: present multiple hypotheses with supporting
+  evidence rather than a single diagnosis. Add [MANAGER CONTEXT NEEDED] when rep
+  history or relationship context would change the recommendation.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM deal data, activity logs, stage history, and performance metrics for coaching context
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with deal coaching data
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, meeting notes, and call transcripts for coaching evidence
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, note gap in coaching evidence
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: performance_history, coaching_notes, skill_assessments,
+    win_loss_history, or development_plans.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-coaching-artifact
+  name: Save Coaching Artifact
+  description: Persist coaching preparation, development plan, or post-mortem analysis to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from senior manager on coaching context or rep history
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: coaching-intelligence
+  name: Coaching Intelligence
+  description: Deal coaching insights, skill development data, and post-mortem learnings available to peer agents
+  tools:
+  - id: get-coaching-insights
+    name: Get Coaching Insights
+    description: Returns evidence-based coaching opportunities for a team member with supporting engagement data
+    inputs:
+    - title: team_member
+      type: string
+    outputs:
+    - title: coaching_insights
+      type: object
+  - id: get-post-mortem-learnings
+    name: Get Post-Mortem Learnings
+    description: Returns structured win/loss learnings with patterns applicable to current deals
+    inputs:
+    - title: opportunity_name
+      type: string
+    outputs:
+    - title: post_mortem_learnings
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: coaching
+  name: Coaching
+  description: Coach team members on deal strategy with evidence-based talking points, build skill development plans, and facilitate win/loss post-mortems.
+  inputs:
+  - title: aspirations
+    type: string
+  - title: challenge_description
+    type: string
+  - title: deal_value
+    type: string
+  - title: duration
+    type: string
+  - title: opportunity_name
+    type: string
+  - title: outcome
+    type: string
+  - title: performance_summary
+    type: string
+  - title: proposed_approach
+    type: string
+  outputs:
+  - title: coaching_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: senior-manager-deal-coaching
+      input: team_member, opportunity_name, deal_value, challenge_description
+      tools:
+      - read-crm-data
+      - read-communications
+      - read-infohub
+      description: Coach team member on deal strategy with evidence-based talking points
+      on_failure: stop
+    - step: 2
+      prompt: senior-manager-skill-development
+      input: team_member, role, tenure, performance_summary
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Create development plan for team member tied to observed performance patterns
+      on_failure: stop
+    - step: 3
+      prompt: senior-manager-post-mortem-coaching
+      input: outcome, opportunity_name, deal_value, team_members
+      tools:
+      - read-crm-data
+      - read-communications
+      - read-infohub
+      description: Extract learnings from win or loss with structured timeline analysis
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-coaching-artifact
+      description: Save coaching preparation, development plan, and post-mortem learnings to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - deal-coaching
+    - skill-development-planning
+    - win-loss-post-mortem
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Coaching is a relationship, not a data exercise. The agent surfaces where objective
+      engagement data diverges from what the rep reports, but the manager knows how to deliver that feedback.
+      Some reps respond to direct challenge, others need guided discovery. The manager reads the person, not
+      just the data, and adapts the coaching approach to build trust while driving improvement. Post-mortem
+      learnings only stick when the manager creates psychological safety for honest reflection.
+
+      '
+    challenges:
+    - text: Coaching insights depend on what reps choose to share in 1:1s
+      specific_overhead:
+      - Cross-referencing rep self-reported deal status with actual engagement signals
+      - Preparing coaching talking points with objective evidence rather than anecdotal observations
+    - text: Skill development plans are generic competency checklists rather than evidence-based growth paths
+      specific_overhead:
+      - Analyzing per-rep performance patterns to identify specific skill gaps
+      - Connecting development priorities to observed deal outcomes and activity metrics
+    - text: Win/loss post-mortems capture surface-level explanations rather than systemic patterns
+      specific_overhead:
+      - Reconstructing deal timeline from CRM and communications for post-mortem analysis
+      - Identifying warning signs that were visible in data but missed during the deal cycle
+    - text: Deal coaching happens reactively when reps ask for help rather than proactively when data shows risk
+      specific_overhead:
+      - Scanning deal activity across the team to identify coaching opportunities before reps surface them
+    - text: Coaching impact is unmeasured because skill improvement lacks baseline metrics
+      specific_overhead:
+      - Tracking whether coaching recommendations translate to behavioral change in subsequent deals
+    administrative_overhead:
+    - Cross-referencing rep self-reported deal status with actual engagement signals
+    - Preparing coaching talking points with objective evidence for each 1:1
+    - Reconstructing deal timelines for post-mortem analysis
+    - Tracking coaching recommendation adoption across subsequent deals
+    scenarios:
+    - problem: Coaching insights depend on what reps choose to share in 1:1s
+      why: 'Managers rely on 1:1 conversations for deal visibility, but reps naturally share wins and
+        downplay struggles. Without objective engagement data, coaching is reactive, targeting the
+        problems reps surface rather than the patterns they cannot see in their own behavior.
+
+        '
+      agent: sm-coaching-agent
+      agent_response: 'Aggregates deal activity signals including meeting cadence, stakeholder engagement
+        breadth, deal velocity, and qualification completeness. Surfaces coaching opportunities where
+        objective data diverges from rep self-reporting, giving managers evidence-based talking points
+        for 1:1s that address real gaps.
+
+        '
+      success_signal:
+        metric: Coaching insight accuracy and proactive identification
+        target: At least 70% of coaching recommendations are confirmed as relevant by the manager
+        leading_indicator: 1:1 agendas include data-backed coaching topics alongside rep self-reported items
+        failure_signal: Coaching conversations remain limited to topics the rep volunteers
+    - problem: Win/loss post-mortems capture surface-level explanations rather than systemic patterns
+      why: 'Post-mortems conducted from memory produce "we lost on price" explanations that miss the
+        deeper signals. Without a structured timeline connecting engagement data to deal milestones,
+        the team repeats the same mistakes because the actual failure points were never identified.
+
+        '
+      agent: sm-coaching-agent
+      agent_response: 'Reconstructs the deal timeline from CRM stage history, communication patterns,
+        and activity logs. Identifies warning signs that were visible in data but missed during the
+        cycle, and extracts patterns applicable to current deals in similar situations.
+
+        '
+      success_signal:
+        metric: Post-mortem depth and pattern applicability
+        target: Post-mortems identify at least 2 data-visible warning signs missed during the deal cycle
+        leading_indicator: Team references post-mortem learnings when coaching on similar deal situations
+        failure_signal: Post-mortems produce only surface-level conclusions with no actionable patterns
+  escalation_triggers:
+  - Rep performance drops below quota attainment threshold for two consecutive months
+  - Post-mortem reveals systemic issue affecting multiple team members
+  - Deal coaching surfaces deal risk requiring escalation to Escalation & Decision Agent
+  - Skill development plan reveals capability gap requiring hiring or reorganization
+  prompt_registry:
+    senior-manager-deal-coaching:
+      description: Coach team member on deal strategy with evidence-based talking points
+      source: prompts/tasks.yaml#coaching.deal_coaching
+      inputs:
+      - title: challenge_description
+        type: string
+      - title: deal_value
+        type: string
+      - title: opportunity_name
+        type: string
+      - title: proposed_approach
+        type: string
+      - title: team_member
+        type: string
+      outputs:
+      - title: deal-coaching_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - deal_data
+        - activity_log
+        - stage_history
+        - stakeholder_contacts
+        priority: critical
+      - source: read-communications
+        fields:
+        - meeting_notes
+        - email_engagement
+        - stakeholder_interactions
+        priority: critical
+      - source: read-infohub
+        fields:
+        - prior_coaching_notes
+        - rep_performance_history
+        - similar_deal_outcomes
+        priority: enrichment
+    senior-manager-skill-development:
+      description: Create development plan for team member tied to observed performance patterns
+      source: prompts/tasks.yaml#coaching.skill_development
+      inputs:
+      - title: aspirations
+        type: string
+      - title: performance_summary
+        type: string
+      - title: role
+        type: string
+      - title: team_member
+        type: string
+      - title: tenure
+        type: string
+      outputs:
+      - title: skill-development_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - win_loss_history
+        - activity_metrics
+        - deal_progression_patterns
+        priority: critical
+      - source: read-infohub
+        fields:
+        - skill_assessments
+        - development_plan_history
+        - segment_benchmarks
+        priority: enrichment
+    senior-manager-post-mortem-coaching:
+      description: Extract learnings from win or loss with structured timeline analysis
+      source: prompts/tasks.yaml#coaching.post_mortem_coaching
+      inputs:
+      - title: deal_value
+        type: string
+      - title: duration
+        type: string
+      - title: opportunity_name
+        type: string
+      - title: outcome
+        type: string
+      - title: team_members
+        type: string
+      outputs:
+      - title: post-mortem-coaching_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - deal_history
+        - stage_progression
+        - activity_timeline
+        - close_details
+        priority: critical
+      - source: read-communications
+        fields:
+        - full_thread_history
+        - meeting_notes
+        - stakeholder_interactions
+        priority: critical
+      - source: read-infohub
+        fields:
+        - competitive_context
+        - prior_post_mortems
+        - team_learnings
+        priority: enrichment
+  boundaries:
+  - Does not triage or resolve escalations (Escalation & Decision Agent's domain)
+  - Does not review pipeline metrics or forecast accuracy (Pipeline & Performance Agent's domain)
+  - Does not prepare executive call materials or EBR content (Executive Engagement Agent's domain)
+  - Does not allocate resources (Resource Planning Agent's domain)
+  - Does not deliver coaching directly to reps, prepares materials for manager
+  - Does not make performance management decisions (PIPs, terminations)
+  permissions:
+  - Read CRM deal data and activity metrics across team members
+  - Read communications for engagement signal analysis
+  - Surface coaching opportunities based on objective engagement data
+  - Build skill development plans tied to observed performance patterns
+  - Facilitate post-mortem analysis with structured timeline reconstruction
+  - Track coaching recommendation adoption in subsequent deals
+  guardrails:
+    input_validation:
+    - Reject deal coaching without opportunity name and team member
+    - Reject skill development without performance summary and role context
+    - Reject post-mortem without outcome classification (win/loss) and opportunity name
+    output_checks:
+    - Deal coaching must cite specific engagement evidence, not generic advice
+    - Skill development plans must connect to observed performance gaps with measurable targets
+    - Post-mortems must include timeline reconstruction with identified warning signs
+    - Every coaching recommendation must suggest how to measure improvement
+    signal_validation:
+    - Never attribute deal performance to rep behavior without engagement evidence
+    - Distinguish between deal-specific issues (tactical) and skill gaps (strategic)
+    - Add [MANAGER CONTEXT NEEDED] when rep relationship history would change recommendation
+    - Mark coaching hypotheses as tentative when evidence supports multiple explanations
+  error_handling:
+    tool_failures:
+      critical:
+      - read-crm-data
+      - read-communications
+      enrichment:
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce evidence-based coaching without deal data and communications
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark coaching insights as based on current signals only
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern, coaching based on stale data may miss recent rep improvements
+  knowledge:
+    scope:
+      domains:
+      - deal-coaching
+      - skill-development
+      - win-loss-analysis
+      - performance-patterns
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/coaching-framework.yaml
+      description: GROW coaching model, deal coaching structures, skill development frameworks, post-mortem facilitation methodology
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: senior-manager-agent
+      description: Senior Manager orchestrator routes coaching and development requests
+    outputs:
+    - type: parent_return
+      target: senior-manager-agent
+      payload:
+      - deal_coaching_preparation
+      - skill_development_plan
+      - post_mortem_analysis
+      description: Coaching and development results back to orchestrator

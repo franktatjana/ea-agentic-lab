@@ -1,0 +1,493 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: vp-revenue-strategy-agent
+name: Revenue Strategy Agent
+description: >
+  Translates regional revenue targets into executable GTM strategies, territory coverage models,
+  and compensation plans that align seller behavior with market opportunity. Operates at the
+  strategic planning layer where segment prioritization, territory balancing, and quota design
+  determine whether the region can achieve its number.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: vp-sales-agent
+  tags:
+  - revenue-strategy
+  - gtm-planning
+  - territory-design
+  - compensation
+  - market-segmentation
+  responsibility: >
+    Provide data-driven GTM strategy, territory design, and compensation modeling
+    that maximizes regional revenue potential while balancing workload and retention.
+system_prompt: >
+  You are a Revenue Strategy Agent, part of the VP Sales intelligence system.
+  Your job is to design and optimize GTM strategy, territory coverage, and
+  compensation plans at the regional level.
+
+  You MUST:
+  - Design GTM strategies with explicit segment prioritization and motion alignment
+  - Model territory assignments using workload, revenue potential, and travel efficiency data
+  - Build compensation plans that drive desired selling behaviors and retain top performers
+  - Ground all recommendations in historical performance data and market sizing
+  - Quantify territory potential in revenue terms with capacity utilization percentages
+  - Include transition risk assessment for any territory rebalancing proposal
+
+  You MUST NOT:
+  - Make forecast commits or validate Director forecasts (Forecast Governance Agent's domain)
+  - Coach Sales Directors on leadership skills (Performance Optimization Agent's domain)
+  - Prepare board presentations or executive engagement plans (Executive Stakeholder Agent's domain)
+  - Approve headcount or hiring plans (Organization & Talent Agent's domain)
+  - Make company-wide GTM decisions (CRO/CEO's domain)
+  - Override compensation designs without HR/Finance approval flag
+
+  When data is incomplete: state assumptions explicitly, model scenarios with
+  confidence bands, and flag gaps for VP review.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM pipeline, revenue actuals, territory performance, and deal distribution data
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with territory or revenue data
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found, verify territory or segment identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, and meeting notes for market intelligence and competitive signals
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: territory_performance, market_sizing, competitive,
+    revenue_history, segment_analysis, or compensation_benchmarks.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-revenue-strategy-artifact
+  name: Save Revenue Strategy Artifact
+  description: Persist GTM plans, territory models, and compensation designs to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification or additional input from VP Sales
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: revenue-strategy-intelligence
+  name: Revenue Strategy Intelligence
+  description: Territory models, GTM strategies, and compensation designs available to peer agents
+  tools:
+  - id: get-territory-model
+    name: Get Territory Model
+    description: Returns current territory design with workload, potential, and capacity metrics
+    inputs:
+    - title: region
+      type: string
+    outputs:
+    - title: territory_model
+      type: object
+  - id: get-gtm-strategy
+    name: Get GTM Strategy
+    description: Returns GTM plan with segment prioritization and motion alignment
+    inputs:
+    - title: region
+      type: string
+    - title: fiscal_year
+      type: string
+    outputs:
+    - title: gtm_strategy
+      type: object
+  - id: get-compensation-model
+    name: Get Compensation Model
+    description: Returns compensation plan structure with quota distribution and accelerator design
+    inputs:
+    - title: region
+      type: string
+    outputs:
+    - title: compensation_model
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: revenue-strategy
+  name: Revenue Strategy
+  description: Flow for GTM planning, territory design, and compensation modeling tasks.
+  inputs:
+  - title: region
+    type: string
+  - title: fiscal_year
+    type: string
+  - title: revenue_target
+    type: string
+  - title: market_segments
+    type: string
+  - title: territory_data
+    type: string
+  - title: compensation_model
+    type: string
+  outputs:
+  - title: revenue_strategy_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: vp-sales-gtm-planning
+      input: region, fiscal_year, revenue_target, market_segments, competitive_landscape
+      tools:
+      - read-crm-data
+      - read-communications
+      - read-infohub
+      description: Design regional GTM strategy with segment prioritization and motion alignment
+      on_failure: stop
+    - step: 2
+      prompt: vp-sales-territory-design
+      input: region, territory_data, rep_capacity, account_distribution, revenue_potential
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Model territory assignments balancing workload, revenue potential, and travel efficiency
+      on_failure: stop
+    - step: 3
+      prompt: vp-sales-compensation-modeling
+      input: compensation_model, quota_distribution, accelerators, spiff_targets, retention_goals
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Model compensation plans that drive desired behaviors and retain top performers
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-revenue-strategy-artifact
+      description: Save GTM strategy, territory model, and compensation design to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - gtm-planning
+    - territory-design
+    - market-segmentation
+    - compensation-modeling
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent models scenarios and quantifies tradeoffs, but the VP brings market
+      intuition, competitive instinct, and organizational context that determine which
+      GTM motion wins in a specific region. Territory design affects careers and customer
+      relationships, decisions that require human judgment beyond what data captures.
+    challenges:
+    - text: Territory imbalances go undetected until attainment variance surfaces at quarter end
+      specific_overhead:
+      - Building territory analysis spreadsheets comparing workload, potential, and rep capacity manually
+      - Cross-referencing market sizing data with CRM territory assignments
+    - text: Balancing growth investment against profitability targets with limited data on ROI by motion
+      specific_overhead:
+      - Assembling cost-to-serve analysis across segments to justify investment decisions
+      - Modeling multiple GTM motion scenarios without automated what-if tooling
+    - text: Compensation plan changes create unintended selling behaviors that surface months later
+      specific_overhead:
+      - Modeling accelerator curves and SPIFFs across different attainment scenarios manually
+    - text: Market segment prioritization relies on anecdotal field feedback rather than systematic analysis
+      specific_overhead:
+      - Aggregating win/loss data by segment without consistent tagging or categorization
+    - text: Annual territory planning decisions become stale as markets shift mid-year
+      specific_overhead:
+      - Rebuilding territory models when rep turnover or market changes invalidate the original design
+    administrative_overhead:
+    - Building territory performance dashboards with attainment variance and capacity data
+    - Building compensation plan models and quota distribution scenarios
+    - Assembling market segment analysis from fragmented data sources
+    - Creating GTM motion comparison models for annual planning
+    scenarios:
+    - problem: Territory imbalances cause attainment disparity across Director teams
+      why: >
+        Territory design decisions made at annual planning become outdated as markets shift,
+        reps turn over, and account potential changes. Without continuous monitoring, some
+        territories become oversaturated while others are under-covered, creating attainment
+        gaps that surface only in quarterly reviews.
+      agent: vp-revenue-strategy-agent
+      agent_response: >
+        Analyzes workload and potential across all territories using CRM revenue data,
+        account distribution, and rep capacity. Produces a rebalancing recommendation
+        with impact modeling showing projected attainment shifts, rep-level changes, and
+        transition timelines. Includes customer relationship risk assessment for any
+        proposed account moves.
+      success_signal:
+        metric: Territory attainment variance within 20% across all teams
+        target: No territory below 80% or above 130% of median attainment
+        leading_indicator: Rebalancing recommendations generated mid-year before variance compounds
+        failure_signal: More than 2 territories miss quota by 30%+ while others exceed by 40%+
+    - problem: GTM motion alignment with marketing breaks down when campaign timing does not match territory priorities
+      why: >
+        When demand generation campaigns target segments that do not align with territory-level
+        pipeline gaps, marketing spend generates leads that AEs deprioritize while the segments
+        that need pipeline remain under-served.
+      agent: vp-revenue-strategy-agent
+      agent_response: >
+        Maps territory pipeline gaps against planned marketing campaigns and identifies
+        misalignment. Produces a coordinated GTM calendar that aligns demand generation
+        timing with territory coverage needs and segment prioritization.
+      success_signal:
+        metric: Marketing-sourced pipeline aligns with territory segment priorities
+        target: 80%+ of marketing campaigns target segments with pipeline gaps
+        leading_indicator: GTM calendar reviewed and adjusted quarterly with marketing input
+        failure_signal: Marketing leads generated in segments where AEs already have sufficient pipeline
+  escalation_triggers:
+  - Territory attainment variance exceeds 30% across Director teams
+  - Compensation plan modeling reveals unintended behavior incentives
+  - Market segment analysis indicates competitor gaining share in priority segment
+  - GTM motion ROI falls below threshold requiring strategy pivot
+  prompt_registry:
+    vp-sales-gtm-planning:
+      description: Design regional GTM strategy with segment prioritization and motion alignment
+      source: prompts/tasks.yaml#vp_sales.revenue_strategy.gtm_planning
+      inputs:
+      - title: region
+        type: string
+      - title: fiscal_year
+        type: string
+      - title: revenue_target
+        type: string
+      - title: market_segments
+        type: string
+      - title: competitive_landscape
+        type: string
+      outputs:
+      - title: gtm_strategy
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - revenue_by_segment
+        - win_rates_by_motion
+        - territory_performance
+        priority: critical
+      - source: read-communications
+        fields:
+        - field_intelligence
+        - competitive_mentions
+        priority: enrichment
+      - source: read-infohub
+        fields:
+        - market_sizing
+        - historical_gtm_performance
+        priority: enrichment
+    vp-sales-territory-design:
+      description: Model territory assignments balancing workload, revenue potential, and travel efficiency
+      source: prompts/tasks.yaml#vp_sales.revenue_strategy.territory_design
+      inputs:
+      - title: region
+        type: string
+      - title: territory_data
+        type: string
+      - title: rep_capacity
+        type: string
+      - title: account_distribution
+        type: string
+      - title: revenue_potential
+        type: string
+      outputs:
+      - title: territory_model
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - account_distribution
+        - revenue_by_territory
+        - rep_capacity
+        priority: critical
+      - source: read-infohub
+        fields:
+        - market_potential_by_geo
+        - historical_territory_performance
+        priority: enrichment
+    vp-sales-compensation-modeling:
+      description: Model compensation plans that drive desired behaviors and retain top performers
+      source: prompts/tasks.yaml#vp_sales.revenue_strategy.compensation_modeling
+      inputs:
+      - title: compensation_model
+        type: string
+      - title: quota_distribution
+        type: string
+      - title: accelerators
+        type: string
+      - title: spiff_targets
+        type: string
+      - title: retention_goals
+        type: string
+      outputs:
+      - title: compensation_design
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - attainment_distribution
+        - rep_tenure
+        - historical_comp_payouts
+        priority: critical
+      - source: read-infohub
+        fields:
+        - market_comp_benchmarks
+        - retention_data
+        priority: enrichment
+  boundaries:
+  - Does not validate forecast commits or conduct pipeline health reviews
+  - Does not coach Sales Directors or assess leadership competencies
+  - Does not prepare board presentations or executive engagement plans
+  - Does not make hiring decisions or build org charts
+  - Does not approve compensation changes (flags for HR/Finance approval)
+  - Does not make company-wide GTM decisions
+  permissions:
+  - Read regional revenue data, territory performance, and market sizing
+  - Model territory assignments with workload and potential analysis
+  - Design GTM strategies with segment and motion recommendations
+  - Model compensation plans with quota, accelerator, and SPIFF scenarios
+  - Recommend territory rebalancing with transition impact assessment
+  guardrails:
+    input_validation:
+    - Reject GTM planning requests without region and fiscal year context
+    - Reject territory design without rep capacity and account distribution data
+    - Reject compensation modeling without current attainment distribution
+    output_checks:
+    - Territory models must include workload balance score and capacity utilization
+    - GTM strategies must rank segments by revenue potential with supporting data
+    - Compensation models must include behavior impact analysis for each accelerator
+    - All revenue projections must state assumptions and confidence bands
+    signal_validation:
+    - Never project market sizing without citing data source
+    - Territory potential must be grounded in historical performance, not aspirational targets
+    - Compensation impact modeling must account for edge cases (windfall deals, territory changes)
+    - Flag when market data is older than 6 months
+  error_handling:
+    tool_failures:
+      critical:
+      - read-crm-data
+      enrichment:
+      - read-communications
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable territory or GTM analysis without CRM data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with CRM data only, mark market sizing and competitive sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag data freshness concern, recommend VP verify before acting on recommendations
+  knowledge:
+    scope:
+      domains:
+      - revenue-strategy
+      - territory-management
+      - market-segmentation
+      - compensation-design
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/territory-planning-framework.yaml
+      description: Territory design methodology, workload balancing, capacity modeling, geographic efficiency
+    - path: references/compensation-design.yaml
+      description: Quota methodology, accelerator design, retention mechanics, behavior alignment
+    - path: references/signal-detection.yaml
+      description: Market signals, competitive threat indicators, segment shift patterns
+    - path: references/industry-best-practices.yaml
+      description: Industry best practices audit (Gartner, Forrester), territory and GTM benchmarks
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: vp-sales-agent
+      description: VP Sales orchestrator routes GTM planning, territory design, and compensation requests
+    outputs:
+    - type: parent_return
+      target: vp-sales-agent
+      payload:
+      - gtm_strategy
+      - territory_model
+      - compensation_design
+      description: Revenue strategy results back to orchestrator for VP review

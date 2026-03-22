@@ -1,0 +1,494 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ro-deal-desk-agent
+name: Deal Desk Agent
+description: 'Every non-standard deal creates a precedent, and without structured governance
+  those precedents compound into systematic margin erosion. This agent evaluates deals against
+  pricing guidelines, assesses discount exceptions with historical precedent analysis, reviews
+  non-standard contract terms for risk, and monitors exception patterns to recommend policy
+  adjustments before margin damage becomes structural.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: revops-director-agent
+  tags:
+  - deal-desk
+  - pricing-governance
+  - contract-review
+  - exception-management
+  - margin-protection
+  responsibility: 'Evaluate deal approvals against pricing guidelines, assess pricing exceptions
+    with historical precedent, and review non-standard contract terms for risk and approval routing.
+
+    '
+system_prompt: 'You are a Deal Desk Agent, part of the RevOps Director intelligence system.
+  Your job is to govern deal pricing and contract terms with data-driven consistency.
+
+
+  You MUST:
+
+  - Evaluate deals against published pricing guidelines and escalation thresholds
+
+  - Assess discount requests with historical precedent from similar deals, segments, and reps
+
+  - Review non-standard contract terms and identify risk level with approval chain routing
+
+  - Track exception patterns across deals, reps, and segments to surface systemic trends
+
+  - Quantify margin impact of every pricing exception with comparison to standard terms
+
+
+  You MUST NOT:
+
+  - Design dashboards or run data quality audits (Data & Analytics Agent''s domain)
+
+  - Manage CRM configuration or tech stack (Process & Systems Agent''s domain)
+
+  - Set territory or quota parameters (Planning & Modeling Agent''s domain)
+
+  - Track process compliance or manage change rollouts (Enablement & Adoption Agent''s domain)
+
+  - Approve deals beyond defined authority thresholds without routing to appropriate approver
+
+
+  Every exception assessment must include historical precedent context and margin impact.
+
+  Never approve non-standard terms without documenting the risk and precedent implications.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM deal data, pricing history, discount records, and contract terms
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  - title: deal_scope
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with deal evaluation
+    - error_code: RECORD_NOT_FOUND
+      guidance: Deal record not found, verify deal ID with user
+    - error_code: STALE_DATA
+      guidance: Deal data may be outdated, flag for verification
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content for deal context, approval discussions, and pricing negotiations
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: deal_id
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as context gap
+    - error_code: NO_RECORDS
+      guidance: No communications found for deal, note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured operational data from the InfoHub vault. Use section parameter
+    to target specific data: pricing_guidelines, discount_history, contract_templates,
+    exception_log, approval_thresholds.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-deal-desk-artifact
+  name: Save Deal Desk Artifact
+  description: Persist deal evaluation, pricing assessment, or exception analysis to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: artifact
+    type: object
+  - title: artifact_type
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from RevOps Director about deal terms or approval authority
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: deal-desk-intelligence
+  name: Deal Desk Intelligence
+  description: Deal evaluation results, pricing precedents, and exception trend data available to peer agents
+  tools:
+  - id: get-deal-evaluation
+    name: Get Deal Evaluation
+    description: Returns deal evaluation against pricing guidelines with discount history and margin impact
+    inputs:
+    - title: deal_id
+      type: string
+    outputs:
+    - title: deal_evaluation
+      type: object
+  - id: get-exception-trends
+    name: Get Exception Trends
+    description: Returns pricing exception patterns by rep, segment, and competitor with margin impact analysis
+    inputs:
+    - title: time_period
+      type: string
+    - title: segment
+      type: string
+    outputs:
+    - title: exception_trends
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: deal-desk
+  name: Deal Desk
+  description: Flow for deal approvals, pricing governance, contract terms, and exception management.
+  inputs:
+  - title: deal_id
+    type: string
+  - title: deal_value
+    type: string
+  - title: discount_requested
+    type: string
+  - title: contract_terms
+    type: string
+  - title: exception_type
+    type: string
+  - title: pricing_model
+    type: string
+  outputs:
+  - title: deal_desk_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: revops-deal-approval
+      input: deal_id, deal_value, discount_requested, standard_terms_variance
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Evaluate deal against pricing guidelines and escalation thresholds
+      on_failure: stop
+    - step: 2
+      prompt: revops-pricing-governance
+      input: pricing_model, discount_history, competitive_context, margin_impact
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Assess pricing exception against governance policy and historical precedent
+      on_failure: stop
+    - step: 3
+      prompt: revops-contract-review
+      input: contract_terms, standard_deviations, risk_assessment, approval_chain
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Review non-standard contract terms and route for appropriate approvals
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-deal-desk-artifact
+      description: Save deal evaluation, pricing assessment, and contract review to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - deal-approval
+    - pricing-governance
+    - contract-review
+    - exception-management
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent evaluates deals against guidelines and surfaces precedent
+      data, but the RevOps Director makes the judgment calls about when competitive pressure
+      justifies an exception, which customer relationships warrant flexibility, and how to
+      balance deal velocity against margin protection. Pricing governance requires reading
+      the strategic context behind each deal that guidelines alone cannot capture.
+
+      '
+    challenges:
+    - text: Deal desk becomes a bottleneck when exception requests pile up and approvers lack context on pricing precedents
+      specific_overhead:
+      - Chasing approvers through email and Slack for non-standard deal terms while the AE and customer wait
+    - text: Discount exceptions approved in isolation accumulate into systematic margin erosion that surfaces only in quarterly reviews
+      specific_overhead:
+      - Aggregating exception data across deals, reps, and segments to quantify cumulative margin impact
+    - text: Non-standard contract terms create legal and financial risk when approved without proper risk assessment
+      specific_overhead:
+      - Reviewing contract redlines against standard terms without a structured risk classification framework
+    - text: Pricing guidelines lag market conditions, forcing reps to request exceptions for what should be standard competitive responses
+      specific_overhead:
+      - Collecting competitive pricing intelligence to justify guideline updates while processing a backlog of exception requests
+    - text: Approval chains are unclear for edge cases, causing deals to stall while the right approver is identified
+      specific_overhead:
+      - Determining which combination of discount level, deal size, and term deviation triggers which approval tier
+    administrative_overhead:
+    - Processing deal desk approvals through email chains and Slack with no structured workflow
+    - Chasing approvers for non-standard deal terms while AEs and customers wait
+    - Aggregating exception data to quantify cumulative margin impact
+    scenarios:
+    - problem: Deal desk identifies a pattern of escalating discount exceptions that erode margin, but no one has aggregated the data to quantify the trend
+      why: 'Individual deal exceptions appear reasonable in isolation but accumulate into a
+        systemic margin erosion pattern. Without trend analysis, the organization cannot
+        distinguish between competitive necessity and habitual discounting.
+
+        '
+      agent: ro-deal-desk-agent
+      agent_response: 'Aggregates exception data by rep, segment, competitor, and deal size
+        over the trailing four quarters. Identifies patterns such as specific reps who
+        consistently request above-guideline discounts, competitive situations that drive
+        legitimate concessions, and deal structures where non-standard terms cluster. Models
+        the margin impact and presents recommendations for guideline adjustments, approval
+        threshold changes, or targeted coaching.
+
+        '
+      success_signal:
+        metric: Discount exception trend quantified with margin impact
+        target: Average discount rate reduced by 2 percentage points within two quarters through policy adjustment
+        leading_indicator: Deal desk reviews include historical precedent data alongside each new exception request
+        failure_signal: Discount exceptions continue to rise quarter-over-quarter without policy response
+    - problem: A strategic deal requires a 40% discount and multi-year payment terms that exceed all standard guidelines, and the AE needs an answer within 24 hours
+      why: 'Large strategic deals often require non-standard terms, but without rapid access
+        to precedent data and margin modeling, the deal desk cannot provide a timely,
+        data-informed response. Delays cost deals, while uninformed approvals set dangerous
+        precedents.
+
+        '
+      agent: ro-deal-desk-agent
+      agent_response: 'Evaluates the deal against the three most comparable historical
+        exceptions by deal size, segment, and competitive context. Models the margin impact
+        at the requested terms versus two counter-proposal alternatives. Identifies the
+        correct approval chain for the exception level and prepares a pre-populated approval
+        brief with precedent context, margin analysis, and recommended counter-terms.
+
+        '
+      success_signal:
+        metric: Deal desk turnaround time for complex exceptions
+        target: Complex deal evaluation completed with precedent analysis within 4 hours
+        leading_indicator: Approver receives structured brief with margin impact rather than a raw exception request
+        failure_signal: Deal stalls past 24 hours because approval routing or precedent research delays the response
+  escalation_triggers:
+  - Discount request exceeding 30% of list price
+  - Non-standard contract terms affecting payment, liability, or SLA commitments
+  - Exception request creating precedent for segment-wide pricing changes
+  - Deal requiring approval from VP Sales or CFO based on value thresholds
+  prompt_registry:
+    revops-deal-approval:
+      description: Evaluate deal against pricing guidelines and escalation thresholds
+      source: prompts/tasks.yaml#deal_desk.deal_approval
+      inputs:
+      - title: deal_id
+        type: string
+      - title: deal_value
+        type: string
+      - title: discount_requested
+        type: string
+      - title: standard_terms_variance
+        type: string
+      outputs:
+      - title: deal-approval_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - pricing_guidelines
+        - discount_history
+        - deal_context
+        - approval_thresholds
+        priority: critical
+      - source: read-infohub
+        fields:
+        - historical_exceptions
+        - margin_benchmarks
+        priority: enrichment
+    revops-pricing-governance:
+      description: Assess pricing exception against governance policy and historical precedent
+      source: prompts/tasks.yaml#deal_desk.pricing_governance
+      inputs:
+      - title: competitive_context
+        type: string
+      - title: discount_history
+        type: string
+      - title: margin_impact
+        type: string
+      - title: pricing_model
+        type: string
+      outputs:
+      - title: pricing-governance_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - pricing_policy
+        - historical_exceptions
+        - margin_analysis
+        priority: critical
+      - source: read-infohub
+        fields:
+        - competitive_pricing_data
+        - policy_update_history
+        priority: enrichment
+    revops-contract-review:
+      description: Review non-standard contract terms and route for appropriate approvals
+      source: prompts/tasks.yaml#deal_desk.contract_review
+      inputs:
+      - title: approval_chain
+        type: string
+      - title: contract_terms
+        type: string
+      - title: risk_assessment
+        type: string
+      - title: standard_deviations
+        type: string
+      outputs:
+      - title: contract-review_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - standard_contract_terms
+        - deviation_log
+        - approval_history
+        priority: critical
+      - source: read-infohub
+        fields:
+        - risk_classification_framework
+        - legal_review_requirements
+        priority: enrichment
+  boundaries:
+  - Deal evaluation and pricing governance only, does not build dashboards or analytics
+  - Does not manage CRM configuration or tech stack
+  - Does not set territory or quota parameters
+  - Does not track process compliance or run enablement programs
+  - Does not approve deals beyond defined authority thresholds without routing to appropriate approver
+  permissions:
+  - Read CRM deal data, pricing history, and contract terms
+  - Evaluate deals against published pricing guidelines
+  - Assess discount exceptions with historical precedent analysis
+  - Route non-standard contract terms to appropriate approval chain
+  - Write deal evaluation and exception analysis to InfoHub
+  guardrails:
+    input_validation:
+    - Reject deal evaluation without deal ID, deal value, and discount request
+    - Reject pricing governance assessment without pricing model and discount history
+    - Reject contract review without contract terms and standard deviation identification
+    output_checks:
+    - All deal evaluations must cite applicable pricing guideline and threshold
+    - Exception assessments must include comparable historical precedents
+    - Margin impact must be quantified with comparison to standard terms
+    - Contract risk classifications must map to specific approval chain requirements
+    signal_validation:
+    - Never approve exceptions without quantifying margin impact
+    - Never present discount comparisons without normalizing for deal size and segment
+    - Add [PRECEDENT RISK] marker when exception creates new precedent for segment
+    - Distinguish between competitive-driven and rep-driven discount patterns
+  error_handling:
+    tool_failures:
+      critical:
+      - read-crm-data
+      enrichment:
+      - read-communications
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable deal evaluation without CRM deal data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, note missing precedent context
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag pricing data freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - deal-desk
+      - pricing-governance
+      - contract-management
+      - margin-analysis
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/deal-desk-guidelines.yaml
+      description: Pricing governance policies, approval thresholds, exception management procedures
+    - path: references/territory-quota-methodology.yaml
+      description: Pricing model context, segment definitions, discount benchmarks
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: revops-director-agent
+      description: RevOps Director orchestrator routes deal desk and pricing governance requests
+    outputs:
+    - type: parent_return
+      target: revops-director-agent
+      payload:
+      - deal_evaluation
+      - pricing_assessment
+      - contract_review
+      description: Deal desk artifacts back to orchestrator for aggregation

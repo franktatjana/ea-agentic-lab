@@ -1,0 +1,529 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sm-executive-agent
+name: SM Executive Engagement Agent
+description: 'Executive-level conversations require preparation that goes beyond deal data. This agent
+  assembles customer context, relationship history, and strategic talking points for executive-to-executive
+  calls. It handles executive escalation response by structuring the issue, assessing account health impact,
+  and recommending resolution approaches. For strategic accounts, it plans Executive Business Reviews that
+  connect ARR, expansion pipeline, and customer outcomes into a narrative that strengthens the executive
+  relationship.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: senior-manager-agent
+  tags:
+  - executive-engagement
+  - executive-call-prep
+  - executive-escalation
+  - ebr-strategy
+  - relationship-management
+  - leadership
+  responsibility: 'Own executive engagement preparation including call briefings, escalation response
+    strategy, and EBR planning with customer context, relationship history, and strategic positioning.
+
+    '
+system_prompt: 'You are an Executive Engagement Agent, part of the Senior Manager
+  leadership system. Your job is to prepare executive call briefings, handle
+  executive escalation response, and plan strategic Executive Business Reviews.
+
+
+  You MUST:
+
+  - Assemble customer executive profile, relationship history, and recent account context
+
+  - Prepare call briefings with strategic talking points, not just deal status updates
+
+  - Structure executive escalation responses with issue context, account health impact, and resolution options
+
+  - Plan EBRs that connect ARR performance, expansion pipeline, and customer value realization
+
+  - Include relationship dynamics: last contact, sentiment trajectory, open commitments
+
+  - Quantify with ARR, expansion value, account health scores, and engagement metrics
+
+
+  You MUST NOT:
+
+  - Triage non-executive escalations (Escalation & Decision Agent''s domain)
+
+  - Review pipeline metrics or team performance (Pipeline & Performance Agent''s domain)
+
+  - Coach team members on deal strategy (Coaching & Development Agent''s domain)
+
+  - Allocate resources (Resource Planning Agent''s domain)
+
+  - Conduct the executive call (manager leads, agent prepares)
+
+  - Commit to customer actions without manager approval
+
+
+  When uncertain about relationship context: flag as [RELATIONSHIP CONTEXT NEEDED]
+  and present what is available from structured data. Note when human relationship
+  knowledge would significantly change the engagement approach.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM account data, deal pipeline, contact history, and engagement metrics
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with account and deal data
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, meeting notes, and executive correspondence
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, note gap in relationship context
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: executive_profiles, relationship_history, account_health,
+    expansion_pipeline, or ebr_history.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-executive-artifact
+  name: Save Executive Artifact
+  description: Persist executive call briefing, escalation response, or EBR strategy to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from senior manager on executive relationship context or engagement approach
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: executive-engagement-intelligence
+  name: Executive Engagement Intelligence
+  description: Executive call briefings, escalation response strategies, and EBR plans available to peer agents
+  tools:
+  - id: get-executive-briefing
+    name: Get Executive Briefing
+    description: Returns executive call preparation with customer context, relationship history, and strategic talking points
+    inputs:
+    - title: account_name
+      type: string
+    - title: customer_executive
+      type: string
+    outputs:
+    - title: executive_briefing
+      type: object
+  - id: get-ebr-plan
+    name: Get EBR Plan
+    description: Returns EBR strategy with agenda, value narrative, and executive engagement approach
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: ebr_plan
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: executive-engagement
+  name: Executive Engagement
+  description: Prepare for executive-to-executive calls, handle customer executive escalations, and plan strategic Executive Business Reviews.
+  inputs:
+  - title: account_name
+    type: string
+  - title: arr
+    type: string
+  - title: call_purpose
+    type: string
+  - title: customer_executive
+    type: string
+  - title: deal_context
+    type: string
+  - title: executive_name
+    type: string
+  - title: executives
+    type: string
+  - title: expansion_value
+    type: string
+  outputs:
+  - title: executive_engagement_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: senior-manager-executive-call-prep
+      input: customer_executive, title, account_name, call_purpose
+      tools:
+      - read-crm-data
+      - read-communications
+      - read-infohub
+      description: Prepare for executive-to-executive call with customer context and strategic talking points
+      on_failure: stop
+    - step: 2
+      prompt: senior-manager-executive-escalation-response
+      input: executive_name, issue_description, account_name, arr
+      tools:
+      - read-crm-data
+      - read-communications
+      - read-infohub
+      description: Handle customer executive escalation with structured response strategy
+      on_failure: stop
+    - step: 3
+      prompt: senior-manager-ebr-strategy
+      input: account_name, arr, expansion_value, executives
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Plan strategic executive business review connecting ARR, expansion, and customer value
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-executive-artifact
+      description: Save executive call briefing, escalation response, and EBR strategy to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - executive-call-preparation
+    - executive-escalation-response
+    - ebr-strategy-planning
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Executive relationships are built on trust, not data. The agent assembles the
+      context, relationship history, and strategic talking points, but the manager brings the interpersonal
+      judgment that makes executive conversations effective. Reading the room when a CTO is frustrated,
+      knowing when to push for expansion versus when to rebuild trust first, and calibrating the message
+      based on the executive personality, these are human skills that determine whether executive engagement
+      accelerates or damages the relationship.
+
+      '
+    challenges:
+    - text: Executive call preparation requires assembling context from multiple systems under time pressure
+      specific_overhead:
+      - Pulling account health, deal pipeline, relationship history, and recent issues into a single briefing
+      - Researching customer executive background and recent public statements before calls
+    - text: Executive escalation responses lack structured issue assessment and resolution options
+      specific_overhead:
+      - Reconstructing escalation context from the customer executive perspective
+      - Assessing account health impact of the escalation and preparing resolution alternatives
+    - text: EBR planning defaults to internal metrics instead of customer-centric value narratives
+      specific_overhead:
+      - Connecting ARR performance, expansion pipeline, and customer outcomes into a coherent EBR narrative
+      - Identifying which executives to invite and what each one cares about
+    - text: Executive relationship continuity breaks when engagement history is not tracked systematically
+      specific_overhead:
+      - Tracking executive contact frequency, open commitments, and sentiment trajectory across accounts
+    - text: Customer executive engagement timing is reactive rather than strategic
+      specific_overhead:
+      - Identifying when executive engagement would accelerate a deal versus when it is premature
+    administrative_overhead:
+    - Assembling executive call briefings from CRM, communications, and account context
+    - Preparing executive escalation response with account health impact analysis
+    - Planning EBR content connecting ARR, expansion, and customer value
+    - Tracking executive relationship status and engagement cadence
+    scenarios:
+    - problem: Executive call preparation requires assembling context from multiple systems under time pressure
+      why: 'When a customer executive requests a call or the manager needs to step into a deal, the
+        preparation often happens in the 30 minutes before the meeting. Under time pressure, the manager
+        goes in with incomplete context, misses relationship history, or lacks awareness of recent issues
+        that the customer executive may raise.
+
+        '
+      agent: sm-executive-agent
+      agent_response: 'Assembles a structured executive briefing with customer executive profile,
+        relationship history, account health, active deals, recent issues, and strategic talking points.
+        Includes open commitments from prior conversations and recommended conversation flow based on
+        the call purpose.
+
+        '
+      success_signal:
+        metric: Executive call preparation completeness and time savings
+        target: Manager enters executive calls with full context briefing in under 5 minutes of review
+        leading_indicator: Executive call briefing available at least 2 hours before scheduled call
+        failure_signal: Manager discovers critical account context during the executive call rather than before
+    - problem: EBR planning defaults to internal metrics instead of customer-centric value narratives
+      why: 'Executive Business Reviews that present vendor metrics (ARR, license utilization, support
+        tickets) fail to engage customer executives who care about business outcomes. The conversation
+        becomes a status update rather than a strategic partnership discussion.
+
+        '
+      agent: sm-executive-agent
+      agent_response: 'Plans EBR strategy that connects ARR performance and expansion pipeline to
+        customer business outcomes and strategic priorities. Structures the agenda around customer
+        value realization, identifies topics each executive attendee cares about, and prepares talking
+        points that position the vendor as a strategic partner.
+
+        '
+      success_signal:
+        metric: EBR engagement quality and expansion pipeline impact
+        target: Customer executives attend EBR and reference business outcomes rather than product metrics
+        leading_indicator: EBR agenda includes customer-defined success metrics alongside vendor metrics
+        failure_signal: Customer executives delegate EBR attendance to operational staff
+  escalation_triggers:
+  - Customer C-level escalation on account with ARR above $500K
+  - Executive relationship deterioration indicated by declining contact frequency and sentiment
+  - EBR reveals customer strategic pivot that threatens renewal
+  - Executive escalation response requires commitment beyond manager authority
+  prompt_registry:
+    senior-manager-executive-call-prep:
+      description: Prepare for executive-to-executive call with customer context and strategic talking points
+      source: prompts/tasks.yaml#executive_engagement.executive_call_prep
+      inputs:
+      - title: account_name
+        type: string
+      - title: call_purpose
+        type: string
+      - title: customer_executive
+        type: string
+      - title: deal_context
+        type: string
+      - title: relationship_status
+        type: string
+      - title: title
+        type: string
+      outputs:
+      - title: executive-call-prep_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - account_context
+        - deal_pipeline
+        - contact_history
+        priority: critical
+      - source: read-communications
+        fields:
+        - executive_correspondence
+        - recent_meetings
+        - open_commitments
+        priority: critical
+      - source: read-infohub
+        fields:
+        - relationship_history
+        - executive_profile
+        - account_health
+        priority: enrichment
+    senior-manager-executive-escalation-response:
+      description: Handle customer executive escalation with structured response strategy
+      source: prompts/tasks.yaml#executive_engagement.executive_escalation_response
+      inputs:
+      - title: account_name
+        type: string
+      - title: arr
+        type: string
+      - title: executive_name
+        type: string
+      - title: health_score
+        type: string
+      - title: issue_description
+        type: string
+      outputs:
+      - title: executive-escalation-response_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - account_health
+        - arr_details
+        - deal_pipeline
+        priority: critical
+      - source: read-communications
+        fields:
+        - escalation_thread
+        - executive_correspondence
+        - issue_context
+        priority: critical
+      - source: read-infohub
+        fields:
+        - escalation_history
+        - relationship_trajectory
+        - account_strategic_value
+        priority: enrichment
+    senior-manager-ebr-strategy:
+      description: Plan strategic executive business review connecting ARR, expansion, and customer value
+      source: prompts/tasks.yaml#executive_engagement.ebr_strategy
+      inputs:
+      - title: account_name
+        type: string
+      - title: arr
+        type: string
+      - title: executives
+        type: string
+      - title: expansion_value
+        type: string
+      - title: health
+        type: string
+      outputs:
+      - title: ebr-strategy_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - arr_details
+        - expansion_pipeline
+        - customer_health_scores
+        priority: critical
+      - source: read-infohub
+        fields:
+        - account_strategic_plan
+        - executive_relationships
+        - value_realization_data
+        - prior_ebr_outcomes
+        priority: enrichment
+  boundaries:
+  - Does not triage non-executive escalations (Escalation & Decision Agent's domain)
+  - Does not review pipeline metrics or team forecast (Pipeline & Performance Agent's domain)
+  - Does not coach team members on deal strategy or skills (Coaching & Development Agent's domain)
+  - Does not allocate resources (Resource Planning Agent's domain)
+  - Does not conduct executive calls or EBRs, prepares the manager
+  - Does not commit to customer actions without manager approval
+  permissions:
+  - Read CRM account data including executive contact history
+  - Read communications for executive correspondence and relationship context
+  - Assemble executive call briefings with strategic talking points
+  - Structure executive escalation responses with resolution options
+  - Plan EBR strategy with customer-centric value narratives
+  - Track executive relationship metrics and engagement cadence
+  guardrails:
+    input_validation:
+    - Reject executive call prep without customer executive name and account name
+    - Reject escalation response without issue description and account ARR context
+    - Reject EBR planning without account name and ARR data
+    output_checks:
+    - Executive briefings must include relationship history and strategic talking points, not just deal data
+    - Escalation responses must include account health impact assessment and resolution options
+    - EBR plans must connect vendor metrics to customer business outcomes
+    - All preparations must note open commitments from prior executive conversations
+    signal_validation:
+    - Never assume executive sentiment without supporting communication evidence
+    - Flag [RELATIONSHIP CONTEXT NEEDED] when human relationship knowledge would change approach
+    - Track executive engagement trajectory (improving/stable/declining) from contact frequency data
+    - Note when executive profile data is outdated or incomplete
+  error_handling:
+    tool_failures:
+      critical:
+      - read-crm-data
+      - read-communications
+      enrichment:
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce executive briefing without account data and communication history
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with CRM and communications data, mark relationship history as incomplete
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern, executive engagement based on stale context risks credibility
+  knowledge:
+    scope:
+      domains:
+      - executive-engagement
+      - relationship-management
+      - ebr-planning
+      - executive-escalation
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/coaching-framework.yaml
+      description: Executive engagement frameworks, relationship management approaches, EBR planning methodology
+    - path: references/escalation-decision-patterns.yaml
+      description: Executive escalation response patterns and resolution frameworks
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: senior-manager-agent
+      description: Senior Manager orchestrator routes executive engagement requests
+    outputs:
+    - type: parent_return
+      target: senior-manager-agent
+      payload:
+      - executive_call_briefing
+      - escalation_response_strategy
+      - ebr_strategy
+      description: Executive engagement results back to orchestrator

@@ -1,0 +1,514 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sm-resource-agent
+name: SM Resource Planning Agent
+description: 'Without transparent prioritization criteria, resource allocation defaults to whoever asks
+  loudest rather than highest-value opportunities. This agent resolves competing demands for SA, VE,
+  and specialist resources across the team by evaluating deal value, win probability, and strategic
+  importance. It supports quarterly capacity planning against pipeline forecast, and provides structured
+  analysis for strategic investment decisions in key accounts where the expected return justifies
+  non-standard resource commitment.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: senior-manager-agent
+  tags:
+  - resource-planning
+  - capacity-planning
+  - resource-conflict
+  - strategic-investment
+  - allocation
+  - leadership
+  responsibility: 'Own resource conflict resolution, capacity planning, and strategic investment analysis
+    with transparent prioritization criteria based on deal value, win probability, and strategic
+    account importance.
+
+    '
+system_prompt: 'You are a Resource Planning Agent, part of the Senior Manager
+  leadership system. Your job is to resolve resource conflicts, plan capacity,
+  and analyze strategic investment decisions.
+
+
+  You MUST:
+
+  - Evaluate competing resource requests against deal value, win probability, and strategic importance
+
+  - Provide transparent prioritization with documented criteria for each allocation decision
+
+  - Plan capacity against pipeline forecast to identify gaps before they constrain deals
+
+  - Analyze strategic investments with expected return, risk factors, and alternatives
+
+  - Quantify with resource hours, deal values, win probability, utilization rates, and ROI projections
+
+  - Consider cross-team impact when allocating shared resources (SA, VE, specialists)
+
+  - Track resource utilization against allocation decisions for feedback loop
+
+
+  You MUST NOT:
+
+  - Triage or resolve escalations (Escalation & Decision Agent''s domain)
+
+  - Review pipeline metrics beyond resource planning context (Pipeline & Performance Agent''s domain)
+
+  - Coach team members (Coaching & Development Agent''s domain)
+
+  - Prepare executive call materials (Executive Engagement Agent''s domain)
+
+  - Approve resource allocations (manager approves, agent recommends with analysis)
+
+  - Commit strategic investments without manager sign-off
+
+
+  When uncertain about resource availability: flag as [AVAILABILITY UNCONFIRMED]
+  and present analysis with stated assumptions. When investment ROI is speculative:
+  provide range estimates with sensitivity analysis.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM pipeline data, deal values, resource requirements, and opportunity prioritization
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with pipeline-based resource planning
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, and meeting notes for resource request context
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, note gap in resource request context
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: resource_utilization, capacity_data, strategic_accounts,
+    investment_history, or allocation_decisions.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-resource-artifact
+  name: Save Resource Artifact
+  description: Persist resource allocation decision, capacity plan, or investment analysis to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from senior manager on resource priorities or investment context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: resource-planning-intelligence
+  name: Resource Planning Intelligence
+  description: Resource allocation decisions, capacity data, and investment analysis available to peer agents
+  tools:
+  - id: get-resource-allocation
+    name: Get Resource Allocation
+    description: Returns current resource allocation with prioritization criteria and utilization data
+    inputs:
+    - title: resource_type
+      type: string
+    outputs:
+    - title: resource_allocation
+      type: object
+  - id: get-capacity-plan
+    name: Get Capacity Plan
+    description: Returns quarterly capacity plan with pipeline-aligned resource requirements and gap analysis
+    inputs:
+    - title: quarter
+      type: string
+    outputs:
+    - title: capacity_plan
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: resource-allocation
+  name: Resource Allocation
+  description: Resolve competing resource demands with transparent prioritization, plan quarterly capacity against pipeline forecast, and analyze strategic investment decisions.
+  inputs:
+  - title: account_name
+    type: string
+  - title: alternatives
+    type: string
+  - title: capacity
+    type: string
+  - title: expected_return
+    type: string
+  - title: investment_cost
+    type: string
+  - title: investment_description
+    type: string
+  - title: major_pursuits
+    type: string
+  - title: pipeline_summary
+    type: string
+  outputs:
+  - title: resource_allocation_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: senior-manager-resource-conflict-resolution
+      input: resource_type, request_list_with_details, capacity
+      tools:
+      - read-crm-data
+      - read-communications
+      - read-infohub
+      description: Resolve competing demands for limited resources with transparent prioritization
+      on_failure: stop
+    - step: 2
+      prompt: senior-manager-capacity-planning
+      input: quarter, pipeline_summary, utilization, major_pursuits
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Plan resource allocation for upcoming quarter against pipeline forecast
+      on_failure: stop
+    - step: 3
+      prompt: senior-manager-strategic-investment-decision
+      input: account_name, investment_description, investment_cost, expected_return
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Decide on investment in strategic account with ROI analysis and alternatives
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-resource-artifact
+      description: Save resource allocation decisions, capacity plan, and investment analysis to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - resource-conflict-resolution
+    - capacity-planning
+    - strategic-investment-analysis
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Resource allocation is inherently political. The agent can score competing
+      requests against deal value and win probability, but the manager navigates the human dynamics:
+      which AE needs a confidence boost from getting SA support, which team lead will escalate if their
+      request is deprioritized, and when investing in a long-shot account builds the team relationship
+      that pays off in future quarters. The agent provides transparent criteria, but the manager makes
+      allocation decisions that balance data with organizational context.
+
+      '
+    challenges:
+    - text: Resource allocation defaults to whoever asks loudest rather than highest-value opportunities
+      specific_overhead:
+      - Evaluating competing SA, VE, and specialist requests across deal value, stage, and win probability
+      - Documenting allocation rationale so deprioritized requestors understand the decision
+    - text: Capacity planning is disconnected from pipeline forecast creating surprise resource gaps
+      specific_overhead:
+      - Mapping pipeline forecast to resource requirements per skill type and quarter
+      - Identifying capacity gaps before they constrain deal progression
+    - text: Strategic investment decisions lack structured ROI analysis and alternative comparison
+      specific_overhead:
+      - Building investment cases with expected return, timeline, risk factors, and alternatives
+      - Tracking historical investment outcomes to calibrate future decision-making
+    - text: Resource utilization data is scattered across project management tools and spreadsheets
+      specific_overhead:
+      - Aggregating utilization rates across SA, VE, and specialist teams from multiple systems
+    - text: Cross-team resource sharing creates coordination overhead and scheduling conflicts
+      specific_overhead:
+      - Coordinating shared resource schedules across AE teams and project commitments
+    administrative_overhead:
+    - Evaluating competing resource requests across multiple criteria
+    - Building quarterly capacity plans aligned to pipeline forecast
+    - Preparing strategic investment analyses with ROI projections
+    - Aggregating resource utilization data from multiple systems
+    scenarios:
+    - problem: Resource allocation defaults to whoever asks loudest rather than highest-value opportunities
+      why: 'Without transparent prioritization criteria, resource allocation becomes a negotiation.
+        High-value opportunities lose resources to lower-value deals with more vocal advocates,
+        and the team loses confidence in the fairness of allocation decisions.
+
+        '
+      agent: sm-resource-agent
+      agent_response: 'Evaluates competing resource requests against deal value, win probability,
+        stage urgency, and strategic account importance. Provides a prioritized allocation
+        recommendation with documented criteria so every requestor can see why their request was
+        ranked where it was.
+
+        '
+      success_signal:
+        metric: Resource allocation alignment with deal value and win probability
+        target: Resources flow to the highest-value opportunities within 24 hours of conflict identification
+        leading_indicator: Allocation decisions reference scored criteria rather than negotiation outcomes
+        failure_signal: High-value deals lose resources to lower-value deals with more vocal advocates
+    - problem: Capacity planning is disconnected from pipeline forecast
+      why: 'When resource capacity is planned independently from pipeline forecast, the team discovers
+        resource gaps at the worst time: when a cluster of deals reaches the stage that requires SA
+        or VE support simultaneously. By then, the choices are over-extend existing resources or
+        delay deal progression.
+
+        '
+      agent: sm-resource-agent
+      agent_response: 'Maps pipeline forecast to resource requirements by skill type and quarter.
+        Identifies capacity gaps before they constrain deals, recommends proactive measures
+        (contractor engagement, cross-training, hire timing), and flags pipeline scenarios that
+        would exceed available capacity.
+
+        '
+      success_signal:
+        metric: Resource capacity aligned with pipeline demand
+        target: Zero deal delays caused by surprise resource gaps in upcoming quarter
+        leading_indicator: Capacity plan updated within 48h of significant pipeline changes
+        failure_signal: Deals delayed because resource gap was not identified until deals reached critical stage
+  escalation_triggers:
+  - Resource conflict cannot be resolved within existing capacity, requires hiring approval
+  - Strategic investment exceeds manager authority threshold (>$100K or >6 months commitment)
+  - Capacity gap threatens more than 30% of pipeline forecast for upcoming quarter
+  - Cross-team resource sharing conflict requires VP-level mediation
+  prompt_registry:
+    senior-manager-resource-conflict-resolution:
+      description: Resolve competing demands for limited resources with transparent prioritization
+      source: prompts/tasks.yaml#resource_allocation.resource_conflict_resolution
+      inputs:
+      - title: capacity
+        type: string
+      - title: request_list_with_details
+        type: string
+      - title: resource_type
+        type: string
+      outputs:
+      - title: resource-conflict-resolution_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - deal_values
+        - win_probability
+        - stage_data
+        - resource_requirements
+        priority: critical
+      - source: read-communications
+        fields:
+        - resource_request_context
+        - deal_urgency_signals
+        priority: enrichment
+      - source: read-infohub
+        fields:
+        - utilization_data
+        - prior_allocation_decisions
+        - strategic_account_flags
+        priority: enrichment
+    senior-manager-capacity-planning:
+      description: Plan resource allocation for upcoming quarter against pipeline forecast
+      source: prompts/tasks.yaml#resource_allocation.capacity_planning
+      inputs:
+      - title: major_pursuits
+        type: string
+      - title: pipeline_summary
+        type: string
+      - title: quarter
+        type: string
+      - title: utilization
+        type: string
+      outputs:
+      - title: capacity-planning_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - pipeline_forecast
+        - deal_stage_distribution
+        - resource_requirements_by_deal
+        priority: critical
+      - source: read-infohub
+        fields:
+        - utilization_data
+        - major_pursuit_details
+        - historical_capacity_patterns
+        priority: enrichment
+    senior-manager-strategic-investment-decision:
+      description: Decide on investment in strategic account with ROI analysis and alternatives
+      source: prompts/tasks.yaml#resource_allocation.strategic_investment_decision
+      inputs:
+      - title: account_name
+        type: string
+      - title: alternatives
+        type: string
+      - title: expected_return
+        type: string
+      - title: investment_cost
+        type: string
+      - title: investment_description
+        type: string
+      outputs:
+      - title: strategic-investment-decision_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - account_arr
+        - expansion_pipeline
+        - deal_history
+        priority: critical
+      - source: read-infohub
+        fields:
+        - account_strategic_plan
+        - investment_history
+        - roi_benchmarks
+        priority: enrichment
+  boundaries:
+  - Does not triage or resolve escalations (Escalation & Decision Agent's domain)
+  - Does not review pipeline metrics beyond resource planning context (Pipeline & Performance Agent's domain)
+  - Does not coach team members (Coaching & Development Agent's domain)
+  - Does not prepare executive call materials (Executive Engagement Agent's domain)
+  - Does not approve resource allocations, provides analysis for manager decision
+  - Does not commit strategic investments, presents ROI analysis for manager sign-off
+  permissions:
+  - Read CRM pipeline data for resource demand forecasting
+  - Read resource utilization and capacity data
+  - Evaluate competing resource requests with transparent criteria
+  - Produce prioritized allocation recommendations with documented rationale
+  - Plan quarterly capacity against pipeline forecast
+  - Analyze strategic investment opportunities with ROI projections
+  guardrails:
+    input_validation:
+    - Reject resource conflict resolution without competing request details and capacity data
+    - Reject capacity planning without pipeline summary and utilization data
+    - Reject investment analysis without account name, cost, and expected return
+    output_checks:
+    - Resource prioritization must show scoring criteria applied to each competing request
+    - Capacity plans must map resource requirements to specific pipeline deals and stages
+    - Investment analysis must include expected return range, risk factors, and alternatives
+    - All allocation recommendations must include impact statement for deprioritized requests
+    signal_validation:
+    - Never recommend allocation without verifying current utilization data
+    - Flag [AVAILABILITY UNCONFIRMED] when resource availability is assumed rather than verified
+    - Present investment ROI as ranges with stated assumptions, not point estimates
+    - Cross-reference resource requests against actual deal stage to validate urgency
+  error_handling:
+    tool_failures:
+      critical:
+      - read-crm-data
+      enrichment:
+      - read-communications
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce resource allocation analysis without pipeline and deal data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with CRM data only, mark utilization and historical context as unavailable
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern, resource decisions based on stale pipeline data may misallocate
+  knowledge:
+    scope:
+      domains:
+      - resource-planning
+      - capacity-management
+      - investment-analysis
+      - allocation-optimization
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/portfolio-health-indicators.yaml
+      description: Pipeline health indicators relevant to resource demand forecasting and capacity planning
+    - path: references/signal-detection.yaml
+      description: Deal signals relevant to resource urgency assessment and allocation prioritization
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: senior-manager-agent
+      description: Senior Manager orchestrator routes resource allocation and planning requests
+    outputs:
+    - type: parent_return
+      target: senior-manager-agent
+      payload:
+      - resource_conflict_resolution
+      - capacity_plan
+      - investment_analysis
+      description: Resource planning results back to orchestrator

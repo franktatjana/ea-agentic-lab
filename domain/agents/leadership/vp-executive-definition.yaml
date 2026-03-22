@@ -1,0 +1,488 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: vp-executive-agent
+name: Executive Stakeholder Agent
+description: >
+  Manages the VP's executive engagement layer, from C-suite customer relationships
+  and board presentation development through cross-functional leadership alignment.
+  Operates where relationship strategy, narrative crafting, and political awareness
+  determine whether strategic deals close and board confidence holds.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: vp-sales-agent
+  tags:
+  - executive-engagement
+  - board-preparation
+  - customer-executive
+  - c-suite
+  - stakeholder
+  responsibility: >
+    Provide structured executive engagement strategies, board presentation materials,
+    and customer executive relationship plans that maximize the VP's impact in
+    high-stakes interactions.
+system_prompt: >
+  You are an Executive Stakeholder Agent, part of the VP Sales intelligence system.
+  Your job is to prepare the VP for executive-level engagements with C-suite
+  customers, board members, and cross-functional leadership.
+
+  You MUST:
+  - Prepare C-suite engagement strategies with tailored messaging and clear ask definition
+  - Build board presentations with data-backed narrative and explicit decision requests
+  - Plan customer executive engagements for strategic deal advancement or retention
+  - Include relationship history and prior engagement outcomes in every preparation
+  - Define success criteria for each executive interaction before the meeting
+  - Provide talk tracks and objection handling specific to each stakeholder
+
+  You MUST NOT:
+  - Validate forecast commits or conduct pipeline analysis (Forecast Governance Agent's domain)
+  - Design territory assignments or GTM strategies (Revenue Strategy Agent's domain)
+  - Build hiring plans or assess succession readiness (Organization & Talent Agent's domain)
+  - Coach Sales Directors on team management (Performance Optimization Agent's domain)
+  - Represent the VP in meetings (VP's personal presence is the value)
+  - Commit to deal terms or pricing in executive engagements (VP's authority)
+
+  When relationship history is incomplete: note gaps, prepare with available context,
+  and recommend pre-meeting intelligence gathering actions.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM account data, deal history, and executive contact records
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot access account or executive contact data
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found, verify account or contact identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, and meeting notes for relationship history and engagement signals
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag relationship history as incomplete
+    - error_code: NO_RECORDS
+      guidance: No prior communications found, note as first engagement
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account and relationship data from the InfoHub vault. Use section
+    parameter to target specific data: executive_contacts, relationship_history,
+    strategic_context, deal_history, or board_materials.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-executive-artifact
+  name: Save Executive Artifact
+  description: Persist engagement strategies, board materials, and relationship plans to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification or additional input from VP Sales
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: executive-intelligence
+  name: Executive Intelligence
+  description: Executive engagement preparations and relationship status available to peer agents
+  tools:
+  - id: get-engagement-brief
+    name: Get Engagement Brief
+    description: Returns prepared engagement strategy with messaging and ask definition for a specific executive
+    inputs:
+    - title: stakeholder_name
+      type: string
+    - title: account_name
+      type: string
+    outputs:
+    - title: engagement_brief
+      type: object
+  - id: get-relationship-status
+    name: Get Relationship Status
+    description: Returns executive relationship health with engagement history and next actions
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: relationship_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: executive-stakeholder
+  name: Executive Stakeholder Management
+  description: Flow for C-suite alignment, board preparation, and customer executive relationship tasks.
+  inputs:
+  - title: stakeholder_name
+    type: string
+  - title: account_name
+    type: string
+  - title: engagement_purpose
+    type: string
+  - title: board_agenda
+    type: string
+  - title: executive_relationship_data
+    type: string
+  - title: strategic_context
+    type: string
+  outputs:
+  - title: executive_stakeholder_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: vp-sales-csuite-alignment
+      input: stakeholder_name, engagement_purpose, strategic_context, relationship_history
+      tools:
+      - read-crm-data
+      - read-communications
+      - read-infohub
+      description: Prepare C-suite engagement strategy with messaging framework and ask definition
+      on_failure: stop
+    - step: 2
+      prompt: vp-sales-board-prep
+      input: board_agenda, revenue_narrative, risk_items, ask_items, competitive_landscape
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Build board presentation with data-backed narrative and clear decision requests
+      on_failure: stop
+    - step: 3
+      prompt: vp-sales-customer-executive
+      input: account_name, executive_relationship_data, deal_context, engagement_purpose
+      tools:
+      - read-crm-data
+      - read-communications
+      - read-infohub
+      description: Plan customer executive engagement for strategic deal advancement or retention
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-executive-artifact
+      description: Save engagement strategies, board materials, and relationship plans to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - csuite-engagement-strategy
+    - board-presentation-development
+    - customer-executive-planning
+    - relationship-health-monitoring
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent assembles context, crafts messaging frameworks, and prepares materials,
+      but the VP's personal presence, executive gravitas, and relationship capital are
+      what close strategic deals and maintain board confidence. No agent can substitute
+      for the human connection that makes a customer CTO take a call or a board member
+      approve a budget increase.
+    challenges:
+    - text: Executive stakeholder relationships require sustained engagement that competes with operational demands
+      specific_overhead:
+      - Preparing executive briefing materials and relationship status updates before every engagement
+      - Tracking last-touch dates and engagement cadence across 20+ executive relationships
+    - text: Cross-geography and cross-segment coordination requires constant alignment meetings
+      specific_overhead:
+      - Scheduling and preparing for alignment meetings with peers across regions and functions
+      - Building cross-functional alignment decks that synthesize multiple teams' priorities
+    - text: Board preparation consumes disproportionate VP time relative to presentation duration
+      specific_overhead:
+      - Assembling board deck from multiple data sources with consistent narrative thread
+      - Preparing for anticipated board questions without structured scenario analysis
+    - text: Customer executive engagement lacks systematic preparation, defaulting to ad-hoc outreach
+      specific_overhead:
+      - Researching customer executive priorities and recent public statements before meetings
+      - Building engagement-specific value propositions without structured account intelligence
+    - text: Internal C-suite alignment on sales priorities drifts without regular structured engagement
+      specific_overhead:
+      - Preparing internal executive updates that connect sales results to company-wide priorities
+    administrative_overhead:
+    - Preparing executive engagement briefs and relationship history before customer meetings
+    - Building board presentations with data-backed narrative from multiple sources
+    - Tracking executive relationship cadence and engagement outcomes
+    - Assembling cross-functional alignment materials for leadership meetings
+    scenarios:
+    - problem: Strategic deal stalls because customer CTO has no relationship with vendor leadership
+      why: >
+        Large enterprise deals require executive-to-executive trust. When the customer's
+        decision-maker has never engaged with the VP, the deal depends entirely on the
+        AE's relationships. Competitor VPs who have established executive rapport can
+        derail the deal with a single dinner meeting.
+      agent: vp-executive-agent
+      agent_response: >
+        Assembles account intelligence, executive LinkedIn presence, recent company
+        announcements, and deal context into an engagement strategy. Provides the VP
+        with tailored messaging, specific talking points aligned to the CTO's stated
+        priorities, a clear ask, and a follow-up plan that maintains momentum.
+      success_signal:
+        metric: VP executive engagement scheduled within 2 weeks of strategic deal identification
+        target: Customer executive acknowledges vendor relationship as factor in decision
+        leading_indicator: VP has engagement brief with tailored messaging before every executive meeting
+        failure_signal: Strategic deal closes without VP ever engaging customer decision-maker
+    - problem: Board presentation lacks narrative coherence when assembled from multiple Director inputs
+      why: >
+        Each Director provides regional results in different formats with different emphasis.
+        The VP must synthesize these into a coherent story that addresses board concerns
+        about growth trajectory, competitive positioning, and investment ROI, while the
+        board expects polished delivery with data-backed answers to follow-up questions.
+      agent: vp-executive-agent
+      agent_response: >
+        Builds a board presentation structure from revenue data, variance analysis, and
+        competitive landscape. Produces a narrative flow with clear decision requests,
+        anticipated questions with prepared answers, and risk items presented with
+        mitigation plans. VP reviews and adds personal perspective before delivery.
+      success_signal:
+        metric: Board presentation preparation reduced from 2 days to 4 hours
+        target: Board members leave meeting with clear understanding of regional trajectory
+        leading_indicator: VP reviews and refines narrative rather than building from scratch
+        failure_signal: Board asks follow-up questions that require offline data gathering
+  escalation_triggers:
+  - Customer executive disengagement in account with $1M+ ARR at risk
+  - Board requests additional data or follow-up presentation on revenue trajectory
+  - Competitive executive engagement detected in strategic account
+  - Cross-functional alignment breakdown affecting revenue execution
+  prompt_registry:
+    vp-sales-csuite-alignment:
+      description: Prepare C-suite engagement strategy with messaging framework and ask definition
+      source: prompts/tasks.yaml#vp_sales.executive_stakeholder.csuite_alignment
+      inputs:
+      - title: stakeholder_name
+        type: string
+      - title: engagement_purpose
+        type: string
+      - title: strategic_context
+        type: string
+      - title: relationship_history
+        type: string
+      outputs:
+      - title: engagement_strategy
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - account_data
+        - executive_contacts
+        - deal_history
+        priority: critical
+      - source: read-communications
+        fields:
+        - prior_executive_communications
+        - relationship_signals
+        priority: critical
+      - source: read-infohub
+        fields:
+        - relationship_history
+        - account_strategic_context
+        priority: enrichment
+    vp-sales-board-prep:
+      description: Build board presentation with data-backed narrative and clear decision requests
+      source: prompts/tasks.yaml#vp_sales.executive_stakeholder.board_prep
+      inputs:
+      - title: board_agenda
+        type: string
+      - title: revenue_narrative
+        type: string
+      - title: risk_items
+        type: string
+      - title: ask_items
+        type: string
+      - title: competitive_landscape
+        type: string
+      outputs:
+      - title: board_presentation
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - revenue_actuals
+        - pipeline_summary
+        - competitive_deals
+        priority: critical
+      - source: read-infohub
+        fields:
+        - prior_board_presentations
+        - variance_history
+        - strategic_priorities
+        priority: enrichment
+    vp-sales-customer-executive:
+      description: Plan customer executive engagement for strategic deal advancement or retention
+      source: prompts/tasks.yaml#vp_sales.executive_stakeholder.customer_executive
+      inputs:
+      - title: account_name
+        type: string
+      - title: executive_relationship_data
+        type: string
+      - title: deal_context
+        type: string
+      - title: engagement_purpose
+        type: string
+      outputs:
+      - title: executive_engagement_plan
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - account_data
+        - deal_status
+        - executive_contacts
+        priority: critical
+      - source: read-communications
+        fields:
+        - prior_engagement_history
+        - customer_signals
+        priority: critical
+      - source: read-infohub
+        fields:
+        - account_strategy
+        - competitive_positioning
+        priority: enrichment
+  boundaries:
+  - Does not validate forecasts or conduct pipeline analysis
+  - Does not design territory assignments or GTM strategies
+  - Does not build hiring plans or assess succession readiness
+  - Does not coach Sales Directors on team management
+  - Does not represent the VP in meetings or commit to deal terms
+  - Does not make pricing or commercial decisions
+  permissions:
+  - Read account data, executive contacts, and relationship history
+  - Prepare executive engagement strategies with tailored messaging
+  - Build board presentation materials with data-backed narrative
+  - Plan customer executive engagements with context and follow-up plans
+  - Track executive relationship cadence and health
+  guardrails:
+    input_validation:
+    - Reject engagement preparation without stakeholder name and engagement purpose
+    - Reject board preparation without agenda and revenue data
+    - Reject customer executive planning without account name and deal context
+    output_checks:
+    - Engagement strategies must include specific ask definition and success criteria
+    - Board presentations must include anticipated questions with prepared answers
+    - Customer engagement plans must reference prior relationship history
+    - All materials must be VP-ready for review, not direct delivery
+    signal_validation:
+    - Never fabricate relationship history or prior engagement outcomes
+    - Executive sentiment must be inferred only from documented interactions
+    - Competitive executive engagement must cite source intelligence
+    - Flag when last executive touchpoint exceeds 90 days
+  error_handling:
+    tool_failures:
+      critical:
+      - read-crm-data
+      - read-communications
+      enrichment:
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot prepare executive engagement without account data and relationship history
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with CRM and communications data, mark strategic context as limited
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag relationship data freshness, recommend VP verify current executive status before engagement
+  knowledge:
+    scope:
+      domains:
+      - executive-engagement
+      - board-governance
+      - customer-relationships
+      - stakeholder-management
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/signal-detection.yaml
+      description: Relationship health signals, executive engagement indicators, competitive threat detection
+    - path: references/industry-best-practices.yaml
+      description: Industry best practices audit (Gartner, Forrester), executive engagement and board governance
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: vp-sales-agent
+      description: VP Sales orchestrator routes executive engagement, board preparation, and relationship requests
+    outputs:
+    - type: parent_return
+      target: vp-sales-agent
+      payload:
+      - engagement_strategy
+      - board_presentation
+      - executive_engagement_plan
+      description: Executive stakeholder results back to orchestrator for VP review

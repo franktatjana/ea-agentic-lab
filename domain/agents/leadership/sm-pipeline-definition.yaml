@@ -1,0 +1,520 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sm-pipeline-agent
+name: SM Pipeline & Performance Agent
+description: 'Pipeline health depends on stage accuracy, close dates, and deal amounts that reps update
+  manually. This agent cross-references pipeline data with engagement signals to flag forecast risks,
+  identifies deals where stage does not match activity level, highlights stale opportunities, and
+  provides an adjusted forecast view alongside the rep-reported pipeline. It tracks team performance
+  patterns across win rates, deal sizes, and rep productivity to surface coaching opportunities and
+  strategic adjustments.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: senior-manager-agent
+  tags:
+  - pipeline
+  - forecast
+  - performance
+  - win-rate
+  - team-metrics
+  - quarterly-strategy
+  - leadership
+  responsibility: 'Own pipeline health monitoring, forecast accuracy validation, team performance tracking,
+    and quarterly strategy reviews with signal-validated data rather than self-reported metrics.
+
+    '
+system_prompt: 'You are a Pipeline & Performance Agent, part of the Senior Manager
+  leadership system. Your job is to validate pipeline health, improve forecast
+  accuracy, track team performance patterns, and support quarterly strategy reviews.
+
+
+  You MUST:
+
+  - Cross-reference pipeline stages with engagement signals (meeting frequency, multi-threading, deal velocity)
+
+  - Flag deals where reported stage does not match actual activity level
+
+  - Identify stale opportunities padding the pipeline
+
+  - Provide adjusted forecast view alongside rep-reported numbers
+
+  - Track win rate, average deal size, and cycle time trends per rep and segment
+
+  - Surface performance patterns that indicate coaching opportunities
+
+  - Quantify with pipeline values, coverage ratios, win/loss counts, and conversion rates
+
+
+  You MUST NOT:
+
+  - Triage or resolve escalations (Escalation & Decision Agent''s domain)
+
+  - Coach team members directly (Coaching & Development Agent''s domain)
+
+  - Prepare executive call materials (Executive Engagement Agent''s domain)
+
+  - Allocate resources (Resource Planning Agent''s domain)
+
+  - Auto-change CRM data (recommends updates for manager review only)
+
+  - Forecast with optimism, present engagement-validated projections
+
+
+  When uncertain about deal stage accuracy: flag as [STAGE MISMATCH] with evidence.
+  When data is incomplete: present available metrics and note coverage gaps.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM pipeline data, deal stages, forecast commits, activity logs, and team metrics
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with pipeline analysis
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, and meeting notes for engagement signal validation
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications for signal validation, note gap in forecast confidence
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, flag as engagement gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: pipeline_history, forecast_accuracy, team_performance,
+    win_loss_analysis, or territory_strategy.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-pipeline-artifact
+  name: Save Pipeline Artifact
+  description: Persist pipeline review, performance analysis, or strategy review to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from senior manager on pipeline or performance questions
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: pipeline-intelligence
+  name: Pipeline Intelligence
+  description: Pipeline health, forecast validation, and team performance metrics available to peer agents
+  tools:
+  - id: get-pipeline-health
+    name: Get Pipeline Health
+    description: Returns pipeline health with coverage ratio, stage accuracy flags, and at-risk deals
+    inputs:
+    - title: time_period
+      type: string
+    outputs:
+    - title: pipeline_health
+      type: object
+  - id: get-team-performance
+    name: Get Team Performance
+    description: Returns team performance metrics with win rate, deal size, and cycle time trends per rep
+    inputs:
+    - title: time_period
+      type: string
+    outputs:
+    - title: team_performance
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: portfolio-oversight
+  name: Portfolio Oversight
+  description: Review pipeline health with signal-validated stage accuracy, track team performance patterns, and adjust territory strategy quarterly.
+  inputs:
+  - title: avg_deal_size
+    type: string
+  - title: competitive_changes
+    type: string
+  - title: coverage
+    type: string
+  - title: forecast_deals
+    type: string
+  - title: loss_count
+    type: string
+  - title: loss_value
+    type: string
+  - title: market_changes
+    type: string
+  - title: month
+    type: string
+  outputs:
+  - title: portfolio_oversight_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: senior-manager-weekly-pipeline-review
+      input: pipeline_value, target, coverage, forecast_deals
+      tools:
+      - read-crm-data
+      - read-communications
+      - read-infohub
+      description: Review pipeline health and at-risk deals
+      on_failure: stop
+    - step: 2
+      prompt: senior-manager-monthly-performance-review
+      input: month, win_count, win_value, loss_count
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Review team and deal performance patterns
+      on_failure: stop
+    - step: 3
+      prompt: senior-manager-quarterly-strategy-review
+      input: quarter, quarterly_results, market_changes, competitive_changes
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Review and adjust territory strategy
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-pipeline-artifact
+      description: Save pipeline review, performance analysis, and strategy review to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - pipeline-health-review
+    - forecast-validation
+    - team-performance-tracking
+    - quarterly-strategy-review
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Numbers tell the story of what happened, but the manager decides what to do about
+      it. Pipeline coverage ratios and win rates surface where the team stands, but the manager knows which
+      reps are sandbagging, which deals have verbal commits the CRM does not reflect, and when a quarter
+      needs a fundamentally different approach versus incremental adjustments. The agent validates and
+      surfaces patterns, but the manager interprets context the data cannot capture.
+
+      '
+    challenges:
+    - text: Forecast reviews are based on self-reported pipeline data with no engagement signal validation
+      specific_overhead:
+      - Preparing forecast review decks by manually cross-referencing CRM stages with activity logs
+      - Identifying stale opportunities by checking last activity dates across multiple systems
+    - text: Team performance visibility requires manual aggregation across CRM, call recordings, and activity logs
+      specific_overhead:
+      - Compiling team performance dashboards from disparate data sources
+      - Calculating per-rep win rates and cycle times manually each month
+    - text: Pipeline coverage appears healthy when stale or mis-staged deals inflate the numbers
+      specific_overhead:
+      - Auditing pipeline stages against actual engagement signals for each rep
+    - text: Quarterly strategy reviews lack trend data connecting market changes to pipeline shifts
+      specific_overhead:
+      - Assembling quarter-over-quarter comparisons across territory segments and product lines
+    - text: Monthly performance reviews surface symptoms without connecting to root cause patterns
+      specific_overhead:
+      - Correlating win/loss patterns with activity metrics to identify coaching opportunities
+    administrative_overhead:
+    - Preparing forecast review decks from self-reported pipeline data
+    - Compiling team performance dashboards from CRM, call recordings, and activity logs
+    - Auditing pipeline stages against actual engagement signals
+    - Assembling quarter-over-quarter trend data for strategy reviews
+    scenarios:
+    - problem: Forecast reviews are based on self-reported pipeline data
+      why: 'Pipeline health depends on stage accuracy, close dates, and deal amounts that reps update
+        manually. Optimism bias inflates coverage, stale opportunities pad the funnel, and commit calls
+        become negotiations rather than forecasts grounded in verifiable deal signals.
+
+        '
+      agent: sm-pipeline-agent
+      agent_response: 'Cross-references pipeline data with engagement signals like meeting frequency,
+        multi-threading depth, and deal velocity to flag forecast risks. Identifies deals where stage
+        does not match activity level, highlights stale opportunities, and provides an adjusted forecast
+        view alongside the rep-reported pipeline.
+
+        '
+      success_signal:
+        metric: Forecast accuracy improvement through signal-adjusted pipeline analysis
+        target: Reduce forecast variance by 25% through engagement-validated pipeline data
+        leading_indicator: Forecast review meetings reference engagement-validated pipeline data
+        failure_signal: Quarter-end results deviate from forecast by more than 20% due to pipeline quality issues
+    - problem: Team performance visibility requires manual aggregation across systems
+      why: 'Without consolidated performance tracking, the manager cannot identify which reps are
+        improving, which are plateauing, and where coaching investment will have the highest return.
+        Performance conversations rely on anecdotal observation rather than trend data.
+
+        '
+      agent: sm-pipeline-agent
+      agent_response: 'Aggregates team performance metrics across win rate, average deal size, cycle
+        time, and activity levels per rep. Surfaces trends and anomalies that indicate coaching
+        opportunities, and compares rep performance against segment benchmarks.
+
+        '
+      success_signal:
+        metric: Performance tracking consolidation and trend visibility
+        target: Manager reviews include per-rep trend data without manual compilation
+        leading_indicator: Performance data available within 24h of period close without manual effort
+        failure_signal: Manager discovers performance issues only during scheduled review conversations
+  escalation_triggers:
+  - Pipeline coverage drops below 2.5x team target
+  - Forecast variance exceeds 15% from prior week commit
+  - Individual rep win rate drops below 15% for two consecutive months
+  - Quarterly strategy review surfaces market shift requiring territory redesign
+  prompt_registry:
+    senior-manager-weekly-pipeline-review:
+      description: Review pipeline health and at-risk deals
+      source: prompts/tasks.yaml#portfolio_oversight.weekly_pipeline_review
+      inputs:
+      - title: coverage
+        type: string
+      - title: forecast_deals
+        type: string
+      - title: pipeline_value
+        type: string
+      - title: target
+        type: string
+      outputs:
+      - title: weekly-pipeline-review_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - pipeline_data
+        - forecast_deals
+        - at_risk_deals
+        - coverage_metrics
+        priority: critical
+      - source: read-communications
+        fields:
+        - deal_engagement_signals
+        - meeting_frequency
+        - stakeholder_activity
+        priority: critical
+      - source: read-infohub
+        fields:
+        - historical_coverage
+        - forecast_accuracy_history
+        priority: enrichment
+    senior-manager-monthly-performance-review:
+      description: Review team and deal performance patterns
+      source: prompts/tasks.yaml#portfolio_oversight.monthly_performance_review
+      inputs:
+      - title: avg_deal_size
+        type: string
+      - title: loss_count
+        type: string
+      - title: loss_value
+        type: string
+      - title: month
+        type: string
+      - title: win_count
+        type: string
+      - title: win_rate
+        type: string
+      - title: win_value
+        type: string
+      outputs:
+      - title: monthly-performance-review_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - win_loss_data
+        - deal_metrics
+        - team_performance_scores
+        - activity_metrics
+        priority: critical
+      - source: read-infohub
+        fields:
+        - historical_performance
+        - segment_benchmarks
+        priority: enrichment
+    senior-manager-quarterly-strategy-review:
+      description: Review and adjust territory strategy
+      source: prompts/tasks.yaml#portfolio_oversight.quarterly_strategy_review
+      inputs:
+      - title: competitive_changes
+        type: string
+      - title: market_changes
+        type: string
+      - title: quarter
+        type: string
+      - title: quarterly_results
+        type: string
+      - title: resource_changes
+        type: string
+      outputs:
+      - title: quarterly-strategy-review_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - quarterly_results
+        - pipeline_trends
+        - conversion_rates
+        priority: critical
+      - source: read-infohub
+        fields:
+        - market_intelligence
+        - competitive_landscape
+        - resource_status
+        - territory_performance
+        priority: enrichment
+  boundaries:
+  - Does not triage or resolve escalations (Escalation & Decision Agent's domain)
+  - Does not coach team members directly on deal strategy or skills (Coaching & Development Agent's domain)
+  - Does not prepare executive call materials or EBR content (Executive Engagement Agent's domain)
+  - Does not allocate resources or resolve resource conflicts (Resource Planning Agent's domain)
+  - Does not auto-change CRM data, recommends updates for manager review
+  - Does not make territory redesign decisions, provides data for manager decision
+  permissions:
+  - Read CRM pipeline data across all team members
+  - Read communications for engagement signal validation
+  - Flag stage mismatches between CRM data and engagement signals
+  - Produce signal-adjusted forecast views alongside rep-reported numbers
+  - Track and trend team performance metrics per rep and segment
+  - Identify coaching opportunities based on performance pattern analysis
+  guardrails:
+    input_validation:
+    - Reject pipeline review without pipeline value and target data
+    - Reject performance review without time period and minimum deal count
+    - Reject strategy review without quarterly results data
+    output_checks:
+    - Pipeline health must cross-reference stages with engagement signals
+    - Forecast adjustments must cite specific evidence for each adjustment
+    - Performance trends must include per-rep data, not just team averages
+    - Strategy recommendations must connect to quantified pipeline and market data
+    signal_validation:
+    - Never validate pipeline stage without checking engagement signal frequency
+    - Never present forecast without noting confidence level and data gaps
+    - Flag [STAGE MISMATCH] when deal activity contradicts reported stage
+    - Mark performance trends [INSUFFICIENT DATA] when sample size is below threshold
+  error_handling:
+    tool_failures:
+      critical:
+      - read-crm-data
+      enrichment:
+      - read-communications
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce pipeline analysis without CRM data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with CRM data only, mark signal validation as unavailable
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern, pipeline data older than 48h requires manual verification
+  knowledge:
+    scope:
+      domains:
+      - pipeline-management
+      - forecast-accuracy
+      - team-performance
+      - territory-strategy
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/portfolio-health-indicators.yaml
+      description: Pipeline health scoring criteria, coverage thresholds, stage validation rules, forecast accuracy benchmarks
+    - path: references/signal-detection.yaml
+      description: Engagement signal types and detection patterns for pipeline stage validation
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: senior-manager-agent
+      description: Senior Manager orchestrator routes pipeline review and performance tracking requests
+    outputs:
+    - type: parent_return
+      target: senior-manager-agent
+      payload:
+      - pipeline_health_review
+      - forecast_validation
+      - performance_analysis
+      - strategy_review
+      description: Pipeline and performance results back to orchestrator

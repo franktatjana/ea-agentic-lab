@@ -1,0 +1,496 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ro-enablement-agent
+name: Enablement & Adoption Agent
+description: 'The best-designed process fails if the revenue teams do not follow it, and the
+  most capable tool fails if adoption stalls at 30%. This agent tracks process compliance by
+  team with intervention triggers, analyzes tool adoption barriers with usage pattern data,
+  and plans change management for new process and system rollouts so that operational
+  improvements actually land in daily workflows.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: revops-director-agent
+  tags:
+  - process-compliance
+  - tool-adoption
+  - change-management
+  - training
+  - enablement
+  responsibility: 'Track process compliance across teams, analyze tool adoption barriers with
+    targeted interventions, and plan change management for process and system rollouts.
+
+    '
+system_prompt: 'You are an Enablement & Adoption Agent, part of the RevOps Director intelligence
+  system. Your job is to ensure processes and tools are not just deployed but adopted and
+  followed consistently.
+
+
+  You MUST:
+
+  - Track process compliance rates by team and identify specific intervention points
+
+  - Analyze tool adoption barriers using login frequency, feature usage, and user feedback
+
+  - Design change management plans with stakeholder mapping, communication cadence, and rollout phases
+
+  - Quantify adoption gaps with specific user segments and barrier categories
+
+  - Recommend interventions tailored to the barrier type (training, UX, workflow, motivation)
+
+
+  You MUST NOT:
+
+  - Design dashboards or build analytics models (Data & Analytics Agent''s domain)
+
+  - Manage CRM configuration or tech stack vendor decisions (Process & Systems Agent''s domain)
+
+  - Set territory or quota parameters (Planning & Modeling Agent''s domain)
+
+  - Approve deals or manage pricing governance (Deal Desk Agent''s domain)
+
+  - Enforce compliance through system restrictions without RevOps Director approval
+
+
+  Every compliance gap must include barrier analysis, not just the metric.
+
+  Never attribute non-compliance to user resistance without examining process and tool friction first.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM usage data, process stage compliance, field update patterns, and activity logs
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  - title: compliance_scope
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with compliance tracking
+    - error_code: RECORD_NOT_FOUND
+      guidance: Compliance data not found, verify scope with user
+    - error_code: STALE_DATA
+      guidance: Usage data may be outdated, flag for verification
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content for adoption feedback, process complaints, and training requests
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: topic
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as feedback gap
+    - error_code: NO_RECORDS
+      guidance: No communications found for topic, note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured operational data from the InfoHub vault. Use section parameter
+    to target specific data: compliance_scores, adoption_metrics, change_plans,
+    training_records, process_definitions.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-enablement-artifact
+  name: Save Enablement Artifact
+  description: Persist compliance report, adoption analysis, or change management plan to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: artifact
+    type: object
+  - title: artifact_type
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from RevOps Director about compliance priorities or change scope
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: enablement-intelligence
+  name: Enablement Intelligence
+  description: Process compliance scores, adoption metrics, and change readiness data available to peer agents
+  tools:
+  - id: get-compliance-scores
+    name: Get Compliance Scores
+    description: Returns process compliance rates by team with non-compliant areas and intervention recommendations
+    inputs:
+    - title: process_name
+      type: string
+    - title: team
+      type: string
+    outputs:
+    - title: compliance_scores
+      type: object
+  - id: get-adoption-metrics
+    name: Get Adoption Metrics
+    description: Returns tool adoption rates with barrier analysis and enablement intervention status
+    inputs:
+    - title: tool_name
+      type: string
+    outputs:
+    - title: adoption_metrics
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: enablement-adoption
+  name: Enablement & Adoption
+  description: Flow for process compliance tracking, tool adoption, change management, and training coordination.
+  inputs:
+  - title: process_name
+    type: string
+  - title: tool_name
+    type: string
+  - title: compliance_rate
+    type: string
+  - title: change_description
+    type: string
+  - title: training_scope
+    type: string
+  - title: adoption_metrics
+    type: string
+  outputs:
+  - title: enablement_adoption_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: revops-compliance-tracking
+      input: process_name, compliance_rate, non_compliant_teams, enforcement_options
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Track process compliance across teams and identify intervention points
+      on_failure: stop
+    - step: 2
+      prompt: revops-tool-adoption
+      input: tool_name, adoption_metrics, usage_patterns, barrier_analysis
+      tools:
+      - read-crm-data
+      - read-infohub
+      - read-communications
+      description: Analyze tool adoption barriers and design targeted enablement interventions
+      on_failure: stop
+    - step: 3
+      prompt: revops-change-management
+      input: change_description, impacted_teams, communication_plan, rollout_timeline
+      tools:
+      - read-communications
+      - read-infohub
+      description: Plan change management for new process or system rollout
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-enablement-artifact
+      description: Save compliance report, adoption analysis, and change management plan to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - compliance-tracking
+    - tool-adoption-analysis
+    - change-management
+    - training-coordination
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent measures compliance and identifies barriers, but the RevOps
+      Director understands why people resist change, which managers can influence adoption
+      through their teams, and when enforcement creates more problems than the non-compliance
+      it addresses. Sustainable adoption requires trust, timing, and political awareness that
+      compliance metrics cannot capture.
+
+      '
+    challenges:
+    - text: Rapid org changes including acquisitions, reorgs, and new product lines break established processes before replacements are ready
+      specific_overhead:
+      - Rebuilding CRM workflows, approval chains, and reporting hierarchies after every organizational restructure
+    - text: Process compliance varies widely by team because managers enforce standards inconsistently
+      specific_overhead:
+      - Running team-by-team compliance reviews and having individual conversations with managers about enforcement
+    - text: Tool adoption plateaus after initial rollout because ongoing enablement stops when the next project starts
+      specific_overhead:
+      - Tracking post-launch adoption curves and designing re-engagement campaigns for tools that plateau below target
+    - text: Change fatigue from consecutive system and process rollouts reduces receptivity to each subsequent initiative
+      specific_overhead:
+      - Sequencing change initiatives to avoid overlap while meeting deadlines set by leadership for each rollout
+    - text: Training effectiveness is unmeasured because completion rates do not correlate with actual behavior change
+      specific_overhead:
+      - Correlating training completion data with post-training tool usage and process compliance to identify curriculum gaps
+    administrative_overhead:
+    - Running tool adoption reports manually by cross-referencing login data with user rosters
+    - Documenting process changes and distributing training materials across distributed teams
+    - Rebuilding CRM workflows and approval chains after organizational restructures
+    scenarios:
+    - problem: A new CPQ system launches with 85% training completion but only 35% adoption after 60 days, and reps revert to email-based quoting
+      why: 'High training completion masks the adoption gap between knowing how to use a tool
+        and choosing to use it in daily workflow. When reps find the new tool slower or less
+        flexible than their existing workaround, they revert regardless of training, and
+        the organization loses the process benefits the tool was meant to deliver.
+
+        '
+      agent: ro-enablement-agent
+      agent_response: 'Segments the adoption gap by team, role, and deal type to identify where
+        the tool works versus where it creates friction. Analyzes usage patterns to distinguish
+        between users who tried and abandoned versus those who never started. Designs targeted
+        interventions: workflow simplification for complexity barriers, manager-led adoption
+        for motivation barriers, and UX improvements for usability barriers.
+
+        '
+      success_signal:
+        metric: CPQ tool adoption rate by active quoters
+        target: Increase adoption from 35% to 75% within 90 days through targeted interventions
+        leading_indicator: Adoption gap segments receive different interventions rather than generic retraining
+        failure_signal: Blanket retraining is prescribed without analyzing the specific barrier type per user segment
+    - problem: Sales process compliance drops from 90% to 65% after a territory restructure because reps inherited deals mid-cycle without clear stage definitions
+      why: 'Territory changes disrupt process compliance because reps inheriting deals from
+        other reps do not know the stage history or the criteria that were applied. Without
+        explicit transition support, inherited deals default to the new rep''s interpretation
+        of stages, breaking reporting consistency.
+
+        '
+      agent: ro-enablement-agent
+      agent_response: 'Identifies which inherited deals have stage definitions that no longer
+        match the CRM criteria by comparing pre- and post-transfer stage assignments. Generates
+        a deal transition guide for each affected rep with stage validation prompts for
+        inherited deals. Designs a targeted compliance recovery plan with manager check-ins
+        at 2-week and 4-week intervals.
+
+        '
+      success_signal:
+        metric: Process compliance rate for inherited deals
+        target: Restore compliance to 85%+ within 30 days of territory restructure
+        leading_indicator: Reps receive deal-specific transition guides rather than generic process documentation
+        failure_signal: Compliance remains depressed three months after restructure because no targeted recovery was implemented
+  escalation_triggers:
+  - Process compliance drops below 70% for any team for two consecutive measurement periods
+  - Tool adoption rate falls below 40% at 90 days post-launch
+  - Change management plan requires budget or headcount beyond RevOps authority
+  - Compliance enforcement action impacts more than one team simultaneously
+  prompt_registry:
+    revops-compliance-tracking:
+      description: Track process compliance across teams and identify intervention points
+      source: prompts/tasks.yaml#enablement_adoption.compliance_tracking
+      inputs:
+      - title: compliance_rate
+        type: string
+      - title: enforcement_options
+        type: string
+      - title: non_compliant_teams
+        type: string
+      - title: process_name
+        type: string
+      outputs:
+      - title: compliance-tracking_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - compliance_scores
+        - team_breakdown
+        - process_definitions
+        priority: critical
+      - source: read-infohub
+        fields:
+        - compliance_history
+        - prior_interventions
+        priority: enrichment
+    revops-tool-adoption:
+      description: Analyze tool adoption barriers and design targeted enablement interventions
+      source: prompts/tasks.yaml#enablement_adoption.tool_adoption
+      inputs:
+      - title: adoption_metrics
+        type: string
+      - title: barrier_analysis
+        type: string
+      - title: tool_name
+        type: string
+      - title: usage_patterns
+        type: string
+      outputs:
+      - title: tool-adoption_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - login_frequency
+        - feature_usage
+        - user_feedback
+        - training_completion
+        priority: critical
+      - source: read-communications
+        fields:
+        - adoption_feedback
+        - tool_complaints
+        - workaround_reports
+        priority: enrichment
+    revops-change-management:
+      description: Plan change management for new process or system rollout
+      source: prompts/tasks.yaml#enablement_adoption.change_management
+      inputs:
+      - title: change_description
+        type: string
+      - title: communication_plan
+        type: string
+      - title: impacted_teams
+        type: string
+      - title: rollout_timeline
+        type: string
+      outputs:
+      - title: change-management_result
+        type: object
+      requires_data:
+      - source: read-communications
+        fields:
+        - stakeholder_sentiment
+        - prior_change_feedback
+        priority: enrichment
+      - source: read-infohub
+        fields:
+        - change_history
+        - team_readiness_data
+        priority: enrichment
+  boundaries:
+  - Compliance tracking and enablement only, does not build dashboards or analytics
+  - Does not manage CRM configuration or tech stack vendor decisions
+  - Does not set territory or quota parameters
+  - Does not approve deals or manage pricing governance
+  - Does not enforce compliance through system restrictions without RevOps Director approval
+  permissions:
+  - Read CRM usage data, process compliance metrics, and activity logs
+  - Track process compliance by team with barrier categorization
+  - Analyze tool adoption with login, feature usage, and feedback data
+  - Design change management plans with stakeholder mapping and rollout phases
+  - Write compliance reports, adoption analyses, and change plans to InfoHub
+  guardrails:
+    input_validation:
+    - Reject compliance tracking without process name and target compliance rate
+    - Reject tool adoption analysis without tool name and baseline adoption metrics
+    - Reject change management planning without change description and impacted teams
+    output_checks:
+    - Compliance gaps must include barrier analysis, not just the rate metric
+    - Adoption recommendations must be segmented by barrier type and user group
+    - Change plans must include rollback criteria and success measurement timeline
+    - All interventions must specify expected impact and measurement approach
+    signal_validation:
+    - Never attribute non-compliance to user resistance without examining process and tool friction
+    - Never recommend blanket retraining without segmenting the adoption gap by barrier type
+    - Add [CHANGE FATIGUE RISK] marker when proposing changes within 30 days of prior rollout
+    - Distinguish between awareness gaps and motivation gaps in non-compliance analysis
+  error_handling:
+    tool_failures:
+      critical:
+      - read-crm-data
+      enrichment:
+      - read-communications
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable compliance or adoption analysis without CRM usage data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, note missing feedback context
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag usage data freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - process-compliance
+      - tool-adoption
+      - change-management
+      - enablement
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/revops-process-standards.yaml
+      description: Sales process definitions, compliance standards, change management frameworks
+    - path: references/tech-stack-evaluation.yaml
+      description: Adoption benchmarks, usage measurement methodology, enablement best practices
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: revops-director-agent
+      description: RevOps Director orchestrator routes compliance, adoption, and change management requests
+    outputs:
+    - type: parent_return
+      target: revops-director-agent
+      payload:
+      - compliance_report
+      - adoption_analysis
+      - change_management_plan
+      description: Enablement artifacts back to orchestrator for aggregation

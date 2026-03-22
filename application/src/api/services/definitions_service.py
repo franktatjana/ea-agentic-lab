@@ -110,7 +110,17 @@ class DefinitionsService:
                 entry["category"] = id_to_category[parent_id]
             else:
                 entry["category"] = dir_cat
+            entry["_resolved_parent"] = parent_id
             definitions.append(entry)
+
+        # Pass 3: aggregate sub-agent counts into orchestrator totals
+        id_to_def = {d["id"]: d for d in definitions}
+        for entry in definitions:
+            parent_id = entry.pop("_resolved_parent", None)
+            if parent_id and parent_id in id_to_def:
+                parent = id_to_def[parent_id]
+                parent["prompt_count"] = parent.get("prompt_count", 0) + entry.get("prompt_count", 0)
+                parent["flow_count"] = parent.get("flow_count", 0) + entry.get("flow_count", 0)
 
         return definitions
 

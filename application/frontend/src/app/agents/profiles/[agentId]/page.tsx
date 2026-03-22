@@ -1027,12 +1027,13 @@ export default function AgentProfileDetailPage({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {subAgents.map((sa) => {
               const meta = sa.id ? subAgentLookup[sa.id] : undefined;
+              const hasProfile = meta?.has_profile === true;
               return (
                 <Card
                   key={sa.name}
-                  className={`border-l-4 border-l-purple-400/50 ${sa.id ? "cursor-pointer hover:border-l-purple-400 transition-colors" : ""}`}
+                  className={`border-l-4 border-l-purple-400/50 ${hasProfile ? "cursor-pointer hover:border-l-purple-400 transition-colors" : ""}`}
                   onClick={() => {
-                    if (sa.id) router.push(`/agents/profiles/${sa.id}`);
+                    if (hasProfile) router.push(`/agents/profiles/${sa.id}`);
                   }}
                 >
                   <CardContent className="p-5">
@@ -1041,7 +1042,7 @@ export default function AgentProfileDetailPage({
                         <Bot className="h-4 w-4 text-purple-400 shrink-0" />
                         <h3 className="font-medium">{sa.name}</h3>
                       </div>
-                      {sa.id && <ArrowRight className="h-3.5 w-3.5 text-blue-500 dark:text-amber-400 shrink-0 mt-0.5" />}
+                      {hasProfile && <ArrowRight className="h-3.5 w-3.5 text-blue-500 dark:text-amber-400 shrink-0 mt-0.5" />}
                     </div>
                     <p className="text-[15px] text-muted-foreground leading-relaxed">
                       {sa.purpose}

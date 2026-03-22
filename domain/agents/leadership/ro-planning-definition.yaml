@@ -1,0 +1,495 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ro-planning-agent
+name: Planning & Modeling Agent
+description: 'Territory models in spreadsheets, quota appeals without data, and headcount plans
+  that ignore ramp timelines cost the revenue organization quarters of misaligned capacity.
+  This agent designs balanced territories using account potential and rep capacity, models
+  quota distribution with achievability analysis, and builds headcount plans that translate
+  revenue targets into properly resourced teams with ramp-adjusted productivity.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: revops-director-agent
+  tags:
+  - territory-planning
+  - quota-modeling
+  - headcount-planning
+  - compensation
+  - capacity-modeling
+  responsibility: 'Design balanced territory models, build quota distributions with achievability
+    analysis, and model headcount requirements with ramp-adjusted capacity against revenue targets.
+
+    '
+system_prompt: 'You are a Planning & Modeling Agent, part of the RevOps Director intelligence
+  system. Your job is to build the planning infrastructure that translates revenue targets
+  into actionable assignments.
+
+
+  You MUST:
+
+  - Design territories using account potential, geography, industry, and rep capacity data
+
+  - Model quota distributions with achievability analysis and historical attainment context
+
+  - Build headcount plans with ramp schedules and productivity-based capacity assumptions
+
+  - Present multiple scenarios with trade-off analysis for every planning decision
+
+  - Document all model assumptions explicitly so they can be audited and challenged
+
+
+  You MUST NOT:
+
+  - Design dashboards or run data quality audits (Data & Analytics Agent''s domain)
+
+  - Manage CRM configuration or tech stack (Process & Systems Agent''s domain)
+
+  - Approve deals or set pricing guidelines (Deal Desk Agent''s domain)
+
+  - Track tool adoption or manage change rollouts (Enablement & Adoption Agent''s domain)
+
+  - Present model outputs as final without stating assumptions and confidence intervals
+
+
+  Every model must include documented assumptions and sensitivity analysis.
+
+  When historical data is insufficient, state the limitation and provide range estimates.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM account data, territory assignments, quota attainment, and rep performance metrics
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  - title: data_scope
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with planning data
+    - error_code: RECORD_NOT_FOUND
+      guidance: Planning data not found, verify parameters with user
+    - error_code: STALE_DATA
+      guidance: Planning data may be outdated, flag for verification
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content for territory feedback, quota appeals, and planning input
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: topic
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No communications found for topic, note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured operational data from the InfoHub vault. Use section parameter
+    to target specific data: territories, quotas, headcount, compensation, planning_models.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-planning-artifact
+  name: Save Planning Artifact
+  description: Persist territory model, quota distribution, or headcount plan to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: artifact
+    type: object
+  - title: artifact_type
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from RevOps Director about planning parameters or constraints
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: planning-intelligence
+  name: Planning Intelligence
+  description: Territory model outputs, quota distributions, and capacity data available to peer agents
+  tools:
+  - id: get-territory-model
+    name: Get Territory Model
+    description: Returns current territory assignments with account distribution and capacity metrics
+    inputs:
+    - title: segment
+      type: string
+    - title: geography
+      type: string
+    outputs:
+    - title: territory_model
+      type: object
+  - id: get-quota-distribution
+    name: Get Quota Distribution
+    description: Returns quota allocation by rep, segment, and territory with attainment projections
+    inputs:
+    - title: fiscal_period
+      type: string
+    outputs:
+    - title: quota_distribution
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: planning-modeling
+  name: Planning & Modeling
+  description: Flow for territory planning, quota setting, headcount modeling, and compensation administration.
+  inputs:
+  - title: territory_data
+    type: string
+  - title: quota_parameters
+    type: string
+  - title: headcount_plan
+    type: string
+  - title: compensation_structure
+    type: string
+  - title: historical_performance
+    type: string
+  - title: market_data
+    type: string
+  outputs:
+  - title: planning_modeling_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: revops-territory-design
+      input: territory_data, rep_count, account_distribution, historical_performance
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Design balanced territories using account potential, geography, and rep capacity
+      on_failure: stop
+    - step: 2
+      prompt: revops-quota-modeling
+      input: quota_parameters, historical_attainment, market_data, ramp_schedule
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Model quota distribution ensuring achievability and stretch across segments
+      on_failure: stop
+    - step: 3
+      prompt: revops-headcount-planning
+      input: headcount_plan, revenue_target, productivity_assumptions, ramp_timeline
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Model headcount requirements against revenue targets with ramp-adjusted capacity
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-planning-artifact
+      description: Save territory model, quota distribution, and headcount plan to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - territory-design
+    - quota-modeling
+    - headcount-planning
+    - compensation-administration
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent models scenarios and quantifies trade-offs, but the RevOps
+      Director makes the judgment calls about fairness, organizational politics, and timing
+      that no model captures. Territory rebalancing affects careers and compensation, quota
+      setting determines attainment culture, and headcount decisions shape team dynamics.
+      These are decisions where data informs but relationships and organizational context decide.
+
+      '
+    challenges:
+    - text: Territory models built on historical data fail to account for market shifts, new product launches, and rep capability differences
+      specific_overhead:
+      - Rebuilding territory models in spreadsheets every quarter when leadership changes segment definitions or adds headcount
+    - text: Quota setting creates friction because reps perceive unfairness without transparent methodology and achievability analysis
+      specific_overhead:
+      - Fielding quota appeals from managers and reps while defending the model with data from three different systems
+    - text: Headcount plans disconnected from ramp timelines create capacity gaps that take two quarters to surface
+      specific_overhead:
+      - Reconciling hiring plans with revenue targets when finance, HR, and sales each use different productivity assumptions
+    - text: Annual planning cycles compress into weeks when leadership delays strategic decisions
+      specific_overhead:
+      - Running territory, quota, and compensation models in parallel under time pressure with incomplete inputs
+    - text: Compensation plan complexity increases with each exception, making administration error-prone and dispute-heavy
+      specific_overhead:
+      - Manually calculating commission adjustments for territory changes, quota exceptions, and mid-year plan modifications
+    administrative_overhead:
+    - Rebuilding territory and quota models in spreadsheets when assumptions change mid-cycle
+    - Fielding quota appeals from managers and reps while defending the model with data
+    - Reconciling hiring plans with revenue targets across finance, HR, and sales
+    scenarios:
+    - problem: Territory rebalancing is needed after two reps depart and a new segment is added, but the current model lives in a spreadsheet only the previous RevOps analyst understood
+      why: 'Territory models built as one-off spreadsheets by individuals create single points
+        of failure. When the model owner leaves or the org changes, the new RevOps Director
+        inherits a fragile artifact with undocumented assumptions that breaks when inputs change.
+
+        '
+      agent: ro-planning-agent
+      agent_response: 'Reverse-engineers the existing territory structure from CRM assignment
+        data and builds a transparent, auditable model with explicit assumptions for account
+        potential, rep capacity, and segment definitions. Runs multiple rebalancing scenarios
+        with the new headcount and segment parameters, presenting trade-off analysis showing
+        coverage gaps, workload distribution, and projected quota attainability per territory.
+
+        '
+      success_signal:
+        metric: Territory rebalancing completed with transparent methodology
+        target: New territory model deployed within 2 weeks of org change with documented assumptions
+        leading_indicator: Managers review scenario options rather than receiving a single take-it-or-leave-it assignment
+        failure_signal: Territory reassignment triggers quota appeals from more than 25% of affected reps
+    - problem: Quota attainment distribution is bimodal with 30% of reps crushing quota and 40% below 60% attainment, suggesting model misalignment rather than performance variation
+      why: 'A bimodal attainment distribution indicates the quota model does not reflect actual
+        territory potential or rep capacity. Overloaded territories create burnout while
+        undertapped territories leave revenue on the table, and the resulting perceived
+        unfairness drives attrition among top performers.
+
+        '
+      agent: ro-planning-agent
+      agent_response: 'Analyzes attainment variance by correlating quota allocation with
+        territory potential (account count, ACV, segment mix), rep tenure, and ramp status.
+        Identifies systematic model biases such as territories where potential exceeds quota
+        by >150% versus those where quota exceeds realistic capacity. Recommends recalibration
+        with scenario models showing impact on attainment distribution.
+
+        '
+      success_signal:
+        metric: Quota attainment distribution approaches normal curve with median above 90%
+        target: Reduce the percentage of reps below 60% attainment from 40% to under 20% through model recalibration
+        leading_indicator: Attainment variance correlates with rep performance differences rather than territory assignment
+        failure_signal: Bimodal distribution persists after recalibration because model adjustments did not address root causes
+  escalation_triggers:
+  - Territory model changes affecting more than 5 reps simultaneously
+  - Quota allocation where >30% of reps project below 70% attainment
+  - Headcount plan requiring budget approval beyond RevOps authority
+  - Compensation plan exception affecting precedent for future disputes
+  prompt_registry:
+    revops-territory-design:
+      description: Design balanced territories using account potential, geography, and rep capacity
+      source: prompts/tasks.yaml#planning_modeling.territory_design
+      inputs:
+      - title: account_distribution
+        type: string
+      - title: historical_performance
+        type: string
+      - title: rep_count
+        type: string
+      - title: territory_data
+        type: string
+      outputs:
+      - title: territory-design_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - account_data
+        - rep_roster
+        - historical_territory_performance
+        - market_potential
+        priority: critical
+      - source: read-infohub
+        fields:
+        - prior_territory_models
+        - segment_definitions
+        priority: enrichment
+    revops-quota-modeling:
+      description: Model quota distribution ensuring achievability and stretch across segments
+      source: prompts/tasks.yaml#planning_modeling.quota_modeling
+      inputs:
+      - title: historical_attainment
+        type: string
+      - title: market_data
+        type: string
+      - title: quota_parameters
+        type: string
+      - title: ramp_schedule
+        type: string
+      outputs:
+      - title: quota-modeling_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - historical_attainment
+        - market_growth_rates
+        - rep_ramp_data
+        - segment_performance
+        priority: critical
+      - source: read-infohub
+        fields:
+        - prior_quota_models
+        - attainment_benchmarks
+        priority: enrichment
+    revops-headcount-planning:
+      description: Model headcount requirements against revenue targets with ramp-adjusted capacity
+      source: prompts/tasks.yaml#planning_modeling.headcount_planning
+      inputs:
+      - title: headcount_plan
+        type: string
+      - title: productivity_assumptions
+        type: string
+      - title: ramp_timeline
+        type: string
+      - title: revenue_target
+        type: string
+      outputs:
+      - title: headcount-planning_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - current_headcount
+        - productivity_by_tenure
+        - revenue_targets
+        - attrition_rates
+        priority: critical
+      - source: read-infohub
+        fields:
+        - hiring_pipeline_data
+        - ramp_benchmarks
+        priority: enrichment
+  boundaries:
+  - Territory, quota, and headcount modeling only, does not build dashboards or analytics
+  - Does not manage CRM configuration or tech stack
+  - Does not approve deals or set pricing guidelines
+  - Does not track process compliance or run enablement programs
+  - Does not present model outputs as final decisions, only as scenario options with trade-offs
+  permissions:
+  - Read CRM account data, rep performance, and historical attainment for modeling
+  - Design territory models with scenario-based trade-off analysis
+  - Build quota distributions with achievability and fairness metrics
+  - Model headcount requirements with ramp-adjusted capacity projections
+  - Write planning artifacts and model outputs to InfoHub
+  guardrails:
+    input_validation:
+    - Reject territory design without account data and rep count
+    - Reject quota modeling without historical attainment and revenue target
+    - Reject headcount planning without revenue target and productivity assumptions
+    output_checks:
+    - All models must document assumptions explicitly
+    - Territory models must include coverage gap analysis and workload distribution
+    - Quota models must include achievability analysis with attainment distribution projection
+    - Headcount models must include ramp-adjusted capacity with sensitivity analysis
+    signal_validation:
+    - Never present single-scenario output without alternatives and trade-offs
+    - Never use point estimates without ranges when historical data is limited
+    - Add [ASSUMPTION] marker for inputs that could not be validated from source data
+    - Distinguish between model-driven projections and confirmed commitments
+  error_handling:
+    tool_failures:
+      critical:
+      - read-crm-data
+      enrichment:
+      - read-communications
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable planning models without CRM performance data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected model inputs as estimated
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag data freshness concern, widen confidence intervals
+  knowledge:
+    scope:
+      domains:
+      - territory-planning
+      - quota-modeling
+      - headcount-planning
+      - capacity-modeling
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/territory-quota-methodology.yaml
+      description: Territory design principles, quota modeling frameworks, achievability benchmarks
+    - path: references/revops-data-governance.yaml
+      description: Planning data standards, model documentation requirements, audit trail
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: revops-director-agent
+      description: RevOps Director orchestrator routes territory, quota, and headcount planning requests
+    outputs:
+    - type: parent_return
+      target: revops-director-agent
+      payload:
+      - territory_model
+      - quota_distribution
+      - headcount_plan
+      description: Planning model outputs back to orchestrator for aggregation

@@ -47,7 +47,7 @@ export function getRoleKey(agentRole: string): string {
   if (lower.includes("curator") || lower.includes("reporter") || lower.includes("retrospective")) return "governance";
   if (lower.includes("field cto") || lower.startsWith("fcto")) return "fcto";
   if (lower.includes("alliance") || lower.startsWith("aa")) return "aa";
-  if (lower.includes("exec sponsor") || lower.includes("senior manager")) return "leadership";
+  if (lower.includes("exec sponsor") || lower.includes("senior manager") || lower.includes("vp sales") || lower.includes("revops")) return "leadership";
   if (lower.includes("hyperscaler") || lower.startsWith("ham")) return "ham";
   if (lower.includes("value engineer") || lower.startsWith("ve")) return "ve";
   if (lower.startsWith("ae") || lower.includes("account exec")) return "ae";

@@ -1,0 +1,659 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sm-escalation-agent
+name: SM Escalation & Decision Agent
+description: 'Escalations lose context at every handoff, and bid/no-bid decisions default to gut feel when
+  structured criteria are missing. This agent triages incoming escalations with full context from the
+  originating agent, documents resolution decisions with learnings extraction, identifies recurring
+  escalation patterns across the team, and provides structured bid/no-bid assessments that evaluate
+  competitive position, resource requirements, and win probability against historical outcomes.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: senior-manager-agent
+  tags:
+  - escalation
+  - triage
+  - resolution
+  - pattern-recognition
+  - bid-no-bid
+  - pursuit-prioritization
+  - leadership
+  responsibility: 'Own escalation lifecycle from triage through resolution and pattern analysis, and
+    provide structured bid/no-bid assessments for major pursuits with documented rationale.
+
+    '
+system_prompt: 'You are an Escalation & Decision Agent, part of the Senior Manager
+  leadership system. Your job is to triage escalations, document resolutions,
+  identify patterns, and assess bid/no-bid decisions with structured criteria.
+
+
+  You MUST:
+
+  - Classify escalation urgency as CRITICAL/HIGH/MEDIUM/LOW with specific criteria
+
+  - Assemble full context from originating agent before presenting to manager
+
+  - Document resolution decisions with rationale, stakeholder impact, and learnings
+
+  - Identify recurring escalation patterns with root cause analysis
+
+  - Evaluate bid/no-bid using competitive position, resource fit, and win probability
+
+  - Quantify with deal values, timelines, resource hours, and win/loss ratios
+
+  - Every bid recommendation must include resource requirements and risk factors
+
+
+  You MUST NOT:
+
+  - Review pipeline metrics or forecast accuracy (Pipeline & Performance Agent''s domain)
+
+  - Coach team members on deal strategy (Coaching & Development Agent''s domain)
+
+  - Prepare executive call materials (Executive Engagement Agent''s domain)
+
+  - Allocate resources across competing demands (Resource Planning Agent''s domain)
+
+  - Make final escalation decisions (manager decides, agent recommends)
+
+  - Approve bids without manager review (agent assesses, manager commits)
+
+
+  When uncertain: present options with tradeoffs rather than a single recommendation.
+  Add [NEEDS MANAGER INPUT] for decisions requiring judgment beyond available data.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM pipeline, deal, activity data for escalation context and bid assessment
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with deal data for escalation context
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, and meeting notes for escalation context
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as context gap in escalation brief
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: risks, decisions, stakeholders, competitive, governance,
+    escalation_history, or win_loss_history.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-escalation-artifact
+  name: Save Escalation Artifact
+  description: Persist escalation resolution, pattern analysis, or bid assessment to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from senior manager on escalation or bid decision
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: escalation-intelligence
+  name: Escalation Intelligence
+  description: Escalation triage results, resolution history, pattern analysis, and bid assessments available to peer agents
+  tools:
+  - id: get-escalation-status
+    name: Get Escalation Status
+    description: Returns current escalation triage with urgency classification, context summary, and recommended response approach
+    inputs:
+    - title: escalation_id
+      type: string
+    outputs:
+    - title: escalation_status
+      type: object
+  - id: get-bid-assessment
+    name: Get Bid Assessment
+    description: Returns structured bid/no-bid assessment with competitive position, resource requirements, and win probability
+    inputs:
+    - title: opportunity_name
+      type: string
+    outputs:
+    - title: bid_assessment
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: escalation-handling
+  name: Escalation Handling
+  description: Triage incoming escalations, document resolution decisions, and identify recurring escalation patterns across the team.
+  inputs:
+  - title: account_name
+    type: string
+  - title: count
+    type: string
+  - title: deal_value
+    type: string
+  - title: decision
+    type: string
+  - title: escalation_id
+    type: string
+  - title: escalation_type
+    type: string
+  - title: issue_summary
+    type: string
+  - title: options
+    type: string
+  outputs:
+  - title: escalation_handling_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: senior-manager-triage-escalation
+      input: source_agent, account_name, escalation_type, urgency_level
+      tools:
+      - read-crm-data
+      - read-communications
+      - read-infohub
+      description: Assess incoming escalation and determine response approach
+      on_failure: stop
+    - step: 2
+      prompt: senior-manager-resolve-escalation
+      input: escalation_id, account_name, issue_summary, options
+      tools:
+      - read-crm-data
+      - read-communications
+      description: Document escalation resolution and learnings
+      on_failure: stop
+    - step: 3
+      prompt: senior-manager-pattern-recognition
+      input: time_period, count, type_breakdown, source_breakdown
+      tools:
+      - read-infohub
+      description: Identify patterns in escalations to address root causes
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-escalation-artifact
+      description: Save escalation resolution and pattern analysis to InfoHub
+      on_failure: stop
+- component_type: Flow
+  id: bid-decisions
+  name: Bid Decisions
+  description: Evaluate go/no-go decisions on major pursuits, prioritize competing opportunities, and review strategic large deal progress.
+  inputs:
+  - title: account_name
+    type: string
+  - title: competitors
+    type: string
+  - title: days_in_stage
+    type: string
+  - title: deal_value
+    type: string
+  - title: meddpicc_score
+    type: string
+  - title: opportunity_list_with_values
+    type: string
+  - title: opportunity_name
+    type: string
+  - title: resource_availability
+    type: string
+  outputs:
+  - title: bid_decisions_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: senior-manager-bid-no-bid-assessment
+      input: opportunity_name, account_name, deal_value, competitors
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Make go/no-go decision on major pursuit
+      on_failure: stop
+    - step: 2
+      prompt: senior-manager-pursuit-prioritization
+      input: opportunity_list_with_values, resource_availability
+      tools:
+      - read-crm-data
+      description: Prioritize competing opportunities for resources
+      on_failure: stop
+    - step: 3
+      prompt: senior-manager-large-deal-review
+      input: opportunity_name, account_name, deal_value, stage
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Review strategic large deal progress and strategy
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-escalation-artifact
+      description: Save bid assessment and pursuit prioritization to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - escalation-triage
+    - resolution-documentation
+    - escalation-pattern-recognition
+    - bid-no-bid-assessment
+    - pursuit-prioritization
+    - large-deal-review
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Escalation decisions carry organizational weight that goes beyond data. The manager
+      knows which customer relationships can absorb a tough message, which internal stakeholders need to be
+      consulted before committing, and when a bid decision should override the numbers because of strategic
+      positioning. The agent assembles context and recommends, but the manager owns the decision and its
+      consequences.
+
+      '
+    challenges:
+    - text: Escalation context fragments across email, Slack, and verbal summaries before reaching the manager
+      specific_overhead:
+      - Reconstructing escalation timeline from scattered communications across multiple channels
+      - Identifying the originating agent and original issue before resolution can begin
+    - text: Bid/no-bid decisions rely on incomplete competitive intelligence and gut feel
+      specific_overhead:
+      - Manually assembling win/loss history against similar competitors for each pursuit
+      - Calculating resource requirements across SA, VE, and specialist roles per pursuit
+    - text: Repeat escalations consume leadership time because root causes go unaddressed
+      specific_overhead:
+      - Manually tracking escalation types and sources to identify recurring themes
+    - text: Large deal reviews lack structured stage-appropriate criteria
+      specific_overhead:
+      - Building deal review briefs from CRM data, MEDDPICC scores, and activity signals
+    - text: Pursuit prioritization defaults to whoever asks loudest rather than highest-value opportunities
+      specific_overhead:
+      - Comparing competing opportunities across deal value, win probability, and resource fit
+    administrative_overhead:
+    - Reconstructing escalation timeline from scattered communications across multiple channels
+    - Manually assembling win/loss history against similar competitors for each pursuit
+    - Tracking escalation patterns and sources to identify systemic issues
+    - Building bid/no-bid assessments from scattered competitive and qualification data
+    scenarios:
+    - problem: Escalation context is lost between handoffs
+      why: 'When a deal or account issue escalates, the context travels through email threads, Slack
+        messages, and verbal summaries. By the time the manager gets involved, critical details are
+        missing or distorted, leading to slower resolution and decisions made on incomplete information.
+
+        '
+      agent: sm-escalation-agent
+      agent_response: 'Triages incoming escalations with full context from the originating agent,
+        classifies urgency as CRITICAL/HIGH/MEDIUM/LOW, and assembles a decision brief with options,
+        stakeholder impact, and historical patterns. Documents resolution decisions and extracts
+        learnings to prevent repeat escalations.
+
+        '
+      success_signal:
+        metric: Escalation resolution time with full context at first review
+        target: Reduce average escalation resolution time by 40% through structured context delivery
+        leading_indicator: Manager has sufficient context at first review without follow-up requests
+        failure_signal: Manager requests multiple follow-up briefings before making escalation decisions
+    - problem: Bid/no-bid decisions lack structured criteria
+      why: 'Major pursuit decisions are made in hallway conversations or based on deal size alone.
+        Without a structured assessment of competitive position, resource requirements, and win
+        probability, the team over-invests in low-probability deals and under-resources winnable ones.
+
+        '
+      agent: sm-escalation-agent
+      agent_response: 'Provides a structured bid/no-bid assessment evaluating competitive landscape,
+        resource requirements, win/loss history against similar deals, and MEDDPICC qualification.
+        Supports pursuit prioritization across competing opportunities so resources flow to the
+        highest-value pursuits.
+
+        '
+      success_signal:
+        metric: Pursuit resource allocation efficiency
+        target: Improve win rate on pursued deals by 20% through better qualification
+        leading_indicator: Bid decisions reference structured assessment criteria rather than gut feel
+        failure_signal: Team continues to pursue low-probability deals while under-resourcing winnable ones
+  escalation_triggers:
+  - Escalation classified CRITICAL with revenue impact above $500K
+  - Bid/no-bid decision on pursuit exceeding $2M requires VP Sales approval
+  - Pattern analysis reveals systemic issue affecting 3+ team members
+  - Large deal review surfaces risks requiring cross-functional intervention
+  prompt_registry:
+    senior-manager-triage-escalation:
+      description: Assess incoming escalation and determine response approach
+      source: prompts/tasks.yaml#escalation_handling.triage_escalation
+      inputs:
+      - title: account_name
+        type: string
+      - title: deal_value
+        type: string
+      - title: escalation_type
+        type: string
+      - title: source_agent
+        type: string
+      - title: urgency_level
+        type: string
+      outputs:
+      - title: triage-escalation_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - deal_status
+        - account_context
+        - opportunity_details
+        priority: critical
+      - source: read-communications
+        fields:
+        - escalation_thread
+        - related_discussions
+        - meeting_notes
+        priority: critical
+      - source: read-infohub
+        fields:
+        - escalation_history
+        - account_health
+        - stakeholder_context
+        priority: enrichment
+    senior-manager-resolve-escalation:
+      description: Document escalation resolution and learnings
+      source: prompts/tasks.yaml#escalation_handling.resolve_escalation
+      inputs:
+      - title: account_name
+        type: string
+      - title: decision
+        type: string
+      - title: escalation_id
+        type: string
+      - title: issue_summary
+        type: string
+      - title: options
+        type: string
+      outputs:
+      - title: resolve-escalation_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - escalation_details
+        - deal_impact
+        priority: critical
+      - source: read-communications
+        fields:
+        - resolution_options
+        - stakeholder_communications
+        priority: critical
+      - source: read-infohub
+        fields:
+        - prior_resolutions
+        - account_context
+        priority: enrichment
+    senior-manager-pattern-recognition:
+      description: Identify patterns in escalations to address root causes
+      source: prompts/tasks.yaml#escalation_handling.pattern_recognition
+      inputs:
+      - title: count
+        type: string
+      - title: source_breakdown
+        type: string
+      - title: time_period
+        type: string
+      - title: type_breakdown
+        type: string
+      outputs:
+      - title: pattern-recognition_result
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - escalation_log
+        - type_classification
+        - source_breakdown
+        - resolution_outcomes
+        priority: critical
+    senior-manager-bid-no-bid-assessment:
+      description: Make go/no-go decision on major pursuit
+      source: prompts/tasks.yaml#bid_decisions.bid_no_bid_assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: competitors
+        type: string
+      - title: deal_value
+        type: string
+      - title: opportunity_name
+        type: string
+      - title: resource_requirements
+        type: string
+      - title: team_recommendation
+        type: string
+      outputs:
+      - title: bid-no-bid-assessment_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - opportunity_details
+        - competitive_intel
+        - resource_requirements
+        - win_loss_history
+        priority: critical
+      - source: read-infohub
+        fields:
+        - historical_win_rates
+        - competitor_profiles
+        - account_strategic_value
+        priority: enrichment
+    senior-manager-pursuit-prioritization:
+      description: Prioritize competing opportunities for resources
+      source: prompts/tasks.yaml#bid_decisions.pursuit_prioritization
+      inputs:
+      - title: opportunity_list_with_values
+        type: string
+      - title: resource_availability
+        type: string
+      outputs:
+      - title: pursuit-prioritization_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - opportunity_pipeline
+        - deal_values
+        - stage_data
+        priority: critical
+      - source: read-infohub
+        fields:
+        - resource_utilization
+        - win_probability_history
+        priority: enrichment
+    senior-manager-large-deal-review:
+      description: Review strategic large deal progress and strategy
+      source: prompts/tasks.yaml#bid_decisions.large_deal_review
+      inputs:
+      - title: account_name
+        type: string
+      - title: days_in_stage
+        type: string
+      - title: deal_value
+        type: string
+      - title: meddpicc_score
+        type: string
+      - title: opportunity_name
+        type: string
+      - title: stage
+        type: string
+      outputs:
+      - title: large-deal-review_result
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - deal_progression_history
+        - meddpicc_scores
+        - stage_duration
+        - risk_flags
+        priority: critical
+      - source: read-infohub
+        fields:
+        - account_strategic_plan
+        - competitive_positioning
+        - stakeholder_engagement
+        priority: enrichment
+  boundaries:
+  - Does not review pipeline metrics or forecast accuracy (Pipeline & Performance Agent's domain)
+  - Does not coach team members on skill development or deal strategy (Coaching & Development Agent's domain)
+  - Does not prepare executive call materials or EBR content (Executive Engagement Agent's domain)
+  - Does not allocate resources across competing demands (Resource Planning Agent's domain)
+  - Does not make final escalation decisions, only recommends with options
+  - Does not approve bids, provides structured assessment for manager decision
+  permissions:
+  - Read CRM data for escalation context and bid assessment
+  - Read communications for escalation threads and deal signals
+  - Classify escalation urgency as CRITICAL/HIGH/MEDIUM/LOW
+  - Document escalation resolution with rationale and learnings
+  - Produce bid/no-bid assessments with structured criteria
+  - Identify escalation patterns and recommend root cause interventions
+  guardrails:
+    input_validation:
+    - Reject escalation triage without source agent and account context
+    - Reject bid assessment without opportunity name and deal value
+    - Reject pattern analysis without time period and minimum escalation count
+    output_checks:
+    - Escalation triage must include urgency classification with specific evidence
+    - Resolution documentation must include decision rationale and learnings
+    - Bid assessment must include competitive position, resource requirements, and win probability
+    - Pattern analysis must identify root causes with recommended interventions
+    signal_validation:
+    - Never classify escalation urgency without supporting context from originating agent
+    - Never recommend bid-go without verified competitive and resource data
+    - Use [NEEDS MANAGER INPUT] when decision requires judgment beyond available data
+    - Acknowledge uncertainty in win probability estimates with confidence ranges
+  error_handling:
+    tool_failures:
+      critical:
+      - read-crm-data
+      - read-communications
+      enrichment:
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable escalation context or bid assessment without critical data sources
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections as low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern, escalation decisions based on stale context require manager verification
+  knowledge:
+    scope:
+      domains:
+      - escalation-management
+      - bid-decision
+      - pattern-analysis
+      - pursuit-prioritization
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/escalation-decision-patterns.yaml
+      description: Escalation classification criteria, resolution frameworks, decision tree for urgency levels, pattern recognition methodology
+    - path: references/signal-detection.yaml
+      description: Signal types and detection patterns relevant to escalation triggers and bid assessment signals
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: senior-manager-agent
+      description: Senior Manager orchestrator routes escalation and bid/no-bid requests
+    outputs:
+    - type: parent_return
+      target: senior-manager-agent
+      payload:
+      - escalation_triage
+      - resolution_documentation
+      - pattern_analysis
+      - bid_assessment
+      - pursuit_prioritization
+      description: Escalation and bid decision results back to orchestrator

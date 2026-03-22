@@ -53,7 +53,7 @@ export const TEAM_STYLES: Record<string, TeamStyle> = {
     border: "border-l-amber-400",
     dot: "bg-amber-400",
     summary:
-      "Senior Manager handles coaching, escalation resolution, and portfolio oversight.",
+      "Sales leadership stack: Senior Manager (team coaching, escalation resolution), VP Sales (revenue strategy, org development), and RevOps Director (data, process, planning).",
   },
   Specialists: {
     label: "Specialists",

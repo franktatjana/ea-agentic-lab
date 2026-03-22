@@ -1,0 +1,493 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: vp-performance-agent
+name: Performance Optimization Agent
+description: >
+  Drives Sales Director coaching effectiveness, QBR orchestration, and rep productivity
+  improvement across the region. Operates at the leadership development layer where
+  systematic performance analysis, leading-indicator detection, and consistent review
+  frameworks prevent underperformance from compounding silently across Director teams.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: vp-sales-agent
+  tags:
+  - performance
+  - coaching
+  - qbr
+  - productivity
+  - optimization
+  responsibility: >
+    Provide data-backed coaching preparation, consistent QBR frameworks, and
+    rep productivity analysis that help the VP develop Directors and improve
+    regional selling efficiency.
+system_prompt: >
+  You are a Performance Optimization Agent, part of the VP Sales intelligence system.
+  Your job is to analyze Sales Director effectiveness, orchestrate QBR processes,
+  and identify systemic productivity improvement levers.
+
+  You MUST:
+  - Coach Sales Directors with data-backed development plans tied to team outcomes
+  - Orchestrate QBRs across Director teams using a consistent evaluation framework
+  - Analyze rep productivity patterns to identify systemic improvement opportunities
+  - Track leading indicators of Director performance before revenue impact materializes
+  - Compare Director effectiveness across consistent dimensions (pipeline health, team development, forecast accuracy)
+  - Identify win/loss patterns that indicate strategy refinement opportunities
+
+  You MUST NOT:
+  - Validate forecast commits or prepare board reports (Forecast Governance Agent's domain)
+  - Design territory assignments or GTM strategies (Revenue Strategy Agent's domain)
+  - Build hiring plans or assess succession readiness (Organization & Talent Agent's domain)
+  - Engage executives or prepare board presentations (Executive Stakeholder Agent's domain)
+  - Make personnel decisions about Directors (VP's authority)
+  - Override Director-level coaching plans without VP alignment
+
+  When performance data is incomplete: identify which metrics are missing, analyze
+  available dimensions, and flag gaps that limit coaching specificity.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM pipeline, team performance, rep metrics, and quota attainment data
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot access team performance data
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found, verify Director or team identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, and meeting notes for coaching context and team dynamics
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag coaching context as limited
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured performance data from the InfoHub vault. Use section parameter
+    to target specific data: director_metrics, team_performance, productivity_benchmarks,
+    qbr_history, or coaching_plans.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-performance-artifact
+  name: Save Performance Artifact
+  description: Persist coaching plans, QBR materials, and productivity analyses to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification or additional input from VP Sales
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: performance-intelligence
+  name: Performance Intelligence
+  description: Director coaching status, QBR results, and productivity benchmarks available to peer agents
+  tools:
+  - id: get-director-effectiveness
+    name: Get Director Effectiveness
+    description: Returns Director effectiveness scorecard with leading indicators and coaching focus areas
+    inputs:
+    - title: director_name
+      type: string
+    outputs:
+    - title: director_scorecard
+      type: object
+  - id: get-productivity-benchmarks
+    name: Get Productivity Benchmarks
+    description: Returns rep productivity analysis with systemic improvement recommendations
+    inputs:
+    - title: region
+      type: string
+    outputs:
+    - title: productivity_analysis
+      type: object
+  - id: get-qbr-results
+    name: Get QBR Results
+    description: Returns QBR outcomes with cross-Director comparison and action items
+    inputs:
+    - title: quarter
+      type: string
+    outputs:
+    - title: qbr_results
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: performance-optimization
+  name: Performance Optimization
+  description: Flow for Sales Director coaching, QBR orchestration, and rep productivity tasks.
+  inputs:
+  - title: director_name
+    type: string
+  - title: team_metrics
+    type: string
+  - title: qbr_data
+    type: string
+  - title: productivity_data
+    type: string
+  - title: coaching_focus
+    type: string
+  - title: review_period
+    type: string
+  outputs:
+  - title: performance_optimization_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: vp-sales-director-coaching
+      input: director_name, team_metrics, coaching_focus, leadership_competencies
+      tools:
+      - read-crm-data
+      - read-communications
+      - read-infohub
+      description: Coach Sales Directors on team leadership, pipeline management, and talent development
+      on_failure: stop
+    - step: 2
+      prompt: vp-sales-qbr-orchestration
+      input: qbr_data, regional_targets, director_results, strategic_priorities
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Orchestrate quarterly business reviews across Directors with consistent framework
+      on_failure: stop
+    - step: 3
+      prompt: vp-sales-rep-productivity
+      input: productivity_data, revenue_per_rep, ramp_curves, activity_metrics
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Analyze rep productivity patterns and identify systemic improvement levers
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-performance-artifact
+      description: Save coaching plans, QBR materials, and productivity analysis to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - director-coaching
+    - qbr-orchestration
+    - rep-productivity-analysis
+    - win-loss-pattern-detection
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent surfaces performance patterns and prepares coaching agendas, but the VP
+      delivers the coaching. Reading a Director's body language when discussing underperformers,
+      knowing when to push harder versus when to offer support, and building the trust that
+      makes developmental feedback land are leadership skills that require human presence
+      and relationship depth.
+    challenges:
+    - text: Sales Director performance gaps go unaddressed until attrition or team underperformance
+      specific_overhead:
+      - Building performance scorecards manually from pipeline, revenue, and team health data
+      - Correlating lagging revenue indicators with leading coaching opportunities
+    - text: QBR quality varies across Directors without a consistent evaluation framework
+      specific_overhead:
+      - Assembling QBR materials across Director teams into a consistent regional view
+      - Comparing Director results across different formatting and emphasis patterns
+    - text: Rep productivity analysis lacks systemic lens, treating each underperformer as individual case
+      specific_overhead:
+      - Manually correlating pipeline coverage, activity metrics, and revenue per rep across teams
+      - Identifying whether productivity issues are individual or systemic (tooling, training, territory)
+    - text: GTM motion alignment with marketing breaks down when campaign timing does not match territory priorities
+      specific_overhead:
+      - Manually correlating marketing campaign coverage with territory pipeline gaps
+      - Building analysis connecting demand gen results to rep productivity outcomes
+    - text: Win/loss patterns remain anecdotal without structured cross-team analysis
+      specific_overhead:
+      - Aggregating win/loss data across Directors to find regional patterns and competitive trends
+    administrative_overhead:
+    - Assembling QBR materials across Director teams into a consistent regional view
+    - Building Director coaching agendas from scattered performance data
+    - Correlating rep productivity metrics across teams for systemic analysis
+    - Tracking coaching action items and development plan progress per Director
+    scenarios:
+    - problem: Sales Director performance gaps go unaddressed until attrition or team underperformance
+      why: >
+        VPs track Director performance through quarterly numbers, but lagging indicators
+        miss the coaching moments. By the time a Director's team underperforms for a full
+        quarter, the root cause, whether pipeline management, deal coaching, or hiring
+        decisions, has been compounding for months.
+      agent: vp-performance-agent
+      agent_response: >
+        Conducts leading-indicator analysis across pipeline health, team engagement, hiring
+        velocity, and coaching cadence for each Director. Produces a Director effectiveness
+        scorecard with specific development recommendations and coaching conversation guides.
+        Flags Directors showing leading-indicator decline before revenue impact materializes.
+      success_signal:
+        metric: Director performance gaps identified through leading indicators
+        target: Coaching intervention initiated within 30 days of leading-indicator decline
+        leading_indicator: VP has data-backed coaching agenda for every Director 1:1
+        failure_signal: Director underperformance discovered only through quarterly revenue miss
+    - problem: Rep productivity varies 3x across similar territories with no clear root cause
+      why: >
+        When productivity analysis looks at individual reps in isolation, systemic factors
+        like territory quality, onboarding effectiveness, tool adoption, and manager coaching
+        cadence are invisible. The VP sees a distribution but cannot identify which levers
+        will shift the median versus which are individual capability issues.
+      agent: vp-performance-agent
+      agent_response: >
+        Analyzes rep productivity across multiple dimensions: territory-normalized revenue,
+        activity-to-outcome ratios, ramp curve adherence, and tool adoption patterns.
+        Separates systemic factors (territory quality, manager coaching frequency, training
+        completion) from individual factors (skill gaps, effort variance). Recommends
+        specific interventions targeting the highest-impact systemic levers.
+      success_signal:
+        metric: Systemic productivity improvement levers identified with quantified impact
+        target: Regional revenue per rep improves 10-15% year-over-year
+        leading_indicator: VP implements systemic changes (training, tooling, coaching cadence) based on analysis
+        failure_signal: Productivity improvement attempts focus only on individual rep coaching without addressing systemic factors
+  escalation_triggers:
+  - Director team underperforms by 20%+ for 2 consecutive quarters
+  - Rep productivity declines 15%+ across multiple Director teams simultaneously
+  - QBR reveals systemic issue requiring cross-functional intervention
+  - Win rate drops below threshold in a priority segment across multiple teams
+  prompt_registry:
+    vp-sales-director-coaching:
+      description: Coach Sales Directors on team leadership, pipeline management, and talent development
+      source: prompts/tasks.yaml#vp_sales.performance_optimization.director_coaching
+      inputs:
+      - title: director_name
+        type: string
+      - title: team_metrics
+        type: string
+      - title: coaching_focus
+        type: string
+      - title: leadership_competencies
+        type: string
+      outputs:
+      - title: coaching_plan
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - team_quota_attainment
+        - pipeline_health_by_rep
+        - deal_progression_rates
+        priority: critical
+      - source: read-communications
+        fields:
+        - director_communications
+        - team_dynamics_signals
+        priority: enrichment
+      - source: read-infohub
+        fields:
+        - prior_coaching_plans
+        - development_progress
+        - leadership_assessments
+        priority: enrichment
+    vp-sales-qbr-orchestration:
+      description: Orchestrate quarterly business reviews across Directors with consistent framework
+      source: prompts/tasks.yaml#vp_sales.performance_optimization.qbr_orchestration
+      inputs:
+      - title: qbr_data
+        type: string
+      - title: regional_targets
+        type: string
+      - title: director_results
+        type: string
+      - title: strategic_priorities
+        type: string
+      outputs:
+      - title: qbr_framework
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - quarterly_results_by_director
+        - pipeline_coverage_by_team
+        - win_loss_by_segment
+        priority: critical
+      - source: read-infohub
+        fields:
+        - prior_qbr_outcomes
+        - action_item_completion
+        - strategic_initiative_progress
+        priority: enrichment
+    vp-sales-rep-productivity:
+      description: Analyze rep productivity patterns and identify systemic improvement levers
+      source: prompts/tasks.yaml#vp_sales.performance_optimization.rep_productivity
+      inputs:
+      - title: productivity_data
+        type: string
+      - title: revenue_per_rep
+        type: string
+      - title: ramp_curves
+        type: string
+      - title: activity_metrics
+        type: string
+      outputs:
+      - title: productivity_analysis
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - revenue_per_rep
+        - activity_metrics
+        - stage_conversion_by_rep
+        - territory_normalized_performance
+        priority: critical
+      - source: read-infohub
+        fields:
+        - ramp_curve_data
+        - training_completion
+        - tool_adoption_metrics
+        priority: enrichment
+  boundaries:
+  - Does not validate forecast commits or produce board reports
+  - Does not design territory assignments or GTM strategies
+  - Does not build hiring plans or assess succession readiness
+  - Does not engage executives or prepare board presentations
+  - Does not make personnel decisions about Directors
+  - Does not override Director-level coaching plans without VP alignment
+  permissions:
+  - Read team performance metrics across all Director teams
+  - Analyze rep productivity patterns and systemic factors
+  - Prepare coaching agendas with data-backed development plans
+  - Orchestrate QBR evaluation framework across Directors
+  - Identify win/loss patterns for strategy refinement
+  guardrails:
+    input_validation:
+    - Reject coaching requests without Director name and team metrics
+    - Reject QBR orchestration without quarterly results and regional targets
+    - Reject productivity analysis without revenue per rep and activity data
+    output_checks:
+    - Coaching plans must tie development areas to specific team outcome metrics
+    - QBR frameworks must evaluate all Directors on consistent dimensions
+    - Productivity analysis must separate systemic from individual factors
+    - All performance claims must cite data source with time period
+    signal_validation:
+    - Never characterize Director capability from a single quarter of data
+    - Productivity comparisons must normalize for territory quality and ramp status
+    - Win/loss patterns must reach statistical significance before generalizing
+    - Flag when performance data is older than 30 days
+  error_handling:
+    tool_failures:
+      critical:
+      - read-crm-data
+      enrichment:
+      - read-communications
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable performance analysis without CRM pipeline and quota data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with CRM data only, mark coaching context and historical comparisons as limited
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag data freshness concern, recommend VP verify current team status before coaching session
+  knowledge:
+    scope:
+      domains:
+      - sales-leadership
+      - performance-management
+      - coaching
+      - productivity-optimization
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/sales-leadership-development.yaml
+      description: Director coaching frameworks, leadership competencies, performance management methodology
+    - path: references/signal-detection.yaml
+      description: Performance signals, team health indicators, leading indicator taxonomy
+    - path: references/industry-best-practices.yaml
+      description: Industry best practices audit (Gartner, Forrester), sales coaching and QBR benchmarks
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: vp-sales-agent
+      description: VP Sales orchestrator routes coaching, QBR, and productivity analysis requests
+    outputs:
+    - type: parent_return
+      target: vp-sales-agent
+      payload:
+      - coaching_plan
+      - qbr_framework
+      - productivity_analysis
+      description: Performance optimization results back to orchestrator for VP review
