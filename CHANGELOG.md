@@ -4,6 +4,112 @@
 
 ---
 
+## 2026-03-22 - Runbook Design Principles Retrofit (All 23 Agent Prompt Files)
+
+### Added
+
+- `docs/architecture/playbooks/runbook-design-principles.md`: 10 universal runbook design principles standard document
+- STEP 0 input gates, confidence metadata, compound classification, empty state handling, action prerequisites, field-level state deltas, quality checks per deliverable, FULL/QUICK/DISCOVERY run modes, two-data-point trend rule, and executive summary as contract across all agent prompts
+
+### Changed
+
+- All 23 agent prompt files retrofitted from simple CAF format to full runbook format with numbered steps, named deliverables, and quality checks
+- Mature agents (AE, CA, VE) updated with missing principles #3 (compound classification), #5 (action prerequisites), #8 (run modes), #10 (executive summary as contract)
+- CLAUDE.md updated: prompt format reference changed from CAF to runbook format
+
+---
+
+## 2026-03-21 - Domain Best Practice Audits (SA, CA, CI, VE) and System Technical Audit
+
+### Added
+
+- `references/industry-best-practices.yaml` for SA agent: 11 high-priority gaps including pillar-based architecture review, ADR lifecycle management, architecture diagram generation, RFP automation, CFO-level financial modeling
+- `references/industry-best-practices.yaml` for CA agent: 5 high-priority gaps including stakeholder intelligence, predictive health scoring, revenue-weighted risk, financial impact quantification, time-to-value tracking
+- `references/industry-best-practices.yaml` for CI agent: 9 high-priority gaps including deal-triggered auto-push delivery, conversation intelligence, expanded signal taxonomy, battlecard auto-refresh, CRM integration
+- `references/industry-best-practices.yaml` for VE agent: 18 high-priority gaps including TEI flexibility value, buyer co-creation, living business case, Monte Carlo ROI ranges, industry value driver libraries
+- `agent-technical-best-practices.yaml` system-wide: 3 high-priority technical gaps (MCP, agent evaluation/CLEAR metrics, OTEL observability), validated holonic architecture as industry-leading
+- Gap-derived challenges added to all 4 agent definitions with `source: REF_*_BP_001` traceability
+
+### Sources checked (SA audit)
+
+- [AWS Well-Architected Review Accelerator](https://aws.amazon.com/blogs/machine-learning/accelerate-aws-well-architected-reviews-with-generative-ai/)
+- [AWS ADR Best Practices](https://aws.amazon.com/blogs/architecture/master-architecture-decision-records-adrs-best-practices-for-effective-decision-making/)
+- [6pillars.ai Automated Reviews](https://www.6pillars.ai/automated-well-architected-reviews)
+- [Microsoft Architecture Review Agent](https://github.com/Azure-Samples/agent-architecture-review-sample)
+- [Azure AI Agent Orchestration Patterns](https://learn.microsoft.com/en-us/azure/architecture/ai-ml/guide/ai-agent-design-patterns)
+- [UK Government ADR Framework](https://www.gov.uk/government/publications/architectural-decision-record-framework/architectural-decision-record-framework)
+- [Gartner Strategic Technology Trends 2026](https://www.gartner.com/en/newsroom/press-releases/2025-10-20-gartner-identifies-the-top-strategic-technology-trends-for-2026)
+- [Gartner EA Trends 2025](https://www.gartner.com/en/articles/2025-trends-for-enterprise-architecture)
+- [Forrester Predictions 2026](https://www.forrester.com/predictions/)
+- [O'Reilly Agentic AI Architecture Governance](https://www.oreilly.com/radar/how-agentic-ai-empowers-architecture-governance/)
+- [TOGAF ADM AI Automation](https://cdotimes.com/2025/02/28/ai-automation-in-enterprise-architecture-the-future-of-digital-business-optimization/)
+- [Enterprise POC Best Practices](https://tryopine.com/blog/enterprise-poc-best-practices-how-to-keep-complex-deals-on-track)
+- [Gainsight Pre-to-Post Sales Handoff](https://www.gainsight.com/blog/5-step-playbook-for-nailing-pre-to-post-sales-outcomes-handoff/)
+- [1up.ai AI Presales Use Cases](https://1up.ai/blog/ai-presales-use-cases/)
+- [SiftHub AI Sales Engineers](https://www.sifthub.io/blog/how-ai-sales-engineers-are-transforming-presales)
+- [Inventive.ai AI for Sales Engineering](https://www.inventive.ai/blog-posts/ai-transforming-sales-engineering-workflows)
+
+### Sources checked (CA audit)
+
+- [TSIA: State of Customer Success 2026](https://www.tsia.com/blog/state-of-customer-success-2026-ai-economics)
+- [Gainsight/Staircase AI](https://www.gainsight.com/staircase-ai/)
+- [ChurnZero: Agentic AI for CS](https://churnzero.com/blog/agentic-ai-customer-success/)
+- [Gartner: AI in Customer Service 2026](https://www.gartner.com/en/newsroom/press-releases/2025-12-17-customer-service-and-support-leaders-must-prioritize-blending-human-strengths-with-ai-intelligence-in-2026)
+- [Forrester: Predictions 2026](https://www.forrester.com/blogs/2026-the-year-ai-gets-real-for-customer-service-but-its-not-glamorous-work/)
+- [McKinsey: The NRR Advantage](https://www.mckinsey.com/industries/technology-media-and-telecommunications/our-insights/the-net-revenue-retention-advantage-driving-success-in-b2b-tech)
+- [G2: AI in Churn Reduction 2026](https://learn.g2.com/ai-in-churn-reduction)
+- [Totango: Customer-Led Growth](https://www.totango.com/blog/2025-will-be-a-turning-point-for-customer-led-growth)
+- [EverAfter: Customer Health Score Guide](https://www.everafter.ai/glossary/customer-health-score)
+- [Red Hat: Five Tenets of TAM](https://www.redhat.com/en/blog/five-tenets-technical-account-management)
+- [Practical CSM: 10 Ways AI Transforms CS](https://practicalcsm.com/ten-ways-ai-will-disrupt-customer-success-management/)
+- [Gainsight: Health Score Models](https://www.gainsight.com/blog/choosing-your-customer-health-score-model/)
+
+### Sources checked (CI audit)
+
+- [Klue Compete Agent](https://klue.com/compete-agent)
+- [Crayon State of Competitive Intelligence](https://www.crayon.co/state-of-competitive-intelligence)
+- [Crayon: AI Reinventing CI](https://www.crayon.co/blog/a-smarter-way-to-compete-how-ai-is-reinventing-competitive-intelligence)
+- [Kompyte GPT AI Features](https://www.kompyte.com/kompyte-competitive-intelligence-automation-ai)
+- [Gartner: AI-Guided Selling](https://www.gartner.com/en/newsroom/press-releases/gartner-predicts-75--of-b2b-sales-organizations-will-augment-tra)
+- [Forrester: Five Findings About M&CI Programs](https://www.forrester.com/blogs/five-findings-about-todays-market-and-competitive-intelligence-programs/)
+- [SCIP AI-Powered CI Workshop](https://www.scip.org/page/AI-Powered-Competitive-Intelligence)
+- [CI Alliance: AI Transforming CI](https://www.competitiveintelligencealliance.io/how-ai-and-automation-are-transforming-competitive-intelligence/)
+- [Clozd Win-Loss Analysis](https://www.clozd.com/solutions/win-loss-analysis)
+- [Highspot: Win-Loss Analysis](https://www.highspot.com/blog/win-loss-analysis/)
+- [Signal Labs: Competitor Monitoring](https://usesignallabs.com/use-cases/competitor-monitoring)
+
+### Sources checked (VE audit)
+
+- [Forrester TEI Methodology](https://www.forrester.com/research/total-economic-impact/)
+- [Gartner: Value Realization Office](https://www.gartner.com/en/articles/value-realization)
+- [IDC: Value Selling Maturity](https://www.idc.com/research/value-selling)
+- [Ecosystems.io Collaborative Value](https://www.ecosystems.io/)
+- [Mediafly ValueStory](https://www.mediafly.com/)
+- [DecisionLink (Bain)](https://www.bain.com/)
+- [LeveragePoint Value Management](https://www.leveragepoint.com/)
+- [Value Selling Associates](https://www.valueselling.com/)
+- [Corporate Visions / B2B DecisionLabs](https://corporatevisions.com/)
+- [Bain B2B Elements of Value](https://www.bain.com/insights/the-b2b-elements-of-value/)
+
+### Sources checked (system technical audit)
+
+- [Anthropic: Building Effective Agents](https://www.anthropic.com/research/building-effective-agents)
+- [Anthropic: Effective Harnesses for Long-Running Agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
+- [Anthropic: Agent Skills Open Standard](https://claude.com/blog/equipping-agents-for-the-real-world-with-agent-skills)
+- [Anthropic: Effective Context Engineering](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
+- [Google: Eight Multi-Agent Patterns in ADK](https://developers.googleblog.com/developers-guide-to-multi-agent-patterns-in-adk/)
+- [Google: A2A Protocol v0.3](https://github.com/a2aproject/A2A)
+- [OpenAI: Agents SDK Multi-Agent](https://openai.github.io/openai-agents-python/multi_agent/)
+- [OpenAI: Practical Guide to Building Agents](https://cdn.openai.com/business-guides-and-resources/a-practical-guide-to-building-agents.pdf)
+- [Microsoft: Agent Framework](https://learn.microsoft.com/en-us/agent-framework/overview/)
+- [MCP Specification](https://modelcontextprotocol.io/specification/2025-11-25)
+- [Amazon: Evaluating AI Agents](https://aws.amazon.com/blogs/machine-learning/evaluating-ai-agents-real-world-lessons-from-building-agentic-systems-at-amazon/)
+- [OpenTelemetry for Agents](https://langfuse.com/blog/2024-07-ai-agent-observability-with-langfuse)
+- [MIT Technology Review: From Guardrails to Governance](https://www.technologyreview.com/2026/02/04/1131014/from-guardrails-to-governance-a-ceos-guide-for-securing-agentic-systems/)
+- [Taxonomy of Hierarchical Multi-Agent Systems](https://arxiv.org/html/2508.12683)
+
+---
+
 ## 2026-03-21 - AE Best Practice Audit and Terminology Mapping
 
 ### Added

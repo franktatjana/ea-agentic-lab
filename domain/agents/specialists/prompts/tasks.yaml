@@ -1,6 +1,7 @@
 # Specialist Agent Task Prompts
-# Purpose: Task-specific prompts using CAF framework (Context, Action, Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
 # Reference: Personality defined in personalities/specialist_personality.yaml
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
 
 # ============================================================================
 # ENGAGEMENT TRIAGE PROMPTS
@@ -9,67 +10,438 @@ engagement_triage:
 
   request_qualification:
     name: "Specialist Request Qualification"
-    description: "Qualify incoming specialist engagement request"
+    description: "Qualify incoming specialist engagement request by validating triggers, assessing complexity, classifying domain, and determining true urgency with effort estimate"
     prompt: |
       Context: Specialist request from {requester_name} for {account_name}.
       Request: "{request_description}"
       Urgency stated: {urgency}
+      Specialist domain signals: {domain_signals}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Qualify the request:
-      - Is this truly specialist-level?
-      - Which specialist domain?
-      - What is the real urgency?
-      - What is the expected effort?
+      You are qualifying whether this request genuinely requires specialist-level
+      expertise, which domain it belongs to, and what the real urgency and effort
+      are. Misrouted requests waste specialist capacity; under-triaged requests
+      delay critical engagements. Follow these steps in order.
 
-      Format:
-      - Qualification: [APPROVED/REDIRECT_TO_SA/NEEDS_INFO]
-      - Domain: {specialist_domain}
-      - Actual urgency: [CRITICAL/HIGH/STANDARD]
-      - Effort estimate: [SMALL/MEDIUM/LARGE]
-      - If REDIRECT: Why and to whom
-      - If NEEDS_INFO: What is missing
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: clear technical details, logs, architecture docs, 5+ data points
+      - MEDIUM: partial data, 2-4 data points
+      - LOW: vague description, no supporting data
+      Dimensions to assess: Request Description, Technical Context, Domain Signals,
+      Account History, Urgency Justification.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP qualification.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask the requester to clarify scope and technical need
+      - Data sources to request (architecture diagrams, error logs, config files)
+      - Observation checklist for implicit signals in the request
+      - Re-qualification gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: SPECIALIST TRIGGER VALIDATION
+      Determine whether this request contains genuine specialist-level triggers.
+      For each trigger identified:
+      - Trigger description (the specific technical signal)
+      - Domain match: Observability, Search, Security, Data Management, or Other
+      - Trigger strength: STRONG (clear specialist need), MODERATE (could be SA-level),
+        WEAK (likely SA-resolvable)
+      - Evidence: quote exact requirement or signal from the request
+      If no STRONG triggers found, classify as REDIRECT_TO_SA with reasoning.
+      If trigger is empty or ambiguous: state "No specialist triggers identified in
+      request. Recommend clarification from requester before routing."
+      Deliverable: Trigger validation table (Trigger | Domain | Strength | Evidence).
+
+      STEP 2: COMPLEXITY ASSESSMENT
+      Evaluate technical complexity to confirm specialist-level need.
+      For each complexity factor:
+      - Factor (scale, regulatory, integration depth, novelty, risk)
+      - Level: HIGH / MEDIUM / LOW
+      - Confidence: HIGH / MEDIUM / LOW with basis stated
+      - Evidence or reasoning
+      Complexity thresholds:
+      - HIGH: >100 nodes, >10TB, multi-region, regulatory compliance
+      - MEDIUM: custom integration, performance tuning, migration
+      - LOW: standard deployment, documented patterns
+      If no complexity data available: state "Complexity assessment based on
+      incomplete data. Confidence: LOW."
+      Deliverable: Complexity table (Factor | Level | Confidence | Evidence) with
+      overall complexity classification.
+
+      STEP 3: QUALIFICATION DECISION
+      Based on trigger validation and complexity assessment, render decision.
+      Classification uses compound categories:
+      - Primary: APPROVED / REDIRECT_TO_SA / NEEDS_INFO
+      - Secondary flags: URGENT, MULTI_DOMAIN, CAPACITY_RISK, ESCALATION_NEEDED
+      For each classification dimension:
+      - Decision with confidence (HIGH / MEDIUM / LOW with basis)
+      - Domain assignment (if APPROVED)
+      - Actual urgency: CRITICAL / HIGH / STANDARD with justification
+      - Effort estimate: SMALL (<4h) / MEDIUM (4-16h) / LARGE (>16h)
+      - If REDIRECT_TO_SA: specific reasoning and SA guidance
+      - If NEEDS_INFO: specific information gaps and who to ask
+      Deliverable: Qualification decision (Decision | Confidence | Domain |
+      Urgency | Effort | Reasoning).
+
+      STEP 4: ACTION PLAN
+      Define next steps based on the qualification decision.
+      Action table format:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include prerequisites for each action (what must be true before it can start).
+      If empty (no actions needed): state "No immediate actions. Request deferred
+      pending additional information."
+      Deliverable: Action plan table.
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New specialist engagement added or existing updated
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every trigger has quoted evidence from the request, not inferred signals
+      - Complexity assessment includes confidence levels on each factor
+      - Qualification decision uses compound classification (primary + secondary)
+      - Urgency is justified with evidence, not echoed from requester
+      - Effort estimate is based on complexity, not request pressure
+      - Action plan includes prerequisites column
+      - Account state delta specifies field-level changes
+      - Trend claims (improving/declining urgency) reference two data points minimum
+      - Executive summary is self-sufficient: a reader can act on it without reading
+        the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the single highest-priority action with prerequisites. Skip detailed step
+        deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps,
+        questions, sources, observation checklist, re-qualification date). Skip scoring
+        and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) qualification decision with confidence and
+      domain, (2) the weakest point or lowest confidence area, and (3) the single most
+      urgent action to take next.
 
   prioritization:
     name: "Engagement Prioritization"
-    description: "Prioritize multiple specialist requests"
+    description: "Prioritize multiple specialist requests against available capacity using impact scoring, account context, and urgency validation with two-point trend analysis"
     prompt: |
       Context: Current specialist queue:
       {request_list}
       Available capacity: {capacity}
+      Recent prioritization history: {prioritization_history}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prioritize requests:
-      - What is the priority order?
-      - What is the rationale?
-      - What gets deferred?
-      - What needs escalation?
+      You are prioritizing a queue of specialist requests against finite capacity.
+      Poor prioritization either blocks high-impact deals or creates specialist
+      burnout from context switching. Every ranking must be justified with evidence,
+      not gut feel. Follow these steps in order.
 
-      Format:
-      - Priority order table (Request | Account | Priority | Rationale)
-      - Immediate action (top 3)
-      - Deferred items with communication plan
-      - Capacity concerns to escalate
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: full request details, account context, deal data, 5+ data points
+      - MEDIUM: partial data, 2-4 data points
+      - LOW: request title only, no context
+      Dimensions to assess: Request Details, Account Context, Deal Impact,
+      Capacity Data, Historical Patterns.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP prioritization.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask per request to enable proper prioritization
+      - Data sources needed (CRM deal stage, account tier, renewal dates)
+      - Observation checklist for implicit priority signals
+      - Re-prioritization gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: REQUEST INVENTORY AND SCORING
+      For each request in the queue, build a scoring profile:
+      - Request ID and account name
+      - Domain (Observability, Search, Security, Data Management, Other)
+      - Deal impact: revenue at risk or opportunity value (confidence: HIGH/MEDIUM/LOW)
+      - Account tier (Strategic, Enterprise, Growth)
+      - Urgency classification: CRITICAL / HIGH / STANDARD with evidence
+      - Effort estimate: SMALL / MEDIUM / LARGE
+      - Decay risk: what happens if deferred 1 week, 2 weeks, 1 month
+      Classification uses compound categories:
+      - Primary urgency for queue position
+      - Secondary flags: RENEWAL_RISK, COMPETITIVE_THREAT, ESCALATION, EXECUTIVE_VISIBILITY
+      If request details are insufficient for scoring: state "Request {id} cannot be
+      scored, insufficient detail. Marked for information request."
+      Deliverable: Request scoring table (Request | Account | Domain | Deal Impact |
+      Confidence | Tier | Urgency | Effort | Decay Risk | Secondary Flags).
+
+      STEP 2: CAPACITY ANALYSIS
+      Map available capacity against scored requests:
+      - Total specialist hours available in the period
+      - Hours by domain (which specialists are available)
+      - Utilization trend: compare current queue load to previous period
+        (requires two data points minimum; if only one period available, state
+        "INSUFFICIENT DATA for utilization trend")
+      - Capacity bottlenecks (domains oversubscribed vs underutilized)
+      If capacity data is absent: state "Capacity data unavailable. Prioritization
+      based on impact scoring only, without capacity constraints."
+      Deliverable: Capacity map (Domain | Available Hours | Requested Hours |
+      Utilization % | Trend).
+
+      STEP 3: PRIORITY RANKING
+      Rank all requests using the scoring from Step 1 and capacity from Step 2.
+      Ranking criteria (in order of weight):
+      1. Decay risk (what is lost by waiting)
+      2. Deal impact adjusted by confidence level
+      3. Account tier
+      4. Effort-to-impact ratio
+      Produce three tiers:
+      - IMMEDIATE: start this week, capacity allocated
+      - NEXT: start when capacity frees, tentative scheduling
+      - DEFERRED: communicate delay, set expectations
+      For each deferred item: communication plan (who to notify, what to say, when).
+      Deliverable: Priority ranking table (Rank | Request | Account | Tier Assignment |
+      Rationale | Scheduled Start).
+
+      STEP 4: ESCALATION AND COMMUNICATION PLAN
+      Identify items requiring escalation or proactive communication.
+      Action table format:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include:
+      - Capacity shortfalls to escalate to management
+      - Deferred items that need requester communication
+      - Cross-domain requests that need coordination
+      If no escalation needed: state "No escalations required. Queue manageable
+      within current capacity."
+      Deliverable: Action plan table with prerequisites.
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Queue position changes
+      - Capacity allocation updates
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every request has a scoring profile, not just a rank
+      - Deal impact includes confidence level (HIGH/MEDIUM/LOW with basis)
+      - Urgency is evidence-based, not echoed from requester
+      - Utilization trend requires two data points or states INSUFFICIENT DATA
+      - Deferred items have communication plans, not just deferral
+      - Action plan includes prerequisites column
+      - Account state delta specifies field-level changes
+      - Executive summary is self-sufficient: a reader can act on it without reading
+        the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the top 3 priority actions with prerequisites. Skip detailed scoring tables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps,
+        questions, sources, observation checklist, re-prioritization date). Skip
+        scoring and ranking.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) queue size, capacity utilization, and top
+      priority, (2) the weakest point or highest capacity risk, and (3) the single most
+      urgent action to take next.
 
   scope_definition:
     name: "Engagement Scope Definition"
-    description: "Define clear scope for specialist engagement"
+    description: "Define clear scope, deliverables, timeline, and success criteria for a specialist engagement with dependency mapping and handoff boundaries"
     prompt: |
       Context: Specialist engagement for {account_name}.
       Topic: {engagement_topic}
       SA context: {sa_provided_context}
+      Specialist domain: {specialist_domain}
+      Expected duration: {expected_duration}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Define engagement scope:
-      - What is in scope?
-      - What is out of scope?
-      - What are the deliverables?
-      - What is the timeline?
+      You are defining a precise scope for this specialist engagement. Scope creep
+      is the primary cause of delayed specialist handbacks and overrun capacity.
+      Every item must be explicitly in or out, and every deliverable must have an
+      owner and timeline. Follow these steps in order.
 
-      Format:
-      - Scope statement (1 paragraph)
-      - In scope items (bulleted)
-      - Out of scope items (bulleted)
-      - Deliverables list
-      - Timeline with milestones
-      - Dependencies on others
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: detailed requirements, architecture docs, customer context, 5+ data points
+      - MEDIUM: partial context, 2-4 data points
+      - LOW: topic name only, no supporting detail
+      Dimensions to assess: Engagement Topic Detail, SA Context, Customer Requirements,
+      Technical Environment, Success Criteria.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP scope definition.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask the SA and customer to clarify scope boundaries
+      - Data sources to request (architecture diagrams, requirements docs, prior engagement notes)
+      - Observation checklist for scope signals from customer conversations
+      - Re-scoping gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: SCOPE STATEMENT
+      Write a single-paragraph scope statement that answers:
+      - What problem or question this engagement addresses
+      - What the specialist will do (high-level actions)
+      - What the specialist will NOT do (explicit exclusions)
+      - What "done" looks like (completion criteria)
+      If engagement topic is vague: state "Scope statement based on limited topic
+      description. Requires validation with requester before proceeding."
+      Deliverable: Scope statement paragraph.
+
+      STEP 2: IN-SCOPE AND OUT-OF-SCOPE ITEMS
+      List all items explicitly in scope and out of scope.
+      For each in-scope item:
+      - Item description
+      - Why it is in scope (ties to engagement objective)
+      - Estimated effort (hours)
+      - Confidence on effort: HIGH / MEDIUM / LOW with basis
+      For each out-of-scope item:
+      - Item description
+      - Why it is out of scope (not relevant, SA-level, separate engagement)
+      - Who owns it if needed (SA, customer, separate specialist)
+      Classification uses compound categories:
+      - Primary: IN_SCOPE / OUT_OF_SCOPE
+      - Secondary flags: STRETCH (in-scope if time allows), PREREQUISITE (must be
+        done by others first), FOLLOW_ON (separate future engagement)
+      Deliverable: Scope table (Item | Classification | Secondary Flag | Effort |
+      Confidence | Owner/Rationale).
+
+      STEP 3: DELIVERABLES AND TIMELINE
+      Define all engagement deliverables with milestones.
+      For each deliverable:
+      - Deliverable name
+      - Description (what it contains)
+      - Owner (specialist, SA, joint)
+      - Due date or milestone
+      - Dependencies (what must be complete before this can start)
+      - Acceptance criteria (how the requester validates completeness)
+      If timeline data is absent: state "Timeline based on standard effort estimates.
+      Requires alignment with account team availability."
+      Deliverable: Deliverables table (Deliverable | Description | Owner | Due |
+      Dependencies | Acceptance Criteria).
+
+      STEP 4: DEPENDENCY AND RISK MAP
+      Identify dependencies and risks to engagement success.
+      For each dependency:
+      - What is needed, from whom, by when
+      - Impact if not met (delay, scope reduction, quality impact)
+      For each risk:
+      - Risk description
+      - Likelihood: HIGH / MEDIUM / LOW (confidence: HIGH/MEDIUM/LOW with basis)
+      - Mitigation plan
+      If no dependencies identified: state "No external dependencies identified.
+      Engagement self-contained within specialist capacity."
+      Deliverable: Dependency table (Dependency | Source | Deadline | Impact if Missed)
+      + Risk table (Risk | Likelihood | Confidence | Mitigation).
+
+      STEP 5: ACTION PLAN
+      Define immediate next steps to launch the engagement.
+      Action table format:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include prerequisites for each action.
+      Deliverable: Action plan table.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New engagement record created
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every in-scope item has an effort estimate with confidence level
+      - Out-of-scope items have explicit owners for follow-up
+      - Every deliverable has acceptance criteria, not just a name
+      - Dependencies specify impact if not met, not just what is needed
+      - Risk likelihood includes confidence level with basis
+      - Action plan includes prerequisites column
+      - Account state delta specifies field-level changes
+      - Executive summary is self-sufficient: a reader can act on it without reading
+        the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, scope statement,
+        account state delta, and the single highest-priority action with prerequisites.
+        Skip detailed item tables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps,
+        questions, sources, observation checklist, re-scoping date). Skip scope
+        definition steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) engagement scope and estimated effort,
+      (2) the highest risk or weakest dependency, and (3) the single most urgent
+      action to take next.
 
 # ============================================================================
 # TECHNICAL DEEP-DIVE PROMPTS
@@ -78,72 +450,525 @@ technical_deep_dive:
 
   architecture_review:
     name: "Specialist Architecture Review"
-    description: "Conduct deep architecture review"
+    description: "Conduct deep architecture review with gap analysis, risk assessment, reference architecture comparison, and implementation roadmap with confidence-tagged recommendations"
     prompt: |
       Context: Architecture review for {account_name}.
       Use case: {use_case}
       Current architecture: {architecture_summary}
       Concerns: {stated_concerns}
+      Reference architectures: {reference_architectures}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Conduct architecture review:
-      - What is the current state?
-      - What are the gaps?
-      - What are the risks?
-      - What do we recommend?
+      You are conducting a specialist-level architecture review. The SA has
+      identified this as beyond standard review depth, either due to scale,
+      complexity, or regulatory requirements. Your assessment must be precise
+      enough that a customer architect can act on it directly. Follow these
+      steps in order.
 
-      Format:
-      - Current state assessment
-      - Gaps and risks table (Issue | Severity | Impact)
-      - Recommendations (prioritized)
-      - Reference architecture comparison
-      - Implementation roadmap
-      - Follow-up SA actions
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: architecture diagrams, config files, telemetry data, 5+ data points
+      - MEDIUM: verbal description, partial docs, 2-4 data points
+      - LOW: no architecture detail, use case name only
+      Dimensions to assess: Current Architecture, Use Case Detail, Scale Requirements,
+      Performance Baselines, Security/Compliance Requirements.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP review.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Specific architecture artifacts to request (topology diagrams, config exports,
+        capacity planning docs)
+      - Questions to ask in the next architecture workshop
+      - Observation checklist for implicit architecture signals from existing deployments
+      - Re-review gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: CURRENT STATE ASSESSMENT
+      Document the current architecture as understood.
+      For each architectural layer:
+      - Layer (ingestion, processing, storage, query, visualization, security)
+      - Components deployed
+      - Configuration highlights (node counts, sizing, replication)
+      - Known constraints or limitations
+      - Assessment confidence: HIGH / MEDIUM / LOW with basis
+      If a layer has no data: state "{Layer} details not provided. Assessment
+      excludes this layer. Request architecture documentation for complete review."
+      Deliverable: Current state table (Layer | Components | Config | Constraints |
+      Confidence).
+
+      STEP 2: GAP AND RISK ANALYSIS
+      Identify gaps between current state and best practice or requirements.
+      For each gap/risk:
+      - Issue description (specific, not generic)
+      - Severity: CRITICAL / HIGH / MEDIUM / LOW
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Impact area (performance, reliability, security, scalability, cost, operability)
+      - Secondary impact areas if applicable
+      - Evidence or reasoning
+      - Affected components
+      Classification uses compound categories:
+      - Primary impact for ownership routing
+      - Secondary flags for cross-cutting concerns
+      If no gaps identified: state "No gaps identified at current analysis depth.
+      Recommend deeper review with production telemetry data."
+      Deliverable: Gap/Risk table (Issue | Severity | Confidence | Primary Impact |
+      Secondary Impact | Evidence | Components).
+
+      STEP 3: REFERENCE ARCHITECTURE COMPARISON
+      Compare current architecture to the relevant reference architecture.
+      For each comparison dimension:
+      - Dimension (topology, sizing, configuration, security posture, operational model)
+      - Reference standard (what best practice says)
+      - Current state (what the customer has)
+      - Delta (gap description)
+      - Priority to close (HIGH / MEDIUM / LOW)
+      - Confidence on delta assessment: HIGH / MEDIUM / LOW with basis
+      If reference architecture is not available: state "Reference architecture not
+      specified. Comparison based on general best practices. Confidence: LOW."
+      Deliverable: Comparison table (Dimension | Reference | Current | Delta |
+      Priority | Confidence).
+
+      STEP 4: RECOMMENDATIONS
+      Prioritized recommendations to address gaps and align with reference architecture.
+      For each recommendation:
+      - Recommendation (specific action, not vague guidance)
+      - Addresses (which gaps/risks from Step 2)
+      - Priority: CRITICAL / HIGH / MEDIUM / LOW
+      - Effort: SMALL / MEDIUM / LARGE
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Customer benefit (measurable outcome)
+      - Risk of not acting (consequence of inaction)
+      Rank by priority descending, then effort ascending.
+      Deliverable: Recommendations table (Recommendation | Addresses | Priority |
+      Effort | Confidence | Benefit | Risk of Inaction).
+
+      STEP 5: IMPLEMENTATION ROADMAP
+      Sequence recommendations into a phased roadmap.
+      For each phase:
+      - Phase name and duration
+      - Recommendations included (from Step 4)
+      - Dependencies (what must complete first)
+      - Resources required (specialist, SA, customer)
+      - Success criteria (how to validate the phase is complete)
+      If timeline data is unavailable: state "Roadmap phases are relative, not
+      calendar-bound. Requires alignment with customer change windows."
+      Deliverable: Roadmap table (Phase | Duration | Recommendations | Dependencies |
+      Resources | Success Criteria).
+
+      STEP 6: SA FOLLOW-UP ACTIONS
+      Define what the SA needs to do after this review.
+      Action table format:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include prerequisites for each action.
+      Deliverable: SA action plan table.
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Architecture assessment score updated
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every gap has severity AND confidence, not just severity
+      - Reference comparison states confidence level on each delta assessment
+      - Recommendations are specific actions, not generic advice
+      - Compound classification used for impact areas (primary + secondary)
+      - Implementation roadmap includes dependencies between phases
+      - Action plan includes prerequisites column
+      - Trend claims (architecture degradation/improvement) require two data points
+      - Account state delta specifies field-level changes
+      - Executive summary is self-sufficient: a reader can act on it without reading
+        the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, top 3 recommendations,
+        account state delta, and the single highest-priority SA action. Skip detailed
+        tables and roadmap.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (architecture
+        artifacts needed, questions, observation checklist, re-review date). Skip
+        analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) overall architecture health with confidence
+      and number of critical gaps, (2) the weakest architectural layer or lowest
+      confidence area, and (3) the single most urgent action to take next.
 
   sizing_deep_dive:
     name: "Complex Sizing Analysis"
-    description: "Perform detailed sizing for complex scenario"
+    description: "Perform detailed sizing for complex scenarios with workload characterization, resource calculation, configuration recommendations, cost modeling, and scaling path with confidence metadata"
     prompt: |
       Context: Sizing for {account_name}.
       Use case: {use_case}
       Scale: {scale_requirements}
       Constraints: {constraints}
+      Growth projections: {growth_projections}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Perform sizing analysis:
-      - What are the workload characteristics?
-      - What are the resource requirements?
-      - What are the configuration recommendations?
-      - What are the cost implications?
+      You are performing specialist-level sizing for a scenario that exceeds standard
+      sizing tools or templates. Incorrect sizing leads to either over-provisioned
+      costs or under-provisioned outages. Every number must have a derivation path.
+      Follow these steps in order.
 
-      Format:
-      - Workload analysis
-      - Sizing table (Component | Nodes | Specs | Storage)
-      - Configuration recommendations
-      - Cost estimate
-      - Scaling path for growth
-      - Caveats and assumptions
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: telemetry, benchmarks, production metrics, 5+ data points
+      - MEDIUM: estimated volumes, partial metrics, 2-4 data points
+      - LOW: aspirational targets only, no current data
+      Dimensions to assess: Data Volume, Query Patterns, Ingest Rate, Retention
+      Requirements, Performance SLAs, Growth Projections.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP sizing.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Specific data to collect (sample data volumes, query logs, ingest rates)
+      - Questions to ask the customer about workload characteristics
+      - Measurement approach (what to monitor for 1-2 weeks)
+      - Re-sizing gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: WORKLOAD CHARACTERIZATION
+      Profile the workload in detail.
+      For each workload dimension:
+      - Dimension (ingest rate, query volume, document size, retention, peak ratio)
+      - Value (measured or estimated)
+      - Source: MEASURED (from production data), ESTIMATED (from sampling or analogues),
+        ASSUMED (no data, using industry baseline)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Growth factor (annual growth rate if known)
+      If a dimension has no data: state "{Dimension} not provided. Using industry
+      baseline assumption of {value}. Confidence: LOW. Flag for validation."
+      Deliverable: Workload profile table (Dimension | Value | Source | Confidence |
+      Growth Factor).
+
+      STEP 2: RESOURCE CALCULATION
+      Calculate required resources based on workload profile.
+      For each component:
+      - Component (data nodes, master nodes, coordinating nodes, ingest nodes, ML nodes)
+      - Node count
+      - Instance type / specs (CPU, memory, storage type and size)
+      - Derivation (formula or reasoning used to arrive at this number)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Headroom included (percentage above calculated minimum)
+      Show the calculation path: raw requirement, headroom factor, final recommendation.
+      If calculation depends on ASSUMED inputs: state "Resource calculation for
+      {component} based on assumed workload values. Confidence: LOW. Validate
+      workload before procurement."
+      Deliverable: Sizing table (Component | Nodes | Specs | Storage | Derivation |
+      Confidence | Headroom).
+
+      STEP 3: CONFIGURATION RECOMMENDATIONS
+      Specify key configuration settings for the sized environment.
+      For each configuration area:
+      - Area (shard strategy, replica count, refresh interval, memory allocation,
+        circuit breakers, thread pools)
+      - Recommended setting
+      - Rationale (why this value for this workload)
+      - Impact if misconfigured (what goes wrong)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Classification uses compound categories:
+      - Primary area for grouping
+      - Secondary flags: PERFORMANCE_CRITICAL, STABILITY_CRITICAL, COST_SENSITIVE
+      If environment details are insufficient: state "Configuration recommendations
+      are baseline. Tune after production workload observation."
+      Deliverable: Configuration table (Area | Setting | Rationale | Misconfiguration
+      Risk | Confidence | Flags).
+
+      STEP 4: COST MODELING
+      Build a cost model for the recommended sizing.
+      For each cost line:
+      - Component
+      - Unit cost (per node/month or per hour)
+      - Quantity
+      - Monthly cost
+      - Annual cost
+      - Cost source: LIST_PRICE, NEGOTIATED, ESTIMATED
+      Include:
+      - Compute costs
+      - Storage costs
+      - Network/transfer costs
+      - Support/licensing costs
+      - Operational costs (administration overhead)
+      Calculate total cost of ownership (TCO) with confidence level.
+      If pricing data is unavailable: state "Costs based on public list pricing.
+      Actual costs depend on negotiated agreements."
+      Deliverable: Cost table (Component | Unit Cost | Quantity | Monthly | Annual |
+      Source) with TCO total and confidence.
+
+      STEP 5: SCALING PATH
+      Define how the environment grows with the customer's business.
+      For each growth milestone:
+      - Trigger (data volume, query rate, user count threshold)
+      - What changes (add nodes, upgrade specs, re-shard, new tier)
+      - Effort (SMALL / MEDIUM / LARGE)
+      - Lead time (how far in advance to plan)
+      - Cost increment
+      Growth trend assessment: if two or more historical data points exist, state
+      trend direction. If only one data point, state "INSUFFICIENT DATA for growth
+      trend. Scaling path based on projected growth rate."
+      Deliverable: Scaling path table (Trigger | Change | Effort | Lead Time |
+      Cost Delta).
+
+      STEP 6: CAVEATS AND ASSUMPTIONS
+      List all assumptions that underpin this sizing.
+      For each assumption:
+      - Assumption
+      - Impact if wrong (over-sized, under-sized, performance issue)
+      - Validation approach (how to confirm or invalidate)
+      Deliverable: Assumptions table (Assumption | Impact if Wrong | Validation).
+
+      STEP 7: ACTION PLAN
+      Define next steps for the SA and customer.
+      Action table format:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include prerequisites for each action.
+      Deliverable: Action plan table.
+
+      STEP 8: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Sizing recommendation recorded
+      - Cost estimate logged
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every resource number has a derivation path, not just a number
+      - Workload values distinguish MEASURED from ESTIMATED from ASSUMED
+      - Confidence levels attached to every sizing dimension and recommendation
+      - Compound classification used for configuration flags
+      - Cost model includes all cost categories, not just compute
+      - Scaling path references growth triggers, not just calendar dates
+      - Trend claims require two data points or state INSUFFICIENT DATA
+      - Action plan includes prerequisites column
+      - Account state delta specifies field-level changes
+      - Executive summary is self-sufficient: a reader can act on it without reading
+        the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, sizing summary
+        (total nodes, total cost), account state delta, and the single highest-priority
+        action. Skip detailed derivations and configuration tables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data to
+        collect, measurement approach, questions, re-sizing date). Skip calculations.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) total nodes, annual cost, and data
+      confidence profile, (2) the assumption with highest impact if wrong, and
+      (3) the single most urgent action to take next.
 
   performance_analysis:
     name: "Performance Deep-Dive"
-    description: "Analyze complex performance issue"
+    description: "Analyze complex performance issue with root cause determination, contributing factor isolation, remediation plan, and prevention measures with confidence-tagged findings"
     prompt: |
       Context: Performance issue at {account_name}.
       Symptoms: {symptom_description}
       Environment: {environment_details}
       Data gathered: {data_available}
+      Timeline of events: {event_timeline}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Analyze performance issue:
-      - What is the root cause?
-      - What are contributing factors?
-      - What is the fix?
-      - How do we prevent recurrence?
+      You are diagnosing a performance issue that the SA has been unable to resolve
+      through standard troubleshooting. Incorrect root cause identification leads
+      to ineffective fixes and recurrence. Every finding must be traceable to
+      evidence. Follow these steps in order.
 
-      Format:
-      - Root cause analysis
-      - Contributing factors
-      - Immediate fix recommendation
-      - Long-term remediation
-      - Prevention measures
-      - Monitoring recommendations
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: metrics, logs, thread dumps, heap dumps, 5+ data points
+      - MEDIUM: partial metrics, symptom descriptions, 2-4 data points
+      - LOW: user-reported symptoms only, no telemetry
+      Dimensions to assess: Symptom Detail, Environment Config, Metrics/Telemetry,
+      Event Timeline, Baseline Performance, Recent Changes.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP analysis.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Specific data to collect (metrics endpoints, log queries, diagnostic commands)
+      - Monitoring to enable before next occurrence
+      - Questions to ask operations team about environment and recent changes
+      - Re-analysis gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: SYMPTOM CATALOGING
+      Document all reported and observed symptoms systematically.
+      For each symptom:
+      - Symptom description
+      - First observed (date/time if known)
+      - Frequency: constant / intermittent / triggered
+      - Severity: customer-reported vs specialist-assessed (with confidence: HIGH/MEDIUM/LOW)
+      - Affected scope (which users, which operations, which data)
+      - Correlation with other symptoms
+      If symptom data is sparse: state "Symptom catalog based on limited reports.
+      Additional observation period recommended before root cause determination."
+      Deliverable: Symptom table (Symptom | First Observed | Frequency | Reported
+      Severity | Assessed Severity | Confidence | Scope | Correlations).
+
+      STEP 2: ROOT CAUSE ANALYSIS
+      Determine the root cause using available evidence.
+      For each candidate root cause:
+      - Hypothesis
+      - Supporting evidence (specific data points, metrics, logs)
+      - Contradicting evidence (what argues against this hypothesis)
+      - Probability: HIGH / MEDIUM / LOW (confidence: HIGH/MEDIUM/LOW with basis)
+      - Test to confirm (what would prove or disprove this hypothesis)
+      Classification uses compound categories:
+      - Primary cause category: CAPACITY / CONFIGURATION / CODE / DATA_PATTERN /
+        INFRASTRUCTURE / EXTERNAL
+      - Secondary flags for contributing categories
+      Select the most probable root cause. If multiple candidates have similar
+      probability, state "Root cause determination inconclusive. Recommend
+      {specific test} to differentiate."
+      Deliverable: Root cause analysis table (Hypothesis | Evidence For | Evidence
+      Against | Probability | Confidence | Confirmation Test) with primary
+      determination.
+
+      STEP 3: CONTRIBUTING FACTOR ANALYSIS
+      Identify factors that amplify the root cause or created conditions for it.
+      For each factor:
+      - Factor description
+      - How it contributes (mechanism)
+      - Since when (if temporal data available; if only one data point, state
+        "INSUFFICIENT DATA for duration trend")
+      - Independently fixable: YES / NO
+      - Priority to address: HIGH / MEDIUM / LOW
+      If no contributing factors identified: state "No contributing factors
+      identified beyond root cause. Issue appears isolated."
+      Deliverable: Contributing factors table (Factor | Mechanism | Duration |
+      Fixable | Priority).
+
+      STEP 4: REMEDIATION PLAN
+      Define immediate fix and long-term remediation.
+      Immediate fix:
+      - Action to take now
+      - Expected result
+      - Risk of the fix (could it make things worse?)
+      - Rollback plan if the fix fails
+      - Confidence the fix addresses root cause: HIGH / MEDIUM / LOW with basis
+      Long-term remediation:
+      - Structural changes needed
+      - Timeline for implementation
+      - Dependencies
+      Action table format:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Deliverable: Immediate fix specification + Long-term remediation plan +
+      Action plan table.
+
+      STEP 5: PREVENTION MEASURES
+      Define how to prevent recurrence.
+      For each measure:
+      - Measure description
+      - What it prevents (which root cause or contributing factor)
+      - Implementation effort: SMALL / MEDIUM / LARGE
+      - Monitoring/alerting to add (specific metrics, thresholds, alert conditions)
+      If prevention measures depend on assumed root cause: state "Prevention measures
+      contingent on root cause confirmation. Validate before implementing."
+      Deliverable: Prevention table (Measure | Prevents | Effort | Monitoring).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Technical health score updated
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Root cause analysis lists both supporting AND contradicting evidence
+      - Every finding has confidence level with basis stated
+      - Compound classification used for root cause categories
+      - Immediate fix includes rollback plan, not just the action
+      - Prevention measures tie to specific root causes or contributing factors
+      - Trend claims (performance degradation over time) require two data points
+      - Action plan includes prerequisites column
+      - Account state delta specifies field-level changes
+      - Executive summary is self-sufficient: a reader can act on it without reading
+        the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, root cause
+        determination, immediate fix, account state delta, and the single
+        highest-priority action. Skip detailed analysis tables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data to
+        collect, monitoring to enable, questions, re-analysis date). Skip diagnosis.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) root cause determination with confidence
+      level, (2) the weakest point in the analysis or lowest confidence finding, and
+      (3) the single most urgent action to take next.
 
 # ============================================================================
 # RFP/POC SUPPORT PROMPTS
@@ -152,67 +977,483 @@ rfp_poc:
 
   rfp_technical_response:
     name: "RFP Technical Response"
-    description: "Prepare technical content for RFP response"
+    description: "Prepare technical content for RFP response with differentiation analysis, competitive positioning, proof points, and caveat documentation with confidence metadata"
     prompt: |
       Context: RFP for {account_name}.
       Section: {rfp_section}
       Questions: {questions}
+      Competitive context: {competitive_context}
+      Product capabilities: {product_capabilities}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare technical response:
-      - What is the accurate answer?
-      - What differentiates us?
-      - What caveats apply?
-      - What proof points support?
+      You are preparing specialist-level technical content for an RFP response.
+      Inaccurate claims damage credibility; missing differentiators lose deals.
+      Every response must be factually defensible and strategically positioned.
+      Follow these steps in order.
 
-      Format:
-      - Response per question (question | answer | differentiator)
-      - Technical caveats
-      - Proof points to include
-      - Competitive positioning
-      - Follow-up opportunities
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: full RFP questions, competitor details, product docs, 5+ data points
+      - MEDIUM: partial questions, general competitive landscape, 2-4 data points
+      - LOW: vague requirements, no competitive context
+      Dimensions to assess: RFP Questions, Product Capabilities, Competitive
+      Intelligence, Customer Context, Proof Points/References.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP response drafting.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Specific RFP sections or questions needed for response
+      - Product capability documentation to gather
+      - Competitive intelligence to research
+      - Re-response gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: QUESTION ANALYSIS
+      Analyze each RFP question to understand what is really being asked.
+      For each question:
+      - Question ID and text
+      - What the question is really testing (the evaluation criterion behind it)
+      - Our strength on this dimension: STRONG / ADEQUATE / WEAK / GAP
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Competitive sensitivity: is a competitor likely stronger here?
+      Classification uses compound categories:
+      - Primary dimension: FUNCTIONAL / SCALABILITY / SECURITY / INTEGRATION /
+        OPERATIONAL / COMMERCIAL
+      - Secondary flags for cross-cutting questions
+      If question intent is ambiguous: state "Question {id} intent unclear.
+      Response covers likely interpretations. Recommend clarification with
+      customer if possible."
+      Deliverable: Question analysis table (ID | Question | Real Test | Our Strength |
+      Confidence | Competitive Risk | Primary Dimension | Secondary Flags).
+
+      STEP 2: TECHNICAL RESPONSE DRAFTING
+      Draft the technical response for each question.
+      For each response:
+      - Question ID
+      - Response text (factually accurate, strategically positioned)
+      - Differentiator highlighted (what sets us apart)
+      - Technical caveats (limitations, version dependencies, configuration requirements)
+      - Confidence that response is fully accurate: HIGH / MEDIUM / LOW with basis
+      Rules:
+      - NEVER claim capability that does not exist or is not GA
+      - If capability is roadmap: state "planned" with expected timeline if public
+      - If capability requires partner/integration: state clearly
+      - If capability is WEAK or GAP: pivot to alternative approach or compensating strength
+      Deliverable: Response table (ID | Response | Differentiator | Caveats | Confidence).
+
+      STEP 3: PROOF POINTS
+      Identify proof points to support the responses.
+      For each proof point:
+      - Type: CUSTOMER_REFERENCE / BENCHMARK / CASE_STUDY / THIRD_PARTY_VALIDATION /
+        CERTIFICATION
+      - Description
+      - Relevance to which question(s)
+      - Availability: READY (can share) / REQUESTABLE (need approval) / RESTRICTED
+      - Strength: how compelling is this to the evaluator
+      If no proof points available for a question: state "No proof points available
+      for question {id}. Recommend gathering customer reference or benchmark data."
+      Deliverable: Proof points table (Type | Description | Questions | Availability |
+      Strength).
+
+      STEP 4: COMPETITIVE POSITIONING
+      Position responses against known or likely competitors.
+      For each competitive dimension:
+      - Dimension
+      - Our position (with evidence)
+      - Likely competitor position (with reasoning)
+      - Recommended emphasis in response
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If competitive context is absent: state "Competitive positioning based on
+      general market knowledge. Confidence: LOW. Recommend gathering specific
+      competitive intelligence for this deal."
+      Deliverable: Competitive positioning table (Dimension | Our Position |
+      Competitor Position | Emphasis | Confidence).
+
+      STEP 5: ACTION PLAN
+      Define follow-up actions after response submission.
+      Action table format:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include prerequisites for each action.
+      Deliverable: Action plan table.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - RFP response status updated
+      - Competitive intelligence logged
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - No capability claims without factual basis (NEVER fabricate features)
+      - Every response includes confidence level
+      - Caveats are explicit, not buried in positive language
+      - Compound classification used for question dimensions
+      - Proof points are available or flagged as needing procurement
+      - Competitive positioning includes confidence levels
+      - Action plan includes prerequisites column
+      - Account state delta specifies field-level changes
+      - Executive summary is self-sufficient: a reader can act on it without reading
+        the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, response summary
+        per question (one line each), account state delta, and the single
+        highest-priority follow-up action. Skip detailed analysis.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (RFP
+        sections needed, capability docs to gather, competitive research, re-response
+        date). Skip response drafting.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) overall response strength and number of
+      GAP areas, (2) the weakest response area or highest competitive risk, and
+      (3) the single most urgent action to take next.
 
   poc_design:
     name: "POC Design Assistance"
-    description: "Design POC architecture and success criteria"
+    description: "Design POC architecture, define achievable success criteria, map risks, and create milestone timeline with SA handoff checklist and confidence-tagged criteria"
     prompt: |
       Context: POC for {account_name}.
       Use case: {use_case}
       Success criteria requested: {customer_criteria}
       Timeline: {poc_timeline}
+      Environment constraints: {environment_constraints}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Design POC:
-      - What architecture for POC?
-      - What success criteria are achievable?
-      - What are the risks?
-      - How do we ensure success?
+      You are designing a POC that must both prove technical viability and advance
+      the deal. Overscoped POCs fail on timeline; underscoped POCs fail to convince.
+      Every criterion must be achievable within the constraints. Follow these steps
+      in order.
 
-      Format:
-      - POC architecture (simplified)
-      - Success criteria (proposed, with reasoning)
-      - Risk mitigation plan
-      - Timeline with milestones
-      - SA handoff checklist
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: detailed use case, clear criteria, environment specs, 5+ data points
+      - MEDIUM: partial requirements, general criteria, 2-4 data points
+      - LOW: use case name only, no criteria detail
+      Dimensions to assess: Use Case Detail, Success Criteria Specifics, Environment
+      Constraints, Data Availability for POC, Timeline Firmness.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP POC design.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask the customer about use case and success definition
+      - Data and environment access to request for POC preparation
+      - Observation checklist for POC readiness signals
+      - Re-design gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: POC ARCHITECTURE
+      Design the POC architecture, simplified for time constraints but representative.
+      For each architecture component:
+      - Component (what it is)
+      - Purpose in POC (what it demonstrates)
+      - Configuration (sized for POC, not production)
+      - Differs from production (what would change at scale)
+      - Confidence that component will perform as needed: HIGH / MEDIUM / LOW with basis
+      Design principles:
+      - Minimum viable architecture that proves the use case
+      - Representative data and query patterns
+      - Measurable outputs for every success criterion
+      If environment constraints are unknown: state "Architecture assumes standard
+      environment. Requires validation against customer infrastructure."
+      Deliverable: POC architecture specification (Component | Purpose | Config |
+      Production Delta | Confidence).
+
+      STEP 2: SUCCESS CRITERIA DEFINITION
+      Evaluate and refine the customer's requested success criteria.
+      For each criterion:
+      - Customer's original criterion
+      - Specialist assessment: ACHIEVABLE / STRETCH / UNREALISTIC
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Proposed criterion (refined for measurability and achievability)
+      - Measurement method (how it will be tested and verified)
+      - Why this criterion matters to the customer (business outcome it validates)
+      Classification uses compound categories:
+      - Primary: FUNCTIONAL / PERFORMANCE / SCALABILITY / INTEGRATION / OPERATIONAL
+      - Secondary flags for criteria that span categories
+      If customer criteria are vague: state "Criterion '{text}' is not measurable
+      as stated. Proposed measurable alternative: {alternative}."
+      Deliverable: Criteria table (Original | Assessment | Confidence | Proposed |
+      Measurement | Business Outcome | Primary Type | Secondary Flags).
+
+      STEP 3: RISK MITIGATION
+      Identify POC risks and mitigation strategies.
+      For each risk:
+      - Risk description
+      - Probability: HIGH / MEDIUM / LOW (confidence: HIGH/MEDIUM/LOW with basis)
+      - Impact on POC: BLOCKS / DELAYS / DEGRADES
+      - Mitigation plan
+      - Contingency if mitigation fails
+      - Owner
+      If no risks identified: state "No risks identified at current planning depth.
+      Recommend risk review after environment access."
+      Deliverable: Risk table (Risk | Probability | Confidence | Impact | Mitigation |
+      Contingency | Owner).
+
+      STEP 4: TIMELINE AND MILESTONES
+      Create a milestone-based timeline for the POC.
+      For each milestone:
+      - Milestone name
+      - Target date (or day offset)
+      - Deliverable at this milestone
+      - Dependencies (what must complete first)
+      - Go/no-go criteria (conditions to proceed to next milestone)
+      If timeline is not specified: state "Timeline uses standard POC cadence.
+      Adjust dates to customer availability."
+      Deliverable: Timeline table (Milestone | Date | Deliverable | Dependencies |
+      Go/No-Go Criteria).
+
+      STEP 5: SA HANDOFF CHECKLIST
+      Define what the SA needs to execute and manage after POC design.
+      Action table format:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include prerequisites for each action.
+      Deliverable: SA handoff action plan table.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - POC engagement created or updated
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - POC architecture distinguishes POC config from production config
+      - Every success criterion is measurable, not subjective
+      - Criteria assessments include confidence levels with basis
+      - Risk mitigation includes contingency plans, not just mitigations
+      - Compound classification used for criteria types
+      - Timeline includes go/no-go gates, not just milestones
+      - Action plan includes prerequisites column
+      - Account state delta specifies field-level changes
+      - Executive summary is self-sufficient: a reader can act on it without reading
+        the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, success criteria
+        summary, account state delta, and the single highest-priority action.
+        Skip detailed architecture and risk tables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (use case
+        questions, data/environment needs, readiness checklist, re-design date).
+        Skip design steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) POC feasibility assessment with number
+      of achievable vs stretch criteria, (2) the highest risk to POC success, and
+      (3) the single most urgent action to take next.
 
   poc_review:
     name: "POC Results Review"
-    description: "Review POC results and prepare customer presentation"
+    description: "Review POC results against success criteria with scorecard, standout analysis, challenge documentation, and customer presentation outline with confidence metadata"
     prompt: |
       Context: POC complete for {account_name}.
       Results: {poc_results}
       Success criteria: {criteria}
+      Original POC design: {poc_design}
+      Customer feedback during POC: {customer_feedback}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Review POC results:
-      - Did we meet success criteria?
-      - What were the standout results?
-      - What were the challenges?
-      - How do we present to customer?
+      You are reviewing POC results to determine success, prepare the customer
+      presentation, and define next steps. Overstating results erodes trust;
+      understating them loses momentum. Every assessment must be evidence-based.
+      Follow these steps in order.
 
-      Format:
-      - Success criteria scorecard
-      - Standout results (lead with these)
-      - Challenges and how addressed
-      - Customer presentation outline
-      - Next steps recommendation
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: full test results, metrics, customer feedback, 5+ data points
+      - MEDIUM: partial results, some metrics, 2-4 data points
+      - LOW: anecdotal feedback only, no measurement data
+      Dimensions to assess: Test Results Data, Success Criteria Measurements,
+      Customer Feedback, Performance Metrics, Comparison Baselines.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP review.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Specific test results and metrics to gather before review
+      - Customer feedback to collect (structured questions)
+      - Measurement data to extract from POC environment
+      - Re-review gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: SUCCESS CRITERIA SCORECARD
+      Evaluate each success criterion against actual results.
+      For each criterion:
+      - Criterion description
+      - Target (what was defined as success)
+      - Actual result (measured value)
+      - Verdict: MET / PARTIALLY_MET / NOT_MET / NOT_TESTED
+      - Confidence in measurement: HIGH / MEDIUM / LOW with basis
+      - Notes (context, caveats, extenuating circumstances)
+      Calculate overall success rate (% of criteria MET).
+      If a criterion was not tested: state reason and whether it invalidates the POC.
+      Classification uses compound categories:
+      - Primary verdict for overall assessment
+      - Secondary flags: EXCEEDED_TARGET, CUSTOMER_IMPRESSED, NEEDS_TUNING,
+        ENVIRONMENT_LIMITATION
+      Deliverable: Scorecard table (Criterion | Target | Actual | Verdict |
+      Confidence | Notes | Flags) with overall success rate.
+
+      STEP 2: STANDOUT RESULTS ANALYSIS
+      Identify results that exceeded expectations or demonstrate unique value.
+      For each standout:
+      - Result description
+      - Why it is significant (customer business impact)
+      - Comparison to competitor capability (if known, with confidence level)
+      - How to present it (recommended narrative)
+      - Trend validation: if comparing to baseline, verify two data points exist.
+        If only POC result exists without baseline, state "Single measurement,
+        no baseline comparison available."
+      If no standout results: state "No results exceeded targets. Lead presentation
+      with criteria met and business value demonstrated."
+      Deliverable: Standout analysis table (Result | Significance | Competitive
+      Advantage | Confidence | Presentation Narrative).
+
+      STEP 3: CHALLENGES AND LESSONS
+      Document challenges encountered and how they were addressed.
+      For each challenge:
+      - Challenge description
+      - Root cause (environment, configuration, data, product limitation)
+      - How addressed during POC
+      - Impact on results (did it affect any success criteria?)
+      - Relevance to production (will this recur at scale?)
+      - Mitigation for production deployment
+      Classification uses compound categories:
+      - Primary: ENVIRONMENT / CONFIGURATION / DATA / PRODUCT / PROCESS
+      - Secondary flags for cross-cutting challenges
+      If no challenges: state "POC executed without significant challenges."
+      Deliverable: Challenges table (Challenge | Root Cause | Resolution | Results
+      Impact | Production Relevance | Production Mitigation | Category | Flags).
+
+      STEP 4: CUSTOMER PRESENTATION OUTLINE
+      Structure the results presentation for maximum impact.
+      Sections:
+      1. Executive summary (3 sentences: overall result, strongest proof point,
+         recommended next step)
+      2. Success criteria scorecard (visual: green/yellow/red)
+      3. Standout results (lead with the most impressive)
+      4. Challenges addressed (transparency builds trust)
+      5. Production readiness assessment (what changes for production)
+      6. Recommended next steps (with timeline)
+      For each section: key message, supporting data, and delivery notes.
+      Deliverable: Presentation outline with section details.
+
+      STEP 5: NEXT STEPS AND ACTION PLAN
+      Define post-POC actions.
+      Action table format:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include prerequisites for each action.
+      Categories:
+      - Deal advancement actions (AE-owned)
+      - Technical follow-up actions (SA-owned)
+      - Production planning actions (joint)
+      Deliverable: Action plan table.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - POC status updated
+      - Deal stage progression
+      - Technical validation score
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every criterion has a measured result, not a subjective assessment
+      - Verdict confidence levels included with basis
+      - Standout results have evidence, not just enthusiasm
+      - Challenges include production relevance, not just POC context
+      - Compound classification used for verdicts and challenge categories
+      - Trend or improvement claims require two data points or state limitation
+      - Presentation outline leads with strongest evidence
+      - Action plan includes prerequisites column
+      - Account state delta specifies field-level changes
+      - Executive summary is self-sufficient: a reader can act on it without reading
+        the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, scorecard summary
+        (criteria met/total), account state delta, and the single highest-priority
+        next step. Skip detailed analysis and presentation outline.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (results
+        to gather, feedback to collect, metrics to extract, re-review date). Skip
+        review steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) overall POC success rate and verdict,
+      (2) the weakest criterion or highest concern area, and (3) the single most
+      urgent action to take next.
 
 # ============================================================================
 # KNOWLEDGE TRANSFER PROMPTS
@@ -221,44 +1462,339 @@ knowledge_transfer:
 
   sa_handback:
     name: "SA Handback Summary"
-    description: "Prepare handback to SA after specialist engagement"
+    description: "Prepare comprehensive handback to SA after specialist engagement with findings, deliverables, follow-up items, and future trigger definitions with confidence metadata"
     prompt: |
       Context: Specialist engagement complete for {account_name}.
       Engagement scope: {scope}
       Deliverables: {deliverables}
+      Engagement duration: {duration}
+      Customer interactions: {customer_interactions}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare handback:
-      - What was done?
-      - What are the findings?
-      - What does SA need to follow up on?
-      - What should SA know going forward?
+      You are preparing the handback from specialist to SA. Incomplete handbacks
+      create knowledge gaps that lead to customer-visible mistakes. Every finding
+      and expectation set during the engagement must transfer. Follow these steps
+      in order.
 
-      Format:
-      - Engagement summary
-      - Key findings (prioritized)
-      - Deliverables produced
-      - SA follow-up items (with context)
-      - Future specialist triggers
-      - Customer expectations set
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: full engagement notes, deliverables, customer feedback, 5+ data points
+      - MEDIUM: partial notes, some deliverables, 2-4 data points
+      - LOW: engagement topic only, no engagement detail
+      Dimensions to assess: Engagement Scope Detail, Findings Documentation,
+      Deliverables Produced, Customer Expectations Set, Follow-Up Commitments.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP handback.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Information to gather from the specialist before handback
+      - Deliverables to finalize or locate
+      - Customer expectations to verify
+      - Re-handback gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: ENGAGEMENT SUMMARY
+      Summarize what the specialist engagement covered.
+      - Original request and scope
+      - What was actually done (may differ from scope)
+      - Duration and effort spent
+      - Key participants (specialist, customer contacts, SA)
+      - Scope changes during engagement (if any, with reasoning)
+      If engagement details are sparse: state "Summary based on limited engagement
+      records. Recommend specialist debrief before SA proceeds."
+      Deliverable: Engagement summary section.
+
+      STEP 2: KEY FINDINGS
+      Document all findings from the engagement, prioritized by impact.
+      For each finding:
+      - Finding description
+      - Severity: CRITICAL / HIGH / MEDIUM / LOW
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Evidence (data, test results, observations)
+      - Implication for the customer (what it means for their environment/deal)
+      - SA action required (what the SA needs to do with this finding)
+      Classification uses compound categories:
+      - Primary: TECHNICAL / COMMERCIAL / PROCESS / RISK
+      - Secondary flags for cross-cutting findings
+      If no findings beyond expected results: state "Engagement confirmed
+      expectations. No unexpected findings."
+      Deliverable: Findings table (Finding | Severity | Confidence | Evidence |
+      Implication | SA Action | Primary Category | Secondary Flags).
+
+      STEP 3: DELIVERABLES PRODUCED
+      Catalog all deliverables created during the engagement.
+      For each deliverable:
+      - Deliverable name
+      - Type (document, architecture, config, recommendation, presentation)
+      - Location (where it is stored/accessible)
+      - Audience (who should see it: internal, customer, both)
+      - Status: FINAL / DRAFT / IN_PROGRESS
+      - Expiration: does this deliverable have a shelf life (e.g., sizing valid for 6 months)
+      If deliverables are not finalized: state "Deliverable '{name}' is {status}.
+      Expected completion: {date}."
+      Deliverable: Deliverables catalog table (Name | Type | Location | Audience |
+      Status | Expiration).
+
+      STEP 4: CUSTOMER EXPECTATIONS SET
+      Document all expectations set with the customer during the engagement.
+      For each expectation:
+      - What was communicated to the customer
+      - By whom (specialist or SA)
+      - Customer's understanding (as best known)
+      - SA's responsibility to maintain (what the SA must deliver or follow up on)
+      - Timeline communicated
+      This is critical: untracked customer expectations become broken promises.
+      If customer interaction details are missing: state "Customer expectations not
+      fully documented. Recommend SA verify with customer before proceeding."
+      Deliverable: Expectations table (Expectation | Communicated By | Customer
+      Understanding | SA Responsibility | Timeline).
+
+      STEP 5: SA FOLLOW-UP ITEMS
+      Define all items the SA must act on post-handback.
+      Action table format:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include prerequisites for each action.
+      Categories:
+      - Customer follow-up actions
+      - Internal follow-up actions (documentation, CRM updates)
+      - Escalation items (issues requiring management attention)
+      Deliverable: SA follow-up action plan table.
+
+      STEP 6: FUTURE SPECIALIST TRIGGERS
+      Define conditions under which the SA should re-engage specialists.
+      For each trigger:
+      - Trigger condition (specific, observable event or threshold)
+      - Domain (which specialist team)
+      - Urgency (how quickly to engage)
+      - Context to provide (what data to gather before requesting specialist)
+      This ensures the SA knows when to escalate back and arrives prepared.
+      If engagement was one-time with no expected follow-up: state "No anticipated
+      re-engagement triggers. Standard monitoring sufficient."
+      Deliverable: Trigger table (Condition | Domain | Urgency | Context to Provide).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Specialist engagement status updated
+      - Technical findings logged
+      - Customer expectations recorded
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every finding has severity AND confidence, not just severity
+      - Customer expectations are explicitly documented, not assumed
+      - Compound classification used for finding categories
+      - Deliverables include location and audience, not just names
+      - Future triggers are specific and observable, not vague
+      - Action plan includes prerequisites column
+      - Account state delta specifies field-level changes
+      - Executive summary is self-sufficient: a reader can act on it without reading
+        the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, top 3 findings,
+        customer expectations summary, account state delta, and the single
+        highest-priority SA action. Skip detailed tables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (information
+        to gather, deliverables to locate, expectations to verify, re-handback date).
+        Skip handback documentation.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) engagement outcome and number of critical
+      findings, (2) the most important customer expectation the SA must honor, and
+      (3) the single most urgent SA follow-up action.
 
   best_practice_doc:
     name: "Best Practice Documentation"
-    description: "Document best practices from engagement"
+    description: "Document reusable best practices and anti-patterns from specialist engagement with applicability criteria, implementation guidance, and SA reference material with confidence metadata"
     prompt: |
       Context: Completed engagement for {account_name}.
       Topic: {topic}
       Learnings: {key_learnings}
+      Similar past engagements: {past_engagements}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Document for reuse:
-      - What are the reusable patterns?
-      - What are the anti-patterns to avoid?
-      - What reference materials apply?
-      - How should SA apply this?
+      You are capturing reusable knowledge from a specialist engagement so that
+      SAs and future specialists can benefit without repeating the discovery process.
+      Poorly documented patterns are effectively lost. Every pattern must be
+      specific enough that an SA can apply it without specialist support. Follow
+      these steps in order.
 
-      Format:
-      - Pattern name and summary
-      - When to apply
-      - How to implement
-      - Common mistakes
-      - Reference materials
-      - SA guidance
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: detailed findings, test results, multiple scenarios, 5+ data points
+      - MEDIUM: partial learnings, 2-4 data points
+      - LOW: anecdotal observations only
+      Dimensions to assess: Engagement Learnings, Technical Detail, Applicability
+      Scope, Anti-Pattern Evidence, Past Engagement Comparison.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP documentation.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Specific learnings to document from the specialist
+      - Test results or data to gather before pattern formalization
+      - Similar engagement reports to review for pattern validation
+      - Re-documentation gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: PATTERN IDENTIFICATION
+      Extract reusable patterns from the engagement.
+      For each pattern:
+      - Pattern name (descriptive, searchable)
+      - Summary (1-2 sentences: what it is and why it matters)
+      - Domain: Observability / Search / Security / Data Management / Cross-Domain
+      - Confidence that pattern is generalizable: HIGH / MEDIUM / LOW with basis
+      - Source engagement (this engagement) plus any validating past engagements
+      If past engagement data is available, validate pattern recurrence. If only
+      one engagement: state "Pattern identified from single engagement. Confidence:
+      MEDIUM. Requires validation from additional cases."
+      Trend validation: pattern must appear in 2+ engagements to claim "recurring."
+      If only this engagement, state "First observation, not yet validated as recurring."
+      Deliverable: Pattern summary table (Name | Summary | Domain | Confidence |
+      Validation Count).
+
+      STEP 2: APPLICABILITY CRITERIA
+      Define when each pattern should be applied.
+      For each pattern:
+      - When to apply (specific conditions, thresholds, or scenarios)
+      - When NOT to apply (conditions where the pattern is wrong or harmful)
+      - Customer profile match (size, maturity, use case type)
+      - Prerequisites (what must be true in the environment)
+      Classification uses compound categories:
+      - Primary use case for routing
+      - Secondary flags: SIZE_DEPENDENT, MATURITY_DEPENDENT, REGULATORY_DEPENDENT
+      If applicability is narrow: state "Pattern applies to a specific scenario.
+      Not recommended for general use without specialist validation."
+      Deliverable: Applicability table (Pattern | Apply When | Do Not Apply When |
+      Customer Profile | Prerequisites | Flags).
+
+      STEP 3: IMPLEMENTATION GUIDANCE
+      Provide step-by-step implementation instructions for each pattern.
+      For each pattern:
+      - Steps to implement (numbered, specific, actionable by an SA)
+      - Configuration examples (settings, parameters, values)
+      - Validation checks (how to confirm the pattern is correctly applied)
+      - Effort estimate: SMALL / MEDIUM / LARGE
+      - Confidence that SA can execute independently: HIGH / MEDIUM / LOW with basis
+      - Escalation trigger (when the SA should re-engage a specialist)
+      If implementation requires specialist-level expertise: state "Steps {n-m}
+      require specialist involvement. SA should not attempt independently."
+      Deliverable: Implementation guide per pattern (Steps | Config Examples |
+      Validation | Effort | SA Independence | Escalation Trigger).
+
+      STEP 4: ANTI-PATTERN DOCUMENTATION
+      Document common mistakes and approaches to avoid.
+      For each anti-pattern:
+      - Anti-pattern name
+      - What people do wrong (specific mistake)
+      - Why it seems right (what makes this mistake tempting)
+      - What goes wrong (consequence)
+      - Correct approach (reference to the pattern it violates)
+      - Confidence that this is genuinely harmful: HIGH / MEDIUM / LOW with basis
+      If no anti-patterns identified: state "No anti-patterns documented for this
+      engagement. Consider revisiting after production deployment observation."
+      Deliverable: Anti-pattern table (Name | Mistake | Why Tempting | Consequence |
+      Correct Approach | Confidence).
+
+      STEP 5: REFERENCE MATERIALS
+      Compile reference materials for SA use.
+      For each reference:
+      - Material type (documentation, blog post, benchmark, case study, config template)
+      - Title and location
+      - Relevance (which patterns or scenarios it supports)
+      - Audience (SA, customer, both)
+      - Currency: CURRENT / AGING / OUTDATED with last verified date
+      If references are sparse: state "Limited reference materials available.
+      Recommend creating internal knowledge base article from this documentation."
+      Deliverable: Reference table (Type | Title | Location | Relevance | Audience |
+      Currency).
+
+      STEP 6: ACTION PLAN
+      Define actions to formalize and distribute this knowledge.
+      Action table format:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include prerequisites for each action.
+      Deliverable: Action plan table.
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Knowledge base entries created
+      - Patterns cataloged
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every pattern has applicability criteria (when to use AND when not to use)
+      - Implementation steps are specific enough for SA-level execution
+      - Anti-patterns explain why the mistake is tempting, not just what is wrong
+      - Confidence levels on pattern generalizability with basis
+      - Compound classification used for applicability flags
+      - Recurring pattern claims require 2+ engagement data points
+      - Reference materials include currency status
+      - Action plan includes prerequisites column
+      - Account state delta specifies field-level changes
+      - Executive summary is self-sufficient: a reader can act on it without reading
+        the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, pattern names with
+        one-line summaries, account state delta, and the single highest-priority
+        action. Skip detailed implementation guides and anti-patterns.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (learnings
+        to document, data to gather, past engagements to review, re-documentation
+        date). Skip pattern formalization.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) number of patterns captured with
+      confidence profile, (2) the most impactful pattern or highest-risk anti-pattern,
+      and (3) the single most urgent action to distribute this knowledge.

@@ -1,6 +1,7 @@
 # Governance Team Task Prompts
-# Purpose: Task-specific prompts using CAF framework (Context, Action, Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
 # Reference: Agent configs in agents/ directory
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
 # Agents: risk_radar, meeting_notes, decision_registrar, task_shepherd, nudger, reporter, playbook_curator
 
 # ============================================================================
@@ -10,108 +11,282 @@ risk_radar:
 
   scan_for_risks:
     name: "Risk Signal Scan"
-    description: "Scan sources for risk signals and update risk register"
+    description: "Scan sources for risk signals, classify by severity and category, and update risk register with sourced evidence"
     prompt: |
       Context: Daily risk scan for {account_name}/{node_name}.
-      Sources to scan:
-      - Meeting notes from last {days} days
-      - Action tracker for blocked items
-      - Decision log for pending decisions
-      - Health score trends
+      Sources to scan: meeting notes ({days} days), action tracker, decision log, health scores.
+      Current risk register: {risk_register}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = exec summary + state delta + top risk; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Detect risk signals:
-      - Explicit risks (mentioned directly)
-      - Implicit risks (patterns suggesting risk)
-      - Derived risks (inferred from data)
+      You are detecting risk signals across governance data sources.
+      Every risk must be traced to its source. Follow these steps in order.
 
-      Look for patterns:
-      - "might not make", "running behind", "waiting on"
-      - "no response from", "competitor mentioned", "budget concern"
-      - Overdue actions (>5 days), pending decisions (>10 days)
-      - No champion contact (>14 days), health score <70
+      STEP 0: INPUT GATE
+      Validate all inputs. For each required input, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in affected deliverables
+      - DEFER: 2+ required inputs ABSENT, STOP. Produce: (a) missing inputs list, (b) who can provide each, (c) suggested re-run deadline
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output) + Run Mode declaration.
 
-      Format:
-      - New risks identified (ID, title, severity, category, owner)
-      - Updated risks (what changed)
-      - Risk signals requiring verification
-      - Recommended mitigations
-      - Critical alerts (if any)
+      STEP 1: EXPLICIT RISK EXTRACTION
+      Scan for directly stated risks in source data.
+      Pattern keywords: "might not make", "running behind", "waiting on", "no response from", "competitor mentioned", "budget concern".
+      For each risk found:
+      - Signal text (verbatim quote)
+      - Source (meeting ID, action ID, decision ID)
+      - Category: technical / commercial / relationship / competitive / timeline / resource / compliance
+        Assign primary category. Add secondary flag if ambiguous.
+      - Confidence: HIGH (explicit statement), MEDIUM (implied but clear context), LOW (inferred)
+      If no explicit risks found: state "No explicit risk signals detected in scan period."
+      Deliverable: Explicit risks table (Signal | Source | Category | Secondary Flag | Confidence).
+
+      STEP 2: IMPLICIT AND DERIVED RISK DETECTION
+      Detect risks from patterns rather than explicit statements:
+      - Overdue actions (>5 days past due)
+      - Pending decisions (>10 days without resolution)
+      - No champion contact (>14 days)
+      - Health score <70 or declining trend (requires 2+ data points)
+      - Blocked actions with no mitigation plan
+      For each derived risk:
+      - Pattern detected and evidence
+      - Inferred risk statement
+      - Severity: critical / high / medium / low
+      - Probability and impact assessment
+      If no implicit risks found: state "No pattern-based risks detected."
+      Deliverable: Derived risks table (Pattern | Evidence | Risk Statement | Severity | Probability | Impact).
+
+      STEP 3: RISK REGISTER UPDATE
+      Consolidate new and existing risks:
+      - New risks to add (ID, title, severity, category, owner)
+      - Existing risks with changed status (risk_id, field, old value, new value, evidence)
+      - Risks to verify (signal detected but insufficient evidence to confirm)
+      - Recommended mitigations for critical/high risks
+      Deliverable: Register update table (Risk ID | Action | Field | Old | New | Evidence).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Specify field-level changes to account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Risk register additions or modifications
+      - Next actions to trigger
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Every risk traced to a specific source (meeting, action, decision, or metric)
+      - Category classifications include secondary flags where ambiguous
+      - Confidence levels stated for every signal with basis
+      - Trend-based risks reference 2+ data points
+      - Empty states handled explicitly per step
+      - No fabricated risks: if nothing found, state it
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - QUICK: exec summary + state delta + single highest-severity new risk only
+      - DISCOVERY: signal acquisition plan (sources to add, observation checklist, re-scan date)
+      - FULL or unspecified: all deliverables as described
+
+      Format: Lead with 3-sentence executive summary: (1) total risks detected and confidence profile, (2) weakest point or highest-exposure area, (3) single most urgent action.
 
   classify_risk:
     name: "Risk Classification"
-    description: "Classify and enrich newly detected risk"
+    description: "Classify and enrich a newly detected risk signal with severity, category, exposure score, and owner assignment"
     prompt: |
       Context: New risk signal detected.
       Signal: {risk_signal}
       Source: {source}
       Account: {account_name}
+      Risk register: {risk_register}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = classification + owner only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Classify this risk:
-      - Severity: critical/high/medium/low
-      - Category: technical/commercial/relationship/competitive/timeline/resource/compliance
-      - Probability: high/medium/low
-      - Impact: high/medium/low
-      - Owner assignment
+      You are classifying a risk signal into a structured risk entry.
+      Classification must be evidence-based, not assumed. Follow these steps.
 
-      Format:
-      - Risk ID: RISK-{YYYY}-{###}
-      - Title: {concise title}
-      - Severity: {level} with justification
-      - Category: {category}
-      - Probability: {level}
-      - Impact: {level}
-      - Exposure: {probability x impact}
-      - Owner: {assigned_owner}
-      - Review date: {based_on_severity}
-      - Suggested mitigation
+      STEP 0: INPUT GATE
+      Validate all inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: all inputs PRESENT
+      - DEGRADED: 1+ PARTIAL, proceed but flag gaps
+      - DEFER: signal or source ABSENT, STOP with missing inputs list
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact) + Run Mode declaration.
+
+      STEP 1: SIGNAL ANALYSIS
+      Parse the raw risk signal:
+      - Extract the core threat statement
+      - Identify affected scope (account, deal, relationship, timeline)
+      - Determine if this is new or relates to existing risks in {risk_register}
+      - Confidence: HIGH (clear threat with evidence), MEDIUM (plausible but context limited), LOW (speculative)
+      If signal is ambiguous: flag for verification rather than classifying with false precision.
+      Deliverable: Signal analysis (Threat Statement | Scope | Related Risks | Confidence).
+
+      STEP 2: CLASSIFICATION
+      Apply classification framework:
+      - Severity: critical / high / medium / low (with justification)
+      - Category: technical / commercial / relationship / competitive / timeline / resource / compliance
+        Assign primary category. Add secondary flag if the signal spans categories.
+      - Probability: high / medium / low (with evidence basis)
+      - Impact: high / medium / low (with consequence description)
+      - Exposure: probability x impact matrix position
+      Deliverable: Classification table (Dimension | Value | Justification).
+
+      STEP 3: OWNERSHIP AND MITIGATION
+      - Owner assignment (specific person, not team)
+      - Review date based on severity (critical: 2 days, high: 5 days, medium: 10 days, low: 20 days)
+      - Suggested mitigation actions (2-3 options)
+      - Escalation path if mitigation fails
+      Deliverable: Risk entry (Risk ID: RISK-{YYYY}-{###} | all classified fields | owner | review date | mitigations).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Classification justified with evidence, not defaulted
+      - Category includes secondary flag where ambiguous
+      - Confidence stated with basis
+      - Owner is a specific person
+      - Review date follows severity rules
+      - Duplicate check against existing register completed
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - QUICK: classification + owner assignment only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence executive summary: (1) risk classification result and exposure level, (2) weakest aspect of the classification (data gap), (3) most urgent mitigation action.
 
   weekly_risk_review:
     name: "Weekly Risk Review"
-    description: "Prepare weekly risk review summary"
+    description: "Prepare weekly risk review with trend analysis, exposure changes, and recommended actions for the coming week"
     prompt: |
       Context: Weekly risk review for {account_name}/{node_name}.
-      Current risk register: {risk_count} active risks
+      Current risk register: {risk_register} ({risk_count} active risks)
       Period: {week_start} to {week_end}
+      Previous week summary: {previous_summary}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = exec summary + top 5 only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Prepare risk review:
-      - New risks this week
-      - Escalated risks (severity increased)
-      - Mitigated risks (closed or reduced)
-      - Top 5 active risks by exposure
-      - Stale risks (no update >14 days)
+      You are preparing a weekly risk review. Trends require 2+ data points.
+      Follow these steps.
 
-      Format:
-      - Executive summary (2-3 sentences)
-      - New risks table (ID | Title | Severity | Owner)
-      - Top 5 risks with status
-      - Mitigated/closed risks this week
-      - Stale risks requiring attention
-      - Recommended actions for next week
+      STEP 0: INPUT GATE
+      Validate all inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: all inputs PRESENT
+      - DEGRADED: 1+ PARTIAL, proceed but flag gaps
+      - DEFER: risk_register ABSENT, STOP with missing inputs list
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: WEEK-OVER-WEEK CHANGES
+      Compare current register against previous week:
+      - New risks added this week (ID, title, severity)
+      - Escalated risks (severity increased, with old/new values and evidence)
+      - Mitigated risks (closed or severity reduced)
+      - Unchanged risks (no update this week)
+      If {previous_summary} is empty: state "No previous week data available, trend analysis limited to current snapshot."
+      Deliverable: Changes table (Risk ID | Change Type | Old State | New State | Evidence).
+
+      STEP 2: TOP 5 ACTIVE RISKS
+      Rank all active risks by exposure (probability x impact).
+      For each of top 5:
+      - Risk ID, title, severity, owner
+      - Days since last update
+      - Trend direction (requires 2+ data points, else "insufficient data")
+      - Status of mitigation actions
+      Deliverable: Top 5 risks table (Rank | Risk ID | Title | Severity | Owner | Days Since Update | Trend | Mitigation Status).
+
+      STEP 3: STALE AND ATTENTION-NEEDED RISKS
+      - Stale risks: no update >14 days
+      - Owner-less risks: no assigned owner
+      - Overdue mitigations: mitigation actions past due date
+      If none found per category: state explicitly.
+      Deliverable: Attention table (Risk ID | Issue Type | Days Stale/Overdue | Recommended Action).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Trend claims backed by 2+ data points
+      - Every escalation has old/new values and evidence
+      - Empty states handled per step
+      - Top 5 ranking uses consistent exposure criteria
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - QUICK: exec summary + top 5 risks table only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence executive summary: (1) risk landscape summary (count, net change), (2) weakest point (highest exposure or most stale), (3) single most urgent action for next week.
 
   risk_escalation:
     name: "Risk Escalation Alert"
-    description: "Generate escalation alert for critical risk"
+    description: "Generate escalation alert for critical risk with impact analysis, mitigation options, and decision request"
     prompt: |
       Context: Critical risk requires escalation.
       Risk ID: {risk_id}
       Title: {risk_title}
       Severity: {severity}
       Exposure: {exposure}
+      Risk details: {risk_details}
+      Account: {account_name}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = alert + decision request only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Prepare escalation:
-      - What is the specific threat?
-      - What is the potential impact?
-      - What mitigation options exist?
-      - What decision is needed?
+      You are generating an escalation alert for a critical risk. The alert must
+      enable the escalation target to make a decision without additional research.
+      Follow these steps.
 
-      Format:
-      - ALERT: Critical Risk - {risk_title}
-      - Impact: {what could happen}
-      - Timeline: {when it could materialize}
-      - Options: {2-3 mitigation paths}
-      - Recommendation: {suggested action}
-      - Decision needed by: {date}
-      - Escalation target: {who needs to decide}
+      STEP 0: INPUT GATE
+      Validate all inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: all inputs PRESENT
+      - DEGRADED: 1+ PARTIAL, proceed but flag gaps
+      - DEFER: risk_id or risk_details ABSENT, STOP with missing inputs list
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: THREAT ASSESSMENT
+      - Specific threat statement (what could happen)
+      - Potential impact (quantified if possible: revenue, timeline, relationship)
+      - Timeline to materialization (when it could happen)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If impact cannot be quantified: state "Impact unquantified, qualitative assessment provided."
+      Deliverable: Threat assessment (Threat | Impact | Timeline | Confidence).
+
+      STEP 2: MITIGATION OPTIONS
+      Provide 2-3 mitigation paths:
+      For each option:
+      - Action description
+      - Cost/effort estimate (low / medium / high)
+      - Risk reduction (how much exposure decreases)
+      - Prerequisites (what must be true to execute)
+      - Timeline to implement
+      Deliverable: Mitigation options table (Option | Action | Effort | Risk Reduction | Prerequisites | Timeline).
+
+      STEP 3: DECISION REQUEST
+      - Recommendation (which option and why)
+      - Decision needed by (date, based on materialization timeline)
+      - Escalation target (who needs to decide)
+      - Consequences of inaction
+      Deliverable: Decision request (Recommendation | Deadline | Target | Inaction Consequence).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Threat is specific and evidence-based
+      - Mitigation options include prerequisites (not just actions)
+      - Decision deadline justified by materialization timeline
+      - Escalation target is a specific role or person
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - QUICK: threat assessment + decision request only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with ALERT header and 3-sentence summary: (1) what the risk is and current exposure, (2) when it could materialize, (3) what decision is needed and by when.
 
 # ============================================================================
 # MEETING NOTES AGENT PROMPTS
@@ -120,102 +295,252 @@ meeting_notes:
 
   process_meeting:
     name: "Process Meeting Notes"
-    description: "Extract decisions, actions, risks from meeting"
+    description: "Extract decisions, actions, risks, and open questions from meeting notes or transcript with validated assignments"
     prompt: |
       Context: Meeting completed for {account_name}.
       Meeting: {meeting_title}
       Date: {meeting_date}
       Attendees: {attendees}
       Raw input: {raw_notes_or_transcript}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = decisions + actions only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Extract key information:
-      - Decisions made (what was agreed)
-      - Actions assigned (who does what by when)
-      - Risks identified (what could go wrong)
-      - Open questions (with owner to resolve)
+      You are extracting structured governance data from meeting notes.
+      Every extraction must reference its source in the raw input. Follow these steps.
 
-      Format: Ultra-lean (max 12 lines)
-      Title: {meeting_title} | {date}
-      Attendees: {names or "see invite"}
+      STEP 0: INPUT GATE
+      Validate all inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: all inputs PRESENT
+      - DEGRADED: 1+ PARTIAL (e.g., no attendees list), proceed but flag gaps
+      - DEFER: raw_notes_or_transcript ABSENT, STOP with missing inputs list
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Decisions:
-      - D1: {decision} (Owner: {name}, Status: Proposed/Confirmed)
+      STEP 1: DECISION EXTRACTION
+      For each decision found:
+      - Decision statement (what was agreed)
+      - Decision maker (who made/confirmed it)
+      - Status: Proposed / Confirmed
+      - Source quote from raw input
+      - Confidence: HIGH (explicit "we decided"), MEDIUM (implied agreement), LOW (assumed from context)
+      If no decisions found: state "No decisions identified in this meeting."
+      Deliverable: Decisions table (ID | Decision | Maker | Status | Source Quote | Confidence).
 
-      Actions:
-      - A1: {owner} will {action} by {date}
+      STEP 2: ACTION EXTRACTION
+      For each action item:
+      - Action statement (what needs to be done)
+      - Owner (single person, not team)
+      - Due date (specific date, not "soon" or "ASAP")
+      - Done means (completion criteria)
+      - Source quote from raw input
+      If owner is a team or TBD: flag as NEEDS_OWNER.
+      If due date is vague: flag as NEEDS_DATE with suggested date.
+      Deliverable: Actions table (ID | Action | Owner | Due Date | Done Means | Flags).
 
-      Risks/Blocks:
-      - R1: {risk description}
+      STEP 3: RISK AND BLOCKER EXTRACTION
+      For each risk or blocker:
+      - Risk description
+      - Severity: critical / high / medium / low
+      - Source quote from raw input
+      - Suggested owner for mitigation
+      If no risks found: state "No risks or blockers identified."
+      Deliverable: Risks table (ID | Risk | Severity | Source Quote | Suggested Owner).
 
-      Open questions:
-      - Q1: {question} (Owner: {name})
+      STEP 4: OPEN QUESTIONS
+      For each unresolved question:
+      - Question text
+      - Owner (who needs to answer)
+      - Target date for answer
+      If no open questions: state "No open questions remaining."
+      Deliverable: Questions table (ID | Question | Owner | Target Date).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Every extraction includes source quote from raw input
+      - Actions have single owners (not teams)
+      - Due dates are specific (flagged if not)
+      - Confidence levels stated for decisions
+      - Empty states handled per step
+      - No fabrication: only extract what is in the raw input
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - QUICK: decisions + actions tables only
+      - FULL or unspecified: all deliverables
+
+      Format: Ultra-lean output. Lead with 3-sentence summary: (1) meeting outcome (decisions/actions count), (2) highest-priority item, (3) most urgent follow-up needed.
 
   generate_slack_digest:
     name: "Generate Slack Digest"
-    description: "Create micro-summary for Slack"
+    description: "Condense meeting notes into a 5-line Slack message prioritizing decisions, actions, and risks"
     prompt: |
       Context: Meeting just completed, need Slack digest.
       Meeting: {meeting_title}
       Full notes: {meeting_notes}
+      Account: {account_name}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = same as FULL for this prompt; DISCOVERY = N/A. Default: FULL)
 
-      Action: Condense to 5-line Slack message.
-      Prioritize: Decisions > Actions > Risks
+      You are condensing meeting output into a micro-summary for Slack.
+      Priority order: Decisions > Actions > Risks. Follow these steps.
 
-      Format: (exactly 5 lines max)
-      Decision: {key decision or "none"}
-      Next: {owner}, {date} - {action}
-      Next: {owner}, {date} - {action}
-      Risk: {key risk or "none identified"}
-      Confirm/correct by: {time}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: meeting_notes PRESENT
+      - DEGRADED: meeting_notes PARTIAL (e.g., only actions extracted)
+      - DEFER: meeting_notes ABSENT, STOP
+      Deliverable: Input Gate status + Run Mode declaration.
+
+      STEP 1: PRIORITY RANKING
+      From meeting_notes, rank all items by impact:
+      - Decisions (highest priority for digest)
+      - Actions with nearest due dates
+      - Critical/high risks
+      - Confidence: HIGH (structured notes with clear items), MEDIUM (unstructured notes), LOW (incomplete notes)
+      If meeting_notes contain no structured items: state "Meeting notes lack structured extractions, digest based on raw content."
+      Deliverable: Ranked items list (Rank | Type | Item | Priority Reason).
+
+      STEP 2: SLACK MESSAGE COMPOSITION
+      Compose exactly 5 lines max:
+      - Line 1: Key decision (or "No decisions made")
+      - Line 2-3: Top 2 actions (owner, date, action)
+      - Line 4: Key risk (or "No risks identified")
+      - Line 5: Confirm/correct deadline
+      Deliverable: Formatted Slack message (5 lines).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Message is exactly 5 lines or fewer
+      - Decision line present even if none (state "none")
+      - Actions include owner and date
+      - No jargon or abbreviations unexplained
+      - Confirm/correct deadline included
+
+      Format: Output the Slack message directly. No executive summary needed for this micro-format.
 
   extract_actions:
     name: "Extract Action Items"
-    description: "Extract validated action items from notes"
+    description: "Extract and validate action items from meeting notes ensuring single owner, specific due date, and clear completion criteria"
     prompt: |
       Context: Meeting notes need action extraction.
       Meeting: {meeting_title}
       Notes: {meeting_notes}
+      Existing actions: {existing_action_tracker}
+      Account: {account_name}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = action list only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Extract action items ensuring:
-      - Single owner (not team or TBD)
-      - Specific due date (not "soon" or "ASAP")
-      - Clear completion criteria
+      You are extracting validated action items. Each action must meet quality
+      standards before entering the tracker. Follow these steps.
 
-      Format:
-      For each action:
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: meeting_notes PRESENT
+      - DEGRADED: existing_action_tracker ABSENT (no duplicate check possible)
+      - DEFER: meeting_notes ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: RAW ACTION EXTRACTION
+      Extract every statement that implies an action:
+      - Explicit assignments ("X will do Y by Z")
+      - Implicit commitments ("we should", "next step is")
+      - Follow-ups ("circle back on", "check with")
+      For each: capture raw text, speaker (if known), context.
+      If no actions found: state "No action items identified in meeting notes."
+      Deliverable: Raw actions list (Raw Text | Speaker | Context).
+
+      STEP 2: ACTION VALIDATION
+      For each raw action, validate:
+      - Single owner (not team/TBD): PASS / NEEDS_OWNER
+      - Specific due date (not "soon"): PASS / NEEDS_DATE
+      - Clear completion criteria: PASS / NEEDS_CRITERIA
+      - Source reference: PASS / MISSING
+      - Duplicate check against {existing_action_tracker}: UNIQUE / DUPLICATE_OF_{id}
+      Deliverable: Validation table (Action | Owner Status | Date Status | Criteria Status | Duplicate Status | Overall: VALID / NEEDS_ATTENTION).
+
+      STEP 3: ENRICHED ACTION OUTPUT
+      For each valid action:
       - Action: {what needs to be done}
-      - Owner: {single person name}
+      - Owner: {single person}
       - Due date: {specific date or TBD with reason}
       - Done means: {completion criteria}
       - Source: {meeting reference}
-      - Priority: {critical/high/medium with reasoning}
+      - Priority: critical / high / medium (with reasoning)
+      - Confidence: HIGH (explicit assignment), MEDIUM (inferred), LOW (assumed)
+      Deliverable: Action items table with all fields.
+
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Every action has a single owner (flagged if not)
+      - Due dates are specific (flagged if vague)
+      - Duplicate check completed against existing tracker
+      - Confidence stated for each action
+      - Empty states handled
+
+      RUN MODE EXECUTION:
+      - QUICK: enriched action list only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) actions found and validation rate, (2) actions needing attention (missing owner/date), (3) most urgent action by due date.
 
   pre_meeting_prep:
     name: "Pre-Meeting Preparation"
-    description: "Prepare meeting structure before meeting"
+    description: "Prepare meeting structure with objectives, required decisions, expected outcomes, and relevant context from governance data"
     prompt: |
       Context: Meeting scheduled for {meeting_title}.
       Date: {meeting_date}
       Attendees: {attendees}
       Agenda (if provided): {agenda}
+      Open actions for attendees: {open_actions}
+      Open decisions: {open_decisions}
+      Active risks: {active_risks}
+      Account: {account_name}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = objectives + decisions needed only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Prepare meeting structure:
-      - Clarify objectives
-      - Identify decisions needed
-      - List expected outcomes
+      You are preparing a meeting structure that maximizes decision-making
+      efficiency. Follow these steps.
 
-      Format:
-      Meeting: {title}
-      Objective: {what we need to accomplish}
-      Decisions needed:
-      - D1: {decision to make}
-      Expected outcomes:
-      - {outcome 1}
-      Questions to resolve:
-      - {question}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: meeting_title and attendees PRESENT
+      - DEGRADED: agenda/actions/decisions ABSENT (prep will be limited)
+      - DEFER: meeting_title ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Prompt for attendees:
-      "Add any topic + one desired outcome. For decisions, state: DECISION NEEDED: ..."
+      STEP 1: OBJECTIVES AND DECISIONS NEEDED
+      - Clarify meeting objectives (from agenda or inferred from context)
+      - Identify decisions that should be made in this meeting
+      - List expected outcomes per objective
+      If {agenda} is empty: state "No agenda provided, objectives inferred from open governance items."
+      Deliverable: Objectives table (Objective | Decisions Needed | Expected Outcome).
+
+      STEP 2: CONTEXT BRIEFING
+      For each attendee, surface relevant governance items:
+      - Open actions assigned to them (with due dates)
+      - Decisions pending their input
+      - Risks they own or are affected by
+      If {open_actions} is empty: state "No open actions on record for attendees."
+      Deliverable: Attendee context table (Attendee | Open Actions | Pending Decisions | Related Risks).
+
+      STEP 3: MEETING STRUCTURE
+      - Suggested time allocation per objective
+      - Pre-read materials (if any)
+      - Prompt for attendees: "Add any topic + one desired outcome. For decisions, state: DECISION NEEDED: ..."
+      Deliverable: Meeting structure (Objective | Time | Pre-read | Decision Prompt).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Objectives are outcome-oriented, not topic labels
+      - Decisions needed are specific and actionable
+      - Attendee context is based on actual data (not fabricated)
+      - Empty states handled per step
+
+      RUN MODE EXECUTION:
+      - QUICK: objectives + decisions needed table only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) meeting purpose and decision count, (2) most critical decision, (3) key preparation item for attendees.
 
 # ============================================================================
 # DECISION REGISTRAR AGENT PROMPTS
@@ -224,107 +549,226 @@ decision_registrar:
 
   register_decision:
     name: "Register New Decision"
-    description: "Add decision to decision log"
+    description: "Validate, enrich, and register a new decision with rationale, scope, and audit trail"
     prompt: |
       Context: Decision detected from {source}.
       Account: {account_name}
       Raw text: {decision_text}
+      Decision log: {decision_log}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = decision entry only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Validate and register decision:
-      - Extract decision statement
-      - Identify decision maker
-      - Capture rationale
-      - Determine affected scope
+      You are registering a decision into the governance decision log.
+      Decisions must be traceable, unambiguous, and conflict-checked. Follow these steps.
 
-      Format:
-      Decision ID: D-{YYYY}-{###}
-      Title: {concise title}
-      Description: We decided to {decision} because {rationale}
-      Decision maker: {name}
-      Date: {date}
-      Status: Proposed/Confirmed
-      Context: {why this decision was needed}
-      Affected scope: {areas impacted}
-      Alternatives considered: {if known}
-      Source: {meeting/email/etc}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: decision_text and source PRESENT
+      - DEGRADED: decision_log ABSENT (no conflict check possible)
+      - DEFER: decision_text ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: DECISION PARSING
+      Extract from raw text:
+      - Decision statement ("We decided to X because Y")
+      - Decision maker (who made or confirmed it)
+      - Rationale (why this decision was made)
+      - Alternatives considered (if mentioned)
+      - Confidence: HIGH (explicit decision statement), MEDIUM (implied), LOW (assumed)
+      If decision is ambiguous: flag as NEEDS_CONFIRMATION with specific clarification question.
+      Deliverable: Parsed decision (Statement | Maker | Rationale | Alternatives | Confidence).
+
+      STEP 2: CONFLICT AND SCOPE CHECK
+      - Search {decision_log} for conflicting or related decisions
+      - Determine affected scope (areas impacted)
+      - Identify stakeholders who should be notified
+      If {decision_log} is empty: state "No existing decisions to check against."
+      Deliverable: Conflict check (Related Decisions | Conflicts Found | Affected Scope | Notify List).
+
+      STEP 3: DECISION ENTRY
+      Produce structured decision entry:
+      - Decision ID: D-{YYYY}-{###}
+      - Title, description, maker, date, status (Proposed/Confirmed)
+      - Context, affected scope, alternatives, source
+      Deliverable: Decision entry with all fields.
+
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Decision statement is unambiguous
+      - Rationale captured (not just the decision itself)
+      - Conflict check completed against existing log
+      - Confidence stated with basis
+      - Source traceable
+
+      RUN MODE EXECUTION:
+      - QUICK: decision entry only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) decision registered and status, (2) conflicts or dependencies found, (3) most important notification or follow-up.
 
   decision_status_update:
     name: "Update Decision Status"
-    description: "Update status of existing decision"
+    description: "Validate status transition, capture reason, and update audit trail for an existing decision"
     prompt: |
       Context: Decision status change for {decision_id}.
       Current status: {current_status}
       Requested change: {new_status}
       Reason: {reason_for_change}
+      Decision log: {decision_log}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = status update only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Validate transition and update:
-      - Verify transition is valid
-      - Capture reason for change
-      - Update audit trail
+      You are updating a decision's status with full audit trail. Follow these steps.
 
-      Format:
-      Decision: {decision_id}
-      Previous status: {old_status}
-      New status: {new_status}
-      Changed by: {who}
-      Reason: {why}
-      Effective date: {when}
-      Audit note: {any additional context}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: decision_id, current_status, new_status, reason PRESENT
+      - DEGRADED: reason PARTIAL (update with warning)
+      - DEFER: decision_id ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: TRANSITION VALIDATION
+      Verify the status transition is valid:
+      - Valid transitions: Proposed → Confirmed, Proposed → Rejected, Confirmed → Superseded, Confirmed → Reversed, any → On Hold
+      - Invalid transitions: flag and explain why
+      - Confidence: HIGH (transition matches rules), LOW (edge case)
+      If transition is invalid: STOP and state "Invalid transition: {current} → {new}. Valid options: {list}."
+      Deliverable: Transition validation (From | To | Valid | Rule Applied).
+
+      STEP 2: AUDIT ENTRY
+      - Changed by: {who}
+      - Reason: {why} (must not be empty)
+      - Effective date: {when}
+      - Impact assessment: what changes as a result of this status change
+      Deliverable: Audit entry (Decision ID | From | To | Changed By | Reason | Date | Impact).
+
+      STEP 3: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Transition validated against rules
+      - Reason captured (not empty)
+      - Impact assessment included
+      - Audit trail complete
+
+      RUN MODE EXECUTION:
+      - QUICK: audit entry only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) decision status change and validity, (2) reason for change, (3) downstream impact or action needed.
 
   weekly_decision_digest:
     name: "Weekly Decision Digest"
-    description: "Summarize decisions from past week"
+    description: "Summarize decision activity for the week including new decisions, status changes, pending approvals, and stalled items"
     prompt: |
       Context: Weekly decision digest for {account_name}.
       Period: {week_start} to {week_end}
       Decision log: {decision_log}
+      Previous digest: {previous_digest}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = new decisions + pending only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Summarize decision activity:
-      - New decisions made
-      - Status changes
-      - Pending approvals
-      - Decisions requiring attention
+      You are summarizing weekly decision activity. Trends require 2+ data points.
+      Follow these steps.
 
-      Format:
-      Week ending: {date}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: decision_log and period PRESENT
+      - DEGRADED: previous_digest ABSENT (no trend analysis)
+      - DEFER: decision_log ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      New decisions:
-      - {D-ID}: {title} ({status})
+      STEP 1: NEW DECISIONS
+      List all decisions created in the period:
+      - Decision ID, title, status, maker
+      - Confidence in decision quality: HIGH / MEDIUM / LOW
+      If no new decisions: state "No new decisions registered this week."
+      Deliverable: New decisions table (D-ID | Title | Status | Maker | Confidence).
 
-      Status changes:
-      - {D-ID}: {old} → {new}
+      STEP 2: STATUS CHANGES
+      List all status transitions in the period:
+      - Decision ID, old status, new status, reason
+      If no changes: state "No decision status changes this week."
+      Deliverable: Changes table (D-ID | Old | New | Reason).
 
-      Pending approvals:
-      - {D-ID}: {title} - awaiting {who}
+      STEP 3: ATTENTION NEEDED
+      - Pending approvals (>5 days without confirmation)
+      - Stalled decisions (no activity >10 days)
+      - Decisions with unresolved conflicts
+      If none: state "No decisions requiring attention."
+      Deliverable: Attention table (D-ID | Issue | Days Pending | Recommended Action).
 
-      Attention needed:
-      - {any decisions stalled or unclear}
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Trend claims backed by 2+ data points
+      - Empty states handled per step
+      - Stalled thresholds applied consistently
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - QUICK: new decisions + pending approvals only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) decision activity volume (new/changed/pending), (2) most concerning stalled decision, (3) most urgent approval needed.
 
   find_related_decisions:
     name: "Find Related Decisions"
-    description: "Find decisions related to a topic"
+    description: "Search decision log for decisions related to a topic, identifying patterns, dependencies, and conflicts"
     prompt: |
       Context: Looking for decisions related to {topic}.
       Account: {account_name}
       Decision log: {decision_log}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = related list only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Find related decisions:
-      - Search by keyword
-      - Search by affected scope
-      - Search by stakeholder
-      - Identify patterns or conflicts
+      You are searching the decision log for related decisions.
+      Relationships include keyword, scope, stakeholder, and temporal proximity.
+      Follow these steps.
 
-      Format:
-      Query: {topic}
-      Related decisions:
-      - {D-ID}: {title} | {date} | {status}
-        Relevance: {why it's related}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: topic and decision_log PRESENT
+      - DEGRADED: decision_log PARTIAL
+      - DEFER: topic or decision_log ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Decision patterns:
-      - {any patterns observed}
+      STEP 1: SEARCH AND MATCH
+      Search decision log using multiple strategies:
+      - Keyword match (topic terms in title/description)
+      - Scope match (same affected area)
+      - Stakeholder match (same decision maker or affected parties)
+      - Temporal proximity (decisions made within 2 weeks of each other)
+      For each match:
+      - Decision ID, title, date, status
+      - Match type (keyword / scope / stakeholder / temporal)
+      - Relevance: HIGH / MEDIUM / LOW with explanation
+      If no matches: state "No related decisions found for topic: {topic}."
+      Deliverable: Related decisions table (D-ID | Title | Date | Status | Match Type | Relevance).
 
-      Potential conflicts:
-      - {any conflicting decisions}
+      STEP 2: PATTERN AND CONFLICT ANALYSIS
+      - Decision patterns (recurring themes, similar decisions over time)
+      - Conflicts (decisions that contradict each other)
+      - Dependencies (decision A depends on decision B being in effect)
+      If no patterns/conflicts: state explicitly.
+      Deliverable: Analysis (Patterns Found | Conflicts | Dependencies).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Search used multiple strategies (not just keyword)
+      - Relevance justified for each match
+      - Conflicts flagged with specific contradiction
+      - Empty states handled
+
+      RUN MODE EXECUTION:
+      - QUICK: related decisions list only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) matches found and relevance distribution, (2) most significant conflict or dependency, (3) recommended action based on findings.
 
 # ============================================================================
 # TASK SHEPHERD AGENT PROMPTS
@@ -333,104 +777,233 @@ task_shepherd:
 
   validate_action:
     name: "Validate Action Item"
-    description: "Ensure action meets quality standards"
+    description: "Validate action item against quality standards: single owner, specific date, clear criteria, no duplicates"
     prompt: |
       Context: New action item submitted.
       Action: {action_text}
       Source: {source}
+      Existing actions: {action_tracker}
+      Account: {account_name}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = validation result only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Validate action quality:
-      - Single owner (not team/TBD)?
-      - Specific due date (not "soon")?
-      - Clear completion criteria?
-      - Linked to source?
-      - No duplicates?
+      You are validating an action item against governance quality standards.
+      Follow these steps.
 
-      Format:
-      Action: {action_text}
-      Validation results:
-      - [ ] Single owner: {name or FAIL}
-      - [ ] Due date: {date or FAIL}
-      - [ ] Done means: {criteria or MISSING}
-      - [ ] Source link: {reference or MISSING}
-      - [ ] Duplicate check: {PASS or duplicate_of}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: action_text and source PRESENT
+      - DEGRADED: action_tracker ABSENT (no duplicate check)
+      - DEFER: action_text ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Status: VALID / NEEDS ATTENTION
-      Issues to resolve: {list if any}
-      Suggested priority: {critical/high/medium with logic}
+      STEP 1: QUALITY VALIDATION
+      Check each dimension:
+      - Single owner: is a specific person assigned? (PASS / FAIL: team or TBD)
+      - Due date: is a specific date set? (PASS / FAIL: vague or missing)
+      - Done means: are completion criteria clear? (PASS / FAIL: missing or vague)
+      - Source link: is the origin traceable? (PASS / FAIL: missing)
+      - Confidence: HIGH (all pass), MEDIUM (1 fail), LOW (2+ fails)
+      Deliverable: Validation checklist (Dimension | Status | Detail).
+
+      STEP 2: DUPLICATE CHECK
+      Compare against {action_tracker}:
+      - Same or similar task description
+      - Same owner
+      - Overlapping scope
+      If {action_tracker} is empty: state "No existing actions to check against."
+      Deliverable: Duplicate check (Duplicate Found | Existing Action ID | Similarity Reason | Recommendation: KEEP_BOTH / MERGE / SUPERSEDES).
+
+      STEP 3: PRIORITY INFERENCE
+      Infer priority from context:
+      - Critical: blocker mentioned, executive ask, timeline risk
+      - High: risk mitigation, time-sensitive, dependency for others
+      - Medium: standard (default)
+      - Low: nice-to-have, no dependencies
+      Deliverable: Priority (Level | Evidence | Confidence).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - All 4 validation dimensions checked
+      - Duplicate check completed (or flagged as impossible)
+      - Priority justified with evidence
+      - Overall status clearly stated: VALID / NEEDS_ATTENTION
+
+      RUN MODE EXECUTION:
+      - QUICK: validation result (VALID/NEEDS_ATTENTION) + issues list only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) validation result and pass rate, (2) most critical issue (if any), (3) suggested priority and reasoning.
 
   weekly_action_audit:
     name: "Weekly Action Audit"
-    description: "Audit all actions for hygiene"
+    description: "Audit all open actions for hygiene: missing owners, overdue items, stale actions, and blocked items"
     prompt: |
       Context: Weekly action audit for {account_name}.
       Action tracker: {action_tracker}
       Date: {audit_date}
+      Previous audit: {previous_audit}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = health summary + overdue list only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Audit all open actions:
-      - Identify invalid actions (no owner, no date)
-      - Find blocked actions
-      - Find overdue actions
-      - Find stale actions (no update >7 days)
+      You are auditing all open actions for governance hygiene.
+      Trends require 2+ data points. Follow these steps.
 
-      Format:
-      Action Health Report
-      Total open actions: {count}
-      Valid actions: {count}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: action_tracker PRESENT
+      - DEGRADED: previous_audit ABSENT (no trend analysis)
+      - DEFER: action_tracker ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Actions needing attention:
-      - Missing owner: {list}
-      - Missing due date: {list}
-      - Overdue: {list with days overdue}
-      - Blocked: {list with blocker}
-      - Stale: {list with days since update}
+      STEP 1: HEALTH SNAPSHOT
+      Classify all open actions:
+      - Total open actions
+      - Valid (owner + date + criteria): count
+      - Invalid (missing any required field): count with breakdown
+      - Overdue (past due date): count with days overdue
+      - Blocked (explicitly flagged): count with blockers
+      - Stale (no update >7 days): count with days since update
+      Deliverable: Health snapshot table (Category | Count | Details).
 
-      Recommended actions:
-      - {specific recommendations}
+      STEP 2: DETAILED FINDINGS
+      For each issue category, list affected actions:
+      - Missing owner: action ID, text, source
+      - Missing due date: action ID, text, source
+      - Overdue: action ID, owner, due date, days overdue
+      - Blocked: action ID, owner, blocker description
+      - Stale: action ID, owner, days since update
+      If category is empty: state "No {category} actions found."
+      Deliverable: Findings tables per category.
+
+      STEP 3: TREND ANALYSIS
+      Compare with {previous_audit}:
+      - Health improvement or decline (requires 2+ data points)
+      - Recurring issues (same actions appearing in multiple audits)
+      - Owner patterns (any person consistently overdue)
+      If {previous_audit} is empty: state "No previous audit, trend analysis unavailable."
+      Deliverable: Trend analysis (Metric | Previous | Current | Direction).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - All open actions categorized
+      - Trend claims backed by 2+ data points
+      - Empty states handled per category
+      - Recommendations are specific (not generic "follow up")
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - QUICK: health snapshot + overdue actions list only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) action health rate (valid/total), (2) most concerning trend or issue, (3) single most impactful recommended action.
 
   merge_duplicate_actions:
     name: "Merge Duplicate Actions"
-    description: "Identify and merge duplicate actions"
+    description: "Identify duplicate or overlapping actions and recommend merge, keep, or supersede decisions"
     prompt: |
       Context: Checking for duplicate actions.
       New action: {new_action}
       Existing actions: {action_list}
+      Account: {account_name}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = recommendation only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Check for duplicates:
-      - Same or similar task
-      - Same owner
-      - Overlapping scope
+      You are checking a new action against existing actions for duplicates.
+      Follow these steps.
 
-      Format:
-      New action: {new_action}
-      Potential duplicates:
-      - {existing_action_id}: {similarity reason}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: new_action and action_list PRESENT
+      - DEGRADED: action_list PARTIAL
+      - DEFER: new_action ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Recommendation:
-      - KEEP BOTH (different scope)
-      - MERGE INTO {id} (reason)
-      - SUPERSEDES {id} (reason)
+      STEP 1: SIMILARITY ANALYSIS
+      Compare {new_action} against each existing action:
+      - Task description similarity (semantic, not just keyword)
+      - Same or similar owner
+      - Overlapping scope or deliverable
+      - Same source or meeting
+      For each potential match:
+      - Similarity score: HIGH (same task, same owner) / MEDIUM (similar task or scope) / LOW (tangential)
+      - Confidence in duplicate assessment
+      If no similar actions found: state "No duplicates detected. Action is unique."
+      Deliverable: Similarity table (Existing Action ID | Similarity | Overlap Areas | Confidence).
+
+      STEP 2: MERGE RECOMMENDATION
+      For each potential duplicate:
+      - KEEP_BOTH: different scope despite similarity (explain why)
+      - MERGE_INTO_{id}: same task, consolidate (specify which fields to keep from each)
+      - SUPERSEDES_{id}: new action replaces old (specify why old is obsolete)
+      Deliverable: Recommendation (Action ID | Decision | Rationale | Field Resolution).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Similarity is semantic, not just keyword matching
+      - Merge recommendations specify field-level resolution
+      - "Keep both" decisions explain the distinct scope
+      - Empty states handled
+
+      RUN MODE EXECUTION:
+      - QUICK: recommendation only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) duplicates found (count and confidence), (2) recommended action, (3) field conflicts to resolve if merging.
 
   priority_inference:
     name: "Infer Action Priority"
-    description: "Infer priority from context"
+    description: "Infer action priority from contextual signals using classification rules with confidence scoring"
     prompt: |
       Context: Action needs priority assignment.
       Action: {action_text}
       Source context: {source_context}
+      Account risks: {active_risks}
+      Account: {account_name}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = priority + confidence only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Infer priority using rules:
-      - Critical: Blocker mentioned, executive ask
-      - High: Risk mitigation, time-sensitive
-      - Medium: Standard (default)
-      - Low: Nice-to-have, low impact
+      You are inferring priority from context using governance classification rules.
+      Follow these steps.
 
-      Format:
-      Action: {action_text}
-      Inferred priority: {critical/high/medium/low}
-      Reasoning:
-      - {evidence from context}
-      Confidence: {high/medium/low}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: action_text and source_context PRESENT
+      - DEGRADED: active_risks ABSENT (risk-based priority assessment limited)
+      - DEFER: action_text ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: SIGNAL EXTRACTION
+      Extract priority signals from context:
+      - Urgency keywords: "blocker", "critical", "urgent", "ASAP", "deadline"
+      - Stakeholder signals: executive request, customer-facing, external dependency
+      - Risk linkage: does this action mitigate an active risk?
+      - Dependency signals: other actions or decisions depend on this
+      Assign primary signal type. Add secondary flags if multiple apply.
+      Deliverable: Signal table (Signal | Type | Secondary Flags | Source | Weight).
+
+      STEP 2: PRIORITY CLASSIFICATION
+      Apply rules:
+      - Critical: blocker mentioned, executive ask, or mitigates critical/high risk
+      - High: risk mitigation, time-sensitive, dependency for others
+      - Medium: standard task, no urgency signals (default)
+      - Low: nice-to-have, no dependencies, low impact
+      - Confidence: HIGH (multiple signals align), MEDIUM (single signal), LOW (no clear signals, defaulting)
+      Deliverable: Priority (Level | Rule Applied | Evidence | Confidence).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Priority justified with specific evidence
+      - Compound classification used (primary + secondary flags)
+      - Confidence reflects signal strength
+      - Default to medium acknowledged when signals absent
+
+      RUN MODE EXECUTION:
+      - QUICK: priority level + confidence only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) inferred priority and confidence, (2) strongest signal driving the classification, (3) action needed if priority is critical/high.
 
 # ============================================================================
 # NUDGER AGENT PROMPTS
@@ -439,116 +1012,217 @@ nudger:
 
   generate_reminder:
     name: "Generate Reminder"
-    description: "Create reminder for upcoming due date"
+    description: "Create a friendly reminder for an action approaching its due date with context and blocker check"
     prompt: |
       Context: Action approaching due date.
       Action: {action_text}
       Owner: {owner_name}
       Due date: {due_date}
       Days until due: {days}
+      Action history: {action_history}
+      Account: {account_name}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = reminder message only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Generate appropriate reminder.
-      Tone: Friendly but clear.
+      You are generating a contextual reminder. Tone: friendly but clear.
+      Follow these steps.
 
-      Format:
-      Subject: Reminder: {action_title}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: action_text, owner_name, due_date PRESENT
+      - DEGRADED: action_history ABSENT (no context for personalization)
+      - DEFER: action_text or owner_name ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Hi {owner_name},
+      STEP 1: CONTEXT ASSESSMENT
+      - Has this action been reminded before? (check action_history)
+      - Are there related blockers or dependencies?
+      - Reminder intensity: first reminder (gentle), second (firmer), third+ (direct)
+      - Confidence: HIGH (full history available), MEDIUM (partial), LOW (no history)
+      If {action_history} is empty: state "No previous reminder history, using first-reminder tone."
+      Deliverable: Context assessment (Reminder Count | Blockers | Intensity Level | Confidence).
 
-      Quick reminder that this is due in {days} days:
+      STEP 2: MESSAGE COMPOSITION
+      Compose reminder message:
+      - Subject line with action title
+      - Greeting with owner name
+      - Action description and due date
+      - Blocker check prompt
+      - Link to action tracker
+      Tone escalation: gentle → firm → direct based on reminder count.
+      Deliverable: Formatted reminder message.
 
-      Action: {action_text}
-      Due: {due_date}
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Tone matches reminder intensity
+      - Due date clearly stated
+      - Blocker check included
+      - No accusatory language
 
-      Let me know if there are any blockers.
+      RUN MODE EXECUTION:
+      - QUICK: reminder message only
+      - FULL or unspecified: all deliverables
 
-      [Link to action tracker]
+      Format: Output the reminder message. Brief 2-sentence context note before message: (1) reminder intensity level, (2) any known blockers.
 
   generate_overdue_notice:
     name: "Generate Overdue Notice"
-    description: "Create notice for overdue action"
+    description: "Create a direct overdue notice with escalation warning, status update options, and deadline"
     prompt: |
       Context: Action is overdue.
       Action: {action_text}
       Owner: {owner_name}
       Due date: {due_date}
       Days overdue: {days}
+      Escalation target: {manager}
+      Escalation date: {escalation_date}
+      Account: {account_name}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = notice only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Generate overdue notice.
-      Tone: Direct but professional.
+      You are generating an overdue notice. Tone: direct but professional.
+      Follow these steps.
 
-      Format:
-      Subject: OVERDUE: {action_title} ({days} days)
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: action_text, owner_name, due_date, days PRESENT
+      - DEGRADED: escalation_target or escalation_date ABSENT (notice without escalation warning)
+      - DEFER: action_text or owner_name ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Hi {owner_name},
+      STEP 1: OVERDUE ASSESSMENT
+      - Days overdue and severity (1-3 days: minor, 4-7: moderate, 8+: severe)
+      - Impact of continued delay (what is blocked or at risk)
+      - Previous reminders sent (if known from action history)
+      - Confidence: HIGH (clear overdue with known impact), MEDIUM (overdue but impact unclear)
+      Deliverable: Overdue assessment (Days | Severity | Impact | Previous Reminders).
 
-      This action is now {days} days overdue:
+      STEP 2: NOTICE COMPOSITION
+      Compose overdue notice:
+      - Subject: OVERDUE: {action_title} ({days} days)
+      - Clear statement of overdue status
+      - Three response options: complete and mark done, update with new due date, flag as blocked
+      - Escalation warning with date and target
+      Deliverable: Formatted overdue notice.
 
-      Action: {action_text}
-      Original due: {due_date}
+      STEP 3: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
 
-      Please update status:
-      - Complete and mark done
-      - Update with new due date
-      - Flag as blocked (with blocker)
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Severity matches days overdue
+      - Three response options provided
+      - Escalation warning included (if target available)
+      - Professional tone maintained
 
-      If no update by {escalation_date}, this will escalate to {manager}.
+      RUN MODE EXECUTION:
+      - QUICK: notice only
+      - FULL or unspecified: all deliverables
+
+      Format: Output the overdue notice. Brief 2-sentence context note: (1) overdue severity level, (2) escalation status.
 
   status_check:
     name: "Status Check"
-    description: "Check in on stalled action"
+    description: "Generate a status check message for a stalled action with response options and no accusatory tone"
     prompt: |
       Context: Action status unchanged for >7 days.
       Action: {action_text}
       Owner: {owner_name}
       Last update: {last_update_date}
       Status: {current_status}
+      Days since update: {days}
+      Account: {account_name}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = message only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Generate status check message.
-      Tone: Curious, not accusatory.
+      You are generating a status check. Tone: curious, not accusatory.
+      Follow these steps.
 
-      Format:
-      Subject: Status check: {action_title}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: action_text, owner_name, last_update_date PRESENT
+      - DEGRADED: current_status ABSENT (generic check)
+      - DEFER: action_text or owner_name ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Hi {owner_name},
+      STEP 1: STALL ANALYSIS
+      - Days since last update
+      - Stall severity: mild (7-10 days), moderate (11-14), severe (15+)
+      - Possible reasons: blocked, deprioritized, forgotten, completed but not updated
+      - Related actions or decisions that may be affected
+      Deliverable: Stall analysis (Days | Severity | Possible Reasons | Related Items).
 
-      Checking in on this action - no update in {days} days:
+      STEP 2: MESSAGE COMPOSITION
+      Compose status check:
+      - Subject: Status check: {action_title}
+      - Reference to last known status and days since update
+      - Four response options: in progress (ETA?), blocked (by what?), complete (can we close?), no longer needed (remove?)
+      - No blame or pressure language
+      Deliverable: Formatted status check message.
 
-      Action: {action_text}
-      Last status: {current_status}
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Tone is inquisitive, not accusatory
+      - Four response options provided
+      - Last status referenced
+      - Days since update stated
 
-      Quick update? Is it:
-      - In progress (ETA?)
-      - Blocked (by what?)
-      - Complete (can we close it?)
-      - No longer needed (can we remove it?)
+      RUN MODE EXECUTION:
+      - QUICK: message only
+      - FULL or unspecified: all deliverables
+
+      Format: Output the status check message. Brief 2-sentence context note: (1) stall severity, (2) potential downstream impact.
 
   daily_nudge_summary:
     name: "Daily Nudge Summary"
-    description: "Generate daily summary of nudges sent"
+    description: "Generate daily summary of all nudge activity including reminders sent, overdue notices, escalations, and patterns"
     prompt: |
       Context: End of day nudge summary.
       Date: {date}
       Nudges sent: {nudge_list}
+      Previous summary: {previous_summary}
+      Account: {account_name}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = counts + escalations only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Summarize nudge activity for governance lead.
+      You are summarizing daily nudge activity for the governance lead.
+      Trends require 2+ data points. Follow these steps.
 
-      Format:
-      Daily Nudge Summary - {date}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: date and nudge_list PRESENT
+      - DEGRADED: previous_summary ABSENT (no trend analysis)
+      - DEFER: nudge_list ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Reminders sent: {count}
-      - {list of actions reminded}
+      STEP 1: ACTIVITY BREAKDOWN
+      Categorize all nudges sent:
+      - Reminders (approaching due date): count + list
+      - Overdue notices: count + list with days overdue
+      - Escalations triggered: count + list with reason
+      - Status checks: count + list
+      - Missing owner flags: count
+      If any category is zero: state "No {category} sent today."
+      Deliverable: Activity table (Category | Count | Details).
 
-      Overdue notices: {count}
-      - {list with days overdue}
+      STEP 2: PATTERN DETECTION
+      Identify concerning patterns:
+      - Owners with multiple overdue items
+      - Actions that have received 3+ nudges without response
+      - Escalation frequency trend (vs previous day, requires 2+ data points)
+      If {previous_summary} is empty: state "No previous data, trend analysis unavailable."
+      Deliverable: Patterns table (Pattern | Evidence | Concern Level | Recommended Action).
 
-      Escalations triggered: {count}
-      - {list with reason}
+      STEP 3: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
 
-      Missing owners flagged: {count}
+      QUALITY CHECKS BEFORE OUTPUT:
+      - All nudge categories accounted for
+      - Trend claims backed by 2+ data points
+      - Empty states handled per category
+      - Patterns are specific (not generic observations)
+      - Executive summary is self-sufficient
 
-      Attention needed:
-      - {any patterns or concerns}
+      RUN MODE EXECUTION:
+      - QUICK: category counts + escalations only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) total nudges sent and category breakdown, (2) most concerning pattern, (3) recommended attention item for governance lead.
 
 # ============================================================================
 # REPORTER AGENT PROMPTS
@@ -557,132 +1231,261 @@ reporter:
 
   weekly_digest:
     name: "Weekly Digest"
-    description: "Generate weekly summary for account team"
+    description: "Generate a concise weekly summary covering changes, decisions, risks, blockers, and next-week priorities"
     prompt: |
       Context: Weekly digest for {account_name}/{node_name}.
       Period: {week_start} to {week_end}
-      Sources: actions, decisions, risks, meetings, health score
+      Sources: {actions_summary}, {decisions_summary}, {risks_summary}, {meetings_summary}, {health_score}
+      Previous digest: {previous_digest}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = TL;DR + next week only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Generate 10-line weekly summary.
-      Structure:
-      - TL;DR (1-2 sentences)
-      - What changed (3 bullets)
-      - Key decisions (2-3 bullets)
-      - Top risks (2-3 bullets)
+      You are generating a weekly digest for the account team.
+      Target: max 10 lines. Trends require 2+ data points. Follow these steps.
+
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: all source summaries PRESENT
+      - DEGRADED: 1+ summaries ABSENT (digest will be partial, flag missing sections)
+      - DEFER: 3+ summaries ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: WEEK HIGHLIGHTS
+      Extract top changes, decisions, and risks:
+      - What changed (max 3 items, ranked by impact)
+      - Key decisions (max 3, ranked by scope)
+      - Top risks (max 3, ranked by exposure)
       - Blockers (if any)
-      - Next week priorities (3 bullets)
+      For each item: confidence in significance HIGH / MEDIUM / LOW.
+      If any source summary is empty: state "No {category} data available for this period."
+      Deliverable: Highlights table (Category | Item | Significance | Confidence).
 
-      Format: (max 10 lines)
-      TL;DR: {1-2 sentence summary}
+      STEP 2: NEXT WEEK PRIORITIES
+      Based on current state, identify top 3 priorities for next week:
+      - Priority description
+      - Why it matters (linked to risk, decision, or deadline)
+      - Owner
+      Deliverable: Priorities table (Priority | Rationale | Owner).
 
-      What changed:
-      - {change 1}
-      - {change 2}
+      STEP 3: TREND INDICATORS
+      Week-over-week comparison (requires {previous_digest}):
+      - Health score direction
+      - Action completion rate direction
+      - Risk count direction
+      If {previous_digest} is empty: state "No previous digest, trends unavailable."
+      Deliverable: Trend indicators (Metric | Previous | Current | Direction).
 
-      Key decisions:
-      - {decision 1}
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
 
-      Top risks:
-      - {risk 1}
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Total output <=10 lines for digest body
+      - Trend claims backed by 2+ data points
+      - Empty states handled per source
+      - Priorities linked to specific governance data
+      - Executive summary is self-sufficient
 
-      Next week:
-      - {priority 1}
-      - {priority 2}
+      RUN MODE EXECUTION:
+      - QUICK: TL;DR (2 sentences) + next week priorities only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with TL;DR (1-2 sentences): (1) week outcome and direction, (2) single most important thing for next week. Then structured sections.
 
   executive_summary:
     name: "Executive Summary"
-    description: "Generate executive-level summary"
+    description: "Generate an executive-level summary focused on strategic progress, material risks, and support needs"
     prompt: |
       Context: Executive summary for {account_name}.
-      Audience: Leadership/exec sponsor
+      Audience: Leadership / exec sponsor
       Period: {period}
+      Health score: {health_score}
+      Key decisions: {key_decisions}
+      Material risks: {material_risks}
+      Progress highlights: {progress_highlights}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = status + ask only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Generate executive-friendly summary.
-      Focus on: Strategic progress, key decisions, material risks.
-      Avoid: Operational details, jargon.
+      You are generating an executive-friendly summary. No operational details
+      or jargon. Focus: strategic progress, key decisions, material risks.
+      Follow these steps.
 
-      Format:
-      {Account Name} - Executive Summary
-      Period: {dates}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: health_score, key_decisions, material_risks PRESENT
+      - DEGRADED: 1+ PARTIAL, proceed with available data
+      - DEFER: health_score ABSENT and material_risks ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Status: {GREEN/YELLOW/RED}
+      STEP 1: STATUS DETERMINATION
+      Determine overall status:
+      - GREEN: health >=80, no critical risks, decisions on track
+      - YELLOW: health 60-79, or 1+ high risks, or stalled decisions
+      - RED: health <60, or 1+ critical risks, or blocked decisions
+      - Confidence: HIGH (all data available), MEDIUM (partial data), LOW (estimated)
+      Deliverable: Status (Color | Score | Justification | Confidence).
 
-      Key progress:
-      - {strategic accomplishment}
+      STEP 2: STRATEGIC NARRATIVE
+      Compose executive narrative:
+      - Key progress (1-2 strategic accomplishments, not operational tasks)
+      - Decisions made (1-2 most impactful)
+      - Risks to monitor (1-2 material risks, business language not technical)
+      - Ask/support needed (specific request, or "None at this time")
+      Each item: one sentence max. No jargon.
+      If any category is empty: state "No {category} to report for this period."
+      Deliverable: Narrative sections (Progress | Decisions | Risks | Ask).
 
-      Decisions made:
-      - {impactful decision}
+      STEP 3: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
 
-      Risks to monitor:
-      - {material risk}
+      QUALITY CHECKS BEFORE OUTPUT:
+      - No operational details or jargon
+      - Status color justified with specific criteria
+      - Each section is one sentence per item
+      - Ask is specific and actionable (not vague)
+      - Executive summary is self-sufficient: standalone document
 
-      Ask/support needed:
-      - {if any}
+      RUN MODE EXECUTION:
+      - QUICK: status color + ask/support needed only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with account name, period, and status color. 3-sentence conclusion: (1) overall trajectory, (2) weakest point, (3) what is needed from leadership.
 
   health_trend_report:
     name: "Health Trend Report"
-    description: "Report on health score trends"
+    description: "Analyze health score trends with component breakdown, key drivers, and improvement recommendations"
     prompt: |
       Context: Health trend analysis for {account_name}.
       Current score: {current_score}
       Previous scores: {score_history}
       Components: {component_breakdown}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = trend + top driver only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Analyze health trends and explain changes.
+      You are analyzing health score trends. Trends require 2+ data points.
+      Follow these steps.
 
-      Format:
-      Health Score Trend Report
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: current_score, score_history (2+ entries), components PRESENT
+      - DEGRADED: score_history has <2 entries (trend analysis limited)
+      - DEFER: current_score ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Current: {score} ({direction} from {previous})
+      STEP 1: TREND ANALYSIS
+      Analyze score trajectory:
+      - Current score and direction (improving / stable / declining)
+      - Score history with data points (requires 2+)
+      - Rate of change (points per period)
+      - Trend confidence: HIGH (5+ data points), MEDIUM (2-4 data points), LOW (single point, no trend)
+      If {score_history} has <2 entries: state "Insufficient data points for trend analysis, reporting current snapshot only."
+      Deliverable: Trend table (Period | Score | Change | Direction | Confidence).
 
-      Trend: {improving/stable/declining}
+      STEP 2: COMPONENT ANALYSIS
+      For each health score component:
+      - Component name and current score
+      - Change from previous period (requires 2+ data points)
+      - Classification: strength (>=80) / neutral (60-79) / weakness (<60)
+      If {component_breakdown} is empty: state "No component breakdown available."
+      Deliverable: Component table (Component | Score | Change | Classification).
 
-      Component analysis:
-      - {component}: {score} ({change})
+      STEP 3: KEY DRIVERS
+      Identify what is driving the score:
+      - Positive drivers (what is helping, with evidence)
+      - Negative drivers (what is hurting, with evidence)
+      - Recommendations for improvement (specific, actionable)
+      Deliverable: Drivers table (Driver | Direction | Evidence | Recommendation).
 
-      Key drivers:
-      - {what's helping}
-      - {what's hurting}
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
 
-      Recommendations:
-      - {actions to improve}
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Trend claims backed by 2+ data points
+      - Component analysis uses consistent thresholds
+      - Recommendations are specific (not "improve health score")
+      - Empty states handled per step
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - QUICK: trend direction + single most impactful driver only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) current score and trend direction, (2) weakest component, (3) single most impactful recommendation.
 
   month_end_report:
     name: "Month-End Report"
-    description: "Generate comprehensive month-end report"
+    description: "Generate comprehensive month-end report covering progress, decisions, risks, value delivered, and next-month outlook"
     prompt: |
       Context: Month-end report for {account_name}.
       Month: {month}
       Audience: Leadership + exec sponsor
+      Weekly digests: {weekly_digests}
+      Decision log: {decision_log}
+      Risk register: {risk_register}
+      Health scores: {health_scores}
+      Value metrics: {value_metrics}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = exec summary + outlook only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Generate 1-page monthly summary.
-      Include: Progress, decisions, risks, value delivered, outlook.
+      You are generating a 1-page monthly summary. Trends require 2+ data points.
+      Follow these steps.
 
-      Format:
-      {Account Name} - {Month} Report
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: weekly_digests, decision_log, risk_register PRESENT
+      - DEGRADED: 1+ sources PARTIAL, proceed with available data
+      - DEFER: 3+ sources ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Executive Summary
-      {2-3 sentence overview}
+      STEP 1: PROGRESS HIGHLIGHTS
+      From weekly digests, extract top 3-5 accomplishments for the month:
+      - Accomplishment description (strategic, not operational)
+      - Impact (quantified if possible)
+      - Confidence: HIGH (measured), MEDIUM (observed), LOW (estimated)
+      If {weekly_digests} is empty: state "No weekly digest data available for progress extraction."
+      Deliverable: Progress table (Accomplishment | Impact | Confidence).
 
-      Progress Highlights
-      - {accomplishment 1}
-      - {accomplishment 2}
+      STEP 2: DECISIONS AND RISKS
+      Summarize decision and risk activity:
+      - Key decisions made (2-3 most impactful)
+      - Risk status: open count, mitigated count, top risk
+      - Month-over-month trend (requires 2+ months data)
+      If data is partial: flag affected sections.
+      Deliverable: Decisions summary + Risk summary tables.
 
-      Key Decisions
-      - {decision with impact}
+      STEP 3: VALUE DELIVERED
+      Quantify value where possible:
+      - Measurable outcomes (revenue, cost savings, time saved)
+      - Qualitative outcomes (relationship strengthened, risk averted)
+      If {value_metrics} is empty: state "No quantified value metrics available for this period."
+      Deliverable: Value table (Metric | Value | Evidence | Confidence).
 
-      Risk Status
-      - Open: {count} | Mitigated: {count}
-      - Top risk: {description}
+      STEP 4: OUTLOOK AND ASKS
+      Next month priorities and support needed:
+      - Top 3 priorities with rationale
+      - Support needed from leadership (specific asks)
+      - Risks to watch
+      Deliverable: Outlook table (Priority | Rationale | Support Needed).
 
-      Value Delivered
-      - {quantified value if available}
+      STEP 5: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
 
-      Outlook
-      - {next month priorities}
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Report fits 1 page (concise, no operational detail)
+      - Trend claims backed by 2+ data points
+      - Value metrics sourced (not fabricated)
+      - Asks are specific and actionable
+      - Empty states handled per step
+      - Executive summary is self-sufficient: standalone document
 
-      Support Needed
-      - {asks, if any}
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + outlook only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence executive summary: (1) month outcome and health trajectory, (2) most significant decision or risk, (3) what leadership should focus on next month.
 
 # ============================================================================
 # PLAYBOOK CURATOR AGENT PROMPTS
@@ -691,141 +1494,266 @@ playbook_curator:
 
   validate_playbook:
     name: "Validate Playbook"
-    description: "Validate new or modified playbook"
+    description: "Validate a new or modified playbook against governance rules covering schema, category, structure, and quality compliance"
     prompt: |
       Context: Playbook submitted for validation.
       Playbook ID: {playbook_id}
       Category: {category}
       Content: {playbook_content}
+      Governance rules: {governance_rules}
+      Existing playbooks: {playbook_inventory}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = result + blocking issues only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Validate against governance rules:
-      - Schema validation (required fields)
-      - Category compliance (CAT rules)
-      - Structure rules (STR rules)
-      - Quality rules (QUA rules)
+      You are validating a playbook against governance rules. Every rule violation
+      must cite the specific rule ID. Follow these steps.
 
-      Format:
-      Validation Report: {playbook_id}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: playbook_content and governance_rules PRESENT
+      - DEGRADED: playbook_inventory ABSENT (no duplicate authority check)
+      - DEFER: playbook_content ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Schema validation:
-      - [ ] Required fields present
-      - [ ] Version specified
-      - [ ] Owner agent defined
+      STEP 1: SCHEMA VALIDATION
+      Check required fields:
+      - [ ] Required fields present (ID, name, description, version, owner, trigger)
+      - [ ] Version specified and valid format
+      - [ ] Owner agent defined and exists
+      Violations: list each missing field with rule reference.
+      Deliverable: Schema validation (Field | Status | Rule | Detail).
 
-      Category compliance:
-      - [ ] CAT-001: No micro-decomposition
-      - [ ] CAT-002: No governance-tactical mixing
-      - [ ] CAT-003: Valid output destinations
-      - [ ] CAT-004: No duplicate authority
+      STEP 2: CATEGORY COMPLIANCE
+      Check category rules:
+      - [ ] CAT-001: No micro-decomposition (playbook has sufficient scope)
+      - [ ] CAT-002: No governance-tactical mixing (single category focus)
+      - [ ] CAT-003: Valid output destinations defined
+      - [ ] CAT-004: No duplicate decision authority (check against {playbook_inventory})
+      If {playbook_inventory} is empty: state "Cannot verify CAT-004, no inventory available."
+      Deliverable: Category compliance (Rule | Status | Detail).
 
-      Structure compliance:
-      - [ ] STR-001: Required metadata
+      STEP 3: STRUCTURE AND QUALITY COMPLIANCE
+      Structure rules:
+      - [ ] STR-001: Required metadata present
       - [ ] STR-002: Trigger defined (if operational)
       - [ ] STR-003: Framework reference (if strategic)
-
-      Quality compliance:
-      - [ ] QUA-001: Reachable via trigger
+      Quality rules:
+      - [ ] QUA-001: Reachable via trigger (not orphaned)
       - [ ] QUA-002: Escalation path defined
       - [ ] QUA-003: Success criteria defined
+      Deliverable: Structure and quality compliance (Rule | Status | Detail).
 
-      Result: APPROVED / BLOCKED / NEEDS REVISION
-      Issues: {list if any}
+      STEP 4: VERDICT
+      Overall result:
+      - APPROVED: all rules pass
+      - BLOCKED: any critical rule fails (schema, CAT-004)
+      - NEEDS_REVISION: non-critical rules fail
+      Deliverable: Verdict (Result | Blocking Issues | Non-Blocking Issues | Remediation Steps).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Every violation cites specific rule ID
+      - Verdict consistent with findings
+      - Remediation steps are specific
+      - Empty checks flagged (not silently skipped)
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - QUICK: verdict + blocking issues only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) validation result and pass rate, (2) most critical issue (if any), (3) next step (approve, revise, or block).
 
   playbook_usage_report:
     name: "Playbook Usage Report"
-    description: "Generate weekly playbook usage report"
+    description: "Analyze weekly playbook usage patterns including execution counts, success rates, and concerning patterns"
     prompt: |
       Context: Weekly playbook usage analysis.
       Period: {week_start} to {week_end}
       Execution logs: {execution_data}
+      Previous report: {previous_report}
+      Playbook inventory: {playbook_inventory}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = summary + concerning patterns only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Analyze playbook usage patterns.
+      You are analyzing playbook usage patterns. Trends require 2+ data points.
+      Follow these steps.
 
-      Format:
-      Playbook Usage Report - Week of {date}
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: execution_data and playbook_inventory PRESENT
+      - DEGRADED: previous_report ABSENT (no trend analysis)
+      - DEFER: execution_data ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Execution summary:
-      - Total executions: {count}
-      - Unique playbooks: {count}
+      STEP 1: EXECUTION SUMMARY
+      Aggregate execution data:
+      - Total executions this period
+      - Unique playbooks executed
+      - Most used playbooks (top 5 by count)
+      - Least used playbooks (bottom 5 or unused)
+      Deliverable: Execution summary table (Playbook ID | Executions | Success Rate | Avg Duration).
 
-      Most used:
-      - {playbook_id}: {count} executions
+      STEP 2: SUCCESS RATE ANALYSIS
+      For each playbook with executions:
+      - Success rate (completed / total)
+      - Escalation rate (escalated / total)
+      - Failure patterns (common failure reasons)
+      - Confidence: HIGH (10+ executions), MEDIUM (3-9), LOW (<3)
+      Deliverable: Success analysis table (Playbook ID | Success % | Escalation % | Failure Pattern | Confidence).
 
-      Success rates:
-      - {playbook_id}: {rate}%
+      STEP 3: CONCERNING PATTERNS
+      Flag issues:
+      - High escalation rate (>30% of executions)
+      - Low success rate (<70%)
+      - Stale playbooks (in inventory but unused >90 days)
+      - Trending down (requires 2+ periods of data)
+      If none found per category: state explicitly.
+      Deliverable: Concerns table (Playbook ID | Concern Type | Evidence | Recommended Action).
 
-      Concerning patterns:
-      - High escalation: {list if any}
-      - Low success rate: {list if any}
-      - Stale (unused >90 days): {list}
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
 
-      Recommendations:
-      - {specific recommendations}
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Success rates based on actual execution counts
+      - Trend claims backed by 2+ data points
+      - Stale threshold applied consistently (90 days)
+      - Empty states handled per step
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - QUICK: execution summary + concerning patterns only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) execution volume and overall success rate, (2) most concerning pattern, (3) top recommendation.
 
   detect_violations:
     name: "Detect Playbook Violations"
-    description: "Scan for playbook governance violations"
+    description: "Scan playbook inventory for governance violations including category boundary, missing fields, duplicate authority, and circular dependencies"
     prompt: |
       Context: Scanning playbooks for violations.
       Playbook inventory: {playbook_list}
+      Governance rules: {governance_rules}
+      Previous scan: {previous_scan}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = critical violations only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Check for governance violations:
-      - VIO-001: Category boundary violation
-      - VIO-002: Missing required fields
-      - VIO-003: Duplicate decision authority
-      - VIO-004: Circular trigger dependency
-      - VIO-005: Unreachable playbook
+      You are scanning for governance violations across all playbooks.
+      Every violation must cite the specific rule ID. Follow these steps.
 
-      Format:
-      Violation Scan Report
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: playbook_list and governance_rules PRESENT
+      - DEGRADED: previous_scan ABSENT (no trend analysis)
+      - DEFER: playbook_list ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Critical violations:
-      - {playbook_id}: {VIO-ID} - {description}
+      STEP 1: VIOLATION SCAN
+      Check each playbook against violation rules:
+      - VIO-001: Category boundary violation (playbook spans categories it should not)
+      - VIO-002: Missing required fields (schema incomplete)
+      - VIO-003: Duplicate decision authority (multiple playbooks own same decision)
+      - VIO-004: Circular trigger dependency (A triggers B triggers A)
+      - VIO-005: Unreachable playbook (no trigger path leads to it)
+      For each violation found:
+      - Playbook ID, violation ID, severity (critical / high / medium)
+      - Description with specific evidence
+      - Confidence: HIGH (deterministic rule match), MEDIUM (heuristic), LOW (potential)
+      If no violations found per rule: state "VIO-{ID}: No violations detected."
+      Deliverable: Violations table (Playbook ID | VIO-ID | Severity | Description | Evidence | Confidence).
 
-      High severity:
-      - {playbook_id}: {VIO-ID} - {description}
+      STEP 2: SEVERITY SUMMARY
+      Group by severity:
+      - Critical (blocking): count and list
+      - High: count and list
+      - Medium: count and list
+      Deliverable: Severity summary (Level | Count | Playbook IDs).
 
-      Medium severity:
-      - {playbook_id}: {VIO-ID} - {description}
+      STEP 3: REMEDIATION PLAN
+      For each violation, specify:
+      - Required fix
+      - Owner (playbook owner agent)
+      - Priority (based on severity)
+      - Prerequisites (what must be resolved first, e.g., circular dependencies)
+      Deliverable: Remediation table (VIO-ID | Playbook | Fix | Owner | Priority | Prerequisites).
 
-      Summary:
-      - Critical: {count} (blocking)
-      - High: {count}
-      - Medium: {count}
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
 
-      Required actions:
-      - {remediation steps}
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Every violation cites specific rule ID
+      - Severity classification consistent across violations
+      - Remediation includes prerequisites (dependency order)
+      - Empty states handled per rule
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - QUICK: critical violations only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) total violations found by severity, (2) most critical violation, (3) recommended remediation priority.
 
   recommend_retirement:
     name: "Recommend Playbook Retirement"
-    description: "Identify playbooks for retirement"
+    description: "Identify playbooks for retirement based on usage metrics, age, success rates, and supersession analysis"
     prompt: |
       Context: Analyzing playbooks for retirement recommendation.
       Usage metrics: {usage_data}
       Age data: {age_data}
+      Playbook inventory: {playbook_inventory}
+      Previous recommendations: {previous_recommendations}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = candidates list only; DISCOVERY = N/A. Default: FULL)
 
-      Action: Identify retirement candidates based on:
+      You are identifying playbooks that should be retired, deprecated, or reviewed.
+      Follow these steps.
+
+      STEP 0: INPUT GATE
+      Validate inputs. Classify each as PRESENT / PARTIAL / ABSENT.
+      - FULL: usage_data and age_data and playbook_inventory PRESENT
+      - DEGRADED: previous_recommendations ABSENT (no re-check of past candidates)
+      - DEFER: usage_data ABSENT, STOP
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: RETIREMENT CRITERIA EVALUATION
+      Evaluate each playbook against retirement triggers:
       - No executions in 180 days
-      - Success rate <50% over 30 days
-      - Superseded by newer playbook
-      - Owner agent deprecated
+      - Success rate <50% over last 30 days (requires 3+ executions)
+      - Superseded by newer playbook (functional overlap >80%)
+      - Owner agent deprecated or removed
+      For each candidate:
+      - Playbook ID, trigger matched, evidence
+      - Confidence: HIGH (clear trigger match), MEDIUM (borderline), LOW (edge case)
+      If no candidates found: state "No playbooks meet retirement criteria."
+      Deliverable: Candidates table (Playbook ID | Trigger | Evidence | Confidence).
 
-      Format:
-      Retirement Recommendation Report
+      STEP 2: IMPACT ASSESSMENT
+      For each candidate:
+      - Affected triggers (what stops working if retired)
+      - Dependent playbooks (what references this playbook)
+      - Active consumers (agents or workflows using it)
+      - Risk of retirement: HIGH (dependencies exist) / MEDIUM (minor dependencies) / LOW (isolated)
+      Deliverable: Impact table (Playbook ID | Triggers Affected | Dependencies | Consumers | Retirement Risk).
 
-      Candidates for retirement:
+      STEP 3: RECOMMENDATION
+      For each candidate, recommend:
+      - RETIRE: remove after 30-day grace period (no dependencies, clear trigger match)
+      - DEPRECATE: mark deprecated, allow 90-day transition (has minor dependencies)
+      - REVIEW: manual review needed (borderline criteria or significant dependencies)
+      Process: notify owner agent → grace period → archive.
+      Deliverable: Recommendation table (Playbook ID | Action | Rationale | Grace Period | Process).
 
-      {playbook_id}:
-      - Reason: {why retire}
-      - Last execution: {date}
-      - Success rate: {rate}
-      - Recommendation: RETIRE / DEPRECATE / REVIEW
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: (field | old value | new value | evidence)
+      Deliverable: Account State Delta table.
 
-      Process:
-      1. Notify owner agent
-      2. Grace period: 30 days
-      3. Archive execution
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Retirement criteria applied consistently
+      - Impact assessment completed before recommendation
+      - Dependencies checked (no orphan triggers)
+      - Confidence stated for each candidate
+      - Empty states handled
+      - Executive summary is self-sufficient
 
-      Impact assessment:
-      - Affected triggers: {list}
-      - Dependent playbooks: {list}
+      RUN MODE EXECUTION:
+      - QUICK: candidates list with recommendations only
+      - FULL or unspecified: all deliverables
+
+      Format: Lead with 3-sentence summary: (1) candidates found and recommendation distribution, (2) highest-risk retirement (most dependencies), (3) recommended first action.

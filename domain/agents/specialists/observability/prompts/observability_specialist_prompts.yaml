@@ -1,221 +1,1514 @@
 # Observability Specialist Prompts
-# Reusable prompt templates for observability specialist tasks
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
+# Full runbook prompts: multi-step with input gates, deliverable specs,
+# confidence metadata, and quality checks. Each step produces a named deliverable.
 
 prompts:
   # =============================================================================
   # OBSERVABILITY ARCHITECTURE PROMPTS
   # =============================================================================
   design_observability_architecture:
-    description: "Design observability architecture for customer environment"
+    description: "Design observability architecture for customer environment covering metrics, logs, traces, alerting, and storage strategy"
     template: |
-      As an Observability Specialist, design the observability architecture for:
+      Context: Designing observability architecture for {account_name}.
+      Infrastructure: {infrastructure}
+      Applications: {applications}
+      Scale: {scale}
+      Current monitoring: {current_monitoring}
+      Requirements: {requirements}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Environment:**
-      - Infrastructure: {infrastructure}
-      - Applications: {applications}
-      - Scale: {scale}
+      You are designing a complete observability architecture that gives the customer
+      visibility into their infrastructure, applications, and business outcomes. The
+      architecture must balance coverage, cost, and operational complexity. Every
+      recommendation must be grounded in the customer's actual scale and requirements.
+      Follow these steps in order.
 
-      **Current State:**
-      {current_monitoring}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      **Requirements:**
-      {requirements}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Provide:
-      1. **Architecture Overview** - Metrics, logs, traces strategy
-      2. **Data Collection** - Agents, instrumentation, integrations
-      3. **Data Pipeline** - Processing, enrichment, routing
-      4. **Storage Strategy** - Retention, tiering, cost optimization
-      5. **Visualization** - Dashboards, service maps
-      6. **Alerting Strategy** - Alert design and routing
-      7. **Trade-offs** - Coverage vs. cost vs. complexity
+      For each architecture dimension, assess data richness:
+      - HIGH: detailed environment specs, scale numbers, existing tool configs
+      - MEDIUM: partial specs, 2-4 data points per dimension
+      - LOW: no direct data, estimates only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Infrastructure Topology, Application Landscape, Scale Profile,
+      Current Monitoring State, Non-Functional Requirements.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the design.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask in next 2-3 interactions (targeted at highest-leverage data gaps)
+      - Data sources to request access to (existing dashboards, runbooks, incident history)
+      - Observation checklist for implicit signals (alert fatigue indicators, MTTR patterns)
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: METRICS STRATEGY
+      Design the metrics collection and management approach.
+      For each metrics tier:
+      - Tier (infrastructure, application, business)
+      - Metric categories (CPU/memory/disk, latency/throughput/errors, conversion/revenue)
+      - Collection method (agent, API, instrumentation library)
+      - Cardinality estimate and management approach
+      - Resolution and retention per tier
+      - Confidence: HIGH (based on confirmed environment data) / MEDIUM (based on partial
+        data or similar environments) / LOW (theoretical estimate)
+      If no current monitoring data is available for a tier, state: "No current baseline
+      for {tier}. Recommendations based on {basis}. Validate with customer before sizing."
+      Deliverable: Metrics strategy table (Tier | Categories | Collection Method |
+      Cardinality | Resolution | Retention | Confidence).
+
+      STEP 2: LOG ARCHITECTURE
+      Design the log collection, processing, and storage approach.
+      For each log source category:
+      - Source type (application, infrastructure, security, audit)
+      - Volume estimate (GB/day) with basis for estimate
+      - Enrichment requirements (geo, user context, service metadata)
+      - Parsing and structuring approach
+      - Routing rules (which logs to index, archive, or drop)
+      - Retention tier assignment (hot/warm/cold)
+      - Confidence on volume estimates: HIGH / MEDIUM / LOW with basis
+      If no current log volume data exists, state: "Volume estimates based on {basis}.
+      Recommend a 2-week collection pilot before finalizing storage sizing."
+      Deliverable: Log architecture table (Source | Volume/Day | Enrichment | Routing |
+      Retention Tier | Confidence).
+
+      STEP 3: DISTRIBUTED TRACING DESIGN
+      Design the tracing strategy for application visibility.
+      For each application tier:
+      - Services to instrument (prioritized by customer impact)
+      - Instrumentation approach: auto-instrumentation vs. manual, primary classification
+        with secondary flags where both apply
+        (primary: auto-instrumentation; secondary: manual for critical paths)
+      - Sampling strategy (head-based, tail-based, or hybrid) with rationale
+      - Context propagation requirements (cross-service, cross-protocol)
+      - Trace-to-log and trace-to-metric correlation approach
+      - Performance overhead estimate with confidence level
+      If application architecture details are absent, state: "Tracing design requires
+      service dependency map. Deliverable is preliminary until architecture review."
+      Deliverable: Tracing design table (Service Group | Instrumentation | Sampling |
+      Context Propagation | Overhead Estimate | Confidence).
+
+      STEP 4: DATA PIPELINE DESIGN
+      Design the data processing and routing pipeline.
+      For each pipeline stage:
+      - Stage (collection, processing, enrichment, routing, storage)
+      - Components and tools at each stage
+      - Throughput requirements based on scale inputs
+      - Buffering and backpressure handling
+      - Failure modes and data loss prevention
+      - Cost implications per stage
+      If scale data is partial, state: "Pipeline sized for {estimated_scale}. Actual
+      throughput validation required before production deployment."
+      Deliverable: Pipeline architecture (Stage | Components | Throughput | Failure
+      Handling | Cost Estimate | Confidence).
+
+      STEP 5: ALERTING ARCHITECTURE
+      Design the alerting layer within the architecture.
+      For each alert category:
+      - Category: primary classification (infrastructure, application, business, security)
+        with secondary flags where alerts span categories
+      - Alert design principle (symptom-based over cause-based)
+      - Threshold approach (static, dynamic baseline, anomaly detection)
+      - Routing target (team, channel, escalation path)
+      - Noise reduction mechanism (deduplication, correlation, suppression windows)
+      - Runbook linkage requirement
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Alerting architecture table (Category | Primary Type | Secondary Flags |
+      Threshold Approach | Routing | Noise Reduction | Confidence).
+
+      STEP 6: TRADE-OFF ANALYSIS
+      Analyze trade-offs across the architecture decisions.
+      For each trade-off:
+      - Decision point (what was decided)
+      - Options considered (minimum 2)
+      - Selected option with rationale
+      - What is gained (coverage, speed, reliability)
+      - What is sacrificed (cost, complexity, completeness)
+      - Reversibility (easy to change later, moderate effort, locked-in)
+      - Confidence in recommendation: HIGH / MEDIUM / LOW with basis
+      Trend claims about technology adoption or industry direction require two data points
+      minimum. If only one reference exists, state "single data point, trend unconfirmed."
+      Deliverable: Trade-off table (Decision | Selected Option | Gain | Sacrifice |
+      Reversibility | Confidence).
+
+      STEP 7: ACTION PLAN
+      Prioritized implementation actions.
+      For each action:
+      - Priority (P1/P2/P3)
+      - Action description
+      - Owner (role, not person name)
+      - Timeline
+      - Prerequisites: what must be true before this action can start
+      - Expected impact on observability coverage
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 8: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every recommendation includes confidence level with basis stated
+      - Volume and cardinality estimates have explicit source (confirmed data, industry benchmark, or estimate)
+      - Trade-off analysis covers at least coverage vs. cost vs. complexity
+      - Empty states handled per step with explicit fallback statements
+      - Trend claims reference two or more data points or state "INSUFFICIENT DATA"
+      - Action plan prerequisites are stated for every action
+      - State delta specifies field paths with old and new values
+      - Classifications use primary + secondary flags where applicable
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip design steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the architecture approach and confidence profile,
+      (2) the weakest point or lowest confidence area across all design dimensions,
+      and (3) the single most urgent action to take next.
 
   assess_observability_maturity:
-    description: "Assess current observability maturity"
+    description: "Assess current observability maturity across metrics, logging, tracing, alerting, SLOs, and incident management with quantified gap analysis"
     template: |
-      As an Observability Specialist, assess the observability maturity:
+      Context: Assessing observability maturity for {account_name}.
+      Current tools: {current_tools}
+      Current practices: {current_practices}
+      Pain points: {pain_points}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Current Tools:**
-      {current_tools}
+      You are building a quantified picture of the customer's observability maturity
+      to identify gaps, prioritize improvements, and establish a roadmap. Every score
+      must have evidence. Maturity without measurement is opinion. Follow these steps
+      in order.
 
-      **Current Practices:**
-      {current_practices}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      **Pain Points:**
-      {pain_points}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Provide assessment across dimensions:
-      1. **Metrics Coverage** - Infrastructure, application, business
-      2. **Logging Maturity** - Structured, centralized, searchable
-      3. **Tracing Adoption** - Instrumentation, sampling, correlation
-      4. **Alerting Quality** - Signal-to-noise, actionability
-      5. **SLO Adoption** - Defined, measured, actioned
-      6. **Incident Management** - Detection, response, learning
-      7. **Recommendations** - Priority improvements
+      For each maturity dimension, assess data richness:
+      - HIGH: tool configs, dashboards, alert history, 5+ data points
+      - MEDIUM: partial data, 2-4 data points
+      - LOW: no direct data, self-reported only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Metrics Coverage, Logging Maturity, Tracing Adoption,
+      Alerting Quality, SLO Adoption, Incident Management.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask in next 2-3 interactions (targeted at highest-leverage data gaps)
+      - Data sources to request access to (dashboards, alert history, incident reports)
+      - Observation checklist for implicit signals (alert fatigue, mean time to detect)
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: METRICS COVERAGE ASSESSMENT
+      Assess current metrics collection completeness.
+      For each metrics layer:
+      - Layer (infrastructure, application, business)
+      - Coverage level (1-5 scale)
+      - Evidence for the score (specific tools, dashboards, metrics collected)
+      - Key gaps (what is not monitored that should be)
+      - Industry benchmark comparison
+      - Confidence: HIGH (observed in tool) / MEDIUM (reported by customer) / LOW (inferred)
+      If no metrics data is available for a layer, state: "No metrics evidence for
+      {layer}. Score deferred. Recommend tool access to validate."
+      Deliverable: Metrics coverage table (Layer | Score | Evidence | Gaps | Benchmark |
+      Confidence).
+
+      STEP 2: LOGGING MATURITY ASSESSMENT
+      Assess logging practices and infrastructure.
+      For each logging dimension:
+      - Dimension (structured logging, centralization, searchability, retention, correlation)
+      - Maturity level (1-5 scale)
+      - Evidence (log formats observed, tools in use, search capabilities)
+      - Gap description
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If logging infrastructure details are absent, state: "Logging maturity assessment
+      requires access to log samples and pipeline configuration."
+      Deliverable: Logging maturity table (Dimension | Score | Evidence | Gap | Confidence).
+
+      STEP 3: TRACING ADOPTION ASSESSMENT
+      Assess distributed tracing implementation.
+      For each tracing dimension:
+      - Dimension (instrumentation coverage, sampling strategy, trace-log correlation,
+        service map completeness, root cause analysis capability)
+      - Adoption level (1-5 scale)
+      - Evidence (instrumented services count, sampling rates, correlation examples)
+      - Gap description
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If no tracing is in place, state: "No distributed tracing detected. Score: 1.
+      This is the highest-impact improvement area for application visibility."
+      Deliverable: Tracing adoption table (Dimension | Score | Evidence | Gap | Confidence).
+
+      STEP 4: ALERTING QUALITY ASSESSMENT
+      Assess alerting effectiveness and operational burden.
+      For each alerting dimension:
+      - Dimension (signal-to-noise ratio, actionability, routing accuracy,
+        escalation effectiveness, runbook coverage)
+      - Quality score (1-5 scale)
+      - Evidence (alert volume, false positive rate, MTTA, on-call burden hours)
+      - Problem classification: primary category (noise, coverage, routing, actionability)
+        with secondary flags where multiple categories apply
+      - Confidence: HIGH (alert history analyzed) / MEDIUM (reported metrics) / LOW (anecdotal)
+      Trend claims about alert volume or noise ratio require two time-separated data points.
+      If only one observation exists, state "single observation, trend unconfirmed."
+      If no alert history is available, state: "Alerting quality requires alert volume
+      and on-call data. Score based on reported experience only."
+      Deliverable: Alerting quality table (Dimension | Score | Evidence | Primary Problem |
+      Secondary Flags | Confidence).
+
+      STEP 5: SLO ADOPTION ASSESSMENT
+      Assess SLO/SLI definition and operational use.
+      For each SLO dimension:
+      - Dimension (SLI selection, target setting, error budget tracking,
+        burn rate alerting, SLO-driven decision making)
+      - Adoption level (1-5 scale)
+      - Evidence (defined SLOs, tracking mechanisms, error budget policies)
+      - Gap description
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If no SLOs are defined, state: "No formal SLOs detected. Score: 1. Recommend
+      starting with top 3 customer-facing services."
+      Deliverable: SLO adoption table (Dimension | Score | Evidence | Gap | Confidence).
+
+      STEP 6: INCIDENT MANAGEMENT ASSESSMENT
+      Assess incident detection, response, and learning practices.
+      For each incident dimension:
+      - Dimension (detection speed, response coordination, communication,
+        post-incident review, knowledge capture)
+      - Maturity level (1-5 scale)
+      - Evidence (MTTD, MTTR, postmortem frequency, action item completion rate)
+      - Gap description
+      - Confidence: HIGH (incident data reviewed) / MEDIUM (process docs reviewed) /
+        LOW (self-reported only)
+      Trend claims about MTTD or MTTR require two or more time-separated measurements.
+      If only one measurement exists, state "single measurement, trend unconfirmed."
+      If no incident history is available, state: "Incident management scoring requires
+      incident log access. Current score based on process documentation only."
+      Deliverable: Incident management table (Dimension | Score | Evidence | Gap | Confidence).
+
+      STEP 7: MATURITY SUMMARY AND RECOMMENDATIONS
+      Compile overall maturity profile and prioritized recommendations.
+      For each recommendation:
+      - Priority (P1/P2/P3)
+      - Recommendation description
+      - Target maturity dimension(s): primary dimension with secondary flags if recommendation
+        spans multiple dimensions
+      - Current score → target score
+      - Owner (role)
+      - Timeline
+      - Prerequisites: what must be true before this recommendation can start
+      - Expected impact
+      Deliverable: Maturity summary (Dimension | Score | Target | Gap) + Action table
+      (Priority | Recommendation | Primary Dimension | Secondary Flags | Current → Target |
+      Owner | Timeline | Prerequisites | Expected Impact).
+
+      STEP 8: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every maturity score has evidence cited, not just a number
+      - Confidence levels stated for all scores with basis
+      - Empty states handled explicitly per dimension (no silent skips)
+      - Trend claims reference two data points or state "INSUFFICIENT DATA"
+      - Recommendations include prerequisites for each action
+      - Classifications use primary + secondary flags where applicable
+      - State delta specifies field paths with old and new values
+      - Overall maturity profile includes all 6 dimensions
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority recommendation with prerequisites. Skip detailed dimension tables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the overall maturity level and confidence profile,
+      (2) the weakest dimension or lowest confidence area, and (3) the single most urgent
+      improvement to make next.
 
   # =============================================================================
   # SLO/SLI PROMPTS
   # =============================================================================
   define_slos:
-    description: "Define SLOs for a service"
+    description: "Define SLOs and SLIs for a service including targets, measurement methods, error budgets, burn rate alerting, and dashboard design"
     template: |
-      As an Observability Specialist, define SLOs for:
+      Context: Defining SLOs for {service_name} at {account_name}.
+      Service type: {service_type}
+      User journey: {user_journey}
+      Current reliability: {current_reliability}
+      Business context: {business_context}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Service:** {service_name}
-      **Service Type:** {service_type}
-      **User Journey:** {user_journey}
+      You are defining SLOs that translate user expectations into measurable reliability
+      targets. SLOs must reflect what users actually experience, not what infrastructure
+      reports. Every target must be justified by business context and current performance
+      data. Follow these steps in order.
 
-      **Current Reliability:**
-      {current_reliability}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      **Business Context:**
-      {business_context}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Provide:
-      1. **SLI Selection** - What to measure
-      2. **SLO Targets** - Specific targets with rationale
-      3. **Measurement Method** - How to calculate
-      4. **Error Budget** - Budget and policies
-      5. **Alerting Strategy** - Burn rate alerts
-      6. **Dashboard Design** - SLO visualization
+      For each SLO dimension, assess data richness:
+      - HIGH: APM data, historical uptime, error rates, latency percentiles
+      - MEDIUM: partial metrics, 2-4 data points
+      - LOW: no reliability data, qualitative descriptions only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Current Reliability Baseline, User Journey Definition,
+      Business Criticality, Existing Monitoring Coverage.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the definition.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask about service behavior and user expectations
+      - Data sources to request (APM dashboards, error logs, latency histograms)
+      - Observation checklist for reliability signals (incident frequency, user complaints)
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: SLI SELECTION
+      Identify the right indicators to measure for this service type.
+      For each SLI:
+      - SLI name (specific, measurable)
+      - SLI type: primary classification (availability, latency, throughput, correctness,
+        freshness, durability) with secondary flags where an SLI spans types
+      - What it measures (precise definition from user perspective)
+      - Why this SLI matters for this specific service (not generic justification)
+      - Measurement point (where in the stack this is captured)
+      - Data source (specific tool, log, or metric)
+      - Confidence in data source availability: HIGH / MEDIUM / LOW with basis
+      If no current monitoring exists for a proposed SLI, state: "No existing measurement
+      for {SLI}. Instrumentation required before this SLI can be tracked."
+      Deliverable: SLI table (SLI Name | Primary Type | Secondary Flags | Definition |
+      Measurement Point | Data Source | Confidence).
+
+      STEP 2: SLO TARGET SETTING
+      Set specific targets for each SLI with business justification.
+      For each SLO:
+      - SLI reference
+      - Target value (e.g., 99.9% availability, p99 latency < 200ms)
+      - Measurement window (rolling 28 days recommended, justify if different)
+      - Rationale: why this target and not higher or lower
+      - Current performance vs. target (if baseline data exists)
+      - Business impact of missing this target (quantified if possible)
+      - Confidence: HIGH (based on historical data) / MEDIUM (based on partial data
+        or comparable services) / LOW (aspirational target without baseline)
+      Trend claims about reliability improvement require two time-separated measurements.
+      If only one baseline exists, state "single baseline, trend will be assessable after
+      next measurement window."
+      Deliverable: SLO target table (SLI | Target | Window | Rationale | Current vs Target |
+      Business Impact | Confidence).
+
+      STEP 3: ERROR BUDGET DESIGN
+      Define error budget calculation and policies.
+      For each SLO:
+      - Error budget calculation (total requests × (1 - target))
+      - Budget per measurement window (absolute number of allowed failures)
+      - Budget consumption tracking method
+      - Policy when budget is exhausted: primary action (freeze deployments,
+        redirect engineering) with secondary actions if applicable
+      - Policy when budget is healthy (> 50% remaining): what this enables
+      - Escalation path when budget burn rate is abnormal
+      If no deployment velocity data exists, state: "Error budget policies require
+      deployment frequency data. Policies are preliminary until validated against
+      release cadence."
+      Deliverable: Error budget table (SLO | Budget Amount | Tracking Method |
+      Exhaustion Policy | Healthy Policy | Escalation Path).
+
+      STEP 4: BURN RATE ALERTING
+      Design alerts based on error budget burn rate.
+      For each SLO:
+      - Fast burn alert: threshold, window, severity, response expectation
+      - Slow burn alert: threshold, window, severity, response expectation
+      - Multi-window approach rationale (short window catches fast burns,
+        long window catches slow burns)
+      - Alert routing (who gets paged vs. notified)
+      - Runbook reference for each alert severity
+      - Confidence in threshold selection: HIGH / MEDIUM / LOW with basis
+      Deliverable: Burn rate alert table (SLO | Alert Type | Threshold | Window |
+      Severity | Routing | Runbook | Confidence).
+
+      STEP 5: DASHBOARD DESIGN
+      Specify SLO dashboard requirements.
+      For each dashboard view:
+      - View name and purpose
+      - Target audience (SRE, engineering lead, VP Engineering, business)
+      - Key visualizations (budget remaining, burn rate, historical compliance)
+      - Time ranges to display
+      - Drill-down capabilities
+      - Refresh frequency
+      Deliverable: Dashboard specification (View | Audience | Visualizations | Time Ranges |
+      Drill-downs | Refresh Rate).
+
+      STEP 6: ACTION PLAN
+      Prioritized implementation actions for SLO adoption.
+      For each action:
+      - Priority (P1/P2/P3)
+      - Action description
+      - Owner (role)
+      - Timeline
+      - Prerequisites: what must be true before this action can start
+      - Expected impact on reliability visibility
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every SLI is defined from user perspective, not infrastructure perspective
+      - SLO targets have business justification, not arbitrary round numbers
+      - Error budget policies specify concrete actions, not vague guidance
+      - Burn rate thresholds include confidence levels
+      - Trend claims reference two data points or state "INSUFFICIENT DATA"
+      - Action plan prerequisites stated for every action
+      - Empty states handled per step with explicit fallback statements
+      - State delta specifies field paths with old and new values
+      - SLI classifications use primary + secondary type flags
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed SLI/SLO tables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip SLO definition steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the SLO coverage and confidence profile,
+      (2) the weakest SLI or lowest confidence area, and (3) the single most urgent
+      action to take next.
 
   # =============================================================================
   # APM PROMPTS
   # =============================================================================
   design_apm_strategy:
-    description: "Design APM implementation strategy"
+    description: "Design APM implementation strategy covering instrumentation, tracing, service maps, key transactions, error tracking, and phased rollout"
     template: |
-      As an Observability Specialist, design the APM strategy for:
+      Context: Designing APM strategy for {account_name}.
+      Application stack: {application_stack}
+      Architecture: {architecture}
+      Performance requirements: {performance_requirements}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Application Stack:**
-      {application_stack}
+      You are designing an APM strategy that gives the customer deep visibility into
+      application performance, dependencies, and error patterns. The strategy must
+      balance instrumentation depth with performance overhead and implementation effort.
+      Follow these steps in order.
 
-      **Architecture:**
-      {architecture}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      **Performance Requirements:**
-      {performance_requirements}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Provide:
-      1. **Instrumentation Strategy** - Auto vs. manual, what to instrument
-      2. **Trace Sampling** - Sampling strategy for scale
-      3. **Service Map** - Dependency visualization
-      4. **Key Transactions** - Critical paths to monitor
-      5. **Error Tracking** - Error capture and grouping
-      6. **Performance Baselines** - What good looks like
-      7. **Rollout Plan** - Phased implementation
+      For each APM dimension, assess data richness:
+      - HIGH: service inventory, dependency map, performance baselines, 5+ data points
+      - MEDIUM: partial stack info, 2-4 data points
+      - LOW: no direct data, high-level descriptions only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Application Stack Detail, Architecture Topology,
+      Performance Baselines, Current Instrumentation State.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the design.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask about application architecture and performance expectations
+      - Data sources to request (service registry, dependency diagrams, load test results)
+      - Observation checklist for performance signals (user complaints, timeout patterns)
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: INSTRUMENTATION STRATEGY
+      Define what to instrument and how.
+      For each service or service group:
+      - Service/group name and technology stack
+      - Instrumentation approach: primary classification (auto-instrumentation, manual,
+        hybrid) with secondary flags where multiple approaches apply within a service
+      - Specific libraries or agents to deploy
+      - Custom instrumentation requirements (business transactions, domain-specific spans)
+      - Performance overhead estimate with confidence level
+      - Risk assessment (stability impact, deployment complexity)
+      - Confidence: HIGH (tested on similar stack) / MEDIUM (documented compatibility) /
+        LOW (untested combination)
+      If technology stack details are incomplete, state: "Instrumentation recommendations
+      for {service} require language/framework confirmation. Current recommendation
+      based on {assumption}."
+      Deliverable: Instrumentation table (Service | Stack | Primary Approach | Secondary Flags |
+      Libraries/Agents | Custom Requirements | Overhead | Risk | Confidence).
+
+      STEP 2: TRACE SAMPLING STRATEGY
+      Design sampling approach for production-scale tracing.
+      For each sampling tier:
+      - Tier (critical transactions, standard, background, health checks)
+      - Sampling rate and method (head-based, tail-based, deterministic)
+      - Rationale for rate selection (balancing visibility with volume)
+      - Estimated trace volume at this rate (traces/day)
+      - Cost implication
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If no current transaction volume data exists, state: "Sampling rates are estimates.
+      Recommend 1-week 100% sampling pilot on non-critical paths to establish baselines."
+      Deliverable: Sampling table (Tier | Rate | Method | Rationale | Volume/Day |
+      Cost Impact | Confidence).
+
+      STEP 3: SERVICE MAP AND DEPENDENCY VISUALIZATION
+      Define service map requirements and dependency tracking.
+      For each dependency type:
+      - Dependency category: primary classification (synchronous, asynchronous, database,
+        external API, message queue) with secondary flags where dependencies span types
+      - Auto-discovery capabilities vs. manual configuration
+      - Health indicators per dependency (latency, error rate, saturation)
+      - Critical path identification
+      - Confidence in dependency completeness: HIGH / MEDIUM / LOW
+      If no architecture diagram exists, state: "Service map based on {source}. Validate
+      completeness against production traffic analysis after instrumentation."
+      Deliverable: Dependency map specification (Dependency | Primary Type | Secondary Flags |
+      Discovery Method | Health Indicators | Critical Path | Confidence).
+
+      STEP 4: KEY TRANSACTION MONITORING
+      Identify and define monitoring for critical user transactions.
+      For each key transaction:
+      - Transaction name (user-meaningful, not technical endpoint)
+      - Business importance (revenue impact, user impact, regulatory requirement)
+      - Performance target (latency p50, p95, p99; error rate)
+      - Baseline performance (current values if available)
+      - Alert thresholds and escalation
+      - Confidence in performance targets: HIGH / MEDIUM / LOW with basis
+      If no transaction performance data exists, state: "Performance targets for
+      {transaction} are aspirational. Baseline measurement required before alerting."
+      Deliverable: Key transaction table (Transaction | Business Importance | Targets |
+      Baseline | Alert Thresholds | Confidence).
+
+      STEP 5: ERROR TRACKING AND ANALYSIS
+      Design error capture, grouping, and analysis approach.
+      For each error handling aspect:
+      - Error source (application exceptions, HTTP errors, infrastructure errors)
+      - Capture method and enrichment (stack traces, user context, request context)
+      - Grouping strategy (fingerprinting, classification rules)
+      - Priority classification: primary severity (critical, major, minor) with secondary
+        flags for error type (functional, performance, security)
+      - Notification routing per severity
+      - Trend analysis approach: requires minimum two time-separated measurements to
+        claim improvement or degradation
+      Deliverable: Error tracking specification (Source | Capture Method | Grouping |
+      Primary Severity | Secondary Flags | Routing | Trend Method).
+
+      STEP 6: ROLLOUT PLAN
+      Phased implementation approach.
+      For each phase:
+      - Phase name and scope
+      - Services included (prioritized by business impact)
+      - Duration estimate
+      - Success criteria for phase completion
+      - Prerequisites: what must be true before this phase can start
+      - Risk factors and mitigation
+      - Go/no-go criteria for next phase
+      Deliverable: Rollout plan table (Phase | Scope | Duration | Success Criteria |
+      Prerequisites | Risks | Go/No-Go).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every instrumentation recommendation includes overhead estimate with confidence
+      - Sampling rates justified by volume and cost, not arbitrary percentages
+      - Key transactions defined from user perspective, not endpoint perspective
+      - Error grouping strategy specified, not just "capture errors"
+      - Rollout phases have go/no-go criteria and prerequisites
+      - Trend claims reference two data points or state "INSUFFICIENT DATA"
+      - Empty states handled per step with explicit fallback statements
+      - Classifications use primary + secondary flags where applicable
+      - State delta specifies field paths with old and new values
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority rollout action with prerequisites. Skip detailed tables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip design steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the APM strategy approach and confidence profile,
+      (2) the weakest area or highest-risk instrumentation decision, and (3) the single
+      most urgent action to take next.
 
   # =============================================================================
   # ALERTING PROMPTS
   # =============================================================================
   design_alerting_strategy:
-    description: "Design alerting strategy to reduce noise"
+    description: "Design alerting strategy to reduce noise, improve actionability, and optimize on-call burden with routing and escalation design"
     template: |
-      As an Observability Specialist, design the alerting strategy:
+      Context: Designing alerting strategy for {account_name}.
+      Alert volume: {alert_volume}
+      On-call burden: {oncall_burden}
+      Known issues: {known_issues}
+      Services: {services}
+      Team structure: {team_structure}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Current State:**
-      - Alert volume: {alert_volume}
-      - On-call burden: {oncall_burden}
-      - Known issues: {known_issues}
+      You are designing an alerting strategy that ensures every alert is actionable,
+      routed to the right responder, and contributes to faster incident resolution
+      rather than adding noise. Alert fatigue is a reliability risk, not just an
+      inconvenience. Follow these steps in order.
 
-      **Services:**
-      {services}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      **Team Structure:**
-      {team_structure}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Provide:
-      1. **Alert Categories** - Critical, warning, informational
-      2. **Alert Design Principles** - Actionability criteria
-      3. **Threshold Strategy** - Static vs. dynamic, baselines
-      4. **Routing & Escalation** - Who gets what, when
-      5. **Noise Reduction** - Deduplication, correlation, suppression
-      6. **Runbook Integration** - Linking alerts to actions
-      7. **On-call Optimization** - Sustainable practices
+      For each alerting dimension, assess data richness:
+      - HIGH: alert history exports, on-call logs, incident data, 5+ data points
+      - MEDIUM: reported metrics, 2-4 data points
+      - LOW: qualitative descriptions only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Current Alert Volume, On-Call Burden, Service Criticality,
+      Team Structure, Incident Response Patterns.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the design.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask about alerting pain points and on-call experience
+      - Data sources to request (alert exports, PagerDuty/OpsGenie analytics, on-call logs)
+      - Observation checklist for alert fatigue signals (ignored alerts, delayed responses)
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: CURRENT STATE ALERT AUDIT
+      Analyze the current alerting landscape.
+      For each alert category:
+      - Category (infrastructure, application, security, business)
+      - Alert count in category
+      - Actionability rate (% of alerts that required human action)
+      - False positive rate (% of alerts that were noise)
+      - Average time to acknowledge
+      - Average time to resolve
+      - Confidence: HIGH (data from alert history) / MEDIUM (reported by team) /
+        LOW (estimated from anecdotal evidence)
+      Trend claims about alert volume or noise ratio require two time-separated
+      data points. If only one observation exists, state "single observation, trend
+      unconfirmed."
+      If no alert history is available, state: "Alert audit requires export of alert
+      history (minimum 30 days). Current analysis based on team-reported estimates."
+      Deliverable: Alert audit table (Category | Count | Actionability % | False Positive % |
+      MTTA | MTTR | Confidence).
+
+      STEP 2: ALERT DESIGN PRINCIPLES
+      Define the alerting philosophy and standards.
+      For each principle:
+      - Principle name
+      - Definition (what it means in practice)
+      - Anti-pattern it prevents (what happens without this principle)
+      - Validation criteria (how to check compliance)
+      Core principles to address:
+      - Symptom-based over cause-based alerting
+      - Every alert must have a defined response action
+      - Alerts must specify severity with primary classification (critical, warning,
+        informational) and secondary flags for impact type (availability, performance,
+        data integrity, security)
+      - No alert without a runbook or documented response
+      Deliverable: Alert design principles document (Principle | Definition | Anti-Pattern |
+      Validation Criteria).
+
+      STEP 3: THRESHOLD STRATEGY
+      Design threshold approach per service tier.
+      For each service tier:
+      - Tier (critical, standard, background)
+      - Threshold type: primary approach (static, dynamic baseline, anomaly detection)
+        with secondary approaches where hybrid is needed
+      - Baseline establishment method
+      - Sensitivity tuning approach
+      - Seasonality handling (if applicable)
+      - Confidence in threshold accuracy: HIGH / MEDIUM / LOW with basis
+      If no performance baseline data exists, state: "Thresholds for {tier} require
+      minimum 2-week baseline collection. Initial thresholds are provisional."
+      Deliverable: Threshold strategy table (Tier | Primary Approach | Secondary Approaches |
+      Baseline Method | Sensitivity | Seasonality | Confidence).
+
+      STEP 4: ROUTING AND ESCALATION DESIGN
+      Design alert routing based on team structure and service ownership.
+      For each routing rule:
+      - Alert source/category
+      - Primary responder (team/role)
+      - Escalation path (level 1 → level 2 → level 3)
+      - Escalation triggers (time-based, severity-based, scope-based)
+      - Business hours vs. off-hours routing differences
+      - Communication channels per severity level
+      Deliverable: Routing matrix (Alert Source | Primary Responder | L1 → L2 → L3 |
+      Escalation Trigger | Hours Routing | Channels).
+
+      STEP 5: NOISE REDUCTION PLAN
+      Design mechanisms to reduce alert noise.
+      For each noise reduction technique:
+      - Technique (deduplication, correlation, suppression, maintenance windows,
+        dependency-aware alerting)
+      - Implementation approach
+      - Expected noise reduction (% estimated with confidence level)
+      - Trade-off: what visibility is reduced
+      - Prerequisites: what must be in place before this technique works
+      Deliverable: Noise reduction plan (Technique | Implementation | Expected Reduction |
+      Trade-off | Prerequisites | Confidence).
+
+      STEP 6: ON-CALL OPTIMIZATION
+      Design sustainable on-call practices.
+      For each optimization:
+      - Area (rotation design, compensation, tooling, handoff process, burnout prevention)
+      - Current state (if known)
+      - Recommended change
+      - Expected impact on on-call burden
+      - Prerequisites: what must be true before this can be implemented
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If on-call burden data is incomplete, state: "On-call optimization requires
+      on-call hours and page frequency data. Recommendations based on {basis}."
+      Deliverable: On-call optimization table (Area | Current State | Recommendation |
+      Impact | Prerequisites | Confidence).
+
+      STEP 7: ACTION PLAN
+      Prioritized implementation actions.
+      For each action:
+      - Priority (P1/P2/P3)
+      - Action description
+      - Owner (role)
+      - Timeline
+      - Prerequisites: what must be true before this action can start
+      - Expected impact on alert quality and on-call burden
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 8: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Alert audit includes actionability and false positive rates with confidence
+      - Every threshold recommendation includes confidence level with basis
+      - Noise reduction estimates include trade-off analysis
+      - Routing rules cover business hours and off-hours scenarios
+      - On-call optimization addresses sustainability, not just efficiency
+      - Trend claims reference two data points or state "INSUFFICIENT DATA"
+      - Action plan prerequisites stated for every action
+      - Empty states handled per step with explicit fallback statements
+      - Classifications use primary + secondary flags where applicable
+      - State delta specifies field paths with old and new values
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed audit and design tables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip design steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the alerting health assessment and confidence
+      profile, (2) the weakest area or highest noise contributor, and (3) the single
+      most urgent action to take next.
 
   # =============================================================================
   # KUBERNETES OBSERVABILITY PROMPTS
   # =============================================================================
   design_k8s_observability:
-    description: "Design Kubernetes observability strategy"
+    description: "Design Kubernetes observability strategy covering cluster metrics, application monitoring, log collection, tracing, cost monitoring, security observability, and multi-cluster federation"
     template: |
-      As an Observability Specialist, design K8s observability for:
+      Context: Designing Kubernetes observability for {account_name}.
+      Clusters: {cluster_count}
+      Nodes: {node_count}
+      Pods: {pod_count}
+      Workloads: {workloads}
+      Current monitoring: {current_monitoring}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Cluster Details:**
-      - Clusters: {cluster_count}
-      - Nodes: {node_count}
-      - Pods: {pod_count}
+      You are designing observability for a Kubernetes environment that gives the customer
+      visibility from cluster control plane down to individual pod performance. K8s
+      observability must handle the ephemeral nature of containers and the dynamic
+      scaling of workloads. Follow these steps in order.
 
-      **Workloads:**
-      {workloads}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      **Current Monitoring:**
-      {current_monitoring}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Provide:
-      1. **Cluster Metrics** - Control plane, node, pod metrics
-      2. **Application Metrics** - Service-level monitoring
-      3. **Log Collection** - Pod logs, events, audit
-      4. **Tracing** - Service mesh integration, instrumentation
-      5. **Cost Monitoring** - Resource utilization, optimization
-      6. **Security Observability** - Runtime security monitoring
-      7. **Multi-cluster Strategy** - Federated observability
+      For each K8s observability dimension, assess data richness:
+      - HIGH: cluster configs, workload manifests, current monitoring setup, 5+ data points
+      - MEDIUM: partial cluster info, 2-4 data points
+      - LOW: cluster count only, no workload details
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Cluster Topology, Workload Profile, Current Monitoring Coverage,
+      Network Architecture, Security Requirements.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the design.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask about K8s environment and monitoring goals
+      - Data sources to request (cluster configs, Prometheus metrics, existing dashboards)
+      - Observation checklist for operational signals (pod restart rates, OOM events)
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: CLUSTER METRICS STRATEGY
+      Design control plane and node-level metrics collection.
+      For each metrics layer:
+      - Layer (control plane, node, pod, container)
+      - Key metrics to collect (specific metric names, not generic categories)
+      - Collection method (Prometheus, node exporter, kube-state-metrics, cAdvisor)
+      - Cardinality management (label strategy, aggregation rules)
+      - Retention and resolution per layer
+      - Confidence: HIGH (based on confirmed cluster config) / MEDIUM (based on
+        similar environments) / LOW (theoretical for this scale)
+      If cluster configuration details are absent, state: "Cluster metrics strategy
+      for {layer} requires cluster access or config export. Current recommendations
+      based on {node_count} node estimate."
+      Deliverable: Cluster metrics table (Layer | Key Metrics | Collection Method |
+      Cardinality | Retention | Confidence).
+
+      STEP 2: APPLICATION METRICS AND MONITORING
+      Design application-level monitoring within K8s.
+      For each workload type:
+      - Workload category: primary classification (stateless, stateful, batch, daemon)
+        with secondary flags where workloads span categories
+      - Service-level metrics (latency, error rate, throughput per service)
+      - Custom metrics requirements (business metrics exposed via /metrics endpoint)
+      - Service mesh integration (if applicable)
+      - Health check and readiness probe monitoring
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If workload details are incomplete, state: "Application monitoring for {workload}
+      requires workload manifest review. Recommendations are generic for {workload_type}."
+      Deliverable: Application monitoring table (Workload | Primary Type | Secondary Flags |
+      Service Metrics | Custom Metrics | Service Mesh | Confidence).
+
+      STEP 3: LOG COLLECTION STRATEGY
+      Design log collection for the K8s environment.
+      For each log source:
+      - Source (pod stdout/stderr, K8s events, audit logs, node system logs)
+      - Collection method (DaemonSet, sidecar, Kubernetes API)
+      - Volume estimate (GB/day) with confidence level
+      - Enrichment (pod metadata, namespace, labels, node info)
+      - Filtering and routing rules (which logs to index, archive, drop)
+      - Retention tier assignment
+      If no current log volume data exists, state: "Log volume estimates based on
+      {pod_count} pods at industry-average rates. Recommend 1-week collection pilot."
+      Deliverable: Log collection table (Source | Collection Method | Volume/Day |
+      Enrichment | Routing | Retention | Confidence).
+
+      STEP 4: DISTRIBUTED TRACING IN K8S
+      Design tracing strategy for containerized services.
+      For each tracing aspect:
+      - Aspect (service mesh tracing, application instrumentation, ingress tracing)
+      - Implementation approach
+      - Context propagation across K8s service boundaries
+      - Sampling strategy considering pod ephemerality
+      - Trace-to-log correlation using K8s metadata
+      - Performance overhead on pods
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If no service mesh exists, state: "Tracing without service mesh requires
+      application-level instrumentation. Overhead and coverage estimates adjusted."
+      Deliverable: K8s tracing table (Aspect | Approach | Context Propagation |
+      Sampling | Correlation | Overhead | Confidence).
+
+      STEP 5: COST AND RESOURCE MONITORING
+      Design cost visibility and resource optimization monitoring.
+      For each cost dimension:
+      - Dimension (compute utilization, memory utilization, storage, network,
+        namespace/team attribution)
+      - Metrics to track (requests vs. limits vs. actual usage)
+      - Cost attribution method (namespace, label, annotation-based)
+      - Optimization alerting (over-provisioned pods, idle resources)
+      - Reporting cadence and audience
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Trend claims about resource utilization require two time-separated measurements.
+      If only one snapshot exists, state "single snapshot, trend will be assessable
+      after next measurement."
+      Deliverable: Cost monitoring table (Dimension | Metrics | Attribution | Optimization
+      Alerts | Reporting | Confidence).
+
+      STEP 6: SECURITY OBSERVABILITY
+      Design security monitoring within K8s.
+      For each security domain:
+      - Domain: primary classification (runtime security, network policy, RBAC audit,
+        image scanning, secrets management) with secondary flags where domains overlap
+      - Monitoring approach
+      - Key signals to detect (privilege escalation, lateral movement, policy violations)
+      - Alert severity and routing
+      - Compliance mapping (if applicable)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If security requirements are not specified, state: "Security observability
+      recommendations based on K8s security best practices. Customer-specific
+      compliance requirements may alter priorities."
+      Deliverable: Security observability table (Domain | Primary Type | Secondary Flags |
+      Approach | Key Signals | Alerting | Compliance | Confidence).
+
+      STEP 7: MULTI-CLUSTER STRATEGY
+      Design federated observability across clusters (if applicable).
+      For each federation aspect:
+      - Aspect (metrics federation, log aggregation, trace correlation,
+        unified dashboarding, cross-cluster alerting)
+      - Architecture approach (centralized, hierarchical, peer-to-peer)
+      - Data transport and bandwidth requirements
+      - Consistency and latency trade-offs
+      - Failure isolation (one cluster's monitoring failure does not affect others)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If single cluster only, state: "Multi-cluster strategy deferred. Single-cluster
+      architecture documented for future scaling reference."
+      Deliverable: Multi-cluster strategy table (Aspect | Approach | Transport |
+      Trade-offs | Failure Isolation | Confidence).
+
+      STEP 8: ACTION PLAN
+      Prioritized implementation actions.
+      For each action:
+      - Priority (P1/P2/P3)
+      - Action description
+      - Owner (role)
+      - Timeline
+      - Prerequisites: what must be true before this action can start
+      - Expected impact on K8s observability coverage
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 9: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every recommendation includes confidence level with basis stated
+      - Cardinality management addressed for each metrics layer
+      - Log volume estimates have explicit basis and confidence
+      - Security observability covers runtime, not just static scanning
+      - Multi-cluster strategy addresses failure isolation
+      - Trend claims reference two data points or state "INSUFFICIENT DATA"
+      - Action plan prerequisites stated for every action
+      - Empty states handled per step with explicit fallback statements
+      - Classifications use primary + secondary flags where applicable
+      - State delta specifies field paths with old and new values
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed design tables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip design steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the K8s observability approach and confidence
+      profile, (2) the weakest coverage area or highest-risk gap, and (3) the single
+      most urgent action to take next.
 
   # =============================================================================
   # MIGRATION PROMPTS
   # =============================================================================
   plan_observability_migration:
-    description: "Plan migration from existing monitoring tools"
+    description: "Plan migration from existing monitoring tools covering strategy, data migration, dashboard and alert conversion, integration updates, validation, and cutover with rollback"
     template: |
-      As an Observability Specialist, plan the migration from:
+      Context: Planning observability migration for {account_name}.
+      Source tools: {source_tools}
+      Metrics coverage: {metrics_coverage}
+      Logs coverage: {logs_coverage}
+      Traces coverage: {traces_coverage}
+      Dashboard count: {dashboard_count}
+      Alert count: {alert_count}
+      Migration drivers: {migration_drivers}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Source Tools:**
-      {source_tools}
+      You are planning a migration from existing monitoring tools that preserves
+      operational visibility throughout the transition. Migration failures in
+      observability create blind spots during the most risky phase. Every migration
+      step must maintain or improve detection capability. Follow these steps in order.
 
-      **Current Coverage:**
-      - Metrics: {metrics_coverage}
-      - Logs: {logs_coverage}
-      - Traces: {traces_coverage}
-      - Dashboards: {dashboard_count}
-      - Alerts: {alert_count}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      **Migration Drivers:**
-      {migration_drivers}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Provide:
-      1. **Migration Strategy** - Parallel vs. phased
-      2. **Data Migration** - Historical data approach
-      3. **Dashboard Migration** - Recreation vs. conversion
-      4. **Alert Migration** - Threshold translation
-      5. **Integration Updates** - CI/CD, ticketing, etc.
-      6. **Validation Plan** - Ensure parity
-      7. **Cutover Plan** - Traffic switch approach
-      8. **Risk Mitigation** - Rollback strategy
+      For each migration dimension, assess data richness:
+      - HIGH: tool inventories, dashboard exports, alert configs, 5+ data points
+      - MEDIUM: partial inventories, 2-4 data points
+      - LOW: tool names only, no configuration details
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Source Tool Configuration, Current Coverage Completeness,
+      Dashboard/Alert Inventory, Integration Dependencies, Migration Timeline Constraints.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the planning.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask about current tool configurations and dependencies
+      - Data sources to request (dashboard exports, alert rule configs, integration list)
+      - Observation checklist for migration readiness signals (team availability, skills)
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: MIGRATION STRATEGY SELECTION
+      Determine the overall migration approach.
+      For each strategy option:
+      - Strategy (parallel run, phased cutover, big bang)
+      - Applicability to this environment (why it does or does not fit)
+      - Risk level with confidence: HIGH / MEDIUM / LOW
+      - Duration estimate
+      - Resource requirements
+      - Cost of parallel operation (if applicable)
+      Select recommended strategy with rationale. If migration experience data is
+      limited, state: "Strategy recommendation based on environment size and
+      complexity. Validate with migration pilot on non-critical services."
+      Deliverable: Strategy comparison table (Strategy | Fit Assessment | Risk |
+      Duration | Resources | Parallel Cost) + recommended approach with rationale
+      and confidence level.
+
+      STEP 2: DATA MIGRATION PLAN
+      Plan historical data handling.
+      For each data type:
+      - Data type (metrics, logs, traces)
+      - Current volume and retention
+      - Migration approach: primary classification (full migration, selective migration,
+        archive-and-start-fresh) with secondary flags where hybrid approaches apply
+      - Migration tooling required
+      - Timeline estimate
+      - Risk of data loss with confidence level
+      - Validation method
+      If historical data requirements are unclear, state: "Data migration scope requires
+      retention policy confirmation. Defaulting to {approach} based on typical requirements."
+      Deliverable: Data migration table (Type | Volume | Primary Approach | Secondary Flags |
+      Tooling | Timeline | Risk | Validation | Confidence).
+
+      STEP 3: DASHBOARD MIGRATION
+      Plan dashboard recreation or conversion.
+      For each dashboard category:
+      - Category: primary classification (operational, executive, service-specific,
+        compliance) with secondary flags where dashboards serve multiple purposes
+      - Dashboard count in category
+      - Migration approach (manual recreation, automated conversion, redesign)
+      - Priority (critical for operations, important, nice-to-have)
+      - Effort estimate per dashboard (hours)
+      - Validation: who confirms the migrated dashboard is equivalent
+      - Confidence in effort estimates: HIGH / MEDIUM / LOW with basis
+      If no dashboard inventory exists, state: "Dashboard migration requires export
+      of dashboard list with owner and usage frequency. Effort estimates are rough
+      until inventory is complete."
+      Deliverable: Dashboard migration table (Category | Primary Type | Secondary Flags |
+      Count | Approach | Priority | Effort | Validator | Confidence).
+
+      STEP 4: ALERT MIGRATION
+      Plan alert rule conversion and validation.
+      For each alert tier:
+      - Tier (critical, warning, informational)
+      - Alert count
+      - Conversion complexity: primary classification (direct translation, logic
+        adaptation, complete redesign) with secondary flags for alerts requiring
+        multiple changes
+      - Threshold translation approach (direct mapping vs. re-baselining)
+      - Validation method (parallel alerting period, synthetic tests)
+      - Risk of missed alerts during transition
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Trend claims about alert noise improvement require comparison of pre- and
+      post-migration metrics. State: "Noise reduction measurable after minimum
+      2-week parallel operation."
+      If no alert export is available, state: "Alert migration requires rule export
+      from {source_tool}. Count-based estimates only until rules are reviewed."
+      Deliverable: Alert migration table (Tier | Count | Primary Complexity |
+      Secondary Flags | Threshold Approach | Validation | Risk | Confidence).
+
+      STEP 5: INTEGRATION UPDATES
+      Plan updates to connected systems.
+      For each integration:
+      - Integration (CI/CD, ticketing, ChatOps, CMDB, ITSM)
+      - Current connection method
+      - Required changes for target platform
+      - Effort estimate with confidence level
+      - Testing approach
+      - Rollback capability
+      - Prerequisites: what must be true before this integration can be updated
+      Deliverable: Integration update table (Integration | Current Method | Changes |
+      Effort | Testing | Rollback | Prerequisites | Confidence).
+
+      STEP 6: VALIDATION AND PARITY PLAN
+      Define how to confirm migration completeness.
+      For each validation dimension:
+      - Dimension (metrics parity, log coverage parity, alert coverage, dashboard
+        functionality, integration functionality)
+      - Validation method (side-by-side comparison, synthetic load test, user acceptance)
+      - Success criteria (specific, measurable)
+      - Duration of validation period
+      - Responsible party
+      Deliverable: Validation plan table (Dimension | Method | Success Criteria |
+      Duration | Responsible Party).
+
+      STEP 7: CUTOVER AND ROLLBACK PLAN
+      Define the traffic switch and fallback approach.
+      For each cutover phase:
+      - Phase (preparation, execution, validation, decommission)
+      - Actions in sequence
+      - Duration
+      - Go/no-go criteria
+      - Rollback trigger (what condition forces rollback)
+      - Rollback procedure (specific steps)
+      - Prerequisites: what must be true before this phase begins
+      Deliverable: Cutover plan table (Phase | Actions | Duration | Go/No-Go |
+      Rollback Trigger | Rollback Procedure | Prerequisites).
+
+      STEP 8: ACTION PLAN
+      Prioritized migration actions.
+      For each action:
+      - Priority (P1/P2/P3)
+      - Action description
+      - Owner (role)
+      - Timeline
+      - Prerequisites: what must be true before this action can start
+      - Expected impact
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 9: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Migration strategy comparison includes at least 2 options with trade-offs
+      - Every effort estimate includes confidence level with basis
+      - Dashboard and alert migration have validation methods specified
+      - Cutover plan includes rollback triggers and procedures
+      - Integration updates include prerequisites and rollback capability
+      - Trend claims reference two data points or state "INSUFFICIENT DATA"
+      - Action plan prerequisites stated for every action
+      - Empty states handled per step with explicit fallback statements
+      - Classifications use primary + secondary flags where applicable
+      - State delta specifies field paths with old and new values
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority migration action with prerequisites. Skip detailed migration tables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip migration planning steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the migration approach and confidence in
+      execution readiness, (2) the highest-risk migration component or lowest confidence
+      area, and (3) the single most urgent action to take next.
 
   # =============================================================================
   # COST OPTIMIZATION PROMPTS
   # =============================================================================
   optimize_observability_costs:
-    description: "Optimize observability data costs"
+    description: "Optimize observability data costs across metrics, logs, and traces covering volume analysis, cardinality, sampling, retention tiering, and quantified savings"
     template: |
-      As an Observability Specialist, optimize costs for:
+      Context: Optimizing observability costs for {account_name}.
+      Metrics volume: {metrics_volume}
+      Logs volume: {logs_volume}
+      Traces volume: {traces_volume}
+      Current costs: {current_costs}
+      Retention requirements: {retention_requirements}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Current Volumes:**
-      - Metrics: {metrics_volume}
-      - Logs: {logs_volume}
-      - Traces: {traces_volume}
+      You are optimizing observability costs without sacrificing the visibility needed
+      for reliable operations. Cost optimization in observability is a trade-off
+      analysis, not a reduction exercise. Every recommendation must quantify both
+      the savings and the visibility impact. Follow these steps in order.
 
-      **Current Costs:**
-      {current_costs}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      **Retention Requirements:**
-      {retention_requirements}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Provide:
-      1. **Volume Analysis** - What's driving costs
-      2. **Cardinality Optimization** - High-cardinality metrics
-      3. **Log Optimization** - Filtering, sampling, tiering
-      4. **Trace Sampling** - Intelligent sampling strategies
-      5. **Retention Tiering** - Hot/warm/cold strategies
-      6. **Expected Savings** - Quantified recommendations
-      7. **Trade-offs** - What you lose vs. save
+      For each cost dimension, assess data richness:
+      - HIGH: volume breakdowns, cost invoices, retention configs, 5+ data points
+      - MEDIUM: aggregate volumes, 2-4 data points
+      - LOW: no volume or cost data, descriptions only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Metrics Volume Breakdown, Logs Volume Breakdown,
+      Traces Volume Breakdown, Current Cost Structure, Retention Policies.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the optimization.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask about data volumes and cost drivers
+      - Data sources to request (billing reports, volume dashboards, retention configs)
+      - Observation checklist for cost signals (growth rate, unused dashboards)
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: VOLUME ANALYSIS
+      Break down what is driving observability data volume.
+      For each data type:
+      - Data type (metrics, logs, traces)
+      - Total volume (GB/day or data points/second)
+      - Top 5 volume contributors (specific sources, services, or metric families)
+      - Growth rate: requires two time-separated measurements. If only one exists,
+        state "single measurement, growth rate unknown"
+      - Cost per unit volume
+      - Percentage of total observability cost
+      - Confidence: HIGH (from billing/volume dashboards) / MEDIUM (from partial data) /
+        LOW (estimated from environment size)
+      If volume breakdowns are unavailable, state: "Volume analysis requires per-source
+      volume reporting. Aggregate estimates based on {basis}."
+      Deliverable: Volume analysis table (Type | Volume | Top Contributors | Growth Rate |
+      Unit Cost | % of Total | Confidence).
+
+      STEP 2: CARDINALITY OPTIMIZATION
+      Identify and address high-cardinality metrics.
+      For each cardinality issue:
+      - Metric family or label causing high cardinality
+      - Current cardinality (unique time series count)
+      - Root cause: primary classification (unbounded labels, high-dimensional tags,
+        per-instance metrics) with secondary flags where multiple causes apply
+      - Reduction strategy (label aggregation, metric dropping, recording rules)
+      - Expected cardinality after optimization
+      - Expected cost savings
+      - Visibility trade-off: what queries or dashboards are affected
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If no cardinality data is available, state: "Cardinality optimization requires
+      metrics cardinality report. Common high-cardinality patterns listed as candidates
+      for investigation."
+      Deliverable: Cardinality optimization table (Metric | Current Cardinality |
+      Primary Cause | Secondary Flags | Strategy | Target Cardinality | Savings |
+      Visibility Trade-off | Confidence).
+
+      STEP 3: LOG OPTIMIZATION
+      Design log volume reduction strategies.
+      For each optimization technique:
+      - Technique (filtering at source, sampling, log level adjustment,
+        structured log compression, routing to cold storage)
+      - Target log sources
+      - Expected volume reduction (% with confidence level)
+      - Expected cost savings
+      - Visibility trade-off: what log data becomes unavailable or delayed
+      - Implementation complexity
+      - Prerequisites: what must be in place before this technique can be applied
+      Deliverable: Log optimization table (Technique | Target Sources | Volume Reduction |
+      Savings | Visibility Trade-off | Complexity | Prerequisites | Confidence).
+
+      STEP 4: TRACE SAMPLING OPTIMIZATION
+      Design intelligent sampling to reduce trace volume.
+      For each sampling approach:
+      - Approach (head-based, tail-based, priority-based, error-biased)
+      - Target service or transaction type
+      - Current sampling rate (if any)
+      - Recommended sampling rate with rationale
+      - Expected volume reduction
+      - Expected cost savings
+      - Visibility trade-off: what traces are lost and impact on debugging capability
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If no current sampling configuration exists, state: "No sampling in place.
+      All traces collected at 100%. Immediate savings opportunity."
+      Deliverable: Sampling optimization table (Approach | Target | Current Rate |
+      Recommended Rate | Volume Reduction | Savings | Visibility Trade-off | Confidence).
+
+      STEP 5: RETENTION TIERING
+      Design hot/warm/cold retention strategy.
+      For each data type and tier:
+      - Data type (metrics, logs, traces)
+      - Tier (hot, warm, cold, archive)
+      - Retention period per tier
+      - Query performance per tier (latency expectation)
+      - Cost per GB per tier
+      - Total cost at current volumes
+      - Compliance alignment (does retention meet regulatory requirements)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If retention requirements are unclear, state: "Retention tiering requires
+      compliance and operational retention requirements. Current design based on
+      {assumption}."
+      Deliverable: Retention tiering table (Type | Tier | Retention | Query Performance |
+      Cost/GB | Total Cost | Compliance | Confidence).
+
+      STEP 6: SAVINGS SUMMARY
+      Quantify total expected savings and trade-offs.
+      For each optimization category:
+      - Category (cardinality, log optimization, trace sampling, retention tiering)
+      - Current cost
+      - Projected cost after optimization
+      - Savings amount and percentage
+      - Visibility impact summary: primary impact (none, reduced granularity, delayed
+        access, data loss) with secondary flags where multiple impacts apply
+      - Implementation effort
+      - Confidence in savings estimate: HIGH / MEDIUM / LOW with basis
+      Deliverable: Savings summary table (Category | Current Cost | Projected Cost |
+      Savings | Primary Impact | Secondary Flags | Effort | Confidence) + total savings.
+
+      STEP 7: ACTION PLAN
+      Prioritized cost optimization actions.
+      For each action:
+      - Priority (P1/P2/P3)
+      - Action description
+      - Owner (role)
+      - Timeline
+      - Prerequisites: what must be true before this action can start
+      - Expected savings
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Savings).
+
+      STEP 8: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every savings estimate includes both the amount saved and what visibility is lost
+      - Cardinality issues identified with specific metric families, not generic guidance
+      - Log optimization includes filtering rules, not just "reduce logs"
+      - Sampling recommendations include rationale for rate selection
+      - Retention tiers aligned with compliance requirements
+      - Trend claims (growth rates) reference two data points or state "INSUFFICIENT DATA"
+      - Action plan prerequisites stated for every action
+      - Empty states handled per step with explicit fallback statements
+      - Classifications use primary + secondary flags where applicable
+      - Confidence levels stated for all savings estimates with basis
+      - State delta specifies field paths with old and new values
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-savings action with prerequisites. Skip detailed optimization tables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip optimization steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the total savings opportunity and confidence
+      in the estimate, (2) the highest-risk optimization or largest visibility trade-off,
+      and (3) the single most impactful action to take next.

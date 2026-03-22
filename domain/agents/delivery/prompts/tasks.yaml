@@ -1,6 +1,7 @@
 # Delivery Agent Task Prompts
-# Purpose: Task-specific prompts using CAF framework (Context, Action, Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
 # Reference: Personality defined in personalities/delivery_personality.yaml
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
 
 # ============================================================================
 # PROJECT HEALTH PROMPTS
@@ -9,68 +10,455 @@ project_health:
 
   status_summary:
     name: "Project Status Summary"
-    description: "Generate concise project status for account team"
+    description: "Assess project health across timeline, scope, resources, and risk dimensions with compound classification and confidence metadata for account team visibility"
     prompt: |
       Context: Review project {project_name} for {account_name}.
       Phase: {current_phase}
       Target go-live: {go_live_date}
+      Milestone plan: {milestone_plan}
+      Recent status notes: {status_notes}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Generate status summary:
-      - Overall health assessment
-      - Milestone status
-      - Blockers and risks
-      - What account team needs to know
+      You are producing a health assessment that the account team can act on
+      without asking delivery follow-up questions. Every claim must trace to a
+      source signal. Follow these steps in order.
 
-      Format:
-      - Health: [GREEN/YELLOW/RED] with 1-sentence justification
-      - Milestones table (Milestone | Due | Status | Notes)
-      - Blockers (if any)
-      - Account team action needed: [YES/NO]
-      - Next update: {date}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness per dimension:
+      - HIGH: telemetry, dashboards, 5+ data points
+      - MEDIUM: partial data, 2-4 data points
+      - LOW: no direct data, estimates only
+      Dimensions to assess: Timeline, Scope, Resources, Risk, Customer Sentiment.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output)
+      + Data Availability Map (Dimension | Richness | Sources | Gap)
+      + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask delivery lead in next sync (targeted at highest-leverage gaps)
+      - Data sources to request access to (project tracker, JIRA board, status emails)
+      - Observation checklist for implicit signals in upcoming interactions
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: MILESTONE STATUS REVIEW
+      For each milestone in the project plan, assess current status.
+      For each milestone:
+      - Milestone name and description
+      - Original due date
+      - Current projected date (if different, state basis for projection)
+      - Status: COMPLETE, ON_TRACK, AT_RISK, DELAYED, BLOCKED
+      - Confidence level: HIGH (milestone owner confirmed) / MEDIUM (inferred from
+        progress signals) / LOW (no recent update, last known state only)
+      - Notes (blockers, dependencies, changes since last review)
+      If no milestone plan is available, state "No milestone plan provided" and
+      note the implication: health assessment relies on narrative signals only.
+      Deliverable: Milestone status table (Milestone | Original Due | Projected Due |
+      Status | Confidence | Notes).
+
+      STEP 2: HEALTH ASSESSMENT
+      Produce a compound health classification across five dimensions:
+      - TIMELINE: are milestones tracking to plan?
+      - SCOPE: is scope stable or experiencing creep/cuts?
+      - RESOURCE: are staffing and skills adequate?
+      - RISK: are identified risks mitigated or growing?
+      - CUSTOMER_SENTIMENT: is customer communication positive, neutral, or escalating?
+
+      For each dimension:
+      - Rating: GREEN / YELLOW / RED
+      - Confidence: HIGH / MEDIUM / LOW with basis stated
+      - Evidence: specific signals supporting the rating (quote sources)
+      - Trend: IMPROVING / STABLE / DECLINING (requires two time-separated data
+        points minimum; if only one observation exists, state "INSUFFICIENT DATA")
+
+      Overall health: one primary rating (GREEN / YELLOW / RED) for routing, plus
+      secondary flags for any dimension rated differently from the primary.
+      Example: Health GREEN but flagged TIMELINE YELLOW and RESOURCE YELLOW.
+      Deliverable: Health matrix (Dimension | Rating | Confidence | Evidence | Trend)
+      + overall health with compound flags.
+
+      STEP 3: BLOCKER AND RISK INVENTORY
+      List all active blockers and identified risks.
+      For each item:
+      - ID (BLK-001 or RSK-001)
+      - Description
+      - Primary category: TECHNICAL, RESOURCE, PROCESS, COMMERCIAL, EXTERNAL
+      - Secondary category(ies): if applicable, list additional categories
+      - Impact: HIGH / MEDIUM / LOW with confidence level
+      - Owner: who is responsible for resolution
+      - Status: OPEN, IN_PROGRESS, MITIGATED, CLOSED
+      - Timeline impact: estimated days of delay if unresolved
+      If no blockers or risks are identified, state "No active blockers or risks
+      identified from available signals" and note whether this reflects genuine
+      health or insufficient visibility.
+      Deliverable: Blocker/risk table (ID | Description | Primary Category |
+      Secondary Category | Impact | Confidence | Owner | Status | Timeline Impact).
+
+      STEP 4: ACCOUNT TEAM ACTIONS
+      Produce actions the account team should take based on findings.
+      For each action:
+      - Priority: P1 (immediate) / P2 (this week) / P3 (this cycle)
+      - Action: specific, concrete step
+      - Owner: role or person
+      - Timeline: when it should happen
+      - Prerequisites: what must be true before this can start
+      - Expected Impact: what changes if this action succeeds
+      If no actions are needed, state "No account team actions required this cycle"
+      and specify when next review is due.
+      Deliverable: Action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every health rating has a confidence level with stated basis
+      - Trend claims reference two or more time-separated data points, or state "INSUFFICIENT DATA"
+      - Compound classification uses primary rating + secondary flags, not forced single status
+      - Blocker/risk items classified with primary + secondary categories
+      - Action prerequisites are stated, not just owner and timeline
+      - State delta specifies field-level changes with evidence
+      - No delivery status claims without source signal
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 5 deliverables as labeled sections. Lead with
+      an executive summary that states: (1) overall health with compound flags and
+      confidence profile, (2) the weakest dimension or lowest confidence area,
+      and (3) the single most urgent action to take next.
 
   go_live_readiness:
     name: "Go-Live Readiness Assessment"
-    description: "Assess readiness for production go-live"
+    description: "Assess production go-live readiness across technical, operational, organizational, and risk dimensions with compound scoring and gate criteria"
     prompt: |
       Context: {account_name} go-live planned for {go_live_date}.
       Current phase: {current_phase}
       Days until go-live: {days}
+      Readiness checklist: {readiness_checklist}
+      Open issues: {open_issues}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess go-live readiness:
-      - What is complete?
-      - What is still pending?
-      - What are the risks?
-      - Go/No-Go recommendation
+      You are producing a go/no-go recommendation that leadership can act on.
+      The recommendation must be evidence-based, with every incomplete item
+      explicitly surfaced. Follow these steps in order.
 
-      Format:
-      - Readiness score: {percentage}
-      - Complete items checklist
-      - Pending items with owners and ETAs
-      - Risks to go-live table
-      - Recommendation: [GO/CONDITIONAL/NO-GO]
-      - If CONDITIONAL: What must complete first
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness per dimension:
+      - HIGH: telemetry, dashboards, 5+ data points
+      - MEDIUM: partial data, 2-4 data points
+      - LOW: no direct data, estimates only
+      Dimensions to assess: Technical Readiness, Operational Readiness,
+      Organizational Readiness, Risk Posture, Rollback Preparedness.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output)
+      + Data Availability Map (Dimension | Richness | Sources | Gap)
+      + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask delivery lead and technical team before go-live decision
+      - Data sources to request (test results, environment status, runbook completion)
+      - Observation checklist for go-live readiness signals
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: READINESS DIMENSION SCORING
+      Score readiness across five dimensions. For each dimension:
+      - Score: 0-100% with basis
+      - Confidence: HIGH / MEDIUM / LOW with basis stated
+      - Complete items (what is done)
+      - Pending items (what remains, with owner and ETA)
+      - Blockers (what prevents completion)
+
+      Dimensions:
+      - TECHNICAL: code complete, testing complete, performance validated,
+        integrations verified, security reviewed
+      - OPERATIONAL: monitoring in place, alerting configured, runbooks written,
+        support team briefed, SLAs defined
+      - ORGANIZATIONAL: training complete, communications sent, change management
+        executed, stakeholder sign-offs obtained
+      - RISK: risk register reviewed, mitigations in place, contingency plans defined
+      - ROLLBACK: rollback procedure documented, tested, and validated
+
+      For each dimension, classify as:
+      - READY: all critical items complete, no blockers
+      - CONDITIONAL: critical items complete but with caveats or workarounds
+      - NOT_READY: critical items incomplete or blockers unresolved
+      Deliverable: Readiness scorecard (Dimension | Score | Confidence |
+      Classification | Complete Count | Pending Count | Blocker Count).
+
+      STEP 2: PENDING ITEMS DETAIL
+      For each pending item across all dimensions:
+      - Item description
+      - Dimension it belongs to
+      - Criticality: MUST_HAVE (blocks go-live) / SHOULD_HAVE (risk if missing) /
+        NICE_TO_HAVE (can follow post go-live)
+      - Owner
+      - ETA
+      - Risk if incomplete at go-live
+      If no pending items exist, state "All checklist items complete" and note the
+      confidence level of the checklist itself (was it comprehensive?).
+      Deliverable: Pending items table (Item | Dimension | Criticality | Owner |
+      ETA | Risk if Incomplete).
+
+      STEP 3: GO-LIVE RISK ASSESSMENT
+      Identify risks specific to the go-live event.
+      For each risk:
+      - Risk description
+      - Primary category: TECHNICAL, OPERATIONAL, ORGANIZATIONAL, EXTERNAL
+      - Secondary category(ies): if applicable
+      - Likelihood: HIGH / MEDIUM / LOW with confidence level
+      - Impact if realized: description and severity
+      - Mitigation: what is in place or planned
+      - Residual risk after mitigation
+      Trend claims (e.g., "risk is growing") require two time-separated data points.
+      If only one observation exists, state "INSUFFICIENT DATA" for trend.
+      Deliverable: Go-live risk table (Risk | Primary Category | Secondary Category |
+      Likelihood | Confidence | Impact | Mitigation | Residual Risk).
+
+      STEP 4: GO/NO-GO RECOMMENDATION
+      Based on readiness scores and risk assessment, produce recommendation:
+      - GO: all dimensions READY or CONDITIONAL with acceptable risk
+      - CONDITIONAL GO: proceed with specific conditions that must be met
+      - NO-GO: one or more dimensions NOT_READY with unacceptable risk
+
+      For each recommendation type, specify:
+      - Rationale (2-3 sentences citing specific evidence)
+      - If CONDITIONAL: exact conditions with owners, deadlines, and verification method
+      - If NO-GO: what must change, who owns it, revised target date
+
+      Confidence in recommendation: HIGH / MEDIUM / LOW with basis.
+      Deliverable: Go/No-Go recommendation with rationale, conditions (if applicable),
+      and confidence level.
+
+      STEP 5: ACTION PLAN
+      Produce actions required regardless of recommendation.
+      For each action:
+      - Priority: P1 (before go-live) / P2 (day of go-live) / P3 (post go-live)
+      - Action: specific, concrete step
+      - Owner: role or person
+      - Timeline: when it should happen
+      - Prerequisites: what must be true before this can start
+      - Expected Impact: what changes if this action succeeds
+      Deliverable: Action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every readiness score has a confidence level with stated basis
+      - Pending items distinguish MUST_HAVE from SHOULD_HAVE and NICE_TO_HAVE
+      - Go/No-Go recommendation cites specific evidence, not general sentiment
+      - CONDITIONAL recommendation lists exact conditions with verification criteria
+      - Risk items use primary + secondary category classification
+      - Trend claims reference two data points or state "INSUFFICIENT DATA"
+      - Action prerequisites are stated, not just owner and timeline
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 6 deliverables as labeled sections. Lead with
+      an executive summary that states: (1) go/no-go recommendation with overall
+      readiness percentage and confidence, (2) the weakest readiness dimension or
+      highest-risk item, and (3) the single most urgent action before go-live.
 
   weekly_report:
     name: "Weekly Delivery Report"
-    description: "Generate weekly delivery report for stakeholders"
+    description: "Generate portfolio-level weekly delivery report with per-project health scoring, compound classification, trend analysis, and prioritized actions for stakeholders"
     prompt: |
       Context: Week ending {week_end_date}.
       Active projects: {project_list}
+      Prior week report: {prior_week_report}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Generate weekly report:
-      - Overall portfolio health
-      - Project-by-project status
-      - Key accomplishments
-      - Issues requiring attention
-      - Next week priorities
+      You are producing a portfolio-level delivery report that stakeholders use to
+      allocate attention and resources. Projects rated RED or YELLOW must have
+      enough detail for the reader to understand and act without follow-up questions.
+      Follow these steps in order.
 
-      Format:
-      - Executive summary (3 sentences)
-      - Portfolio health: {GREEN/YELLOW/RED count}
-      - Project status table (Project | Health | Update | Risk)
-      - Key accomplishments list
-      - Issues requiring attention (with owners)
-      - Next week focus areas
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness per project:
+      - HIGH: status update received this week, 3+ data points
+      - MEDIUM: partial update or inferred from signals
+      - LOW: no update this week, last known state only
+      If 2+ projects score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output)
+      + Data Availability Map (Project | Richness | Last Update | Gap)
+      + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ projects score LOW richness, STOP the full report.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Status requests to send per project (who to ask, what to ask)
+      - Data sources to check (project trackers, email threads, Slack channels)
+      - Observation checklist for signals in upcoming meetings
+      - Re-assessment gate with target date for complete report
+      Do not proceed to remaining steps.
+
+      STEP 1: PORTFOLIO HEALTH OVERVIEW
+      For each active project, produce a health summary:
+      - Project name
+      - Phase (discovery, implementation, testing, deployment, hypercare)
+      - Overall health: GREEN / YELLOW / RED
+      - Compound flags: secondary dimension flags (TIMELINE, SCOPE, RESOURCE, RISK)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Trend vs prior week: IMPROVING / STABLE / DECLINING
+        (requires prior week report for comparison; if absent, state "INSUFFICIENT DATA,
+        no prior week baseline")
+      - One-line update (what happened this week)
+      - Key risk (highest-impact risk, if any)
+      If a project has no update this week, state "No update received, last known
+      status from {date}" and carry forward prior rating with MEDIUM confidence.
+      Deliverable: Portfolio health table (Project | Phase | Health | Flags |
+      Confidence | Trend | Update | Key Risk) + summary counts (GREEN/YELLOW/RED).
+
+      STEP 2: KEY ACCOMPLISHMENTS
+      List significant completions across the portfolio this week.
+      For each accomplishment:
+      - Project
+      - What was completed
+      - Why it matters (impact on timeline, risk reduction, customer value)
+      If no accomplishments are identifiable, state "No milestone completions
+      this week" and note whether this is expected given current project phases.
+      Deliverable: Accomplishments list (Project | Accomplishment | Impact).
+
+      STEP 3: ISSUES REQUIRING ATTENTION
+      List issues across the portfolio that require stakeholder attention.
+      For each issue:
+      - Project
+      - Issue description
+      - Primary category: TECHNICAL, RESOURCE, PROCESS, COMMERCIAL, EXTERNAL
+      - Secondary category(ies): if applicable
+      - Severity: CRITICAL / HIGH / MEDIUM
+      - Owner: who is responsible
+      - Days open (if known)
+      - Escalation needed: YES / NO
+      If no issues require attention, state "No issues requiring stakeholder
+      attention this week" and note the confidence level of this assessment.
+      Deliverable: Issues table (Project | Issue | Primary Category | Secondary
+      Category | Severity | Owner | Days Open | Escalation).
+
+      STEP 4: NEXT WEEK PRIORITIES
+      Produce prioritized focus areas for the coming week.
+      For each priority:
+      - Priority: P1 / P2 / P3
+      - Action: specific, concrete step
+      - Project: which project(s) it applies to
+      - Owner: role or person
+      - Timeline: specific day or "by end of week"
+      - Prerequisites: what must be true before this can start
+      - Expected Impact: what changes if this action succeeds
+      Deliverable: Action table (Priority | Action | Project | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every project health rating has a confidence level with stated basis
+      - Trend claims compare this week to prior week data, or state "INSUFFICIENT DATA"
+      - Compound classification uses primary health + secondary dimension flags
+      - Issue categories use primary + secondary classification
+      - Action prerequisites are stated, not just owner and timeline
+      - State delta specifies field-level changes with evidence
+      - No status claims without source signal (no inferred project health)
+      - Projects with no update this week are clearly marked with last known date
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (status requests, data sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 5 deliverables as labeled sections. Lead with
+      an executive summary that states: (1) portfolio health distribution
+      (GREEN/YELLOW/RED counts) with overall confidence, (2) the weakest project
+      or highest-risk issue across the portfolio, and (3) the single most urgent
+      action for the coming week.
 
 # ============================================================================
 # BLOCKER MANAGEMENT PROMPTS
@@ -79,68 +467,421 @@ blocker_management:
 
   blocker_analysis:
     name: "Blocker Impact Analysis"
-    description: "Analyze blocker impact and resolution path"
+    description: "Analyze blocker impact across timeline, scope, cost, and customer satisfaction dimensions with resolution options, dependency mapping, and escalation criteria"
     prompt: |
       Context: Blocker: "{blocker_description}"
       Project: {project_name}
       Blocked since: {date}
+      Affected milestones: {affected_milestones}
+      Resolution attempts: {resolution_attempts}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Analyze blocker:
-      - What is blocked by this?
-      - What is the timeline impact?
-      - Who can resolve it?
-      - What are resolution options?
+      You are producing an impact analysis that enables the resolution owner to act
+      and leadership to decide whether escalation is warranted. Every impact claim
+      must trace to a specific downstream effect. Follow these steps in order.
 
-      Format:
-      - Blocker summary
-      - Impact: {HIGH/MEDIUM/LOW}
-      - Timeline impact: {days delay}
-      - Blocked items list
-      - Resolution owner: {name}
-      - Resolution options (prioritized)
-      - Recommended action
-      - Escalation needed: [YES/NO]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness per dimension:
+      - HIGH: telemetry, dashboards, 5+ data points
+      - MEDIUM: partial data, 2-4 data points
+      - LOW: no direct data, estimates only
+      Dimensions to assess: Blocker Root Cause, Downstream Dependencies,
+      Timeline Impact, Cost Impact, Resolution Options.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output)
+      + Data Availability Map (Dimension | Richness | Sources | Gap)
+      + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the analysis.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask blocker owner and affected team leads
+      - Data sources to check (JIRA, project plan, dependency map)
+      - Observation checklist for blocker signals
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: BLOCKER CHARACTERIZATION
+      Describe the blocker precisely:
+      - Blocker ID (BLK-XXX)
+      - Description: what is blocked and why
+      - Root cause: underlying reason (if known)
+      - Primary category: TECHNICAL, RESOURCE, PROCESS, COMMERCIAL, EXTERNAL
+      - Secondary category(ies): if applicable
+      - Date identified
+      - Days blocked
+      - Owner: who is responsible for resolution
+      - Status of resolution attempts (what has been tried, outcome of each)
+      If root cause is unknown, state "Root cause not yet identified" and include
+      root cause analysis as a prerequisite in the action plan.
+      Deliverable: Blocker characterization (ID | Description | Root Cause |
+      Primary Category | Secondary Category | Days Blocked | Owner | Attempts).
+
+      STEP 2: IMPACT ASSESSMENT
+      Assess impact across four dimensions:
+      - TIMELINE: how many days/weeks of delay does this cause?
+        Map downstream milestones affected. Identify critical path impact.
+      - SCOPE: does this force scope changes? What features or deliverables
+        are affected?
+      - COST: what is the cost of delay? (team idle time, extended contracts,
+        penalty clauses, opportunity cost)
+      - CUSTOMER_SATISFACTION: how does this affect the customer's perception?
+        Is the customer aware? What is their current sentiment?
+
+      For each dimension:
+      - Impact level: HIGH / MEDIUM / LOW
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Evidence: specific data supporting the assessment
+      - Trend: WORSENING / STABLE / IMPROVING (requires two data points;
+        if only one exists, state "INSUFFICIENT DATA")
+
+      Overall impact: compound classification with primary level + secondary flags.
+      Deliverable: Impact matrix (Dimension | Impact Level | Confidence |
+      Evidence | Trend) + overall impact with compound flags.
+
+      STEP 3: DEPENDENCY MAPPING
+      Map everything that depends on this blocker being resolved:
+      - Directly blocked items (cannot proceed at all)
+      - Indirectly affected items (can proceed but with constraints)
+      - Downstream milestones at risk
+      - Other projects affected (if cross-project dependency)
+      If no dependency information is available, state "Dependency map not available,
+      impact assessment based on known project plan only."
+      Deliverable: Dependency map (Item | Dependency Type | Impact if Unresolved |
+      Workaround Available).
+
+      STEP 4: RESOLUTION OPTIONS
+      Produce resolution options ranked by feasibility.
+      For each option:
+      - Option description
+      - Feasibility: HIGH / MEDIUM / LOW
+      - Time to resolve: estimated days
+      - Cost/effort
+      - Risks of this approach
+      - Trade-offs
+      Recommend the preferred option with rationale.
+      Deliverable: Resolution options table (Option | Feasibility | Time |
+      Cost | Risks | Trade-offs) + recommended option.
+
+      STEP 5: ESCALATION ASSESSMENT AND ACTIONS
+      Determine whether escalation is needed:
+      - Escalation criteria: days blocked > threshold, critical path impact,
+        customer escalation risk, cost accumulation rate
+      - Escalation recommendation: YES / NO with rationale
+      - If YES: escalation target (role/person), escalation message (draft),
+        what we are asking for
+
+      Produce actions for resolution:
+      - Priority: P1 (today) / P2 (this week) / P3 (this cycle)
+      - Action: specific, concrete step
+      - Owner: role or person
+      - Timeline: when it should happen
+      - Prerequisites: what must be true before this can start
+      - Expected Impact: what changes if this action succeeds
+      Deliverable: Escalation assessment + Action table (Priority | Action |
+      Owner | Timeline | Prerequisites | Expected Impact).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every impact rating has a confidence level with stated basis
+      - Trend claims reference two data points or state "INSUFFICIENT DATA"
+      - Compound classification uses primary impact + secondary dimension flags
+      - Blocker category uses primary + secondary classification
+      - Resolution options include trade-offs, not just benefits
+      - Escalation assessment uses explicit criteria, not subjective judgment
+      - Action prerequisites are stated, not just owner and timeline
+      - State delta specifies field-level changes with evidence
+      - No impact claims without source evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (questions, data sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 6 deliverables as labeled sections. Lead with
+      an executive summary that states: (1) blocker impact level with compound flags
+      and days blocked, (2) the highest-impact downstream dependency or dimension,
+      and (3) the single most urgent resolution action.
 
   escalation_brief:
     name: "Delivery Escalation Brief"
-    description: "Prepare escalation brief for leadership"
+    description: "Prepare a structured escalation brief for leadership with impact quantification, resolution attempts history, options analysis, and specific ask"
     prompt: |
       Context: Project {project_name} requires escalation.
       Issue: {issue_description}
       Impact: {impact_description}
+      Resolution attempts: {resolution_attempts}
+      Customer awareness: {customer_awareness}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare escalation brief:
-      - What is the issue?
-      - What has been tried?
-      - What is the ask?
-      - What are the options?
+      You are producing an escalation brief that leadership can read and decide on
+      in under five minutes. The brief must be factual, quantified, and actionable.
+      No emotional language, no vague asks. Follow these steps in order.
 
-      Format:
-      - Issue summary (2 sentences)
-      - Background (what led to this)
-      - Attempts to resolve
-      - Current impact
-      - Ask: What we need from leadership
-      - Options with trade-offs
-      - Recommended path
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
+
+      STEP 1: ISSUE CHARACTERIZATION
+      Describe the issue requiring escalation:
+      - Issue summary (2 sentences maximum)
+      - Date identified and days since identification
+      - Primary category: TECHNICAL, RESOURCE, PROCESS, COMMERCIAL, EXTERNAL
+      - Secondary category(ies): if applicable
+      - Severity: CRITICAL / HIGH / MEDIUM with confidence level
+      - Current status: description of where things stand right now
+      Deliverable: Issue characterization (Summary | Date | Category | Severity |
+      Confidence | Current Status).
+
+      STEP 2: IMPACT QUANTIFICATION
+      Quantify impact across relevant dimensions:
+      - Timeline impact: days/weeks of delay, milestones affected
+      - Financial impact: cost of delay, at-risk revenue, penalty exposure
+      - Customer impact: satisfaction risk, relationship risk, escalation risk
+      - Reputational impact: reference-ability, case study risk
+
+      For each dimension:
+      - Impact level: HIGH / MEDIUM / LOW / NOT_APPLICABLE
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Evidence: specific data supporting the assessment
+      If impact data is not available for a dimension, state "Impact not quantified,
+      insufficient data" rather than estimating without basis.
+      Deliverable: Impact table (Dimension | Impact Level | Confidence |
+      Quantification | Evidence).
+
+      STEP 3: RESOLUTION HISTORY
+      Document what has been tried and why it did not resolve the issue:
+      - Attempt number
+      - Date
+      - Action taken
+      - Outcome
+      - Why it did not work
+      If no prior resolution attempts exist, state "No resolution attempts
+      documented" and note this as context for escalation urgency.
+      Deliverable: Resolution history table (Attempt | Date | Action |
+      Outcome | Failure Reason).
+
+      STEP 4: OPTIONS AND RECOMMENDATION
+      Present 2-3 options for leadership to choose from.
+      For each option:
+      - Description
+      - Feasibility: HIGH / MEDIUM / LOW
+      - Time to resolve
+      - Cost/resource requirement
+      - Trade-offs and risks
+      - Prerequisites: what must be true before this option can execute
+
+      Produce a clear recommendation with rationale.
+      Deliverable: Options table (Option | Feasibility | Time | Cost |
+      Trade-offs | Prerequisites) + recommended option with rationale.
+
+      STEP 5: THE ASK
+      State the specific ask of leadership:
+      - What decision is needed
+      - What resources are requested
+      - What authority is needed
+      - By when the decision is needed
+      - What happens if no decision is made (default path)
+      Deliverable: Escalation ask (Decision Needed | Resources | Authority |
+      Deadline | Default Path).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input gate completed with all inputs classified
+      - Issue severity has a confidence level with stated basis
+      - Impact quantification uses data, not adjectives
+      - Resolution history is factual (what was tried, what happened)
+      - Options include trade-offs and prerequisites, not just benefits
+      - The ask is specific: decision, resources, authority, deadline
+      - Compound classification uses primary + secondary categories
+      - State delta specifies field-level changes with evidence
+      - No unsubstantiated claims about impact severity
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all 6 deliverables as labeled sections. Lead with an executive
+      summary that states: (1) the issue and its severity with confidence level,
+      (2) the highest-impact dimension or most critical gap, and (3) the specific
+      ask and decision deadline.
 
   dependency_tracker:
     name: "Dependency Status Update"
-    description: "Track and report on project dependencies"
+    description: "Track and report on project dependencies with health scoring, risk classification, and proactive unblocking actions"
     prompt: |
       Context: Review dependencies for {project_name}.
+      Dependency register: {dependency_register}
+      Prior dependency report: {prior_report}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Update dependency status:
-      - What are we waiting on?
-      - What is the status of each?
-      - What is at risk?
-      - What actions are needed?
+      You are producing a dependency status report that enables proactive
+      intervention before dependencies become blockers. Every dependency must
+      have a health rating and an owner. Follow these steps in order.
 
-      Format:
-      - Dependencies table (Dependency | Owner | Due | Status | Risk)
-      - At-risk dependencies (detail)
-      - Actions to unblock
-      - Escalation recommendations
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness per dependency type:
+      - HIGH: owner confirmed status, 3+ data points
+      - MEDIUM: partial update or inferred from signals
+      - LOW: no status update, last known state only
+      If 2+ dependency types score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output)
+      + Data Availability Map (Dependency Type | Richness | Last Update | Gap)
+      + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dependency types score LOW richness, STOP the report.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Status requests to send per dependency owner
+      - Data sources to check (project trackers, contracts, vendor portals)
+      - Observation checklist for dependency signals
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: DEPENDENCY INVENTORY
+      For each dependency, produce a status assessment:
+      - Dependency ID (DEP-XXX)
+      - Description: what we depend on
+      - Type: INTERNAL (our team), CUSTOMER (customer action), VENDOR (third party),
+        CROSS_PROJECT (other internal project)
+      - Owner: who is responsible for delivery
+      - Due date: when it is needed
+      - Current status: ON_TRACK / AT_RISK / BLOCKED / DELIVERED
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Trend vs prior report: IMPROVING / STABLE / DECLINING
+        (requires prior report for comparison; if absent, state "INSUFFICIENT DATA,
+        no prior baseline")
+      If no dependency register is available, state "No dependency register provided"
+      and note that this assessment is based on ad hoc signals only.
+      Deliverable: Dependency status table (ID | Description | Type | Owner |
+      Due Date | Status | Confidence | Trend).
+
+      STEP 2: AT-RISK DEPENDENCY DETAIL
+      For each dependency rated AT_RISK or BLOCKED, provide detail:
+      - Why it is at risk or blocked
+      - Primary category: TECHNICAL, RESOURCE, PROCESS, COMMERCIAL, EXTERNAL
+      - Secondary category(ies): if applicable
+      - Impact on project if not resolved by due date
+      - Workaround available: YES (describe) / NO
+      - Escalation needed: YES / NO with rationale
+      If no dependencies are at risk, state "All dependencies on track" and note
+      the confidence level of this assessment.
+      Deliverable: At-risk detail (ID | Risk Reason | Primary Category |
+      Secondary Category | Project Impact | Workaround | Escalation Needed).
+
+      STEP 3: UNBLOCKING ACTIONS
+      Produce actions to keep dependencies on track or resolve at-risk items.
+      For each action:
+      - Priority: P1 (immediate) / P2 (this week) / P3 (this cycle)
+      - Action: specific, concrete step
+      - Dependency ID: which dependency it addresses
+      - Owner: role or person
+      - Timeline: when it should happen
+      - Prerequisites: what must be true before this can start
+      - Expected Impact: what changes if this action succeeds
+      Deliverable: Action table (Priority | Action | Dependency ID | Owner |
+      Timeline | Prerequisites | Expected Impact).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every dependency status has a confidence level with stated basis
+      - Trend claims compare current to prior report, or state "INSUFFICIENT DATA"
+      - At-risk dependencies use primary + secondary category classification
+      - Workaround availability is stated for every at-risk dependency
+      - Action prerequisites are stated, not just owner and timeline
+      - State delta specifies field-level changes with evidence
+      - No status claims without source signal
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (status requests, data sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 4 deliverables as labeled sections. Lead with
+      an executive summary that states: (1) dependency health distribution
+      (on-track/at-risk/blocked counts) with overall confidence, (2) the most
+      critical at-risk or blocked dependency, and (3) the single most urgent
+      unblocking action.
 
 # ============================================================================
 # HANDOFF PROMPTS
@@ -149,67 +890,418 @@ handoff:
 
   support_handoff:
     name: "Support Team Handoff"
-    description: "Prepare handoff documentation for support team"
+    description: "Prepare structured handoff documentation for support team with implementation details, known issues, escalation paths, and operational readiness verification"
     prompt: |
       Context: {project_name} for {account_name} completing delivery phase.
       Go-live date: {go_live_date}
+      Implementation summary: {implementation_summary}
+      Known issues: {known_issues}
+      Support team: {support_team}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare support handoff:
-      - What was implemented?
-      - What are known issues?
-      - What does support need to know?
-      - Who are the contacts?
+      You are producing a handoff package that enables the support team to operate
+      without calling back the delivery team. Every known issue must have a
+      workaround. Every escalation path must have a contact. Follow these steps
+      in order.
 
-      Format:
-      - Implementation summary
-      - Architecture overview
-      - Known issues and workarounds
-      - Customer contacts and escalation
-      - Common issues to expect
-      - Documentation links
-      - Handoff checklist
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
+
+      STEP 1: IMPLEMENTATION SUMMARY
+      Document what was implemented:
+      - Solution overview (what was deployed, high-level architecture)
+      - Components and integrations
+      - Configuration decisions and rationale
+      - Customizations and their purpose
+      - Data flows and integration points
+      - Performance characteristics (expected load, response times, capacity)
+      If implementation documentation is incomplete, state which areas lack
+      documentation and note the risk of undocumented configurations.
+      Deliverable: Implementation summary with architecture overview,
+      component list, and configuration decisions.
+
+      STEP 2: KNOWN ISSUES AND WORKAROUNDS
+      Document all known issues at handoff:
+      - Issue ID
+      - Description
+      - Primary category: BUG, LIMITATION, CONFIGURATION, INTEGRATION, PERFORMANCE
+      - Secondary category(ies): if applicable
+      - Severity: CRITICAL / HIGH / MEDIUM / LOW
+      - Confidence that workaround is effective: HIGH / MEDIUM / LOW
+      - Workaround: step-by-step instructions
+      - Permanent fix status: PLANNED (with ETA) / BACKLOGGED / WONT_FIX (with rationale)
+      - Customer awareness: AWARE / NOT_AWARE
+      If no known issues exist, state "No known issues at handoff" and note the
+      confidence level (testing coverage, production burn-in duration).
+      Deliverable: Known issues table (ID | Description | Primary Category |
+      Secondary Category | Severity | Workaround | Workaround Confidence |
+      Fix Status | Customer Aware).
+
+      STEP 3: ESCALATION AND CONTACT PATHS
+      Define escalation paths for the support team:
+      - Level 1: support team handles (scope and criteria)
+      - Level 2: engineering escalation (contact, SLA, trigger criteria)
+      - Level 3: management escalation (contact, SLA, trigger criteria)
+      - Customer contacts: primary and secondary with roles and preferences
+      - Vendor contacts: if third-party components are involved
+      For each contact: name, role, email, phone, availability, preferred
+      contact method.
+      Deliverable: Escalation matrix (Level | Scope | Contact | SLA | Trigger)
+      + customer contacts + vendor contacts.
+
+      STEP 4: COMMON SCENARIOS AND RUNBOOKS
+      Document anticipated support scenarios:
+      - Scenario description
+      - Frequency: expected occurrence rate
+      - Diagnosis steps
+      - Resolution steps
+      - When to escalate vs resolve independently
+      Base scenarios on issues encountered during delivery and testing.
+      If no scenario data is available, state "Scenarios based on general platform
+      patterns, not project-specific history" and note reduced confidence.
+      Deliverable: Support scenarios table (Scenario | Expected Frequency |
+      Diagnosis | Resolution | Escalation Trigger).
+
+      STEP 5: HANDOFF READINESS CHECKLIST
+      Verify handoff completeness:
+      - Documentation: complete / gaps identified
+      - Training: support team briefed / training scheduled / not planned
+      - Access: support team has required system access / pending
+      - Monitoring: alerting configured / gaps identified
+      - SLAs: defined and agreed / pending
+      For each item: status and confidence level.
+      Deliverable: Handoff checklist (Item | Status | Confidence | Gap Detail).
+
+      STEP 6: ACTIONS
+      Produce actions to complete the handoff:
+      - Priority: P1 (before handoff) / P2 (first week post-handoff) / P3 (first month)
+      - Action: specific, concrete step
+      - Owner: role or person
+      - Timeline: when it should happen
+      - Prerequisites: what must be true before this can start
+      - Expected Impact: what changes if this action succeeds
+      Deliverable: Action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input gate completed with all inputs classified
+      - Every known issue has a workaround with confidence level
+      - Escalation paths have specific contacts, not just role names
+      - Support scenarios include diagnosis and resolution steps
+      - Handoff checklist items have status and confidence
+      - Issue categories use primary + secondary classification
+      - Action prerequisites are stated, not just owner and timeline
+      - State delta specifies field-level changes with evidence
+      - No assumptions about support team familiarity with the solution
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all 7 deliverables as labeled sections. Lead with an executive
+      summary that states: (1) handoff readiness level with known issue count and
+      confidence profile, (2) the biggest handoff gap or highest-risk known issue,
+      and (3) the single most urgent action to complete before handoff.
 
   account_team_brief:
     name: "Account Team Delivery Brief"
-    description: "Brief account team on delivery outcomes"
+    description: "Brief account team on delivery outcomes with scope variance analysis, customer satisfaction signals, follow-up opportunities, and talking points"
     prompt: |
       Context: Delivery complete for {project_name}.
-      Summarize for account team.
+      Account: {account_name}
+      Delivered scope: {delivered_scope}
+      Original scope: {original_scope}
+      Customer feedback: {customer_feedback}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Create account team brief:
-      - What was delivered?
-      - How did it go?
-      - What should AE know for conversations?
-      - What follow-up opportunities exist?
+      You are producing a brief that equips the account team (AE, SA, CSM) to have
+      informed conversations with the customer about the delivery. The brief must
+      translate delivery outcomes into commercial language. Follow these steps in
+      order.
 
-      Format:
-      - Delivery summary (3 sentences)
-      - Delivered vs planned scope
-      - Customer satisfaction indicators
-      - Talking points for AE
-      - Follow-up opportunities (expansion, services)
-      - Lessons learned
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
+
+      STEP 1: DELIVERY OUTCOME SUMMARY
+      Summarize what was delivered:
+      - Project duration (start to completion)
+      - Solution delivered (high-level description)
+      - Value realized: what business outcomes are now possible
+      - Key metrics: if available (performance improvements, automation gains, etc.)
+      Deliverable: Delivery outcome summary (Duration | Solution | Value | Metrics).
+
+      STEP 2: SCOPE VARIANCE ANALYSIS
+      Compare delivered scope against original scope:
+      - Delivered as planned: items completed per original agreement
+      - Added during delivery: items added and why
+      - Descoped: items removed and why
+      - Modified: items changed and rationale
+
+      For each variance:
+      - Customer awareness: AGREED / INFORMED / NOT_DISCUSSED
+      - Impact on customer's business objectives: POSITIVE / NEUTRAL / NEGATIVE
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If original scope is not available, state "Original scope not provided,
+      variance analysis based on delivered scope only."
+      Deliverable: Scope variance table (Item | Status | Reason | Customer
+      Awareness | Business Impact | Confidence).
+
+      STEP 3: CUSTOMER SATISFACTION ASSESSMENT
+      Assess customer satisfaction based on available signals:
+      - Overall satisfaction: HIGH / MEDIUM / LOW
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Positive signals: specific quotes, behaviors, or feedback
+      - Concern signals: specific quotes, behaviors, or feedback
+      - Trend: IMPROVING / STABLE / DECLINING (requires two data points;
+        if only one exists, state "INSUFFICIENT DATA, single observation only")
+      - Reference potential: would this customer provide a reference? YES / MAYBE / NO
+        with confidence and basis
+      If no customer feedback is available, state "No direct customer feedback
+      received, satisfaction assessment based on delivery signals only" and
+      reduce confidence accordingly.
+      Deliverable: Satisfaction assessment (Rating | Confidence | Positive Signals |
+      Concern Signals | Trend | Reference Potential).
+
+      STEP 4: TALKING POINTS FOR ACCOUNT TEAM
+      Produce talking points organized by audience:
+      - For AE: commercial implications, renewal/expansion context, competitor
+        positioning based on delivery success
+      - For SA: technical outcomes, architecture decisions made, technical debt
+        introduced or resolved
+      - For CSM: adoption readiness, training status, support handoff status
+
+      For each talking point: what to say, what to avoid, supporting evidence.
+      Deliverable: Talking points organized by role (AE | SA | CSM) with
+      say/avoid/evidence structure.
+
+      STEP 5: FOLLOW-UP OPPORTUNITIES
+      Identify follow-up opportunities arising from the delivery:
+      - Expansion opportunities: additional use cases, departments, or capabilities
+      - Services opportunities: training, optimization, advisory
+      - Upsell opportunities: license expansion, premium features
+      For each opportunity:
+      - Description
+      - Primary category: EXPANSION, SERVICES, UPSELL
+      - Secondary category(ies): if applicable
+      - Estimated value: if quantifiable
+      - Timing: when to pursue (immediate, 30 days, 90 days)
+      - Customer readiness: HIGH / MEDIUM / LOW with basis
+      - Prerequisites: what must happen before pursuing
+      If no opportunities are identified, state "No immediate follow-up opportunities
+      identified" and note whether this reflects delivery scope or insufficient
+      customer engagement data.
+      Deliverable: Opportunities table (Description | Primary Category |
+      Secondary Category | Value | Timing | Customer Readiness | Prerequisites).
+
+      STEP 6: LESSONS LEARNED
+      Document lessons learned for future engagements:
+      - What went well (replicable patterns)
+      - What could improve (process, tooling, communication)
+      - Customer-specific insights (preferences, decision patterns, sensitivities)
+      Deliverable: Lessons learned (Went Well | Improve | Customer Insights).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - New opportunities added
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input gate completed with all inputs classified
+      - Scope variance includes customer awareness status for each item
+      - Satisfaction assessment has confidence level with stated basis
+      - Trend claims reference two data points or state "INSUFFICIENT DATA"
+      - Talking points are role-specific, not generic
+      - Follow-up opportunities include customer readiness and prerequisites
+      - Opportunity categories use primary + secondary classification
+      - Action prerequisites are stated where applicable
+      - State delta specifies field-level changes with evidence
+      - No satisfaction claims without source signal
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all 7 deliverables as labeled sections. Lead with an executive
+      summary that states: (1) delivery outcome with scope variance summary and
+      customer satisfaction rating, (2) the biggest concern signal or scope gap,
+      and (3) the single most important follow-up action for the account team.
 
   phase_transition:
     name: "Phase Transition Summary"
-    description: "Document transition between project phases"
+    description: "Document transition between project phases with completeness verification, carry-over items, next-phase risk assessment, and team readiness"
     prompt: |
       Context: {project_name} transitioning from {phase_from} to {phase_to}.
+      Phase deliverables: {phase_deliverables}
+      Carry-over items: {carry_over_items}
+      Team changes: {team_changes}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Document phase transition:
-      - What was accomplished in completed phase?
-      - What carries over?
-      - What are the next phase priorities?
-      - What risks need attention?
+      You are producing a phase transition document that ensures nothing is lost
+      between phases and the next phase starts with clear objectives. Every
+      carry-over item must have an owner. Follow these steps in order.
 
-      Format:
-      - Completed phase summary
-      - Deliverables produced
-      - Carry-over items
-      - Next phase objectives
-      - Next phase timeline
-      - Risks for next phase
-      - Team changes (if any)
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
+
+      STEP 1: COMPLETED PHASE SUMMARY
+      Document what was accomplished in the completing phase:
+      - Phase name and duration
+      - Objectives: what was the phase supposed to achieve
+      - Outcome: what was actually achieved
+      - Deliverables produced: list with status (COMPLETE / PARTIAL / NOT_DELIVERED)
+      - Confidence in completeness: HIGH / MEDIUM / LOW with basis
+
+      For each deliverable, assess quality:
+      - Acceptance: ACCEPTED / ACCEPTED_WITH_CAVEATS / NOT_REVIEWED
+      - Customer sign-off: YES / NO / NOT_REQUIRED
+      If phase deliverable data is not available, state "Phase deliverable list
+      not provided, summary based on available signals only."
+      Deliverable: Phase completion summary (Objective | Outcome | Deliverables
+      table with Status | Acceptance | Sign-off).
+
+      STEP 2: CARRY-OVER ITEMS
+      Document everything that carries forward to the next phase:
+      - Item description
+      - Type: INCOMPLETE_WORK, KNOWN_ISSUE, DECISION_PENDING, RISK, DEPENDENCY
+      - Primary category: TECHNICAL, PROCESS, COMMERCIAL, ORGANIZATIONAL
+      - Secondary category(ies): if applicable
+      - Owner: who is responsible in the next phase
+      - Priority in next phase: P1 / P2 / P3
+      - Impact if not addressed: description and severity
+      If no carry-over items exist, state "No carry-over items identified" and
+      note the confidence level (was this verified with the delivery team?).
+      Deliverable: Carry-over table (Item | Type | Primary Category |
+      Secondary Category | Owner | Priority | Impact if Not Addressed).
+
+      STEP 3: NEXT PHASE PLAN
+      Define the next phase:
+      - Phase name and expected duration
+      - Objectives (what this phase must achieve)
+      - Key milestones with dates
+      - Success criteria (how we know the phase is complete)
+      - Team composition (who is on the team, role changes from prior phase)
+      - Key risks entering the phase
+      For each risk:
+      - Risk description
+      - Likelihood: HIGH / MEDIUM / LOW with confidence
+      - Impact: HIGH / MEDIUM / LOW with confidence
+      - Mitigation plan
+      If team changes are occurring, document knowledge transfer status and gaps.
+      Deliverable: Next phase plan (Objectives | Milestones | Success Criteria |
+      Team | Risks with Likelihood, Impact, Confidence, Mitigation).
+
+      STEP 4: TRANSITION ACTIONS
+      Produce actions to complete the transition:
+      - Priority: P1 (before transition) / P2 (first week of new phase) /
+        P3 (first sprint of new phase)
+      - Action: specific, concrete step
+      - Owner: role or person
+      - Timeline: when it should happen
+      - Prerequisites: what must be true before this can start
+      - Expected Impact: what changes if this action succeeds
+      Deliverable: Action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Phase transition recorded
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input gate completed with all inputs classified
+      - Every deliverable from completed phase has a status and acceptance record
+      - Carry-over items have owners assigned for next phase
+      - Next phase risks have confidence levels on likelihood and impact
+      - Team changes document knowledge transfer status
+      - Carry-over categories use primary + secondary classification
+      - Action prerequisites are stated, not just owner and timeline
+      - State delta specifies field-level changes with evidence
+      - No assumptions about next phase team familiarity with carry-over items
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all 5 deliverables as labeled sections. Lead with an executive
+      summary that states: (1) phase completion status with deliverable counts and
+      carry-over count, (2) the highest-risk carry-over item or next-phase risk,
+      and (3) the single most urgent transition action.
 
 # ============================================================================
 # RISK AND ISSUE PROMPTS
@@ -218,60 +1310,406 @@ risk_issue:
 
   risk_identification:
     name: "Delivery Risk Identification"
-    description: "Identify risks from project status and signals"
+    description: "Identify and classify delivery risks across timeline, quality, satisfaction, and dependency dimensions with compound categorization and evidence-based scoring"
     prompt: |
       Context: Review {project_name} status, communications, and metrics.
+      Project phase: {current_phase}
+      Recent signals: {recent_signals}
+      Prior risk register: {prior_risk_register}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Identify delivery risks:
-      - What could delay the project?
-      - What could impact quality?
-      - What could affect customer satisfaction?
-      - What dependencies are fragile?
+      You are identifying risks that could impact delivery success. Every risk must
+      be evidence-based, not hypothetical. Risks without source signals are
+      speculation, not risk management. Follow these steps in order.
 
-      Format:
-      - Risks table (Risk | Likelihood | Impact | Mitigation | Owner)
-      - Top 3 risks to monitor
-      - New risks since last review
-      - Risks that have materialized
-      - Recommended actions
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness per risk dimension:
+      - HIGH: telemetry, dashboards, 5+ data points
+      - MEDIUM: partial data, 2-4 data points
+      - LOW: no direct data, estimates only
+      Dimensions to assess: Timeline Risks, Quality Risks, Customer Satisfaction
+      Risks, Dependency Risks, Resource Risks.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output)
+      + Data Availability Map (Dimension | Richness | Sources | Gap)
+      + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the identification.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask delivery lead and project team
+      - Data sources to request access to (project metrics, team retrospectives)
+      - Observation checklist for risk signals in upcoming interactions
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: RISK IDENTIFICATION
+      Scan available signals for delivery risks. For each identified risk:
+      - Risk ID (RSK-XXX)
+      - Description: specific scenario, not generic category
+      - Source signal: what triggered this identification (quote or reference)
+      - Primary category: TIMELINE, QUALITY, RESOURCE, DEPENDENCY, PROCESS,
+        TECHNICAL, COMMERCIAL, EXTERNAL
+      - Secondary category(ies): if applicable
+      - Likelihood: HIGH / MEDIUM / LOW
+      - Likelihood confidence: HIGH / MEDIUM / LOW with basis
+      - Impact: HIGH / MEDIUM / LOW
+      - Impact confidence: HIGH / MEDIUM / LOW with basis
+      - Risk score: Likelihood × Impact (H×H=CRITICAL, H×M or M×H=HIGH,
+        M×M=MEDIUM, all others=LOW)
+      - Current mitigation: what is being done today
+      - Residual risk: what remains after current mitigation
+      Deliverable: Risk register (ID | Description | Source | Primary Category |
+      Secondary Category | Likelihood | L-Confidence | Impact | I-Confidence |
+      Risk Score | Mitigation | Residual Risk).
+
+      STEP 2: RISK TREND ANALYSIS
+      Compare current risks against the prior risk register:
+      - New risks: risks not present in prior register
+      - Changed risks: risks with changed likelihood, impact, or status
+      - Resolved risks: risks from prior register no longer active
+      - Persistent risks: risks unchanged from prior register
+
+      For each trend assessment:
+      - Trend direction: WORSENING / STABLE / IMPROVING
+      - Two data points required: current observation + prior observation
+      - If no prior register exists, state "INSUFFICIENT DATA, no prior baseline"
+        for all trend assessments
+      If prior risk register is not available, state "No prior risk register,
+      all risks treated as newly identified."
+      Deliverable: Risk trend analysis (ID | Prior Status | Current Status |
+      Trend | Evidence for Change).
+
+      STEP 3: TOP RISKS AND MITIGATION PLAN
+      Identify the top 3-5 risks by risk score and produce mitigation actions.
+      For each top risk:
+      - Risk summary
+      - Why it is in the top set (risk score + context)
+      - Recommended mitigation actions
+
+      For each action:
+      - Priority: P1 (immediate) / P2 (this week) / P3 (this cycle)
+      - Action: specific, concrete step
+      - Owner: role or person
+      - Timeline: when it should happen
+      - Prerequisites: what must be true before this can start
+      - Expected Impact: what changes if this action succeeds
+      Deliverable: Top risks summary + Action table (Priority | Action | Risk ID |
+      Owner | Timeline | Prerequisites | Expected Impact).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added to risk register
+      - Resolved risks removed or marked closed
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every risk has a source signal, not just a category label
+      - Likelihood and impact each have their own confidence levels
+      - Compound classification uses primary + secondary risk categories
+      - Trend claims reference two data points or state "INSUFFICIENT DATA"
+      - Risk scores derive from likelihood × impact, not subjective severity
+      - Action prerequisites are stated, not just owner and timeline
+      - State delta specifies field-level changes with evidence
+      - No invented risks without source signals
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (questions, data sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 4 deliverables as labeled sections. Lead with
+      an executive summary that states: (1) total risk count with distribution by
+      score (CRITICAL/HIGH/MEDIUM/LOW) and new-vs-prior comparison, (2) the
+      highest-scoring risk or lowest-confidence area, and (3) the single most
+      urgent mitigation action.
 
   issue_triage:
     name: "Issue Triage and Prioritization"
-    description: "Triage and prioritize open issues"
+    description: "Triage and prioritize open issues with severity scoring, go-live impact assessment, compound categorization, and resource allocation recommendations"
     prompt: |
       Context: Open issues for {project_name}: {issue_count}
+      Issue list: {issue_list}
       Categories: {issue_categories}
+      Go-live date: {go_live_date}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Triage issues:
-      - Which are blocking progress?
-      - Which affect go-live?
-      - Which can wait?
-      - How should we prioritize?
+      You are triaging issues to help the delivery team allocate effort correctly.
+      The triage must distinguish blocking issues from deferrable ones with explicit
+      criteria, not subjective judgment. Follow these steps in order.
 
-      Format:
-      - Issues by priority table (Issue | Severity | Impact | Owner | ETA)
-      - Blocking issues (immediate attention)
-      - Go-live affecting issues
-      - Can defer list
-      - Resource recommendations
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
+
+      STEP 1: ISSUE CLASSIFICATION
+      For each open issue, produce a classification:
+      - Issue ID
+      - Description
+      - Primary category: BUG, FEATURE_GAP, CONFIGURATION, INTEGRATION,
+        PERFORMANCE, DOCUMENTATION, PROCESS
+      - Secondary category(ies): if applicable
+      - Severity: CRITICAL (blocks progress) / HIGH (significant impact) /
+        MEDIUM (manageable impact) / LOW (minimal impact)
+      - Severity confidence: HIGH / MEDIUM / LOW with basis
+      - Go-live impact: BLOCKS_GO_LIVE / DEGRADES_GO_LIVE / NO_GO_LIVE_IMPACT
+      - Owner: who is responsible for resolution
+      - Days open
+      - Workaround available: YES (describe) / NO
+      Deliverable: Issue classification table (ID | Description | Primary Category |
+      Secondary Category | Severity | Confidence | Go-Live Impact | Owner |
+      Days Open | Workaround).
+
+      STEP 2: PRIORITY GROUPING
+      Group issues into action tiers:
+      - TIER 1 - Immediate: blocks progress or blocks go-live, no workaround
+      - TIER 2 - This sprint: significant impact, workaround exists but is costly
+      - TIER 3 - Backlog: manageable impact, workaround acceptable, can defer
+
+      For each tier:
+      - Issue count
+      - Total effort estimate (if available)
+      - Resource requirements
+      If effort estimates are not available, state "Effort not estimated,
+      prioritization based on severity and go-live impact only."
+      Deliverable: Priority grouping (Tier | Issue Count | Issues | Effort |
+      Resource Needs).
+
+      STEP 3: GO-LIVE IMPACT ASSESSMENT
+      For issues that affect go-live, produce detailed assessment:
+      - Issue ID
+      - How it affects go-live (specific scenario)
+      - Severity if unresolved at go-live
+      - Workaround for go-live (temporary measure)
+      - Permanent fix timeline
+      - Risk of proceeding to go-live with this issue open
+      If no issues affect go-live, state "No go-live blocking issues identified"
+      and note the confidence level.
+      Deliverable: Go-live impact table (ID | Go-Live Effect | Severity |
+      Workaround | Fix Timeline | Risk if Open at Go-Live).
+
+      STEP 4: RESOURCE RECOMMENDATIONS AND ACTIONS
+      Produce resource and action recommendations:
+      For each action:
+      - Priority: P1 (today) / P2 (this sprint) / P3 (backlog)
+      - Action: specific resolution step
+      - Issue ID: which issue(s) it addresses
+      - Owner: role or person
+      - Timeline: when it should happen
+      - Prerequisites: what must be true before this can start
+      - Expected Impact: what changes if this action succeeds
+
+      Include resource allocation recommendations:
+      - Additional resources needed (skill, duration, justification)
+      - Reassignment recommendations (if current allocation is suboptimal)
+      Deliverable: Action table (Priority | Action | Issue ID | Owner | Timeline |
+      Prerequisites | Expected Impact) + resource recommendations.
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input gate completed with all inputs classified
+      - Every issue has severity with confidence level
+      - Compound classification uses primary + secondary categories
+      - Go-live impact is assessed for every issue, not just high-severity ones
+      - Tier grouping uses explicit criteria, not subjective judgment
+      - Workaround availability stated for every issue
+      - Action prerequisites are stated, not just owner and timeline
+      - State delta specifies field-level changes with evidence
+      - No severity assessments without stated basis
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all 5 deliverables as labeled sections. Lead with an executive
+      summary that states: (1) issue count by tier with go-live blocker count and
+      overall confidence, (2) the most critical issue or highest-risk go-live
+      blocker, and (3) the single most urgent resolution action.
 
   customer_impact:
     name: "Customer Impact Assessment"
-    description: "Assess customer impact of delivery issue"
+    description: "Assess customer impact of a delivery issue across business operations, satisfaction, and relationship dimensions with communication draft and recovery plan"
     prompt: |
       Context: Issue: "{issue_description}"
       Customer: {account_name}
+      Issue severity: {severity}
+      Customer awareness: {customer_awareness}
+      Relationship history: {relationship_history}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess customer impact:
-      - How does this affect the customer?
-      - What is the business impact?
-      - How should we communicate?
-      - What is our recovery plan?
+      You are producing an impact assessment that enables the account team to
+      communicate proactively with the customer and execute a recovery plan.
+      Every impact claim must connect to a specific business consequence.
+      Follow these steps in order.
 
-      Format:
-      - Customer impact: [HIGH/MEDIUM/LOW]
-      - Business impact description
-      - Customer communication (draft)
-      - Recovery plan
-      - Timeline to resolution
-      - Escalation status
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
+
+      STEP 1: IMPACT ASSESSMENT
+      Assess impact across four dimensions:
+      - BUSINESS_OPERATIONS: how does this affect the customer's day-to-day?
+        (workflow disruption, productivity loss, workaround burden)
+      - FINANCIAL: what is the cost to the customer?
+        (revenue impact, additional spend, opportunity cost)
+      - SATISFACTION: how does this affect the customer's perception of us?
+        (trust erosion, executive visibility, support burden)
+      - RELATIONSHIP: how does this affect the long-term relationship?
+        (renewal risk, reference-ability, expansion willingness)
+
+      For each dimension:
+      - Impact level: HIGH / MEDIUM / LOW / NOT_APPLICABLE
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Evidence: specific signals or data supporting the assessment
+      - Compound flags: if impact spans multiple sub-dimensions
+
+      Overall impact: compound classification with primary level + secondary flags.
+      Example: Impact HIGH, primary BUSINESS_OPERATIONS, flagged SATISFACTION
+      and RELATIONSHIP.
+      Deliverable: Impact matrix (Dimension | Impact Level | Confidence |
+      Evidence | Flags) + overall impact with compound classification.
+
+      STEP 2: CUSTOMER COMMUNICATION
+      Draft customer communication based on impact level:
+      - Communication timing: IMMEDIATE / WITHIN_24H / NEXT_SCHEDULED_TOUCHPOINT
+      - Channel: email, call, in-person (recommendation with rationale)
+      - Sender: who should communicate (delivery lead, AE, executive)
+      - Message structure:
+        (a) Acknowledge the issue (factual, no minimizing)
+        (b) State the impact as we understand it
+        (c) Explain what we are doing about it
+        (d) Provide timeline for resolution
+        (e) Offer escalation path
+      - Tone guidance: based on relationship history and severity
+
+      If customer is already aware, adjust communication to provide update
+      rather than initial notification.
+      If relationship history suggests sensitivity, flag and adjust tone.
+      Deliverable: Communication plan (Timing | Channel | Sender | Draft Message |
+      Tone Guidance).
+
+      STEP 3: RECOVERY PLAN
+      Produce a recovery plan:
+      For each recovery action:
+      - Priority: P1 (immediate) / P2 (within 48h) / P3 (within 1 week)
+      - Action: specific, concrete step
+      - Owner: role or person
+      - Timeline: when it should happen
+      - Prerequisites: what must be true before this can start
+      - Expected Impact: what changes if this action succeeds
+
+      Include trust recovery actions (beyond technical fix):
+      - Follow-up communication cadence
+      - Goodwill gestures (if appropriate)
+      - Prevention measures to communicate
+      Deliverable: Action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact) + trust recovery plan.
+
+      STEP 4: ESCALATION STATUS
+      Assess whether internal or external escalation is needed:
+      - Internal escalation: needed if impact is HIGH or customer is executive-aware
+      - External escalation: needed if customer has escalated or is likely to
+      - Escalation target: role or person
+      - Escalation message: draft
+      - What we are asking for
+      If no escalation is needed, state "No escalation required" with rationale.
+      Deliverable: Escalation assessment (Internal Needed | External Needed |
+      Target | Message | Ask).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Satisfaction indicators updated
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input gate completed with all inputs classified
+      - Every impact dimension has a confidence level with stated basis
+      - Compound classification uses primary impact + secondary dimension flags
+      - Customer communication acknowledges the issue without minimizing
+      - Recovery plan includes trust recovery, not just technical fix
+      - Communication timing matches severity (HIGH = IMMEDIATE)
+      - Action prerequisites are stated, not just owner and timeline
+      - State delta specifies field-level changes with evidence
+      - No impact claims without specific business consequence
+      - Escalation assessment uses explicit criteria
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all 5 deliverables as labeled sections. Lead with an executive
+      summary that states: (1) customer impact level with compound flags and
+      confidence, (2) the highest-impact dimension or most critical relationship
+      risk, and (3) the single most urgent recovery action.

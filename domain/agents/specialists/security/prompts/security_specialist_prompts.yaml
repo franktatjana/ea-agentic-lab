@@ -1,5 +1,6 @@
 # Security Specialist Prompts
 # Reusable prompt templates for security specialist tasks
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
 
 prompts:
   # =============================================================================
@@ -8,29 +9,157 @@ prompts:
   validate_use_case:
     description: "Validate a security use case against platform capabilities"
     template: |
-      As a Security Specialist, analyze the following security use case:
+      As a Security Specialist, analyze the following security use case.
 
       **Use Case:** {use_case_name}
       **Description:** {use_case_description}
       **Customer Requirements:**
       {requirements}
-
       **Current Environment:**
       {current_environment}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Provide:
-      1. **Feasibility Assessment** - Can this be implemented? (Yes/Partial/No)
-      2. **Capability Mapping** - Which platform features address this?
-      3. **Implementation Approach** - How would this be built?
-      4. **Gaps & Considerations** - What's missing or needs attention?
-      5. **Success Criteria** - How do we validate it works?
+      You are validating whether a stated security use case can be delivered on the
+      target platform. Every feasibility claim must reference a specific capability.
+      Every gap must state its consequence. Follow these steps in order.
 
-      Be specific and reference actual platform capabilities.
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: documented requirements, confirmed platform specs, 5+ data points
+      - MEDIUM: partial requirements or environment details, 2-4 data points
+      - LOW: no direct data, assumptions only
+      Dimensions to assess: Use Case Requirements, Platform Capabilities,
+      Current Environment, Data Sources, Compliance Constraints.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: FEASIBILITY ASSESSMENT
+      Determine whether the use case can be implemented on the target platform.
+      For each requirement stated in the use case:
+      - Requirement description
+      - Feasibility: SUPPORTED (native capability), PARTIAL (requires workaround or
+        custom development), UNSUPPORTED (no viable path)
+      - Platform capability that addresses it (specific feature, API, or module)
+      - Confidence: HIGH (tested/documented), MEDIUM (inferred from adjacent capability),
+        LOW (theoretical, not validated)
+      If no requirements data exists, state "No requirements provided, feasibility
+      cannot be assessed" and proceed to signal acquisition.
+      Deliverable: Feasibility matrix (Requirement | Feasibility | Capability Reference |
+      Confidence | Notes).
+
+      STEP 2: CAPABILITY MAPPING
+      Map each use case function to a specific platform feature.
+      For each mapping:
+      - Use case function (what the customer needs to happen)
+      - Platform feature (specific module, rule engine, integration point)
+      - Coverage: FULL (feature fully addresses function), PARTIAL (addresses some
+        aspects, gaps remain), NONE (no matching feature)
+      - Primary classification for routing (Detection, Prevention, Response, Compliance, Visibility)
+      - Secondary flags if the function spans multiple categories
+      - Gap description if coverage is PARTIAL or NONE
+      If platform documentation is unavailable, state "Capability mapping based on
+      general platform knowledge, requires vendor confirmation" and mark all mappings
+      confidence LOW.
+      Deliverable: Capability map (Function | Platform Feature | Coverage |
+      Primary Category | Secondary Flags | Gap | Confidence).
+
+      STEP 3: IMPLEMENTATION APPROACH
+      Define how the use case would be built on the platform.
+      For each implementation component:
+      - Component name
+      - Implementation method (out-of-box configuration, custom rule, API integration,
+        third-party connector, manual process)
+      - Effort estimate: LOW (hours), MEDIUM (days), HIGH (weeks)
+      - Dependencies (other components, data sources, access requirements)
+      - Risk: what could go wrong during implementation
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      Sequence components in implementation order, noting parallel tracks where possible.
+      If current environment details are absent, state "Implementation approach is
+      generic, environment-specific sequencing requires infrastructure details."
+      Deliverable: Implementation plan (Component | Method | Effort | Dependencies |
+      Risk | Confidence) with recommended sequence.
+
+      STEP 4: GAP ANALYSIS AND MITIGATIONS
+      For each gap identified in Steps 1-3:
+      - Gap description (what is missing or incomplete)
+      - Impact on use case (what breaks or degrades without this)
+      - Severity: CRITICAL (use case fails), HIGH (major degradation), MEDIUM
+        (workaround available), LOW (cosmetic or minor)
+      - Mitigation options (alternative approaches, third-party tools, process changes)
+      - Mitigation effort and trade-offs
+      - Residual risk after mitigation
+      If no gaps were identified, state "No gaps identified across feasibility,
+      capability mapping, and implementation analysis."
+      Deliverable: Gap register (Gap | Impact | Severity | Mitigation | Effort |
+      Residual Risk).
+
+      STEP 5: SUCCESS CRITERIA
+      Define measurable criteria to validate the use case works as intended.
+      For each criterion:
+      - Criterion ID and name
+      - What it measures (detection rate, false positive rate, response time, coverage)
+      - Target value (specific number or threshold)
+      - Measurement method (how to collect the data)
+      - Validation timeline (when this can first be measured)
+      - Baseline comparison if available (current state metric vs. target)
+      Trend claims (e.g., "detection rate will improve") require at least two data
+      points. If only one observation exists, state "INSUFFICIENT DATA for trend,
+      single baseline recorded."
+      Deliverable: Success criteria table (ID | Criterion | Target | Method |
+      Timeline | Baseline | Trend Status).
+
+      STEP 6: STATE DELTA
+      Specify what this runbook's findings change in the account record:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Validation status changes
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed with all inputs classified and run mode declared
+      - Data Availability Map shows richness per dimension
+      - Every feasibility claim references a specific platform capability
+      - Capability mappings use primary + secondary classification, not single category
+      - Implementation components include confidence levels with stated basis
+      - Gap severity uses four-level scale (CRITICAL/HIGH/MEDIUM/LOW)
+      - Success criteria include measurable targets, not qualitative descriptions
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only a signal acquisition plan (data gaps, questions to ask, sources to request, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with an executive summary of exactly 3 sentences:
+      (1) the overall feasibility conclusion with confidence basis,
+      (2) the weakest point or lowest confidence area across all assessments,
+      (3) the single most urgent action to take next.
+      Then produce all numbered deliverables as labeled sections.
 
   assess_detection_rule:
     description: "Assess and convert a detection rule from legacy SIEM"
     template: |
-      As a Security Specialist, analyze the following detection rule for migration:
+      As a Security Specialist, analyze the following detection rule for migration.
 
       **Original Platform:** {source_platform}
       **Rule Name:** {rule_name}
@@ -38,16 +167,146 @@ prompts:
       ```
       {original_rule}
       ```
-
       **Data Sources Required:**
       {data_sources}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Provide:
-      1. **Rule Assessment** - Is this rule valuable? What does it detect?
-      2. **Conversion Feasibility** - Can this be migrated as-is or needs redesign?
-      3. **Target Implementation** - Equivalent logic in target platform
-      4. **Optimization Opportunities** - Can the rule be improved?
-      5. **Testing Approach** - How to validate the migrated rule?
+      You are assessing a detection rule for migration viability. Every assessment
+      must separate what the rule does from whether it should be migrated and how.
+      Follow these steps in order.
+
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: full rule logic, confirmed data source mapping, 5+ data points
+      - MEDIUM: partial rule logic or data source info, 2-4 data points
+      - LOW: rule name only, no logic or data source detail
+      Dimensions to assess: Rule Logic, Data Sources, Detection Context,
+      Performance Baselines, False Positive History.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: RULE VALUE ASSESSMENT
+      Determine whether this rule is worth migrating.
+      - What the rule detects (threat technique, compliance violation, anomaly)
+      - MITRE ATT&CK mapping if applicable (tactic, technique, sub-technique)
+      - Detection value: HIGH (covers a real, active threat vector), MEDIUM (useful
+        but low-frequency), LOW (noisy, outdated, or redundant)
+      - Primary classification: Threat Detection, Compliance, Insider Threat, Operational
+      - Secondary flags if applicable
+      - Historical effectiveness if data available (true positive rate, alert volume)
+      - Confidence: HIGH (production data available), MEDIUM (rule logic analysis only),
+        LOW (no operational context)
+      If rule logic is absent, state "Cannot assess detection value without rule logic.
+      Provide the original query or pseudocode." and mark detection value as UNKNOWN.
+      Deliverable: Rule value assessment (Detection Target | ATT&CK Mapping |
+      Value Rating | Classification | Historical Performance | Confidence).
+
+      STEP 2: CONVERSION FEASIBILITY
+      Assess whether the rule can be migrated as-is or needs redesign.
+      - Logic portability: DIRECT (1:1 translation possible), ADAPTATION (logic
+        translates but syntax/functions differ), REDESIGN (fundamental approach
+        change needed), IMPOSSIBLE (target platform lacks required capability)
+      - Data source availability on target platform
+      - Function/operator mapping (source function to target equivalent)
+      - Known limitations or behavioral differences between platforms
+      - Effort estimate: LOW (hours), MEDIUM (1-2 days), HIGH (3+ days)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      If data source mapping is unknown, state "Data source availability on target
+      platform unconfirmed, conversion feasibility is conditional."
+      Deliverable: Conversion assessment (Portability | Data Source Status |
+      Function Mapping | Limitations | Effort | Confidence).
+
+      STEP 3: TARGET IMPLEMENTATION
+      Provide the equivalent detection logic for the target platform.
+      - Translated rule logic (pseudocode or target query language)
+      - Data model mapping (source fields to target fields)
+      - Threshold and time window adjustments (with rationale)
+      - Alert severity and routing on target platform
+      - Dependencies (lookups, enrichment sources, correlation rules)
+      If conversion feasibility is REDESIGN or IMPOSSIBLE, provide an alternative
+      detection approach rather than a direct translation. State "Alternative
+      approach required, original logic not portable."
+      Deliverable: Target implementation (Rule Logic | Field Mapping | Thresholds |
+      Severity | Dependencies | Approach Notes).
+
+      STEP 4: OPTIMIZATION OPPORTUNITIES
+      Identify improvements possible during migration.
+      For each optimization:
+      - Current weakness (what is suboptimal in the original rule)
+      - Proposed improvement
+      - Expected impact (reduced false positives, better detection coverage,
+        lower resource consumption)
+      - Implementation effort
+      - Risk of the change (could the optimization miss detections?)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      If no optimization opportunities exist, state "Original rule logic is
+      well-constructed, no optimizations identified during migration analysis."
+      Deliverable: Optimization register (Weakness | Improvement | Impact |
+      Effort | Risk | Confidence).
+
+      STEP 5: TESTING APPROACH
+      Define how to validate the migrated rule works correctly.
+      - Test scenarios (true positive, true negative, edge cases)
+      - Test data requirements (sample events, attack simulations)
+      - Validation criteria (expected alerts, expected non-alerts)
+      - Parallel run plan (run both rules simultaneously, compare outputs)
+      - Acceptance threshold (match rate between source and target)
+      - Timeline for validation
+      Trend claims about rule performance require comparison of at least two
+      time periods. If only one data point exists, state "INSUFFICIENT DATA
+      for performance trend."
+      Deliverable: Test plan (Scenario | Test Data | Expected Result |
+      Validation Method | Acceptance Criteria | Timeline).
+
+      STEP 6: STATE DELTA
+      Specify what this runbook's findings change in the migration record:
+      - Fields updated (field path | old value | new value | evidence)
+      - Migration status changes (assessed, feasible, blocked, migrated)
+      - New risks or blockers identified
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed with all inputs classified and run mode declared
+      - Data Availability Map shows richness per dimension
+      - Rule value assessment includes ATT&CK mapping where applicable
+      - Classification uses primary + secondary flags
+      - Conversion feasibility distinguishes DIRECT/ADAPTATION/REDESIGN/IMPOSSIBLE
+      - Target implementation provides executable logic, not just descriptions
+      - Optimization opportunities include risk of the proposed change
+      - Test plan includes parallel run comparison criteria
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - Confidence levels stated for every assessment with basis
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only a signal acquisition plan (data gaps, questions to ask, sources to request, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with an executive summary of exactly 3 sentences:
+      (1) the migration verdict with confidence basis (migrate as-is, adapt, redesign, or retire),
+      (2) the weakest point or lowest confidence area in the assessment,
+      (3) the single most urgent action to take next.
+      Then produce all numbered deliverables as labeled sections.
 
   # =============================================================================
   # SOLUTION SCOPING PROMPTS
@@ -55,29 +314,175 @@ prompts:
   scope_solution:
     description: "Scope a security solution based on requirements"
     template: |
-      As a Security Specialist, scope the security solution for:
+      As a Security Specialist, scope the security solution for the following engagement.
 
       **Customer:** {customer_name}
       **Industry:** {industry}
       **Primary Use Cases:**
       {use_cases}
-
       **Technical Environment:**
       - Data volume: {data_volume}
       - Data sources: {data_sources}
       - Retention requirements: {retention}
       - Users: {user_count}
-
       **Constraints:**
       {constraints}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Provide:
-      1. **Solution Summary** - High-level architecture recommendation
-      2. **Component Sizing** - Capacity and performance requirements
-      3. **Integration Requirements** - What needs to connect and how
-      4. **Implementation Phases** - Recommended rollout approach
-      5. **Risk Factors** - Technical risks and mitigations
-      6. **Success Metrics** - How to measure success
+      You are producing a scoped solution design that a delivery team can size,
+      price, and implement. Every recommendation must tie to a stated requirement.
+      Every risk must state its consequence. Follow these steps in order.
+
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: confirmed metrics, documented requirements, 5+ data points
+      - MEDIUM: partial data, estimates from discovery, 2-4 data points
+      - LOW: no direct data, industry benchmarks only
+      Dimensions to assess: Data Volume, Data Sources, Retention Requirements,
+      User Scale, Compliance Requirements, Integration Landscape.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: SOLUTION SUMMARY
+      Produce a high-level architecture recommendation.
+      - Architecture pattern (centralized, distributed, hybrid, cloud-native)
+      - Core platform components and their roles
+      - Data flow: ingestion path from source to storage to analysis
+      - Primary classification: Cloud SIEM, On-Prem SIEM, Hybrid, XDR, SOAR, or
+        multi-platform
+      - Secondary flags if the solution spans categories
+      - Key design decisions with rationale (why this pattern over alternatives)
+      - Confidence: HIGH (validated architecture), MEDIUM (reference architecture
+        adapted), LOW (conceptual, needs validation)
+      If use case details are absent, state "Architecture recommendation is generic.
+      Use-case-specific components require detailed requirements." and mark confidence LOW.
+      Deliverable: Solution summary (Architecture Pattern | Components | Data Flow |
+      Classification | Design Decisions | Confidence).
+
+      STEP 2: COMPONENT SIZING
+      For each platform component, specify capacity and performance requirements.
+      - Component name and role
+      - Sizing metric (events per second, storage per day, concurrent users)
+      - Recommended size based on stated requirements
+      - Growth buffer (recommended headroom, typically 30-50%)
+      - Scaling trigger (at what utilization to expand)
+      - Cost driver (what makes this component expensive)
+      - Confidence: HIGH (based on confirmed data volumes), MEDIUM (estimated from
+        partial data), LOW (industry average assumptions)
+      If data volume is absent, provide three scenarios: conservative, moderate,
+      aggressive. State "Sizing based on scenario modeling, not confirmed volumes."
+      Deliverable: Sizing table (Component | Metric | Recommended Size | Growth Buffer |
+      Scaling Trigger | Cost Driver | Confidence).
+
+      STEP 3: INTEGRATION REQUIREMENTS
+      Map all required integrations between the solution and the customer environment.
+      For each integration:
+      - Source system and target system
+      - Integration method (API, syslog, agent, file, cloud connector)
+      - Data format and protocol
+      - Volume and frequency
+      - Authentication and access requirements
+      - Complexity: LOW (standard connector), MEDIUM (configuration required),
+        HIGH (custom development)
+      - Prerequisites: what must be true before this integration can start
+      If data source details are partial, state which integrations are confirmed
+      vs. assumed.
+      Deliverable: Integration matrix (Source | Target | Method | Format | Volume |
+      Complexity | Prerequisites | Status).
+
+      STEP 4: IMPLEMENTATION PHASES
+      Define a phased rollout approach.
+      For each phase:
+      - Phase number, name, and objective
+      - Scope (which components, use cases, and integrations)
+      - Duration (weeks)
+      - Dependencies on prior phases
+      - Prerequisites: what must be true before this phase can start
+      - Success criteria to exit the phase
+      - Risk factors specific to this phase
+      - Resource requirements (roles and estimated effort)
+      Deliverable: Phase plan (Phase | Objective | Scope | Duration | Dependencies |
+      Prerequisites | Exit Criteria | Risks | Resources).
+
+      STEP 5: RISK ASSESSMENT
+      Identify technical risks and mitigations for the scoped solution.
+      For each risk:
+      - Risk description (specific scenario)
+      - Likelihood: HIGH, MEDIUM, LOW with basis
+      - Impact if realized
+      - Primary risk category: Technical, Integration, Performance, Data Quality, Compliance
+      - Secondary flags if applicable
+      - Mitigation strategy
+      - Mitigation prerequisites
+      - Residual risk after mitigation
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      Trend claims (e.g., "risk is increasing") require at least two data points.
+      If only one observation exists, state "INSUFFICIENT DATA for trend."
+      Deliverable: Risk register (Risk | Likelihood | Impact | Category |
+      Mitigation | Prerequisites | Residual Risk | Confidence).
+
+      STEP 6: SUCCESS METRICS
+      Define measurable success criteria for the solution.
+      For each metric:
+      - Metric name
+      - What it measures
+      - Target value
+      - Measurement method
+      - Measurement frequency
+      - Baseline (current state if known, or "BASELINE TO BE ESTABLISHED")
+      - Timeline to achieve target
+      Deliverable: Success metrics table (Metric | Target | Method | Frequency |
+      Baseline | Timeline).
+
+      STEP 7: STATE DELTA
+      Specify what this runbook's findings change in the account record:
+      - Fields updated (field path | old value | new value | evidence)
+      - Solution status changes
+      - New risks added or existing risks resolved
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed with all inputs classified and run mode declared
+      - Data Availability Map shows richness per dimension
+      - Every architecture decision references a stated requirement
+      - Component sizing includes confidence levels and growth buffers
+      - Integration matrix distinguishes confirmed vs. assumed integrations
+      - Phase plan includes prerequisites, not just dependencies
+      - Risk assessment uses primary + secondary classification
+      - Success metrics include measurable targets with baselines
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - Confidence levels stated for every sizing and risk assessment
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only a signal acquisition plan (data gaps, questions to ask, sources to request, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with an executive summary of exactly 3 sentences:
+      (1) the solution recommendation with confidence basis and sizing profile,
+      (2) the weakest point or lowest confidence area across all assessments,
+      (3) the single most urgent action to take next.
+      Then produce all numbered deliverables as labeled sections.
 
   # =============================================================================
   # MIGRATION PLANNING PROMPTS
@@ -85,7 +490,7 @@ prompts:
   plan_migration:
     description: "Plan migration from legacy SIEM"
     template: |
-      As a Security Specialist, plan the migration from legacy SIEM:
+      As a Security Specialist, plan the migration from legacy SIEM.
 
       **Source Platform:** {source_platform}
       **Current State:**
@@ -94,23 +499,177 @@ prompts:
       - Dashboards/Reports: {dashboard_count}
       - Integrations: {integration_count}
       - Users: {user_count}
-
       **Migration Drivers:**
       {migration_drivers}
-
       **Constraints:**
       - Timeline: {timeline}
       - Parallel operation required: {parallel_required}
       - Budget: {budget_constraints}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Provide:
-      1. **Migration Strategy** - Big bang vs. phased approach recommendation
-      2. **Phase Breakdown** - Detailed phases with scope and duration
-      3. **Rule Migration Plan** - Prioritization and conversion approach
-      4. **Data Migration** - Historical data handling
-      5. **Cutover Plan** - How to transition operations
-      6. **Risk Mitigation** - Key risks and how to address
-      7. **Resource Requirements** - Team and skills needed
+      You are producing a migration plan that a project manager can schedule and
+      a technical team can execute. Every phase must have entry and exit criteria.
+      Every risk must have a mitigation with prerequisites. Follow these steps in order.
+
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: confirmed inventories, documented metrics, 5+ data points
+      - MEDIUM: partial inventories, estimated counts, 2-4 data points
+      - LOW: no direct data, assumptions only
+      Dimensions to assess: Rule Inventory, Data Source Inventory, Dashboard Inventory,
+      Integration Inventory, Performance Baselines, User Workflows.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: MIGRATION STRATEGY
+      Recommend the overall migration approach.
+      - Strategy: Big Bang, Phased, or Parallel Run with rationale
+      - Primary driver alignment (which migration drivers does this strategy address?)
+      - Timeline feasibility against stated constraints
+      - Resource model (dedicated team, shared team, vendor-assisted)
+      - Rollback plan (how to revert if migration fails at each stage)
+      - Confidence: HIGH (similar migrations completed), MEDIUM (reference architecture),
+        LOW (novel environment, untested)
+      If migration drivers are absent, state "Strategy recommendation is generic.
+      Driver-specific sequencing requires stated business priorities."
+      Deliverable: Strategy recommendation (Approach | Rationale | Timeline Fit |
+      Resource Model | Rollback Plan | Confidence).
+
+      STEP 2: PHASE BREAKDOWN
+      Define detailed migration phases.
+      For each phase:
+      - Phase number, name, and objective
+      - Scope: which rules, dashboards, integrations, and users are included
+      - Duration in weeks
+      - Entry criteria: what must be true before this phase starts
+      - Exit criteria: measurable conditions to complete the phase
+      - Parallel operation requirements during this phase
+      - Prerequisites: access, approvals, infrastructure readiness
+      - Risks specific to this phase
+      Deliverable: Phase plan (Phase | Objective | Scope | Duration | Entry Criteria |
+      Exit Criteria | Prerequisites | Risks).
+
+      STEP 3: RULE MIGRATION PLAN
+      Define how detection rules will be prioritized and converted.
+      - Prioritization criteria (detection value, complexity, business criticality)
+      - Tier assignment: Tier 1 (migrate first, critical detection), Tier 2 (migrate
+        second, important), Tier 3 (evaluate for retirement), Retire (do not migrate)
+      - Per-tier: estimated rule count, conversion approach (direct, adapt, redesign),
+        effort estimate, testing approach
+      - Primary classification per rule group: Threat Detection, Compliance, Operational,
+        Insider Threat
+      - Secondary flags where rules span categories
+      - Dependency map (rules that depend on other rules or shared lookups)
+      If rule count is absent or rule inventory is unavailable, state "Rule migration
+      plan requires a complete rule inventory. Provide export from source platform."
+      Deliverable: Rule migration matrix (Tier | Rule Group | Count | Approach |
+      Effort | Classification | Dependencies | Testing).
+
+      STEP 4: DATA MIGRATION
+      Define historical data handling.
+      - Data categories (raw events, alerts, incidents, reports, configurations)
+      - Per category: volume, retention requirement, migration method (export/import,
+        API transfer, archive-only, do not migrate)
+      - Format conversion requirements
+      - Validation approach (how to confirm data integrity post-migration)
+      - Timeline and resource requirements
+      - Prerequisites: storage provisioning, access to source archives
+      If data volume details are partial, state which categories are confirmed
+      vs. estimated.
+      Deliverable: Data migration plan (Category | Volume | Retention | Method |
+      Validation | Prerequisites | Timeline).
+
+      STEP 5: CUTOVER PLAN
+      Define how to transition live operations from source to target.
+      - Cutover sequence (which capabilities switch over in which order)
+      - Parallel run duration and comparison criteria
+      - Go/no-go decision criteria
+      - Communication plan (who is notified, when, how)
+      - Rollback triggers and rollback procedure
+      - Post-cutover validation checklist
+      - Prerequisites: staff training, runbook updates, escalation path updates
+      Deliverable: Cutover plan (Step | Action | Owner | Prerequisites | Rollback
+      Trigger | Validation).
+
+      STEP 6: RISK MITIGATION
+      Identify key migration risks and mitigation strategies.
+      For each risk:
+      - Risk description (specific scenario)
+      - Likelihood: HIGH, MEDIUM, LOW with basis
+      - Impact if realized
+      - Primary risk category: Technical, Operational, Timeline, Budget, People
+      - Secondary flags if applicable
+      - Mitigation strategy
+      - Mitigation prerequisites: what must be true before mitigation can execute
+      - Residual risk after mitigation
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      Trend claims require at least two data points. If only one observation exists,
+      state "INSUFFICIENT DATA for trend."
+      Deliverable: Risk register (Risk | Likelihood | Impact | Category |
+      Mitigation | Prerequisites | Residual Risk | Confidence).
+
+      STEP 7: RESOURCE REQUIREMENTS
+      Define the team and skills needed for the migration.
+      For each role:
+      - Role name
+      - Skills required
+      - Effort (FTE-weeks or hours)
+      - Phase(s) where needed
+      - Source (customer, vendor, partner, contractor)
+      - Prerequisites: certifications, access, clearances
+      Deliverable: Resource plan (Role | Skills | Effort | Phases | Source |
+      Prerequisites).
+
+      STEP 8: STATE DELTA
+      Specify what this runbook's findings change in the account record:
+      - Fields updated (field path | old value | new value | evidence)
+      - Migration status changes
+      - New risks added or existing risks resolved
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed with all inputs classified and run mode declared
+      - Data Availability Map shows richness per dimension
+      - Migration strategy includes rollback plan
+      - Phase plan includes entry and exit criteria for every phase
+      - Rule migration uses tiered prioritization with classification (primary + secondary)
+      - Data migration distinguishes confirmed vs. estimated volumes
+      - Cutover plan includes go/no-go criteria and rollback triggers
+      - Risk register includes prerequisites for every mitigation
+      - Resource plan specifies phase allocation, not just totals
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - Confidence levels stated for strategy and risk assessments
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only a signal acquisition plan (data gaps, questions to ask, sources to request, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with an executive summary of exactly 3 sentences:
+      (1) the migration strategy recommendation with confidence basis,
+      (2) the weakest point or highest-risk area in the plan,
+      (3) the single most urgent action to take next.
+      Then produce all numbered deliverables as labeled sections.
 
   # =============================================================================
   # ARCHITECTURE PROMPTS
@@ -118,32 +677,176 @@ prompts:
   design_architecture:
     description: "Design security platform architecture"
     template: |
-      As a Security Specialist, design the security platform architecture:
+      As a Security Specialist, design the security platform architecture.
 
       **Requirements:**
       {requirements}
-
       **Environment:**
       - Deployment model: {deployment_model}
       - Cloud providers: {cloud_providers}
       - Network topology: {network_topology}
       - Compliance requirements: {compliance}
-
       **Data Sources:**
       {data_sources}
-
       **Performance Requirements:**
       - Ingestion rate: {ingestion_rate}
       - Query latency: {query_latency}
       - Retention: {retention}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Provide:
-      1. **Architecture Diagram Description** - Components and data flows
-      2. **Component Specifications** - Sizing and configuration
-      3. **Network Requirements** - Connectivity and security
-      4. **High Availability** - Redundancy and failover design
-      5. **Security Controls** - How the platform itself is secured
-      6. **Scalability Path** - Future growth accommodation
+      You are producing an architecture design that an engineering team can implement
+      and a customer can validate against their requirements. Every design decision
+      must reference a stated requirement or constraint. Follow these steps in order.
+
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: confirmed specs, documented requirements, 5+ data points
+      - MEDIUM: partial specs, estimated figures, 2-4 data points
+      - LOW: no direct data, assumptions only
+      Dimensions to assess: Functional Requirements, Performance Requirements,
+      Network Topology, Compliance Constraints, Data Source Inventory, Existing
+      Infrastructure.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: ARCHITECTURE DESIGN
+      Define the logical and physical architecture.
+      - Architecture pattern (centralized, distributed, hub-spoke, mesh, hybrid)
+      - Component inventory: name, role, technology, deployment location
+      - Data flows: source to destination with protocol, format, volume
+      - Primary architecture classification: Cloud-Native, Hybrid, On-Premises,
+        Multi-Cloud
+      - Secondary flags if the design spans deployment models
+      - Design decisions: for each major choice, state the requirement it satisfies,
+        alternatives considered, and why this option was selected
+      - Confidence: HIGH (validated reference architecture), MEDIUM (adapted from
+        reference), LOW (novel design, requires validation)
+      If requirements are vague, state "Architecture is conceptual. Detailed design
+      requires specific functional requirements." and mark confidence LOW.
+      Deliverable: Architecture description (Pattern | Components | Data Flows |
+      Classification | Design Decisions | Confidence).
+
+      STEP 2: COMPONENT SPECIFICATIONS
+      For each architecture component, define sizing and configuration.
+      - Component name
+      - Role in the architecture
+      - Sizing: CPU, memory, storage, network bandwidth
+      - Configuration: key settings that affect performance or security
+      - Scaling: horizontal vs. vertical, trigger thresholds
+      - Dependencies on other components
+      - Confidence: HIGH (based on confirmed performance requirements),
+        MEDIUM (estimated), LOW (placeholder pending load testing)
+      If performance requirements are absent, provide three sizing profiles
+      (small, medium, large) and state "Sizing requires confirmed ingestion
+      rate and query latency targets."
+      Deliverable: Component spec table (Component | Role | Sizing | Configuration |
+      Scaling | Dependencies | Confidence).
+
+      STEP 3: NETWORK REQUIREMENTS
+      Define connectivity and network security controls.
+      - Network zones and segmentation
+      - Firewall rules (source, destination, port, protocol, direction)
+      - Encryption requirements (in transit, at rest)
+      - DNS and load balancing requirements
+      - Bandwidth requirements per data flow
+      - Prerequisites: network team approvals, firewall change requests, VPN setup
+      If network topology is absent, state "Network design is generic. Customer
+      network topology review required before implementation."
+      Deliverable: Network requirements (Zone | Connectivity | Rules | Encryption |
+      Bandwidth | Prerequisites).
+
+      STEP 4: HIGH AVAILABILITY DESIGN
+      Define redundancy and failover mechanisms.
+      - Availability target (99.9%, 99.95%, 99.99%) with justification
+      - Redundancy model per component (active-active, active-passive, N+1)
+      - Failover mechanism and RTO/RPO for each component
+      - Disaster recovery approach (hot site, warm site, cold site)
+      - Monitoring and alerting for availability events
+      - Confidence: HIGH (tested failover procedures), MEDIUM (designed but untested),
+        LOW (theoretical, requires DR testing)
+      Deliverable: HA design (Component | Availability Target | Redundancy |
+      Failover | RTO | RPO | DR Approach | Confidence).
+
+      STEP 5: SECURITY CONTROLS
+      Define how the platform itself is secured.
+      - Access control (authentication, authorization, RBAC model)
+      - Data protection (encryption at rest, in transit, key management)
+      - Audit logging (what is logged, retention, tamper protection)
+      - Vulnerability management (patching cadence, scanning)
+      - Compliance mapping: for each compliance requirement, state the control
+        that satisfies it
+      - Primary classification: Preventive, Detective, Corrective
+      - Secondary flags where controls serve multiple purposes
+      If compliance requirements are absent, state "Security controls follow
+      general best practices. Compliance-specific controls require stated
+      regulatory requirements."
+      Deliverable: Security controls matrix (Control | Type | Implementation |
+      Compliance Mapping | Classification).
+
+      STEP 6: SCALABILITY PATH
+      Define how the architecture accommodates future growth.
+      - Growth scenarios: 2x, 5x, 10x current volumes
+      - Per scenario: which components scale, how, and at what cost
+      - Architectural limits (at what point the architecture pattern changes)
+      - Technology refresh triggers
+      - Confidence: HIGH (proven at scale), MEDIUM (reference benchmarks),
+        LOW (theoretical)
+      Trend claims about growth patterns require at least two historical data
+      points. If only one exists, state "INSUFFICIENT DATA for growth trend,
+      using scenario-based projections."
+      Deliverable: Scalability plan (Scenario | Components Affected | Scaling
+      Method | Cost Impact | Limits | Confidence).
+
+      STEP 7: STATE DELTA
+      Specify what this runbook's findings change in the account record:
+      - Fields updated (field path | old value | new value | evidence)
+      - Architecture decisions recorded
+      - New risks added or existing risks resolved
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed with all inputs classified and run mode declared
+      - Data Availability Map shows richness per dimension
+      - Every design decision references a stated requirement or constraint
+      - Component specifications include confidence levels and scaling triggers
+      - Network requirements include prerequisites (approvals, change requests)
+      - HA design specifies RTO/RPO per component
+      - Security controls map to compliance requirements where stated
+      - Classification uses primary + secondary flags for architecture and controls
+      - Scalability plan covers multiple growth scenarios
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - Confidence levels stated for every design and sizing decision
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only a signal acquisition plan (data gaps, questions to ask, sources to request, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with an executive summary of exactly 3 sentences:
+      (1) the architecture recommendation with confidence basis,
+      (2) the weakest point or highest-risk area in the design,
+      (3) the single most urgent action to take next.
+      Then produce all numbered deliverables as labeled sections.
 
   # =============================================================================
   # POC PROMPTS
@@ -151,47 +854,337 @@ prompts:
   design_poc:
     description: "Design POC test plan and success criteria"
     template: |
-      As a Security Specialist, design the POC for:
+      As a Security Specialist, design the POC for the following engagement.
 
       **Customer:** {customer_name}
       **POC Objectives:**
       {poc_objectives}
-
       **Use Cases to Validate:**
       {use_cases}
-
       **Available Data:**
       {available_data}
-
       **Timeline:** {timeline}
       **Customer Resources:** {customer_resources}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Provide:
-      1. **POC Scope** - What's in/out of scope
-      2. **Success Criteria** - Measurable criteria for each use case
-      3. **Test Plan** - Step-by-step validation approach
-      4. **Data Requirements** - What data is needed and how to get it
-      5. **Environment Setup** - Technical prerequisites
-      6. **Demo Scenarios** - Key demonstrations for stakeholders
-      7. **Risk Mitigation** - What could go wrong and how to prevent
+      You are designing a POC that proves the platform solves the customer's
+      stated problems. Every test must map to an objective. Every success criterion
+      must be measurable. Follow these steps in order.
+
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: confirmed objectives, available test data, assigned resources, 5+ data points
+      - MEDIUM: partial objectives or data availability, 2-4 data points
+      - LOW: no direct data, assumptions only
+      Dimensions to assess: POC Objectives, Use Case Requirements, Data Availability,
+      Customer Resources, Timeline Constraints, Evaluation Criteria.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: POC SCOPE
+      Define what is in and out of scope for the POC.
+      - In-scope use cases with brief justification for each
+      - Out-of-scope items with rationale (why deferred, not why unimportant)
+      - Scope boundaries: what the POC will prove and what it will not
+      - Assumptions that must hold for the POC to be valid
+      - Primary POC classification: Technical Validation, Business Value Proof,
+        Competitive Bake-off, Integration Feasibility
+      - Secondary flags if the POC serves multiple purposes
+      If POC objectives are vague, state "Scope definition requires specific,
+      measurable POC objectives. Current objectives are too broad to scope."
+      Deliverable: Scope statement (In-Scope | Out-of-Scope | Boundaries |
+      Assumptions | Classification).
+
+      STEP 2: SUCCESS CRITERIA
+      Define measurable criteria for each use case being validated.
+      For each criterion:
+      - Criterion ID
+      - Use case it validates
+      - What it measures (detection rate, false positive rate, response time,
+        coverage percentage, integration latency)
+      - Target value (specific number or threshold)
+      - Measurement method
+      - Pass/fail determination (how the criterion is judged)
+      - Weight (how important this criterion is relative to others)
+      - Confidence: HIGH (customer-confirmed targets), MEDIUM (derived from
+        objectives), LOW (assumed)
+      Deliverable: Success criteria table (ID | Use Case | Metric | Target |
+      Method | Pass/Fail | Weight | Confidence).
+
+      STEP 3: TEST PLAN
+      Define step-by-step validation for each use case.
+      For each test:
+      - Test ID and name
+      - Objective (what it proves)
+      - Prerequisites: what must be true before this test can run (environment
+        ready, data loaded, access configured, prior tests passed)
+      - Steps (numbered, specific actions)
+      - Expected results (what success looks like)
+      - Evidence to capture (screenshots, logs, metrics)
+      - Duration estimate
+      - Failure handling (what to do if the test fails)
+      Sequence tests in dependency order.
+      Deliverable: Test plan (Test ID | Objective | Prerequisites | Steps |
+      Expected Results | Evidence | Duration | Failure Handling).
+
+      STEP 4: DATA REQUIREMENTS
+      Define what data is needed and how to obtain it.
+      For each data set:
+      - Data type (live data, sample data, synthetic data, attack simulation)
+      - Source and format
+      - Volume required
+      - Sensitivity and handling requirements
+      - Acquisition method (customer provides, vendor generates, public data set)
+      - Prerequisites: NDAs, data access agreements, sanitization
+      - Lead time to acquire
+      If available data details are absent, state "Data requirements plan is
+      preliminary. Confirm data availability before finalizing test plan."
+      Deliverable: Data requirements (Type | Source | Volume | Sensitivity |
+      Method | Prerequisites | Lead Time).
+
+      STEP 5: ENVIRONMENT SETUP
+      Define technical prerequisites for the POC environment.
+      - Infrastructure requirements (compute, storage, network)
+      - Software requirements (platform version, licenses, tools)
+      - Access requirements (accounts, permissions, VPN, firewall rules)
+      - Configuration steps (in sequence, with dependencies)
+      - Prerequisites: procurement, approvals, customer IT coordination
+      - Validation: how to confirm the environment is ready
+      Deliverable: Environment setup plan (Requirement | Specification |
+      Configuration Steps | Prerequisites | Validation).
+
+      STEP 6: DEMO SCENARIOS
+      Define key demonstrations for stakeholders.
+      For each demo scenario:
+      - Scenario name and target audience
+      - Business question it answers
+      - Walkthrough steps (what the audience sees)
+      - Talking points (key messages per step)
+      - Fallback plan (if the demo does not work as expected)
+      - Prerequisites: data loaded, rules triggered, dashboards configured
+      Deliverable: Demo plan (Scenario | Audience | Business Question |
+      Steps | Talking Points | Prerequisites | Fallback).
+
+      STEP 7: RISK MITIGATION
+      Identify what could go wrong during the POC and how to prevent it.
+      For each risk:
+      - Risk description
+      - Likelihood: HIGH, MEDIUM, LOW with basis
+      - Impact on POC outcome
+      - Primary risk category: Technical, Data, Timeline, Stakeholder, Resource
+      - Secondary flags if applicable
+      - Prevention strategy
+      - Prevention prerequisites
+      - Contingency plan (if prevention fails)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      Deliverable: POC risk register (Risk | Likelihood | Impact | Category |
+      Prevention | Prerequisites | Contingency | Confidence).
+
+      STEP 8: STATE DELTA
+      Specify what this runbook's findings change in the account record:
+      - Fields updated (field path | old value | new value | evidence)
+      - POC status changes
+      - New risks added or existing risks resolved
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed with all inputs classified and run mode declared
+      - Data Availability Map shows richness per dimension
+      - Every success criterion has a measurable target, not a qualitative description
+      - Test plan includes prerequisites for every test
+      - Demo scenarios include fallback plans
+      - Risk register uses primary + secondary classification
+      - Risk mitigations include prerequisites
+      - Data requirements specify sensitivity and handling requirements
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - Confidence levels stated for success criteria and risk assessments
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only a signal acquisition plan (data gaps, questions to ask, sources to request, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with an executive summary of exactly 3 sentences:
+      (1) the POC readiness assessment with confidence basis,
+      (2) the weakest point or highest-risk area in the POC plan,
+      (3) the single most urgent action to take next.
+      Then produce all numbered deliverables as labeled sections.
 
   create_evidence:
     description: "Create technical evidence package"
     template: |
-      As a Security Specialist, create evidence for:
+      As a Security Specialist, create an evidence package for the following validation.
 
       **Validation Type:** {validation_type}
       **Use Case:** {use_case}
       **Test Results:**
       {test_results}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Create an evidence package including:
-      1. **Executive Summary** - Business-friendly overview
-      2. **Technical Validation** - Detailed test methodology and results
-      3. **Screenshots/Artifacts** - Visual evidence descriptions
-      4. **Metrics Comparison** - Before/after or benchmark comparisons
-      5. **Gap Analysis** - Any identified gaps with mitigations
-      6. **Recommendations** - Next steps and considerations
+      You are producing an evidence package that proves a capability works as claimed.
+      Every claim must have supporting data. Every gap must be acknowledged.
+      Follow these steps in order.
+
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: complete test results, captured artifacts, 5+ data points
+      - MEDIUM: partial test results, some artifacts, 2-4 data points
+      - LOW: no test data, verbal feedback only
+      Dimensions to assess: Test Results, Artifacts/Screenshots, Performance Metrics,
+      Comparison Baselines, Stakeholder Feedback.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: EXECUTIVE SUMMARY
+      Produce a business-friendly overview of the validation results.
+      - What was tested and why
+      - Overall result: PASS, PARTIAL PASS, FAIL with criteria met/not met count
+      - Key findings (2-3 bullet points, outcomes not process)
+      - Confidence: HIGH (complete test coverage), MEDIUM (partial coverage),
+        LOW (limited testing)
+      The summary must stand alone. A reader who sees only this section should
+      understand the validation outcome without reading the detailed evidence.
+      Deliverable: Executive summary (3 sentences: conclusion, weakest point,
+      most urgent next action).
+
+      STEP 2: TECHNICAL VALIDATION
+      Document detailed test methodology and results.
+      For each test performed:
+      - Test name and objective
+      - Methodology (how the test was conducted)
+      - Expected result
+      - Actual result
+      - Verdict: PASS, PARTIAL (with what was missing), FAIL (with root cause)
+      - Evidence references (artifact IDs, screenshot references, log excerpts)
+      - Confidence: HIGH (repeatable, documented), MEDIUM (observed once),
+        LOW (inconsistent results)
+      If test results are partial, state which tests were completed vs. pending.
+      Deliverable: Validation results (Test | Methodology | Expected | Actual |
+      Verdict | Evidence | Confidence).
+
+      STEP 3: ARTIFACTS AND EVIDENCE
+      Catalog all visual and documentary evidence.
+      For each artifact:
+      - Artifact ID and description
+      - Type (screenshot, log excerpt, configuration export, video, metric export)
+      - What it proves (specific claim it supports)
+      - Timestamp and context
+      - Location or reference
+      If artifacts are unavailable, state "Artifact catalog requires test
+      environment access. Placeholder descriptions provided."
+      Deliverable: Artifact catalog (ID | Description | Type | Claim Supported |
+      Timestamp | Reference).
+
+      STEP 4: METRICS COMPARISON
+      Compare measured results against baselines or benchmarks.
+      For each metric:
+      - Metric name
+      - Baseline value (before or benchmark)
+      - Measured value (during validation)
+      - Delta (absolute and percentage)
+      - Assessment: IMPROVEMENT, NO CHANGE, DEGRADATION
+      - Confidence: HIGH (automated measurement), MEDIUM (manual measurement),
+        LOW (estimated)
+      Trend claims (e.g., "performance improved") require at least two measurement
+      points. If only one exists, state "INSUFFICIENT DATA for trend, single
+      measurement recorded."
+      Deliverable: Metrics comparison (Metric | Baseline | Measured | Delta |
+      Assessment | Confidence).
+
+      STEP 5: GAP ANALYSIS
+      Document any identified gaps between expected and actual results.
+      For each gap:
+      - Gap description
+      - Impact on use case (what does not work as expected)
+      - Severity: CRITICAL (blocks adoption), HIGH (significant limitation),
+        MEDIUM (workaround available), LOW (cosmetic)
+      - Primary classification: Functional, Performance, Integration, Usability
+      - Secondary flags if applicable
+      - Mitigation options with effort estimate
+      - Mitigation prerequisites
+      - Residual risk after mitigation
+      If no gaps were identified, state "No gaps identified across all validation
+      tests. All success criteria met."
+      Deliverable: Gap register (Gap | Impact | Severity | Classification |
+      Mitigation | Prerequisites | Residual Risk).
+
+      STEP 6: RECOMMENDATIONS
+      Provide next steps based on the validation results.
+      For each recommendation:
+      - Priority: CRITICAL, HIGH, MEDIUM, LOW
+      - Action description
+      - Owner (role or team)
+      - Timeline
+      - Prerequisites: what must be true before this action can start
+      - Expected impact
+      Deliverable: Action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 7: STATE DELTA
+      Specify what this runbook's findings change in the account record:
+      - Fields updated (field path | old value | new value | evidence)
+      - Validation status changes
+      - New risks added or existing risks resolved
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed with all inputs classified and run mode declared
+      - Data Availability Map shows richness per dimension
+      - Every claim in the executive summary has supporting evidence in the detailed sections
+      - Test results include confidence levels with stated basis
+      - Metrics comparison distinguishes measured from estimated values
+      - Gap analysis uses primary + secondary classification
+      - Recommendations include prerequisites, not just owner and timeline
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - Artifacts are cataloged with specific claims they support
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only a signal acquisition plan (data gaps, questions to ask, sources to request, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with the executive summary (3 sentences as defined in STEP 1).
+      Then produce all remaining numbered deliverables as labeled sections.
 
   # =============================================================================
   # RFx PROMPTS
@@ -199,23 +1192,147 @@ prompts:
   respond_rfx_security:
     description: "Respond to security section of RFx"
     template: |
-      As a Security Specialist, respond to the following RFx requirement:
+      As a Security Specialist, respond to the following RFx requirement.
 
       **Requirement ID:** {requirement_id}
       **Requirement Text:**
       {requirement_text}
-
       **Category:** {category}
       **Criticality:** {criticality}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Provide:
-      1. **Compliance Statement** - How we meet this requirement
-      2. **Capability Description** - Detailed explanation of relevant features
-      3. **Differentiators** - What makes our approach better
-      4. **Evidence** - References to documentation, certifications, case studies
-      5. **Caveats** - Any conditions or limitations (be honest)
+      You are producing an RFx response that is technically accurate, competitively
+      positioned, and honest about limitations. Every compliance claim must be
+      substantiated. Follow these steps in order.
 
-      Write in professional RFx response style - clear, complete, confident.
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: full requirement text, confirmed platform capabilities, 5+ data points
+      - MEDIUM: partial requirement or capability confirmation, 2-4 data points
+      - LOW: requirement category only, no specific text
+      Dimensions to assess: Requirement Clarity, Platform Capability Documentation,
+      Certification Evidence, Reference Case Studies, Competitive Context.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: COMPLIANCE STATEMENT
+      State how the platform meets this requirement.
+      - Compliance level: FULLY COMPLIANT, PARTIALLY COMPLIANT, NOT COMPLIANT,
+        COMPLIANT WITH CONDITIONS
+      - Explanation of how the requirement is met (specific features, configurations)
+      - Conditions or caveats (if PARTIALLY or WITH CONDITIONS)
+      - Confidence: HIGH (documented, tested), MEDIUM (capability exists but not
+        specifically validated for this use), LOW (theoretical compliance)
+      If requirement text is vague, state "Compliance assessment is based on
+      interpretation of requirement. Clarification recommended before final response."
+      Deliverable: Compliance statement (Level | Explanation | Conditions | Confidence).
+
+      STEP 2: CAPABILITY DESCRIPTION
+      Provide detailed explanation of relevant platform features.
+      For each relevant capability:
+      - Feature name
+      - How it addresses the requirement
+      - Technical depth (architecture, implementation approach)
+      - Maturity: GA (generally available), BETA, PLANNED (with timeline), N/A
+      - Primary classification: Native, Integration, Custom, Partner
+      - Secondary flags if capability spans categories
+      - Evidence: documentation references, release notes, certification reports
+      If capability documentation is limited, state which features are confirmed
+      vs. inferred from general platform knowledge.
+      Deliverable: Capability description (Feature | Relevance | Technical Detail |
+      Maturity | Classification | Evidence).
+
+      STEP 3: DIFFERENTIATORS
+      Identify what makes the platform's approach superior for this requirement.
+      For each differentiator:
+      - Differentiator description
+      - Customer benefit (what outcome it enables)
+      - Competitive advantage (how it compares to alternatives)
+      - Evidence (benchmark, case study, analyst report)
+      - Confidence: HIGH (substantiated), MEDIUM (plausible but unverified),
+        LOW (marketing claim, needs substantiation)
+      Trend claims about market position require at least two analyst reports or
+      data points. If only one exists, state "INSUFFICIENT DATA for market trend."
+      If no differentiators exist for this requirement, state "Platform meets
+      requirement at parity with market alternatives. No unique differentiator
+      for this specific capability."
+      Deliverable: Differentiator table (Differentiator | Benefit | Competitive
+      Advantage | Evidence | Confidence).
+
+      STEP 4: EVIDENCE REFERENCES
+      Compile supporting evidence for the response.
+      For each reference:
+      - Reference type (documentation, certification, case study, analyst report,
+        benchmark, white paper)
+      - Title and source
+      - Relevance to this requirement
+      - Accessibility (public, NDA-required, available on request)
+      If evidence is limited, state "Additional evidence available upon request"
+      and specify what types of evidence could be provided.
+      Deliverable: Evidence catalog (Type | Title | Source | Relevance | Access).
+
+      STEP 5: CAVEATS AND LIMITATIONS
+      Honestly document conditions and limitations.
+      For each caveat:
+      - Limitation description
+      - Impact on compliance (what it means for the customer)
+      - Mitigation or workaround if available
+      - Timeline for resolution if the limitation is being addressed
+      - Risk to the customer if they accept this limitation
+      If no caveats exist, state "No caveats identified. Platform fully meets
+      stated requirement without conditions."
+      Deliverable: Caveat register (Limitation | Impact | Mitigation | Timeline |
+      Risk).
+
+      STEP 6: STATE DELTA
+      Specify what this runbook's findings change in the RFx response record:
+      - Fields updated (field path | old value | new value | evidence)
+      - Compliance status recorded
+      - Response quality flags
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed with all inputs classified and run mode declared
+      - Data Availability Map shows richness per dimension
+      - Compliance statement uses four-level scale, not binary yes/no
+      - Every compliance claim is substantiated with a specific feature reference
+      - Capability descriptions distinguish GA from BETA from PLANNED
+      - Differentiators include confidence levels and evidence
+      - Caveats are honest and specific, not hedged with vague language
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - Classification uses primary + secondary flags for capabilities
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only a signal acquisition plan (data gaps, questions to ask, sources to request, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Write in professional RFx response style. Lead with an executive
+      summary of exactly 3 sentences:
+      (1) the compliance conclusion with confidence basis,
+      (2) the weakest point or most significant caveat,
+      (3) the single most urgent action to strengthen the response.
+      Then produce all numbered deliverables as labeled sections.
 
   # =============================================================================
   # USE CASE PROMPTS
@@ -223,21 +1340,176 @@ prompts:
   define_use_case:
     description: "Define a security use case specification"
     template: |
-      As a Security Specialist, define the following security use case:
+      As a Security Specialist, define the following security use case.
 
       **Use Case Name:** {use_case_name}
       **Category:** {category} (e.g., Threat Detection, Compliance, Insider Threat)
       **Business Context:**
       {business_context}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Create a complete use case specification:
-      1. **Use Case ID & Name**
-      2. **Description** - What this use case detects/prevents
-      3. **Business Value** - Why this matters to the customer
-      4. **Data Sources Required** - What logs/events are needed
-      5. **Detection Logic** - How the detection works
-      6. **Alert Severity** - Criticality and escalation path
-      7. **Response Actions** - What happens when triggered
-      8. **Success Metrics** - How to measure effectiveness
-      9. **Testing Approach** - How to validate it works
-      10. **Maintenance** - Tuning and upkeep requirements
+      You are producing a use case specification that a detection engineer can
+      implement and a SOC analyst can operationalize. Every detection must have
+      testable criteria. Every data source must be specific. Follow these steps in order.
+
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: confirmed business requirements, known data sources, 5+ data points
+      - MEDIUM: partial context or category only, 2-4 data points
+      - LOW: use case name only, no context
+      Dimensions to assess: Business Context, Threat Landscape, Data Source
+      Availability, Regulatory Requirements, Existing Detection Coverage.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: USE CASE IDENTIFICATION
+      Establish the identity and classification of this use case.
+      - Use Case ID (structured identifier)
+      - Name (descriptive, action-oriented)
+      - Description: what this use case detects, prevents, or monitors
+      - Primary classification: Threat Detection, Compliance Monitoring, Insider
+        Threat, Operational Security, Fraud Detection
+      - Secondary flags if the use case spans multiple categories
+      - MITRE ATT&CK mapping if applicable (tactic, technique, sub-technique)
+      - Confidence: HIGH (known threat pattern), MEDIUM (emerging threat),
+        LOW (hypothetical scenario)
+      Deliverable: Use case identity (ID | Name | Description | Classification |
+      ATT&CK Mapping | Confidence).
+
+      STEP 2: BUSINESS VALUE
+      Articulate why this use case matters to the customer.
+      - Business risk it addresses (what could happen without this detection)
+      - Regulatory or compliance requirement it satisfies (specific regulation and clause)
+      - Financial impact of the risk (quantified if data available)
+      - Stakeholders who benefit (roles, not just "security team")
+      - Priority relative to other use cases (with justification)
+      - Confidence: HIGH (documented incidents or regulatory requirement),
+        MEDIUM (industry benchmarks), LOW (theoretical)
+      If business context is absent, state "Business value assessment requires
+      customer-specific context. Generic industry value provided."
+      Deliverable: Business value statement (Risk | Regulation | Impact |
+      Stakeholders | Priority | Confidence).
+
+      STEP 3: DATA SOURCE REQUIREMENTS
+      Define what log and event data is needed.
+      For each data source:
+      - Source name and type (firewall, endpoint, identity, cloud, application)
+      - Specific fields required (not just "firewall logs" but which fields matter)
+      - Volume estimate (events per second or per day)
+      - Format and protocol (syslog, API, file, agent)
+      - Criticality: REQUIRED (detection fails without it), ENRICHMENT (improves
+        detection but not essential), OPTIONAL (nice to have)
+      - Availability: CONFIRMED, LIKELY, UNKNOWN
+      If data source information is unavailable, state "Data source requirements
+      are based on standard detection patterns. Customer environment review required."
+      Deliverable: Data source matrix (Source | Type | Fields | Volume | Format |
+      Criticality | Availability).
+
+      STEP 4: DETECTION LOGIC
+      Define how the detection works.
+      - Detection approach (rule-based, statistical, ML-based, correlation, behavioral)
+      - Logic description (pseudocode or natural language query)
+      - Trigger conditions (what combination of events fires the detection)
+      - Time windows and thresholds (with rationale for chosen values)
+      - Correlation requirements (if multiple event types must combine)
+      - False positive sources and tuning levers
+      - Confidence: HIGH (tested in production), MEDIUM (tested in lab),
+        LOW (theoretical, untested)
+      Deliverable: Detection specification (Approach | Logic | Triggers |
+      Thresholds | Correlations | FP Sources | Confidence).
+
+      STEP 5: ALERT AND RESPONSE
+      Define alert handling and response procedures.
+      - Alert severity: CRITICAL, HIGH, MEDIUM, LOW with criteria for each level
+      - Escalation path (who is notified, in what order, by what channel)
+      - Response actions per severity level
+      - Automated response options (if applicable, with safeguards)
+      - Investigation checklist (steps an analyst follows after alert fires)
+      - SLA targets (response time, resolution time per severity)
+      - Prerequisites: SOC procedures updated, analyst training completed,
+        escalation contacts confirmed
+      Deliverable: Alert and response plan (Severity | Criteria | Escalation |
+      Response Actions | SLA | Prerequisites).
+
+      STEP 6: SUCCESS METRICS AND TESTING
+      Define how to measure effectiveness and validate the detection.
+      For each metric:
+      - Metric name (true positive rate, false positive rate, MTTD, MTTR)
+      - Target value
+      - Measurement method
+      - Measurement frequency
+      - Baseline (if available, or "BASELINE TO BE ESTABLISHED")
+      Testing approach:
+      - Test scenarios (true positive, true negative, evasion attempts)
+      - Test data requirements
+      - Validation criteria
+      - Retest frequency
+      Trend claims require at least two data points. If only one exists, state
+      "INSUFFICIENT DATA for effectiveness trend."
+      Deliverable: Metrics and testing plan (Metric | Target | Method | Frequency |
+      Baseline) + Test plan (Scenario | Data | Criteria | Frequency).
+
+      STEP 7: MAINTENANCE REQUIREMENTS
+      Define ongoing tuning and upkeep.
+      - Tuning cadence (how often to review thresholds and rules)
+      - Tuning triggers (alert volume spike, new false positive pattern, threat
+        landscape change)
+      - Review responsibilities (who tunes, who approves changes)
+      - Retirement criteria (when this use case is no longer needed)
+      - Dependencies on threat intelligence feeds or external data
+      - Prerequisites: change management process, tuning playbook documented
+      Deliverable: Maintenance plan (Activity | Cadence | Trigger | Owner |
+      Prerequisites | Retirement Criteria).
+
+      STEP 8: STATE DELTA
+      Specify what this runbook's findings change in the account record:
+      - Fields updated (field path | old value | new value | evidence)
+      - Use case catalog updates
+      - Detection coverage changes
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed with all inputs classified and run mode declared
+      - Data Availability Map shows richness per dimension
+      - Use case has structured ID and ATT&CK mapping where applicable
+      - Classification uses primary + secondary flags
+      - Business value includes quantified impact where data supports it
+      - Data sources specify required fields, not just source names
+      - Detection logic includes false positive sources and tuning levers
+      - Alert severity uses four-level scale with defined criteria per level
+      - Response plan includes prerequisites (procedures, training, contacts)
+      - Success metrics include measurable targets with baselines
+      - Maintenance plan includes retirement criteria
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - Confidence levels stated for every assessment with basis
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only a signal acquisition plan (data gaps, questions to ask, sources to request, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with an executive summary of exactly 3 sentences:
+      (1) the use case viability and detection readiness with confidence basis,
+      (2) the weakest point or biggest gap in the specification,
+      (3) the single most urgent action to take next.
+      Then produce all numbered deliverables as labeled sections.

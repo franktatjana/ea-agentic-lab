@@ -1,6 +1,7 @@
 # RFP Agent Task Prompts
-# Purpose: Task-specific prompts using CAF framework (Context, Action, Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
 # Reference: Agent config defined in agents/rfp_agent.yaml
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
 
 # ============================================================================
 # BID/NO-BID DECISION PROMPTS
@@ -9,123 +10,441 @@ bid_decisions:
 
   analyze_rfp:
     name: "RFP Initial Analysis"
-    description: "Analyze RFP requirements and scoring criteria"
+    description: "Analyze RFP requirements and scoring criteria, classify requirement types, flag ambiguous or trap requirements, detect competitive signals, and assess timeline feasibility"
     prompt: |
       Context: New RFP received for analysis.
       Customer: {customer_name}
       RFP Title: {rfp_title}
       Due date: {due_date}
       Estimated value: {estimated_value}
+      RFP Content: {rfp_content}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + top 3 red flags + most urgent action; DISCOVERY = requirements inventory only. Default: FULL)
 
-      RFP Content:
-      {rfp_content}
+      You are performing the initial analysis of an RFP to determine its structure,
+      requirements, evaluation criteria, and risk signals. This analysis feeds all
+      downstream bid decisions and response planning. Every requirement must be
+      traced to its source section. Follow these steps in order.
 
-      Action: Analyze RFP comprehensively:
-      - Extract mandatory vs. optional requirements
-      - Identify evaluation criteria and weights
-      - Flag ambiguous or trap requirements
-      - Detect competitive positioning signals
-      - Assess timeline feasibility
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Format:
-      RFP Analysis: {rfp_title}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Requirements Summary:
-      - Mandatory: {count}
-      - Optional: {count}
-      - Unclear: {count}
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      Evaluation Criteria:
-      - {criterion 1}: {weight}%
-      - {criterion 2}: {weight}%
+      STEP 1: REQUIREMENT EXTRACTION
+      Parse the RFP content and extract every requirement.
+      For each requirement:
+      - Requirement ID (assigned sequentially: R1, R2, ...)
+      - Requirement text (verbatim from RFP)
+      - Source section and page reference
+      - Classification (primary): mandatory / optional / informational
+        Assign one primary classification. Add secondary flags where language
+        is ambiguous (e.g., "should" may flag both optional and mandatory).
+      - Confidence: HIGH (explicit "must" / "shall" language), MEDIUM ("should" /
+        "expected" language), LOW (inferred from context)
+      If {rfp_content} is empty: state that no RFP content was provided,
+      DEFER execution. Do not fabricate requirements.
+      Deliverable: Requirements table (Req ID | Requirement Text | Source Section |
+      Classification | Secondary Flags | Confidence).
 
-      Red Flags:
-      - {flag 1}
+      STEP 2: EVALUATION CRITERIA ANALYSIS
+      Extract the evaluation criteria and scoring methodology.
+      For each criterion:
+      - Criterion name
+      - Weight (percentage or relative ranking)
+      - Scoring method (if described)
+      - Our likely strength (strong / neutral / weak) with basis
+      - Confidence: HIGH (weight explicitly stated), MEDIUM (weight implied),
+        LOW (inferred from document structure)
+      If evaluation criteria are not explicitly stated: note "Evaluation criteria
+      not disclosed in RFP," infer likely criteria from requirement emphasis
+      patterns, mark all inferred criteria as Confidence: LOW.
+      Deliverable: Evaluation criteria table (Criterion | Weight | Scoring Method |
+      Our Position | Confidence).
 
-      Competitive Signals:
-      - {signal} suggesting {competitor}
+      STEP 3: RED FLAG AND TRAP IDENTIFICATION
+      Scan for requirements or terms that pose risk.
+      For each red flag:
+      - Flag description
+      - Source section
+      - Risk type: trap_requirement / unrealistic_timeline / incumbent_bias /
+        budget_mismatch / scope_creep / liability_exposure
+        Assign one primary type. Add secondary flags where multiple risks apply.
+      - Severity: CRITICAL (likely disqualifying), HIGH (significant disadvantage),
+        MEDIUM (manageable risk), LOW (minor concern)
+      - Confidence: HIGH (clear evidence), MEDIUM (pattern-based), LOW (speculative)
+      If no red flags are found: state "No red flags identified in initial scan.
+      Recommend secondary review by domain expert."
+      Deliverable: Red flags table (Flag | Source Section | Risk Type | Secondary
+      Flags | Severity | Confidence).
 
-      Timeline Assessment:
-      - Days to respond: {days}
-      - Feasibility: {feasible/tight/unrealistic}
+      STEP 4: COMPETITIVE SIGNAL DETECTION
+      Identify language or requirements that suggest competitor influence.
+      For each signal:
+      - Signal description
+      - Source section
+      - Likely competitor implicated
+      - Signal strength: STRONG (requirement matches competitor-specific
+        capability), MEDIUM (language patterns suggest familiarity), LOW (generic
+        but potentially influenced)
+      - Confidence: HIGH (named technology or methodology unique to competitor),
+        MEDIUM (pattern match), LOW (speculative)
+      If no competitive signals are found: state "No competitive positioning
+      signals detected. RFP appears vendor-neutral."
+      Deliverable: Competitive signals table (Signal | Source Section | Likely
+      Competitor | Signal Strength | Confidence).
 
-      Initial Assessment: {recommend_bid/needs_review/likely_no_bid}
+      STEP 5: TIMELINE ASSESSMENT
+      Evaluate response timeline feasibility.
+      - Days to respond from today
+      - Complexity assessment based on requirement count and section count
+      - Resource estimate (person-days)
+      - Feasibility: feasible / tight / unrealistic
+      - Confidence: HIGH (clear deadline, known scope), MEDIUM (scope partially
+        understood), LOW (significant unknowns)
+      Deliverable: Timeline assessment (Days | Complexity | Resource Estimate |
+      Feasibility | Confidence).
+
+      STEP 6: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Total requirements extracted, split by mandatory/optional, and overall
+          confidence profile across the analysis
+      (2) The weakest point: the single area with lowest confidence or highest
+          risk across all deliverables
+      (3) The single most urgent action to take next
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New RFP record to create or update
+      - Next actions to add
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Every requirement traced to a source section in the RFP
+      - Classifications include secondary flags where language is ambiguous
+      - Confidence levels stated for every extraction
+      - Red flags include severity and risk type classification
+      - Competitive signals include confidence basis
+      - Timeline assessment uses quantified complexity, not just gut feel
+      - Executive summary is self-sufficient: a reader can act on it without
+        reading the detailed deliverables
+      - Account state delta references specific evidence for each field change
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, top 3 red flags, and the single most urgent action. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the requirements inventory (Step 1). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
   bid_no_bid_assessment:
     name: "Bid/No-Bid Decision"
-    description: "Formal bid/no-bid recommendation"
+    description: "Formal bid/no-bid recommendation using weighted scoring across strategic fit, competitive position, solution fit, resource availability, and commercial viability"
     prompt: |
       Context: Bid/no-bid decision needed for RFP.
       RFP: {rfp_title}
       Customer: {customer_name}
       Value: {estimated_value}
       Analysis: {rfp_analysis}
+      Account state: {account_state}
+      Historical bid data: {historical_bids}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + recommendation + conditions; DISCOVERY = scoring framework only. Default: FULL)
 
-      Action: Score opportunity across decision factors:
-      - Strategic fit (25%): Target segment? Reference logo? Position strength?
-      - Competitive position (25%): Incumbent? Relationships? Wired for competitor?
-      - Solution fit (20%): Meet mandatory? Coverage %? Tech stack fit?
-      - Resource availability (15%): Capacity to respond? Timeline? Staffing?
-      - Commercial viability (15%): Budget? Terms? Contract structure?
+      You are producing a formal bid/no-bid recommendation. This decision determines
+      whether the organization commits resources to respond. Every score must have
+      an explicit basis and confidence level. Follow these steps in order.
 
-      Format:
-      Bid/No-Bid Assessment
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Scores (0-100):
-      - Strategic fit: {score} - {justification}
-      - Competitive position: {score} - {justification}
-      - Solution fit: {score} - {justification}
-      - Resource availability: {score} - {justification}
-      - Commercial viability: {score} - {justification}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Weighted Total: {total}/100
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      Recommendation: {BID / NO-BID / CONDITIONAL BID}
-      Reasoning: {why}
+      STEP 1: STRATEGIC FIT SCORING (25%)
+      Score the opportunity on strategic alignment.
+      Dimensions to score (0-100 each):
+      - Target segment alignment
+      - Reference logo value
+      - Market position strengthening
+      For each dimension:
+      - Score with justification
+      - Confidence: HIGH (data-backed), MEDIUM (partially informed), LOW (assumption-based)
+      Weighted dimension average = Strategic Fit Score.
+      Deliverable: Strategic fit table (Dimension | Score | Justification | Confidence)
+      + Weighted Score.
 
-      Conditions (if conditional):
-      - {condition 1}
+      STEP 2: COMPETITIVE POSITION SCORING (25%)
+      Score our competitive standing for this opportunity.
+      Dimensions to score (0-100 each):
+      - Incumbent advantage/disadvantage
+      - Relationship strength with decision makers
+      - Competitor wiring signals (from RFP analysis)
+      For each dimension:
+      - Score with justification
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Weighted dimension average = Competitive Position Score.
+      Deliverable: Competitive position table (Dimension | Score | Justification |
+      Confidence) + Weighted Score.
 
-      Next steps if bid:
-      - {action}
+      STEP 3: SOLUTION FIT SCORING (20%)
+      Score how well our solution meets requirements.
+      Dimensions to score (0-100 each):
+      - Mandatory requirement coverage percentage
+      - Technology stack alignment
+      - Integration and architecture fit
+      For each dimension:
+      - Score with justification
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Weighted dimension average = Solution Fit Score.
+      Deliverable: Solution fit table (Dimension | Score | Justification |
+      Confidence) + Weighted Score.
+
+      STEP 4: RESOURCE AVAILABILITY SCORING (15%)
+      Score our capacity to respond and deliver.
+      Dimensions to score (0-100 each):
+      - Response team availability
+      - Timeline feasibility
+      - Delivery staffing capability
+      For each dimension:
+      - Score with justification
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If {account_state} lacks resource data: state "Resource availability data
+      not available," score based on general capacity assumptions, mark all
+      dimensions as Confidence: LOW.
+      Weighted dimension average = Resource Availability Score.
+      Deliverable: Resource availability table (Dimension | Score | Justification |
+      Confidence) + Weighted Score.
+
+      STEP 5: COMMERCIAL VIABILITY SCORING (15%)
+      Score commercial attractiveness.
+      Dimensions to score (0-100 each):
+      - Budget alignment
+      - Contract terms acceptability
+      - Revenue recognition timeline
+      For each dimension:
+      - Score with justification
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Weighted dimension average = Commercial Viability Score.
+      Deliverable: Commercial viability table (Dimension | Score | Justification |
+      Confidence) + Weighted Score.
+
+      STEP 6: WEIGHTED TOTAL AND RECOMMENDATION
+      Calculate weighted total: (Strategic * 0.25) + (Competitive * 0.25) +
+      (Solution * 0.20) + (Resource * 0.15) + (Commercial * 0.15).
+      Decision thresholds:
+      - 70+: BID
+      - 50-69: CONDITIONAL BID (list conditions)
+      - Below 50: NO-BID
+      If CONDITIONAL BID: list specific conditions that must be met before
+      committing resources. Each condition must include a prerequisite (who must
+      approve or what must happen) and a deadline.
+      If NO-BID: list what would need to change to reconsider.
+      Deliverable: Weighted score summary table (Category | Weight | Score |
+      Weighted Contribution) + Recommendation + Conditions table (Condition |
+      Prerequisites | Owner | Deadline) if applicable.
+
+      STEP 7: TREND COMPARISON
+      Compare this bid assessment against historical bid data if available.
+      - Win rate for similar deal sizes
+      - Win rate for this customer segment
+      - Average score for won vs. lost deals
+      If {historical_bids} is empty or contains fewer than 2 comparable data points:
+      state "INSUFFICIENT DATA FOR TREND. Single observation only. Cannot establish
+      pattern." Do not fabricate trends from a single deal.
+      Deliverable: Trend comparison (Metric | This Deal | Historical Average |
+      Data Points | Trend Conclusion).
+
+      STEP 8: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) The recommendation (BID / NO-BID / CONDITIONAL BID) with weighted score
+          and overall confidence profile
+      (2) The weakest scoring category and its impact on the decision
+      (3) The single most urgent action: if BID, the first response step; if
+          NO-BID, the communication action; if CONDITIONAL, the condition to
+          resolve first
+
+      STEP 9: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Bid decision record to create
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Every score has explicit justification, not just a number
+      - Confidence levels stated for every dimension score
+      - Weighted total calculation is arithmetically correct
+      - Conditions (if conditional bid) include prerequisites and deadlines
+      - Trend claims backed by 2+ data points or explicitly marked insufficient
+      - Executive summary is self-sufficient: a reader can act on it without
+        reading the detailed scoring
+      - Account state delta references specific evidence for each field change
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, recommendation, and conditions (if applicable). Skip detailed dimension scoring.
+      - If run_mode is DISCOVERY: produce only the scoring framework with empty dimensions. Skip actual scoring.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
   requirement_compliance_matrix:
     name: "Requirement Compliance Matrix"
-    description: "Map RFP requirements to our capabilities"
+    description: "Map every RFP requirement to compliance status against internal capability documentation, with gap analysis and risk assessment"
     prompt: |
       Context: RFP requirements need compliance mapping.
       RFP: {rfp_title}
       Requirements: {requirements_list}
+      Internal Capability Documentation: {capability_docs}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + critical gaps + compliance percentage; DISCOVERY = requirement inventory with empty compliance. Default: FULL)
 
-      Internal Capability Documentation:
-      {capability_docs}
+      You are mapping RFP requirements against documented internal capabilities.
+      Do not assume or infer capabilities not stated in the documentation. Every
+      compliance status must cite the specific capability document or section that
+      supports it. Follow these steps in order.
 
-      Action: For each requirement, evaluate compliance against the capability documentation above.
-      Do not assume or infer capabilities not stated in the documentation.
-      Map each requirement to compliance status:
-      - Full: We fully meet this requirement
-      - Partial: We partially meet with gaps
-      - Roadmap: Planned capability, not yet available
-      - No: We cannot meet this requirement
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Format:
-      Compliance Matrix: {rfp_title}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      | Req ID | Requirement | Status | Notes |
-      |--------|-------------|--------|-------|
-      | R1 | {requirement} | Full/Partial/Roadmap/No | {details} |
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      Summary:
-      - Full compliance: {count} ({%})
-      - Partial: {count} ({%})
-      - Roadmap: {count} ({%})
-      - Non-compliant: {count} ({%})
+      STEP 1: REQUIREMENT INVENTORY
+      List all requirements to be mapped. For each:
+      - Requirement ID
+      - Requirement text
+      - Priority: mandatory / optional (from RFP analysis)
+      - Category (primary): functional / technical / security / compliance /
+        performance / integration / support / commercial
+        Add secondary flags where a requirement spans multiple categories.
+      If {requirements_list} is empty: state "No requirements provided," DEFER.
+      Deliverable: Requirement inventory table (Req ID | Requirement | Priority |
+      Category | Secondary Flags).
 
-      Critical gaps:
-      - {gap affecting mandatory requirement}
+      STEP 2: COMPLIANCE MAPPING
+      For each requirement, evaluate compliance against the capability documentation.
+      - Match status: Full / Partial / Roadmap / No
+      - Supporting capability document and section (cite specific source)
+      - Gap detail (if Partial or No): what specifically is missing
+      - Workaround available (if Partial): YES with description / NO
+      - Confidence: HIGH (explicit capability match in documentation), MEDIUM
+        (inferred from related capabilities), LOW (no direct documentation found)
+      Do not claim Full compliance without a specific documentation citation.
+      If {capability_docs} is empty: state "No capability documentation provided.
+      Cannot assess compliance." Mark all requirements as Confidence: LOW,
+      status: "Unable to assess."
+      Deliverable: Compliance matrix (Req ID | Requirement | Priority | Status |
+      Source Doc | Gap Detail | Workaround | Confidence).
 
-      Risk assessment:
-      - {overall risk level with reasoning}
+      STEP 3: COMPLIANCE SUMMARY
+      Aggregate compliance statistics:
+      - Full compliance count and percentage
+      - Partial compliance count and percentage
+      - Roadmap count and percentage
+      - Non-compliant count and percentage
+      Break down by mandatory vs. optional requirements separately.
+      Deliverable: Compliance summary table (Status | Mandatory Count | Mandatory % |
+      Optional Count | Optional % | Total Count | Total %).
+
+      STEP 4: CRITICAL GAP ANALYSIS
+      Identify gaps that affect mandatory requirements or high-weight evaluation
+      criteria.
+      For each critical gap:
+      - Requirement ID and text
+      - Impact: which evaluation criterion it affects and estimated score impact
+      - Mitigation options: partner / build / roadmap commitment / accept risk
+      - Prerequisites for each mitigation: what must happen, who must approve,
+        and timeline
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If no critical gaps exist: state "No critical gaps identified. All mandatory
+      requirements have Full or Partial compliance with documented workarounds."
+      Deliverable: Critical gaps table (Req ID | Requirement | Impact | Mitigation
+      Options | Prerequisites | Confidence).
+
+      STEP 5: RISK ASSESSMENT
+      Produce overall risk assessment for proceeding with this RFP response:
+      - Overall risk level: LOW / MEDIUM / HIGH / CRITICAL
+      - Risk drivers (list top 3)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Risk assessment (Level | Risk Drivers | Confidence).
+
+      STEP 6: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Compliance percentage for mandatory requirements and overall confidence
+          profile
+      (2) The weakest compliance area: the single category with lowest coverage
+          or highest gap concentration
+      (3) The single most urgent action: the gap to address first for maximum
+          score impact
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Compliance matrix record to create or update
+      - Next actions to add
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Every Full compliance status cites a specific capability document section
+      - No compliance status assumed without documentation basis
+      - Confidence levels stated for every compliance assessment
+      - Critical gaps include mitigation options with prerequisites
+      - Mandatory and optional requirements tracked separately in summary
+      - Risk assessment tied to specific gap evidence, not general impression
+      - Executive summary is self-sufficient: a reader can act on it without
+        reading the detailed matrix
+      - Account state delta references specific evidence for each field change
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, compliance percentages, and critical gaps. Skip full matrix.
+      - If run_mode is DISCOVERY: produce only the requirement inventory with empty compliance columns. Skip mapping.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
 # ============================================================================
 # RESPONSE STRATEGY PROMPTS
@@ -134,101 +453,338 @@ response_strategy:
 
   develop_win_themes:
     name: "Develop Win Themes"
-    description: "Create differentiated positioning for RFP response"
+    description: "Create 3-5 differentiated win themes for RFP response, each mapped to evaluation criteria and competitive positioning"
     prompt: |
       Context: Developing win themes for RFP response.
       RFP: {rfp_title}
       Customer: {customer_name}
       Evaluation criteria: {criteria}
       Competitor analysis: {competitor_intel}
+      Compliance matrix: {compliance_matrix}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + top 3 themes + positioning statement; DISCOVERY = theme candidates only. Default: FULL)
 
-      Action: Develop 3-5 win themes that:
-      - Address evaluation criteria directly
-      - Differentiate from likely competitors
-      - Leverage our unique strengths
-      - Resonate with customer priorities
+      You are developing win themes that will guide the entire response. Each theme
+      must connect to a specific evaluation criterion and differentiate from known
+      competitors. Themes without evidence are slogans, not strategy. Follow these
+      steps in order.
 
-      Format:
-      Win Themes: {rfp_title}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Theme 1: {theme title}
-      - Message: {core message}
-      - Evidence: {proof points}
-      - Addresses: {which evaluation criteria}
-      - Differentiates from: {competitor}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Theme 2: {theme title}
-      ...
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      Executive Summary Approach:
-      - Opening hook: {attention grabber}
-      - Core message: {why us}
-      - Call to action: {what we want them to do}
+      STEP 1: EVALUATION CRITERIA MAPPING
+      Map each evaluation criterion to our strengths and gaps.
+      For each criterion:
+      - Criterion name and weight
+      - Our strength level: strong / neutral / weak
+      - Evidence supporting our position (from compliance matrix)
+      - Competitor likely strength: strong / neutral / weak
+      - Confidence: HIGH (evidence-backed), MEDIUM (partially informed),
+        LOW (assumed)
+      Deliverable: Criteria mapping table (Criterion | Weight | Our Strength |
+      Evidence | Competitor Strength | Confidence).
 
-      Competitive Positioning:
-      - Against {competitor}: {positioning strategy}
+      STEP 2: WIN THEME DEVELOPMENT
+      Develop 3-5 win themes. For each theme:
+      - Theme title (concise, memorable)
+      - Core message (one sentence)
+      - Evaluation criteria addressed (list which criteria this theme targets)
+      - Evidence and proof points (specific, verifiable)
+      - Differentiator type (primary): unique_capability / proven_experience /
+        lower_risk / better_value / strategic_alignment
+        Add secondary flags where a theme spans multiple types.
+      - Differentiates from which competitor and how
+      - Confidence: HIGH (strong evidence), MEDIUM (partial evidence),
+        LOW (aspirational, evidence gaps exist)
+      If {competitor_intel} is empty: state "No competitor intelligence available.
+      Themes are positioning-only, not competitive." Mark competitor-related
+      assessments as Confidence: LOW.
+      Deliverable: Win themes table (Theme | Message | Criteria Addressed |
+      Evidence | Differentiator Type | Secondary Flags | vs. Competitor | Confidence).
+
+      STEP 3: EXECUTIVE SUMMARY APPROACH
+      Draft the response's executive summary positioning:
+      - Opening hook: first sentence that captures attention
+      - Core message: why the customer should choose us
+      - Call to action: what we want the evaluator to conclude
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Executive summary approach (Hook | Core Message | Call to Action |
+      Confidence).
+
+      STEP 4: COMPETITIVE POSITIONING MATRIX
+      For each identified competitor, define positioning strategy:
+      - Competitor name
+      - Their likely positioning
+      - Our counter-positioning
+      - Evidence supporting our position
+      - Prerequisites: what must be true for this positioning to hold
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If {competitor_intel} identifies fewer than 2 competitors: state
+      "Limited competitive intelligence. Positioning is directional only."
+      Deliverable: Competitive positioning table (Competitor | Their Position |
+      Our Counter | Evidence | Prerequisites | Confidence).
+
+      STEP 5: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Number of win themes developed and their collective coverage of
+          evaluation criteria
+      (2) The weakest theme: the one with lowest confidence or thinnest evidence
+      (3) The single most urgent action: the evidence gap to fill or proof point
+          to secure before drafting begins
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Win themes to register
+      - Next actions to add
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Each win theme mapped to at least one evaluation criterion
+      - Evidence cited for every theme, not just claims
+      - Confidence levels stated for every theme and positioning
+      - Competitive positioning includes prerequisites
+      - No theme duplicates another in different words
+      - Executive summary is self-sufficient: a reader can act on it without
+        reading the detailed themes
+      - Account state delta references specific evidence for each field change
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, top 3 themes (title + message + criteria), and overall positioning statement. Skip detailed evidence and competitive matrix.
+      - If run_mode is DISCOVERY: produce only theme candidates with criteria mapping. Skip evidence and positioning.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
   draft_executive_summary:
     name: "Draft Executive Summary"
-    description: "Create compelling executive summary"
+    description: "Create a compelling 1-page executive summary for the RFP response, leading with outcomes and making differentiators obvious"
     prompt: |
       Context: Drafting executive summary for RFP response.
       RFP: {rfp_title}
+      Customer: {customer_name}
       Win themes: {win_themes}
       Value proposition: {value_prop}
+      Compliance summary: {compliance_summary}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = draft summary only; DISCOVERY = outline and key messages only. Default: FULL)
 
-      Action: Draft 1-page executive summary that:
-      - Wins on the first page
-      - Leads with outcomes, not features
-      - Addresses customer's stated priorities
-      - Makes our differentiators obvious
+      You are drafting the executive summary, the single most-read page of the
+      response. It must win on the first page. Every sentence must earn its space
+      by advancing the case. Follow these steps in order.
 
-      Format:
-      Executive Summary (1 page max)
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Why {company_name}
-      {Opening paragraph: Hook + understanding of their challenge}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Our Approach
-      {How we'll solve their specific problem}
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      Proven Results
-      {Relevant proof points and references}
+      STEP 1: MESSAGE ARCHITECTURE
+      Define the structural messaging before drafting:
+      - Primary message (one sentence: why us)
+      - Supporting messages (2-3 sentences: how we deliver)
+      - Proof points to include (specific, verifiable outcomes)
+      - Win themes to surface (from win theme analysis)
+      - Tone: confident / consultative / partnership-oriented
+      - Confidence: HIGH (all proof points verified), MEDIUM (some proof points
+        unverified), LOW (proof points are estimates)
+      Deliverable: Message architecture table (Element | Content | Source |
+      Confidence).
 
-      Our Commitment
-      {Specific outcomes we're committing to}
+      STEP 2: EXECUTIVE SUMMARY DRAFT
+      Draft the 1-page executive summary with these sections:
+      - Why {company_name}: Opening paragraph with hook and understanding of
+        their challenge. Lead with outcomes, not features.
+      - Our Approach: How we solve their specific problem. Make differentiators
+        obvious, not buried.
+      - Proven Results: Relevant proof points and references. Cite specific
+        outcomes with numbers where possible.
+      - Our Commitment: Specific outcomes we are committing to. Be precise,
+        not vague.
+      - Next Steps: Clear call to action.
+      Word count target: 400-600 words (1 page).
+      Deliverable: Executive summary draft (full text).
 
-      Next Steps
-      {Clear call to action}
+      STEP 3: QUALITY SCORING
+      Score the draft against effectiveness criteria:
+      - Customer focus: does every paragraph address their needs, not ours? (0-10)
+      - Differentiation visibility: are win themes in the first half? (0-10)
+      - Proof density: ratio of evidence to claims (0-10)
+      - Readability: can a non-technical executive follow it? (0-10)
+      - Call to action clarity: is next step unambiguous? (0-10)
+      For each criterion:
+      - Score with justification
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Quality score table (Criterion | Score | Justification |
+      Confidence) + Total Score.
+
+      STEP 4: REVISION RECOMMENDATIONS
+      If any quality criterion scores below 7, provide specific revision
+      recommendations:
+      - Issue identified
+      - Current text (quote the problematic passage)
+      - Recommended revision
+      - Expected score improvement
+      If all criteria score 7+: state "Draft meets quality threshold. Recommend
+      stakeholder review before finalization."
+      Deliverable: Revision table (Issue | Current Text | Recommendation |
+      Expected Impact).
+
+      STEP 5: RUNBOOK EXECUTIVE SUMMARY
+      Produce a 3-sentence summary of this runbook's output stating:
+      (1) Draft quality score and confidence profile
+      (2) The weakest quality dimension and its impact
+      (3) The single most urgent revision or approval action
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Draft stays within 1-page word count (400-600 words)
+      - Every claim in the draft has a cited proof point
+      - Win themes are visible in the first half of the draft
+      - No jargon or internal terminology in customer-facing text
+      - Confidence levels stated for message architecture and quality scores
+      - Runbook executive summary is self-sufficient
+      - Draft leads with outcomes, not features or company history
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary draft. Skip message architecture, quality scoring, and revision recommendations.
+      - If run_mode is DISCOVERY: produce only the message architecture and outline. Skip drafting.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
   draft_response_section:
     name: "Draft Response Section"
-    description: "Draft response to specific RFP section"
+    description: "Draft a response to a specific RFP section using comply-explain-differentiate structure with evidence for every claim"
     prompt: |
       Context: Drafting response to RFP section.
       Section: {section_title}
       Requirements: {section_requirements}
       Win themes: {relevant_themes}
+      Compliance mapping: {section_compliance}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = compliance statements + key differentiators only; DISCOVERY = requirement mapping with response outline. Default: FULL)
 
-      Action: Draft response following structure:
-      - Comply: State compliance clearly
-      - Explain: How we meet the requirement
-      - Differentiate: Why our approach is better
+      You are drafting a response section using the comply-explain-differentiate
+      structure. Every compliance claim must be evidence-backed. Every differentiator
+      must connect to a win theme. Follow these steps in order.
 
-      Format:
-      Section: {section_title}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      {Requirement 1}
-      Compliance: We fully comply.
-      {Explanation of how we meet this requirement}
-      {Differentiation - what makes our approach better}
-      Evidence: {specific proof point}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      {Requirement 2}
-      ...
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      Section summary:
-      {Brief closing that reinforces our strengths}
+      STEP 1: REQUIREMENT-RESPONSE MAPPING
+      For each requirement in this section:
+      - Requirement ID and text
+      - Compliance status (from compliance mapping): Full / Partial / Roadmap / No
+      - Win theme connection (which theme this response should reinforce)
+      - Response approach: comply_and_differentiate / comply_with_gap /
+        roadmap_commitment / alternative_approach
+        Add secondary flags where multiple approaches apply.
+      - Confidence: HIGH (clear compliance evidence), MEDIUM (partial evidence),
+        LOW (gap exists, response is mitigating)
+      Deliverable: Requirement-response mapping table (Req ID | Requirement |
+      Compliance | Win Theme | Response Approach | Secondary Flags | Confidence).
+
+      STEP 2: SECTION DRAFT
+      For each requirement, draft the response following this structure:
+      - Comply: State compliance clearly and unambiguously in the first sentence
+      - Explain: How we meet the requirement (specific, not generic)
+      - Differentiate: Why our approach is better (connected to win theme)
+      - Evidence: Specific proof point (reference, metric, case study)
+      If compliance is Partial or Roadmap: acknowledge the gap transparently,
+      state the mitigation or timeline, and pivot to strengths.
+      If compliance is No: state non-compliance, offer alternative approach
+      if available, be transparent.
+      Deliverable: Section draft (full text, organized by requirement).
+
+      STEP 3: SECTION SUMMARY
+      Draft a brief closing paragraph that:
+      - Reinforces the strongest differentiator in this section
+      - Connects back to the customer's stated priorities
+      - Transitions naturally to the next section (if known)
+      Deliverable: Section summary paragraph.
+
+      STEP 4: SECTION QUALITY CHECK
+      Score the section draft:
+      - Compliance clarity: is every compliance statement unambiguous? (0-10)
+      - Evidence density: does every claim cite evidence? (0-10)
+      - Win theme reinforcement: are themes visible? (0-10)
+      - Gap handling: are gaps addressed transparently? (0-10)
+      For each criterion:
+      - Score with justification
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Quality score table (Criterion | Score | Justification |
+      Confidence).
+
+      STEP 5: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Number of requirements addressed, compliance rate, and overall
+          confidence profile
+      (2) The weakest response: the requirement with lowest confidence or
+          biggest gap
+      (3) The single most urgent action: the evidence to secure or gap to
+          mitigate before submission
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Every compliance statement appears in the first sentence of its response
+      - Every claim has a cited evidence source
+      - Win themes explicitly connected, not just implied
+      - Gaps acknowledged transparently, not hidden
+      - Confidence levels stated for every requirement response
+      - Section summary reinforces strongest differentiator
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only compliance statements and key differentiators per requirement. Skip full draft and quality scoring.
+      - If run_mode is DISCOVERY: produce only the requirement-response mapping. Skip drafting.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
 # ============================================================================
 # TEAM ORCHESTRATION PROMPTS
@@ -237,128 +793,419 @@ orchestration:
 
   create_response_plan:
     name: "Create Response Plan"
-    description: "Plan RFP response with assignments and timeline"
+    description: "Plan RFP response with section ownership, milestone timeline, review checkpoints, and risk mitigation"
     prompt: |
       Context: Creating response plan for RFP.
       RFP: {rfp_title}
       Due date: {due_date}
       Sections: {sections_list}
       Available resources: {team_members}
+      Compliance matrix: {compliance_matrix}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = assignments + critical path only; DISCOVERY = resource and timeline assessment only. Default: FULL)
 
-      Action: Create response plan with:
-      - Section ownership assignments
-      - Timeline with milestones
-      - Review checkpoints
-      - Risk mitigation
+      You are creating the response plan that orchestrates the entire RFP effort.
+      Every assignment must consider expertise match and workload. Every milestone
+      must have a clear deliverable. Follow these steps in order.
 
-      Format:
-      RFP Response Plan: {rfp_title}
-      Due: {due_date}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Team Assignments:
-      | Section | Owner | Reviewer | Due |
-      |---------|-------|----------|-----|
-      | Executive Summary | RFP Agent | Senior Manager | {date} |
-      | Technical | SA Agent | RFP Agent | {date} |
-      | Security | InfoSec Agent | SA Agent | {date} |
-      | Commercial | AE Agent | Senior Manager | {date} |
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Timeline:
-      - {phase}: {dates} - {deliverables}
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      Review Checkpoints:
-      - {date}: {review type}
+      STEP 1: WORKLOAD ESTIMATION
+      Estimate effort for each section:
+      - Section name
+      - Requirement count
+      - Complexity: high / medium / low (based on compliance gaps and technical depth)
+      - Estimated person-hours
+      - Required expertise
+      - Confidence: HIGH (similar sections done before), MEDIUM (partially
+        familiar), LOW (new territory)
+      Deliverable: Workload table (Section | Req Count | Complexity | Hours |
+      Expertise | Confidence).
 
-      Risks:
-      - {risk}: {mitigation}
+      STEP 2: TEAM ASSIGNMENTS
+      Assign sections to team members based on expertise and capacity.
+      For each assignment:
+      - Section name
+      - Owner (primary author)
+      - Reviewer
+      - Due date for draft
+      - Due date for final
+      - Prerequisites: what must be complete before this section can start
+      - Confidence: HIGH (owner confirmed available), MEDIUM (availability
+        assumed), LOW (resource conflict possible)
+      If {team_members} is empty: state "No team roster provided. Assignments
+      are role-based placeholders." Mark all assignments Confidence: LOW.
+      Deliverable: Assignment table (Section | Owner | Reviewer | Draft Due |
+      Final Due | Prerequisites | Confidence).
 
-      Communication cadence:
-      - Daily standup: {time}
-      - Escalation path: {path}
+      STEP 3: MILESTONE TIMELINE
+      Create phased timeline working backward from due date:
+      - Phase name (Kickoff, Drafting, Review, Revision, Final Assembly, Submission)
+      - Start date and end date
+      - Key deliverables for each phase
+      - Dependencies between phases
+      - Buffer assessment: adequate / tight / none
+      Deliverable: Timeline table (Phase | Start | End | Deliverables |
+      Dependencies | Buffer).
+
+      STEP 4: REVIEW CHECKPOINTS
+      Define quality gates throughout the process:
+      - Checkpoint date
+      - Review type: content_review / compliance_check / executive_review /
+        final_qa
+      - Scope: which sections are reviewed
+      - Reviewers
+      - Prerequisites: what must be complete before this review
+      - Go/no-go criteria
+      Deliverable: Review checkpoints table (Date | Type | Scope | Reviewers |
+      Prerequisites | Go/No-Go Criteria).
+
+      STEP 5: RISK REGISTER
+      Identify risks to the response plan:
+      - Risk description
+      - Probability: high / medium / low
+      - Impact: high / medium / low
+      - Mitigation strategy
+      - Prerequisites for mitigation
+      - Owner
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Risk register table (Risk | Probability | Impact | Mitigation |
+      Prerequisites | Owner | Confidence).
+
+      STEP 6: COMMUNICATION PLAN
+      Define communication cadence:
+      - Daily standup time and format
+      - Escalation path with response time expectations
+      - Status reporting frequency and audience
+      - Collaboration tools and channels
+      Deliverable: Communication plan (Cadence | Format | Audience | Channel).
+
+      STEP 7: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Total sections, team size, and days to deadline with overall
+          confidence in the plan
+      (2) The weakest point: the section, resource, or timeline element with
+          lowest confidence
+      (3) The single most urgent action: the prerequisite to resolve or
+          resource to confirm first
+
+      STEP 8: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Response plan record to create
+      - Next actions to add
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Every section assigned an owner and reviewer
+      - Timeline works backward from due date with realistic buffers
+      - Every assignment includes prerequisites
+      - Risk register covers at least resource, timeline, and content risks
+      - Confidence levels stated for workload estimates and assignments
+      - Review checkpoints include go/no-go criteria
+      - Executive summary is self-sufficient
+      - Account state delta references specific evidence for each field change
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only assignments, critical path milestones, and top 3 risks. Skip detailed workload, communication plan, and review checkpoints.
+      - If run_mode is DISCOVERY: produce only workload estimation and resource assessment. Skip assignments and timeline.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
   kickoff_meeting_prep:
     name: "RFP Kickoff Meeting Prep"
-    description: "Prepare RFP kickoff meeting agenda"
+    description: "Prepare RFP kickoff meeting agenda with pre-reads, decision points, and structured discussion flow"
     prompt: |
       Context: Preparing RFP response kickoff meeting.
       RFP: {rfp_title}
       Bid decision: {bid_decision}
       Team: {team_members}
+      Win themes: {win_themes}
+      Response plan: {response_plan}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = agenda + key decisions only; DISCOVERY = meeting objectives and attendee list only. Default: FULL)
 
-      Action: Prepare kickoff agenda covering:
-      - RFP overview and analysis
-      - Win themes and strategy
-      - Assignments and timeline
-      - Questions and blockers
+      You are preparing a kickoff meeting that aligns the team on strategy,
+      assignments, and timeline. Every agenda item must have a clear objective
+      and expected outcome. Follow these steps in order.
 
-      Format:
-      RFP Kickoff: {rfp_title}
-      Date: {date}
-      Attendees: {attendees}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Agenda (60 min):
-      1. RFP Overview (10 min)
-         - Customer context
-         - Requirements summary
-         - Evaluation criteria
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      2. Win Strategy (15 min)
-         - Win themes
-         - Competitive positioning
-         - Key differentiators
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      3. Assignments (20 min)
-         - Section ownership
-         - Timeline review
-         - Dependencies
+      STEP 1: MEETING OBJECTIVES
+      Define what the meeting must accomplish:
+      - Primary objective (decision or alignment outcome)
+      - Secondary objectives (information sharing, risk identification)
+      - Success criteria: how to know the meeting achieved its goals
+      - Confidence: HIGH (all pre-work complete), MEDIUM (some pre-work pending),
+        LOW (significant preparation gaps)
+      Deliverable: Objectives table (Objective | Type | Success Criteria | Confidence).
 
-      4. Questions & Blockers (15 min)
-         - Open questions
-         - Resource needs
-         - Risk identification
+      STEP 2: ATTENDEE AND ROLE PLANNING
+      Define attendee list with roles:
+      - Attendee name or role
+      - Meeting role: presenter / decision_maker / contributor / observer
+      - Pre-read assignments (specific documents to review before meeting)
+      - Expected contribution during the meeting
+      - Prerequisites: what this person must have reviewed or prepared
+      If {team_members} is empty: state "No team roster provided. Attendee list
+      uses role placeholders." Mark Confidence: LOW.
+      Deliverable: Attendee table (Name/Role | Meeting Role | Pre-Reads |
+      Expected Contribution | Prerequisites).
 
-      Pre-read materials:
-      - {list of documents}
+      STEP 3: AGENDA DESIGN
+      Design the 60-minute agenda:
+      For each agenda item:
+      - Topic title
+      - Duration (minutes)
+      - Presenter/facilitator
+      - Objective: inform / discuss / decide
+      - Expected outcome
+      - Prerequisites: what must be true before this item can proceed
+
+      Agenda structure:
+      1. RFP Overview (10 min): customer context, requirements summary,
+         evaluation criteria
+      2. Win Strategy (15 min): win themes, competitive positioning,
+         key differentiators
+      3. Assignments (20 min): section ownership, timeline review,
+         dependencies
+      4. Questions and Blockers (15 min): open questions, resource needs,
+         risk identification
+
+      Deliverable: Agenda table (Item | Duration | Presenter | Objective |
+      Expected Outcome | Prerequisites).
+
+      STEP 4: PRE-READ PACKAGE
+      Compile the pre-read materials list:
+      - Document name
+      - Document type: analysis / strategy / plan / reference
+      - Required or optional reading
+      - Key takeaway the reader should extract
+      - Confidence: HIGH (document finalized), MEDIUM (draft), LOW (placeholder)
+      Deliverable: Pre-read table (Document | Type | Required/Optional |
+      Key Takeaway | Confidence).
+
+      STEP 5: DECISION LOG TEMPLATE
+      Prepare a decision log template for the meeting:
+      - Decision point
+      - Options considered
+      - Decision made
+      - Owner for follow-up
+      - Deadline
+      Deliverable: Decision log template (Decision Point | Options | Decision |
+      Owner | Deadline).
+
+      STEP 6: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Meeting objective, attendee count, and readiness confidence
+      (2) The weakest preparation element: the pre-read or input most likely
+          to be incomplete
+      (3) The single most urgent action before the meeting
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Every agenda item has a clear objective and expected outcome
+      - Pre-read assignments are specific, not vague
+      - Attendee roles defined with expected contributions
+      - Prerequisites stated for each agenda item
+      - Decision points identified in advance
+      - Confidence levels stated for objectives and pre-reads
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the agenda and key decision points. Skip attendee planning, pre-read package, and decision log template.
+      - If run_mode is DISCOVERY: produce only meeting objectives and attendee list. Skip agenda and materials.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
   progress_tracking:
     name: "RFP Progress Tracking"
-    description: "Track RFP response progress and risks"
+    description: "Track RFP response progress against plan, identify at-risk sections, surface blockers, and define escalation actions"
     prompt: |
       Context: Tracking progress on RFP response.
       RFP: {rfp_title}
       Due: {due_date}
       Days remaining: {days}
       Section status: {status_by_section}
+      Response plan: {response_plan}
+      Previous progress report: {previous_report}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = status + blockers + escalations only; DISCOVERY = section inventory with status assessment. Default: FULL)
 
-      Action: Assess progress and identify risks:
-      - Overall completion status
-      - Sections at risk
-      - Blockers to resolve
-      - Actions needed
+      You are producing a progress report that enables immediate action on risks
+      and blockers. Every status must be evidence-based. Trend claims require
+      comparison against previous reports. Follow these steps in order.
 
-      Format:
-      RFP Progress Report: {rfp_title}
-      Days to deadline: {days}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Overall Status: {GREEN/YELLOW/RED}
-      Completion: {%}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Section Status:
-      | Section | Status | Owner | Notes |
-      |---------|--------|-------|-------|
-      | {section} | {complete/in_progress/at_risk/blocked} | {owner} | {notes} |
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      At Risk:
-      - {section}: {why at risk}
+      STEP 1: OVERALL STATUS ASSESSMENT
+      Determine overall response status:
+      - Overall status: GREEN / YELLOW / RED
+      - Completion percentage (sections complete / total sections)
+      - Days remaining vs. estimated days of work remaining
+      - On-track assessment: ahead / on_track / behind / at_risk
+      - Confidence: HIGH (all section statuses reported), MEDIUM (some statuses
+        estimated), LOW (significant reporting gaps)
+      Deliverable: Overall status (Status | Completion % | Days Remaining |
+      Work Remaining | Assessment | Confidence).
 
-      Blockers:
-      - {blocker}: Owner: {who} | Action: {what}
+      STEP 2: SECTION-LEVEL STATUS
+      For each section in the response:
+      - Section name
+      - Owner
+      - Status: complete / in_progress / at_risk / blocked / not_started
+      - Completion percentage
+      - Notes on current state
+      - Confidence: HIGH (status directly reported by owner), MEDIUM (inferred
+        from deliverable state), LOW (no recent update from owner)
+      Deliverable: Section status table (Section | Owner | Status | Completion % |
+      Notes | Confidence).
 
-      Actions for next 24 hours:
-      - {action 1}
+      STEP 3: TREND ANALYSIS
+      Compare current status against previous report (if available).
+      For each section:
+      - Previous status vs. current status
+      - Movement: improved / unchanged / degraded
+      - Rate of progress: ahead_of_plan / on_plan / behind_plan
+      If {previous_report} is empty or this is the first report: state
+      "INSUFFICIENT DATA FOR TREND. First progress report, no baseline for
+      comparison. Trends will be available in next report."
+      Do not fabricate progress trends from a single data point.
+      Deliverable: Trend table (Section | Previous Status | Current Status |
+      Movement | Rate) or trend deferral statement.
 
-      Escalations needed:
-      - {if any}
+      STEP 4: BLOCKER IDENTIFICATION
+      Identify all active blockers:
+      - Blocker description
+      - Affected section(s)
+      - Owner responsible for resolution
+      - Action required
+      - Prerequisites for action
+      - Impact if unresolved: timeline_slip / quality_reduction / scope_reduction
+      - Urgency: immediate / within_24h / within_48h
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If no blockers exist: state "No active blockers identified."
+      Deliverable: Blocker table (Blocker | Sections Affected | Owner | Action |
+      Prerequisites | Impact | Urgency | Confidence).
+
+      STEP 5: AT-RISK SECTIONS
+      For sections with status at_risk or blocked:
+      - Why at risk (specific cause)
+      - Recovery action required
+      - Recovery owner
+      - Recovery deadline
+      - Probability of recovery: high / medium / low
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If no sections at risk: state "No sections currently at risk."
+      Deliverable: At-risk table (Section | Cause | Recovery Action | Owner |
+      Deadline | Recovery Probability | Confidence).
+
+      STEP 6: ESCALATION REGISTER
+      Identify items requiring management escalation:
+      - Escalation description
+      - Reason for escalation
+      - Decision or action needed
+      - Recommended decision
+      - Prerequisites for resolution
+      - Deadline for resolution
+      If no escalations needed: state "No escalations required at this time."
+      Deliverable: Escalation table (Description | Reason | Action Needed |
+      Recommendation | Prerequisites | Deadline).
+
+      STEP 7: NEXT 24-HOUR ACTIONS
+      List specific actions for the next 24 hours:
+      - Action description
+      - Owner
+      - Prerequisites
+      - Expected outcome
+      - Priority: critical / high / medium
+      Deliverable: Action table (Action | Owner | Prerequisites | Expected Outcome |
+      Priority).
+
+      STEP 8: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Overall status (GREEN/YELLOW/RED), completion percentage, and days
+          remaining with confidence level
+      (2) The weakest point: the section or resource most at risk
+      (3) The single most urgent action for the next 24 hours
+
+      STEP 9: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Progress record to update
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Every section has a reported status with confidence level
+      - Trend claims backed by previous report data or explicitly marked insufficient
+      - Blockers include prerequisites and urgency classification
+      - At-risk sections include recovery probability
+      - Escalations include recommended decisions
+      - Next 24-hour actions are specific and owner-assigned
+      - Executive summary is self-sufficient
+      - Account state delta references specific evidence for each field change
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only overall status, blockers, and escalations. Skip section detail, trends, and 24-hour action plan.
+      - If run_mode is DISCOVERY: produce only section inventory with status assessment. Skip trend analysis and action planning.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
 # ============================================================================
 # QUALITY ASSURANCE PROMPTS
@@ -367,123 +1214,388 @@ quality:
 
   compliance_review:
     name: "Compliance Review"
-    description: "Review response for requirement compliance"
+    description: "Review completed response for requirement compliance, verify all mandatory requirements are addressed with evidence, and identify gaps before submission"
     prompt: |
       Context: Reviewing RFP response for compliance.
       RFP: {rfp_title}
       Response: {response_sections}
       Requirements: {requirements_list}
+      Compliance matrix: {compliance_matrix}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = compliance score + issues only; DISCOVERY = requirement checklist with empty verification. Default: FULL)
 
-      Action: Verify compliance:
-      - All mandatory requirements addressed
-      - Compliance statements clear
-      - No TBDs in final response
-      - Evidence cited for claims
+      You are performing a compliance review to verify that every mandatory
+      requirement has been addressed in the response. This is a verification
+      activity, not a drafting activity. Every finding must cite the specific
+      requirement and response section. Follow these steps in order.
 
-      Format:
-      Compliance Review: {rfp_title}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Mandatory Requirements:
-      | Req ID | Addressed | Compliant | Notes |
-      |--------|-----------|-----------|-------|
-      | {id} | YES/NO | YES/PARTIAL/NO | {notes} |
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Issues Found:
-      - {issue 1}
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      Missing Responses:
-      - {requirement not addressed}
+      STEP 1: REQUIREMENT VERIFICATION
+      For each requirement in the requirements list:
+      - Requirement ID and text
+      - Priority: mandatory / optional
+      - Addressed in response: YES / NO (cite section)
+      - Compliance statement present: YES / NO
+      - Compliance level: compliant / partially_compliant / non_compliant /
+        not_addressed
+        Assign primary classification. Add secondary flags where compliance
+        is conditional or time-bound.
+      - Evidence cited: YES / NO (what evidence supports the claim)
+      - Confidence: HIGH (clear compliance statement with evidence), MEDIUM
+        (compliance implied but not explicit), LOW (unclear or missing)
+      Deliverable: Verification table (Req ID | Requirement | Priority |
+      Addressed | Section | Compliance Level | Secondary Flags | Evidence |
+      Confidence).
 
-      Compliance Score: {x}/{total} mandatory requirements met
+      STEP 2: ISSUE IDENTIFICATION
+      Identify all compliance issues:
+      - Issue description
+      - Severity: critical (mandatory requirement unaddressed) / major
+        (compliance claim without evidence) / minor (optional requirement gap)
+      - Affected requirement ID
+      - Affected response section
+      - Recommended fix
+      - Prerequisites for fix: who needs to provide information or approval
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If no issues found: state "No compliance issues identified. Response
+      addresses all mandatory requirements with evidence."
+      Deliverable: Issues table (Issue | Severity | Req ID | Section |
+      Recommended Fix | Prerequisites | Confidence).
 
-      Recommendation:
-      - {APPROVE / REVISE with specific changes needed}
+      STEP 3: COMPLETENESS CHECK
+      Verify response completeness:
+      - All sections present per RFP structure
+      - No TBD or placeholder text remaining
+      - All cross-references valid
+      - Attachments referenced are included
+      For each finding:
+      - Finding description
+      - Location in response
+      - Severity: critical / major / minor
+      Deliverable: Completeness check table (Finding | Location | Severity).
+
+      STEP 4: COMPLIANCE SCORE
+      Calculate overall compliance:
+      - Mandatory requirements met: count and percentage
+      - Optional requirements met: count and percentage
+      - Total compliance score
+      - Confidence: HIGH (all verifications direct), MEDIUM (some inferred),
+        LOW (significant gaps in verification data)
+      Deliverable: Compliance score (Mandatory Met | Mandatory % | Optional Met |
+      Optional % | Total Score | Confidence).
+
+      STEP 5: RECOMMENDATION
+      Produce recommendation:
+      - APPROVE: all mandatory requirements met, no critical issues
+      - REVISE: specific changes needed (list each change with owner and deadline)
+      - REJECT: fundamental gaps that cannot be addressed in time
+      For REVISE: each change must include prerequisites and estimated effort.
+      Deliverable: Recommendation with action table (Change | Owner | Prerequisites |
+      Effort | Deadline) if applicable.
+
+      STEP 6: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Compliance score for mandatory requirements and overall confidence
+      (2) The weakest compliance area: the requirement or section with biggest gap
+      (3) The single most urgent action: the fix to apply first for maximum
+          compliance improvement
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Every mandatory requirement has a verification entry
+      - Issues include severity and recommended fixes with prerequisites
+      - No compliance claim accepted without cited evidence
+      - Confidence levels stated for every verification
+      - Completeness check covers all structural elements
+      - Recommendation includes specific actions if REVISE
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only compliance score and critical/major issues. Skip detailed verification and completeness check.
+      - If run_mode is DISCOVERY: produce only requirement checklist with empty verification. Skip actual review.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
   quality_review:
     name: "Response Quality Review"
-    description: "Review response for quality and impact"
+    description: "Review response for quality, impact, win theme visibility, proof density, and language effectiveness"
     prompt: |
       Context: Quality review of RFP response.
+      RFP: {rfp_title}
       Response: {response_sections}
       Win themes: {win_themes}
+      Evaluation criteria: {evaluation_criteria}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = quality score + top 3 improvements only; DISCOVERY = quality criteria checklist only. Default: FULL)
 
-      Action: Review response quality:
-      - Answers address actual questions
-      - Win themes visible, not buried
-      - Proof points cited (not just claims)
-      - Consistent voice and terminology
-      - No jargon or vague statements
+      You are reviewing the response for quality and persuasive impact. This review
+      focuses on whether the response will score well against evaluation criteria,
+      not just whether it is compliant. Every finding must be specific and actionable.
+      Follow these steps in order.
 
-      Format:
-      Quality Review: {rfp_title}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Overall Quality: {score}/10
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Strengths:
-      - {what's working well}
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      Improvement Areas:
-      - {section}: {issue} - {recommendation}
+      STEP 1: ANSWER QUALITY ASSESSMENT
+      For each response section, assess whether answers address the actual questions:
+      - Section name
+      - Question alignment: does the answer address what was asked? (0-10)
+      - Specificity: does it use specific examples, not generic language? (0-10)
+      - Customer focus: is it about their needs or our features? (0-10)
+      - Confidence: HIGH (clear assessment), MEDIUM (partially assessed),
+        LOW (insufficient response text to assess)
+      Deliverable: Answer quality table (Section | Question Alignment | Specificity |
+      Customer Focus | Confidence).
 
-      Win Theme Visibility:
-      - Theme 1: {visible/buried/missing}
+      STEP 2: WIN THEME VISIBILITY AUDIT
+      For each win theme, trace its presence through the response:
+      - Theme name
+      - Visibility: visible (explicitly stated and reinforced) / buried
+        (present but not prominent) / missing (not found in response)
+      - Sections where it appears
+      - Strength of reinforcement: strong / moderate / weak
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Win theme audit table (Theme | Visibility | Sections |
+      Reinforcement Strength | Confidence).
 
-      Language Issues:
-      - {vague statement}: {suggested revision}
+      STEP 3: PROOF DENSITY ANALYSIS
+      Assess the ratio of evidence to claims across the response:
+      - Total claims made (count)
+      - Claims with cited evidence (count and percentage)
+      - Claims without evidence (list each with section location)
+      - Evidence types used: case_study / metric / reference / certification /
+        testimonial
+      - Confidence: HIGH (all claims verified), MEDIUM (sampling-based),
+        LOW (partial review only)
+      Deliverable: Proof density table (Total Claims | With Evidence | Without
+      Evidence | Evidence Types | Confidence) + list of unsupported claims.
 
-      Formatting:
-      - {any formatting issues}
+      STEP 4: LANGUAGE EFFECTIVENESS REVIEW
+      Review language quality:
+      - Jargon instances (list each with suggested plain language replacement)
+      - Vague statements (list each with suggested specific revision)
+      - Inconsistent terminology (list instances)
+      - Voice consistency: consistent / inconsistent (note shifts)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Language review table (Issue Type | Instance | Location |
+      Recommendation | Confidence).
 
-      Recommendation:
-      - {APPROVE / MINOR REVISIONS / MAJOR REVISIONS}
+      STEP 5: FORMATTING REVIEW
+      Check formatting quality:
+      - Visual consistency across sections
+      - Heading hierarchy correctness
+      - Table and figure formatting
+      - Page count compliance
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If no formatting issues: state "Formatting meets requirements."
+      Deliverable: Formatting review table (Issue | Location | Recommendation).
+
+      STEP 6: OVERALL QUALITY SCORE
+      Produce overall quality assessment:
+      - Overall quality score (0-10)
+      - Score breakdown by dimension
+      - Recommendation: APPROVE / MINOR REVISIONS / MAJOR REVISIONS
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      For each dimension score:
+      - Justification
+      - Confidence with basis
+      Deliverable: Quality score table (Dimension | Score | Justification |
+      Confidence) + Overall Score + Recommendation.
+
+      STEP 7: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Overall quality score, recommendation, and confidence level
+      (2) The weakest quality dimension and its impact on evaluation scoring
+      (3) The single most impactful improvement to make before submission
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Every section assessed for answer quality
+      - Win themes traced through response, not just checked at surface level
+      - Unsupported claims specifically listed with locations
+      - Language issues include specific revision suggestions
+      - Confidence levels stated for every assessment
+      - Overall recommendation matches the evidence (not inflated or deflated)
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only overall quality score and top 3 improvement recommendations. Skip detailed section assessments.
+      - If run_mode is DISCOVERY: produce only quality criteria checklist with empty assessments. Skip actual review.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
   pre_submission_checklist:
     name: "Pre-Submission Checklist"
-    description: "Final checklist before RFP submission"
+    description: "Final verification checklist before RFP submission covering content completeness, approvals, formatting, and submission logistics"
     prompt: |
       Context: Final review before RFP submission.
       RFP: {rfp_title}
       Response package: {response_files}
       Submission method: {method}
-
-      Action: Complete final checklist:
-      - All sections complete
-      - Formatting requirements met
-      - Attachments included
-      - Pricing approved
-      - Executive summary reviewed
-
-      Format:
-      Pre-Submission Checklist: {rfp_title}
       Submission deadline: {deadline}
+      Compliance review: {compliance_review_result}
+      Quality review: {quality_review_result}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = blockers only; DISCOVERY = checklist template only. Default: FULL)
 
-      Content Completeness:
-      - [ ] All mandatory requirements addressed
-      - [ ] All sections complete
-      - [ ] No TBD or placeholder text
-      - [ ] Executive summary finalized
+      You are performing the final pre-submission check. This is the last gate
+      before the response leaves. Every item must be verified, not assumed.
+      Follow these steps in order.
 
-      Approvals:
-      - [ ] Executive summary: {approver}
-      - [ ] Pricing: {approver}
-      - [ ] Legal terms: {approver}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Formatting:
-      - [ ] Page limits met
-      - [ ] Font/format requirements
-      - [ ] Attachment naming conventions
-      - [ ] File size limits
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Submission Package:
-      - [ ] {file 1}
-      - [ ] {file 2}
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      Submission:
-      - [ ] Method: {method}
-      - [ ] Confirmation receipt planned
+      STEP 1: CONTENT COMPLETENESS VERIFICATION
+      Verify all content elements:
+      For each check item:
+      - Check description
+      - Status: PASS / FAIL / NOT_APPLICABLE
+      - Evidence of verification
+      - Confidence: HIGH (directly verified), MEDIUM (spot-checked),
+        LOW (assumed based on prior reviews)
+      Items to verify:
+      - All mandatory requirements addressed
+      - All sections complete
+      - No TBD or placeholder text
+      - Executive summary finalized
+      - All cross-references valid
+      - All figures and tables numbered and referenced
+      Deliverable: Content checklist table (Check | Status | Evidence | Confidence).
 
-      Status: READY TO SUBMIT / BLOCKERS EXIST
-      Blockers: {if any}
+      STEP 2: APPROVAL VERIFICATION
+      Verify all required approvals:
+      For each approval:
+      - Approval type: executive_summary / pricing / legal_terms / technical
+      - Approver name or role
+      - Status: APPROVED / PENDING / NOT_SUBMITTED
+      - Date approved (if applicable)
+      - Prerequisites: what must happen before approval can be granted
+      - Confidence: HIGH (written approval on record), MEDIUM (verbal approval),
+        LOW (approval assumed)
+      Deliverable: Approval table (Type | Approver | Status | Date | Prerequisites |
+      Confidence).
+
+      STEP 3: FORMATTING VERIFICATION
+      Verify all formatting requirements from the RFP:
+      For each requirement:
+      - Formatting requirement
+      - Status: COMPLIANT / NON_COMPLIANT / NOT_SPECIFIED
+      - Evidence
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Items to verify:
+      - Page limits met
+      - Font and format requirements
+      - Attachment naming conventions
+      - File size limits
+      - Required forms included
+      Deliverable: Formatting checklist table (Requirement | Status | Evidence |
+      Confidence).
+
+      STEP 4: SUBMISSION PACKAGE VERIFICATION
+      Verify the complete submission package:
+      For each file:
+      - File name
+      - File type and size
+      - Included: YES / NO
+      - Verified: YES / NO (opened and spot-checked)
+      - Confidence: HIGH (file opened and verified), MEDIUM (file exists but
+        not opened), LOW (file existence assumed)
+      Deliverable: Package table (File | Type | Size | Included | Verified |
+      Confidence).
+
+      STEP 5: SUBMISSION LOGISTICS
+      Verify submission method and logistics:
+      - Submission method: portal / email / physical / other
+      - Portal access verified: YES / NO / NOT_APPLICABLE
+      - Upload tested: YES / NO / NOT_APPLICABLE
+      - Confirmation receipt mechanism
+      - Backup submission method (if primary fails)
+      - Prerequisites: what must be done before submission (final conversion,
+        signing, etc.)
+      - Time buffer before deadline
+      Deliverable: Submission logistics table (Item | Status | Backup Plan |
+      Prerequisites).
+
+      STEP 6: SUBMISSION DECISION
+      Produce final submission decision:
+      - Status: READY TO SUBMIT / BLOCKERS EXIST
+      - If blockers exist: list each blocker with owner, action, and deadline
+      - Submission time target (with buffer before deadline)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Submission decision (Status | Blockers table if applicable |
+      Target Time | Confidence).
+
+      STEP 7: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Submission readiness status and confidence level
+      (2) The weakest verification area: the check with lowest confidence or
+          pending status
+      (3) The single most urgent action before submission
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Every checklist item has a verification status, not just a checkbox
+      - Approvals verified with confidence levels (written > verbal > assumed)
+      - Submission logistics include backup plan
+      - Blockers (if any) have owners and deadlines
+      - Confidence levels stated for every verification
+      - Executive summary is self-sufficient
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only blockers and submission decision. Skip detailed checklists.
+      - If run_mode is DISCOVERY: produce only checklist template with empty verifications. Skip actual checks.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
 # ============================================================================
 # POST-SUBMISSION PROMPTS
@@ -492,83 +1604,304 @@ post_submission:
 
   submission_confirmation:
     name: "Submission Confirmation"
-    description: "Document successful RFP submission"
+    description: "Document successful RFP submission with confirmation details, team roster, and follow-up plan"
     prompt: |
       Context: RFP response submitted.
       RFP: {rfp_title}
       Customer: {customer_name}
       Submission date: {date}
+      Submission method: {submission_method}
+      Confirmation: {confirmation_receipt}
+      Response team: {team_roster}
+      Win themes: {win_themes}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = confirmation record + next steps only; DISCOVERY = follow-up plan template only. Default: FULL)
 
-      Action: Document submission and plan follow-up.
+      You are documenting a successful submission and planning follow-up activities.
+      This record becomes the baseline for post-submission tracking. Follow these
+      steps in order.
 
-      Format:
-      Submission Confirmation
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      RFP: {rfp_title}
-      Customer: {customer_name}
-      Submitted: {date} {time}
-      Method: {submission_method}
-      Confirmation: {receipt/reference number}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Response Team:
-      - {role}: {name}
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      Key Win Themes:
-      - {theme 1}
+      STEP 1: SUBMISSION RECORD
+      Document the submission details:
+      - RFP title
+      - Customer name
+      - Submission date and time
+      - Submission method
+      - Confirmation receipt or reference number
+      - Files submitted (list)
+      - Confidence: HIGH (confirmation receipt received), MEDIUM (submission
+        completed but no confirmation yet), LOW (submission status uncertain)
+      If {confirmation_receipt} is empty: state "No confirmation receipt received.
+      Follow up with customer to verify receipt." Mark Confidence: LOW.
+      Deliverable: Submission record table (Field | Value | Confidence).
 
-      Next Steps:
-      - Expected evaluation timeline: {timeline}
-      - Presentation/demo date: {if known}
-      - Follow-up actions: {actions}
+      STEP 2: RESPONSE TEAM RECORD
+      Document the team that contributed:
+      - Team member name or role
+      - Contribution (sections owned, reviews performed)
+      - Performance note (for future RFP team selection)
+      Deliverable: Team record table (Name/Role | Contribution | Performance Note).
 
-      Lessons Learned (preliminary):
-      - What worked: {observation}
-      - Improve next time: {observation}
+      STEP 3: KEY THEMES AND POSITIONING RECORD
+      Summarize the win themes and positioning used:
+      - Theme name and core message
+      - Primary differentiator claimed
+      - Key proof points cited
+      This record enables win/loss analysis later.
+      Deliverable: Themes record table (Theme | Message | Differentiator |
+      Proof Points).
+
+      STEP 4: FOLLOW-UP PLAN
+      Define post-submission follow-up:
+      For each follow-up action:
+      - Action description
+      - Owner
+      - Target date
+      - Prerequisites: what must happen before this action
+      - Expected outcome
+      Actions to plan:
+      - Submission receipt confirmation
+      - Evaluation timeline inquiry
+      - Presentation or demo preparation (if applicable)
+      - Reference preparation
+      - Relationship touchpoints
+      Deliverable: Follow-up plan table (Action | Owner | Target Date |
+      Prerequisites | Expected Outcome).
+
+      STEP 5: PRELIMINARY LESSONS LEARNED
+      Capture initial observations while fresh:
+      - What worked well in the process
+      - What should improve next time
+      - Resource or tool gaps identified
+      - Timeline adequacy assessment
+      - Confidence: HIGH (team feedback collected), MEDIUM (personal observation),
+        LOW (single perspective)
+      Deliverable: Lessons learned table (Category | Observation | Recommendation |
+      Confidence).
+
+      STEP 6: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Submission confirmed (or pending) with confidence level
+      (2) The most important follow-up action and its timeline
+      (3) The single most valuable process improvement identified
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - RFP status update (active -> submitted)
+      - Next actions to add
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Submission record includes confirmation status with confidence
+      - Follow-up actions include prerequisites and owners
+      - Lessons learned are specific observations, not generic statements
+      - Win themes recorded for future win/loss comparison
+      - Confidence levels stated for submission status and lessons learned
+      - Executive summary is self-sufficient
+      - Account state delta references specific evidence for each field change
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only submission record and follow-up plan. Skip team record, themes record, and lessons learned.
+      - If run_mode is DISCOVERY: produce only follow-up plan template with empty actions. Skip documentation.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
   win_loss_analysis:
     name: "Win/Loss Analysis"
-    description: "Analyze RFP outcome for learnings"
+    description: "Analyze RFP outcome to extract actionable learnings, competitive insights, and process improvements for future bids"
     prompt: |
       Context: RFP outcome received.
       RFP: {rfp_title}
-      Outcome: {WIN/LOSS}
-      Feedback: {customer_feedback}
+      Customer: {customer_name}
+      Outcome: {outcome} (WIN / LOSS)
+      Customer feedback: {customer_feedback}
+      Our bid assessment scores: {bid_scores}
+      Win themes used: {win_themes}
+      Historical outcomes: {historical_outcomes}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = key findings + top 3 actions only; DISCOVERY = analysis framework only. Default: FULL)
 
-      Action: Analyze outcome for learnings:
-      - What drove the decision?
-      - What did we do well?
-      - What could we improve?
-      - What patterns do we see?
+      You are analyzing an RFP outcome to extract learnings that improve future
+      bid decisions and response quality. Every conclusion must be evidence-based.
+      Trend claims require multiple data points. Follow these steps in order.
 
-      Format:
-      Win/Loss Analysis: {rfp_title}
-      Outcome: {WIN/LOSS}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Customer Feedback:
-      - {key feedback points}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      What Drove the Decision:
-      - {primary factors}
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      Our Performance:
-      Strengths:
-      - {what we did well}
+      STEP 1: OUTCOME DOCUMENTATION
+      Record the outcome details:
+      - RFP title and customer
+      - Outcome: WIN / LOSS
+      - Date outcome received
+      - Customer feedback (verbatim if available)
+      - Our bid assessment weighted score
+      - Confidence: HIGH (formal feedback received), MEDIUM (informal feedback),
+        LOW (no feedback, outcome only)
+      If {customer_feedback} is empty: state "No customer feedback received.
+      Analysis based on internal assessment only." Mark all customer-derived
+      conclusions as Confidence: LOW.
+      Deliverable: Outcome record (Field | Value | Confidence).
 
-      Improvement Areas:
-      - {where we fell short}
+      STEP 2: DECISION DRIVER ANALYSIS
+      Identify what drove the customer's decision:
+      For each driver:
+      - Driver description
+      - Category (primary): price / capability / relationship / risk /
+        references / timeline / innovation
+        Add secondary flags where multiple categories apply.
+      - Impact: primary_driver / contributing_factor / non_factor
+      - Evidence source: customer feedback / evaluation score / inference
+      - Confidence: HIGH (customer explicitly stated), MEDIUM (inferred from
+        feedback), LOW (speculation)
+      Deliverable: Decision drivers table (Driver | Category | Secondary Flags |
+      Impact | Evidence Source | Confidence).
 
-      Competitive Analysis:
-      - Winner (if loss): {competitor}
-      - Their advantage: {what they did better}
+      STEP 3: BID ASSESSMENT ACCURACY
+      Compare our pre-bid assessment scores against actual outcome:
+      - Category scored (strategic fit, competitive position, solution fit,
+        resource availability, commercial viability)
+      - Our predicted score
+      - Actual performance indicator (from feedback)
+      - Accuracy: accurate / over_estimated / under_estimated
+      - Confidence: HIGH (direct feedback on this dimension), MEDIUM (inferred),
+        LOW (no data for this dimension)
+      Deliverable: Assessment accuracy table (Category | Predicted Score |
+      Actual Indicator | Accuracy | Confidence).
 
-      Learnings for Future:
-      - {actionable learning 1}
+      STEP 4: WIN THEME EFFECTIVENESS
+      Assess how each win theme performed:
+      - Theme name
+      - Effectiveness: effective (resonated with customer) / neutral (not
+        mentioned) / ineffective (did not land or backfired)
+      - Evidence from customer feedback
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Theme effectiveness table (Theme | Effectiveness | Evidence |
+      Confidence).
 
-      Process Improvements:
-      - {process change to make}
+      STEP 5: COMPETITIVE ANALYSIS
+      Analyze competitive dynamics:
+      - Winner (if loss): competitor name
+      - Their perceived advantages (from feedback)
+      - Our perceived disadvantages (from feedback)
+      - Competitive positioning accuracy: our pre-bid positioning vs. actual
+      - Confidence: HIGH (customer named competitor and reasons), MEDIUM
+        (competitor inferred), LOW (no competitive information)
+      If outcome is WIN: analyze what we did better than competitors.
+      If competitor information is unavailable: state "No competitive information
+      available. Cannot assess competitive dynamics." Mark Confidence: LOW.
+      Deliverable: Competitive analysis table (Dimension | Our Position |
+      Competitor Position | Gap | Confidence).
 
-      Apply to Active RFPs:
-      - {specific application}
+      STEP 6: TREND ANALYSIS
+      Compare this outcome against historical data:
+      - Win rate for similar deal sizes
+      - Win rate for this customer segment
+      - Win rate for similar competitive situations
+      - Pattern identification (recurring strengths and weaknesses)
+      If {historical_outcomes} is empty or contains fewer than 2 comparable
+      outcomes: state "INSUFFICIENT DATA FOR TREND. Single outcome cannot
+      establish pattern. Trends will be available after 2+ comparable outcomes."
+      Do not fabricate trends from a single data point.
+      Deliverable: Trend analysis table (Metric | This Deal | Historical Average |
+      Data Points | Trend Conclusion) or trend deferral statement.
+
+      STEP 7: ACTIONABLE LEARNINGS
+      Extract specific, actionable learnings:
+      For each learning:
+      - Learning description
+      - Category: bid_decision / response_quality / competitive_positioning /
+        process / team / pricing
+      - Action to take
+      - Prerequisites for action
+      - Apply to which active or future RFPs
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Learnings table (Learning | Category | Action | Prerequisites |
+      Apply To | Confidence).
+
+      STEP 8: PROCESS IMPROVEMENTS
+      Identify RFP process improvements:
+      For each improvement:
+      - Process area
+      - Current state
+      - Recommended change
+      - Expected impact
+      - Prerequisites for implementation
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Process improvements table (Area | Current | Recommended |
+      Impact | Prerequisites | Confidence).
+
+      STEP 9: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Outcome (WIN/LOSS), the primary decision driver, and overall
+          confidence in the analysis
+      (2) The weakest point: the area where our assessment was most inaccurate
+          or our response least effective
+      (3) The single most urgent action to apply to active or upcoming RFPs
+
+      STEP 10: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - RFP outcome record to create
+      - Win/loss learnings to register
+      - Next actions to add
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Every decision driver cites an evidence source
+      - Confidence levels stated for every finding
+      - Bid assessment accuracy compared pre-bid scores to actual indicators
+      - Win theme effectiveness traced to customer feedback where available
+      - Trend claims backed by 2+ data points or explicitly marked insufficient
+      - Learnings are specific and actionable, not generic observations
+      - Process improvements include prerequisites for implementation
+      - Executive summary is self-sufficient
+      - Account state delta references specific evidence for each field change
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only executive summary, key decision drivers, and top 3 actionable learnings. Skip detailed analysis.
+      - If run_mode is DISCOVERY: produce only the analysis framework with empty assessments. Skip actual analysis.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
 # ============================================================================
 # PRODUCT GAP REGISTER PROMPTS
@@ -577,72 +1910,389 @@ product_gap_register:
 
   extract_capability_gaps:
     name: "Extract Capability Gaps from Compliance Matrix"
-    description: "Identify requirements with no match or partial match from a completed compliance matrix"
+    description: "Identify requirements with no match or partial match from a completed compliance matrix, classify by category, and prepare structured entries for the product gap register"
     prompt: |
       Context: Compliance matrix completed for RFP: {rfp_title}
       Deal value: {deal_value}
+      Compliance matrix: {compliance_matrix}
+      Existing gap register: {existing_gaps}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = critical gaps + gap count only; DISCOVERY = gap categories only. Default: FULL)
 
-      Review the compliance matrix and extract all requirements where match_status is
-      'none' (we have no capability) or 'partial' (we have limited or conditional coverage).
+      You are extracting capability gaps from a completed compliance matrix to feed
+      the product gap register. Every gap must be traced to a specific requirement
+      and classified for product management prioritization. Follow these steps
+      in order.
 
-      For each gap, produce a structured entry:
-      - requirement_text: verbatim requirement from RFP
-      - category: classify as one of [integration, security, compliance, performance, analytics,
-          reporting, administration, mobile, api, pricing, localization, support, other]
-      - match_status: none | partial
-      - partial_notes: what we do cover if partial (omit if none)
-      - deal_value: {deal_value}
-      - rfp_id: {rfp_title}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Output a list of gap entries ready for writing to the product gap register.
-      Do not include requirements where we have full coverage.
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
+
+      STEP 1: GAP EXTRACTION
+      Review the compliance matrix and extract all requirements where match_status
+      is "none" (no capability) or "partial" (limited or conditional coverage).
+      For each gap:
+      - Requirement text (verbatim from RFP)
+      - Requirement ID from compliance matrix
+      - Match status: none / partial
+      - Partial notes (what we do cover, if partial; omit if none)
+      - Category (primary): integration / security / compliance / performance /
+        analytics / reporting / administration / mobile / api / pricing /
+        localization / support / other
+        Add secondary flags where a gap spans multiple categories.
+      - Priority indicator from RFP: mandatory / optional
+      - Confidence: HIGH (clear gap from compliance matrix), MEDIUM (gap
+        interpretation required), LOW (borderline assessment)
+      If no gaps found: state "No capability gaps identified. Full compliance
+      achieved." End runbook.
+      Deliverable: Gap extraction table (Req ID | Requirement Text | Match Status |
+      Partial Notes | Category | Secondary Flags | Priority | Confidence).
+
+      STEP 2: DEDUPLICATION CHECK
+      Compare extracted gaps against {existing_gaps} in the register:
+      For each extracted gap:
+      - Duplicate status: new / duplicate / related
+      - If duplicate or related: cite the existing gap entry ID
+      - Frequency hint: first_occurrence / recurring
+      - Confidence: HIGH (exact match found), MEDIUM (similar but not identical),
+        LOW (uncertain match)
+      If {existing_gaps} is empty: state "No existing gap register available.
+      All gaps treated as new entries." Mark all as first_occurrence.
+      Deliverable: Deduplication table (Req ID | Gap Summary | Duplicate Status |
+      Existing Entry | Frequency | Confidence).
+
+      STEP 3: GAP ENTRY PREPARATION
+      Prepare structured entries for the product gap register:
+      For each new or updated gap:
+      - Requirement text
+      - Category tag (deduplicated)
+      - Deal value (as priority weight signal)
+      - RFP ID
+      - Frequency hint: new / recurring
+      - Impact assessment: blocking (deal cannot proceed without this) /
+        weakening (reduces competitive position) / cosmetic (minor gap)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Gap entries table (Requirement | Category | Deal Value |
+      RFP ID | Frequency | Impact | Confidence).
+
+      STEP 4: GAP SUMMARY
+      Produce summary statistics:
+      - Total gaps extracted
+      - By match status: none count, partial count
+      - By category: count per category
+      - By impact: blocking count, weakening count, cosmetic count
+      - Total deal value at risk
+      - Confidence: HIGH / MEDIUM / LOW for the overall extraction
+      Deliverable: Gap summary table (Dimension | Count | Percentage | Confidence).
+
+      STEP 5: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Total gaps extracted, split by none/partial, and deal value at risk
+      (2) The most critical gap: the one with highest impact and deal value
+      (3) The single most urgent action: the gap to escalate to product management
+          first
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Gap register entries to create or update
+      - Next actions to add
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Every gap traced to a specific requirement ID in the compliance matrix
+      - Categories include secondary flags where gaps span multiple areas
+      - Deduplication performed against existing register
+      - Impact assessment distinguishes blocking from weakening from cosmetic
+      - Confidence levels stated for every extraction and classification
+      - Deal value captured as priority signal
+      - Executive summary is self-sufficient
+      - Account state delta references specific evidence for each field change
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only blocking gaps and gap count summary. Skip deduplication and detailed entry preparation.
+      - If run_mode is DISCOVERY: produce only gap categories with counts. Skip detailed extraction.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
   register_product_gaps:
     name: "Write Product Gaps to Register"
-    description: "Write structured gap entries to InfoHub product_gaps section for PM consumption"
+    description: "Write structured gap entries to InfoHub product_gaps section for PM consumption, with deduplication and frequency tracking"
     prompt: |
       Context: Capability gaps extracted for RFP: {rfp_title}
+      Unmatched requirements (match_status: none): {unmatched_requirements}
+      Partially matched requirements (match_status: partial): {partial_requirements}
+      Deal value: {deal_value}
+      Existing gap register: {existing_gap_register}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = write summary only; DISCOVERY = dry-run preview of entries. Default: FULL)
 
-      Unmatched requirements (match_status: none):
-      {unmatched_requirements}
+      You are writing gap entries to the InfoHub product_gaps section. Every entry
+      must be deduplicated against existing entries. Deal value serves as a priority
+      signal for product management. Follow these steps in order.
 
-      Partially matched requirements (match_status: partial):
-      {partial_requirements}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      For each entry, write to InfoHub product_gaps with:
-      - A deduplicated category tag (check if a similar gap already exists before writing a new entry)
-      - The deal value as a weight signal (higher value = higher PM priority signal)
-      - A frequency_hint of 'new' for first occurrence or 'recurring' if a similar requirement already exists
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Confirm each entry written and report:
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
+
+      STEP 1: ENTRY DEDUPLICATION
+      For each gap entry to write, check against {existing_gap_register}:
+      - Gap requirement text
+      - Similar existing entry: YES (cite entry ID) / NO
+      - Action: create_new / increment_existing / merge_with_existing
+      - Confidence: HIGH (exact match), MEDIUM (similar requirement), LOW
+        (uncertain match)
+      If {existing_gap_register} is empty: state "No existing register entries.
+      All gaps will be created as new entries."
+      Deliverable: Deduplication table (Requirement | Existing Match | Action |
+      Confidence).
+
+      STEP 2: ENTRY PREPARATION
+      For each entry to write (new or update):
+      - Category tag (deduplicated, consistent with existing register taxonomy)
+      - Requirement text
+      - Match status: none / partial
+      - Deal value (priority weight signal)
+      - RFP ID
+      - Frequency hint: new (first occurrence) / recurring (similar requirement
+        already exists)
+      - Write action: CREATE / UPDATE (increment frequency)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Entry preparation table (Category | Requirement | Status |
+      Deal Value | RFP ID | Frequency | Action | Confidence).
+
+      STEP 3: WRITE EXECUTION
+      Execute writes to InfoHub product_gaps:
+      For each entry:
+      - Entry ID (assigned or existing)
+      - Write status: SUCCESS / FAILED (with error)
+      - Timestamp
+      Report write failures immediately with recommended remediation.
+      Deliverable: Write log table (Entry ID | Action | Status | Timestamp).
+
+      STEP 4: WRITE SUMMARY
+      Produce summary of write operation:
       - Total new gaps registered
       - Total recurring gaps incremented
-      - Categories covered
+      - Total write failures
+      - Categories covered (list unique categories)
+      - Total deal value registered
+      - Confidence: HIGH (all writes confirmed), MEDIUM (some writes unverified),
+        LOW (write failures present)
+      Deliverable: Write summary table (Metric | Count | Detail | Confidence).
+
+      STEP 5: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Total entries written (new + updated), categories covered, and
+          deal value at risk
+      (2) The weakest point: the highest-value gap or write failure requiring
+          attention
+      (3) The single most urgent action: the PM notification or escalation
+          needed
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Gap register entries created or updated
+      - Next actions to add
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Every entry deduplicated against existing register
+      - Category tags consistent with register taxonomy
+      - Deal value captured for every entry as priority signal
+      - Frequency hints accurate (new vs. recurring)
+      - Write failures reported with remediation steps
+      - Confidence levels stated for deduplication and write operations
+      - Executive summary is self-sufficient
+      - Account state delta references specific evidence for each field change
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the write summary. Skip detailed deduplication and entry preparation.
+      - If run_mode is DISCOVERY: produce only a dry-run preview of entries without writing. Skip actual writes.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
 
   gap_trend_summary:
     name: "Product Gap Trend Summary"
-    description: "Summarise recurring capability gaps across all registered RFPs for PM Agent"
+    description: "Summarize recurring capability gaps across all registered RFPs for PM Agent, with frequency-weighted prioritization and trend analysis"
     prompt: |
       Context: Produce a product gap trend report for: {time_period}
+      Gap register: {gap_register}
+      Historical gap reports: {historical_reports}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = top 5 gaps + PM actions only; DISCOVERY = gap categories and counts only. Default: FULL)
 
-      Read all entries in the InfoHub product_gaps section from the specified period.
+      You are producing a trend report that helps product management prioritize
+      roadmap investments based on recurring capability gaps. Every trend claim
+      must be backed by multiple data points. Follow these steps in order.
 
-      Analyse and report:
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Top Recurring Gaps (sorted by frequency):
-      | Requirement Category | Count | Total Deal Value at Risk | Match Status |
-      |---|---|---|---|
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Emerging Patterns:
-      - {new gap categories appearing for the first time}
-      - {gaps shifting from partial to none}
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Run Mode declaration.
 
-      High-Value Gaps (deal value > $500K):
-      - {list requirements blocking high-value deals}
+      STEP 1: GAP INVENTORY
+      Read all entries in the gap register from {time_period}.
+      For each gap category:
+      - Category name
+      - Total gap count
+      - Unique requirement count
+      - Total deal value at risk
+      - Match status distribution: none count, partial count
+      - Confidence: HIGH (complete register data), MEDIUM (partial period
+        coverage), LOW (significant data gaps)
+      If {gap_register} is empty: state "No gap register entries for the
+      specified period. Cannot produce trend report." DEFER.
+      Deliverable: Gap inventory table (Category | Gap Count | Unique Reqs |
+      Deal Value at Risk | None Count | Partial Count | Confidence).
 
-      Recommended PM Actions:
-      1. {highest priority gap to address based on frequency x deal value}
-      2. {second priority}
-      3. {third priority}
+      STEP 2: TOP RECURRING GAPS
+      Rank gaps by frequency, weighted by deal value:
+      - Priority score = frequency count * total deal value at risk
+      - Requirement category
+      - Frequency count
+      - Total deal value at risk
+      - Match status breakdown
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Top recurring gaps table (Rank | Category | Frequency |
+      Deal Value at Risk | Match Status | Priority Score | Confidence),
+      sorted by priority score descending.
 
-      Send this report to PM Agent for roadmap input.
+      STEP 3: EMERGING PATTERNS
+      Identify new patterns in the gap data:
+      - New gap categories appearing for the first time in this period
+      - Gaps shifting from partial to none (capability regression)
+      - Categories with accelerating frequency
+      For each pattern:
+      - Pattern description
+      - Evidence: specific gap entries supporting the pattern
+      - Confidence: HIGH (3+ data points), MEDIUM (2 data points), LOW
+        (single observation, INSUFFICIENT DATA FOR TREND)
+      If fewer than 2 periods of data exist: state "INSUFFICIENT DATA FOR TREND.
+      Pattern analysis requires 2+ reporting periods. First period establishes
+      baseline only." Do not fabricate trends from a single period.
+      Deliverable: Emerging patterns table (Pattern | Evidence | Data Points |
+      Confidence).
+
+      STEP 4: HIGH-VALUE GAP ANALYSIS
+      Identify gaps blocking high-value deals (deal value > $500K):
+      For each high-value gap:
+      - Requirement text
+      - Deal value at risk
+      - Category
+      - Frequency across deals
+      - Impact: blocking / weakening
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If no high-value gaps exist: state "No gaps blocking deals above $500K
+      threshold in this period."
+      Deliverable: High-value gaps table (Requirement | Deal Value | Category |
+      Frequency | Impact | Confidence).
+
+      STEP 5: TREND COMPARISON
+      Compare this period's gaps against {historical_reports}:
+      - Category-level comparison (this period vs. previous)
+      - Frequency direction: increasing / stable / decreasing
+      - Deal value direction: increasing / stable / decreasing
+      - New categories vs. resolved categories
+      If {historical_reports} is empty or contains fewer than 2 comparable
+      periods: state "INSUFFICIENT DATA FOR TREND. Trend comparison requires
+      2+ reporting periods." Do not fabricate trends.
+      Deliverable: Trend comparison table (Category | Previous Period Count |
+      Current Count | Direction | Previous Deal Value | Current Deal Value |
+      Direction | Data Points) or trend deferral statement.
+
+      STEP 6: PM ACTION RECOMMENDATIONS
+      Produce prioritized recommendations for product management:
+      For each recommendation:
+      - Priority rank (based on frequency * deal value)
+      - Gap category
+      - Recommended action
+      - Expected impact (deals unblocked, revenue recoverable)
+      - Prerequisites: what PM needs to assess or validate
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Limit to top 5 recommendations.
+      Deliverable: PM actions table (Rank | Category | Action | Expected Impact |
+      Prerequisites | Confidence).
+
+      STEP 7: EXECUTIVE SUMMARY
+      Produce a 3-sentence executive summary stating:
+      (1) Total gaps analyzed, top recurring category, and total deal value at risk
+      (2) The weakest point: the gap category with highest impact that remains
+          unaddressed
+      (3) The single most urgent PM action with expected revenue impact
+
+      STEP 8: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Trend report record to create
+      - PM notification to trigger
+      - Next actions to add
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, run mode declared
+      - Gap inventory covers the complete specified time period
+      - Priority scores calculated consistently (frequency * deal value)
+      - Trend claims backed by 2+ data points or explicitly marked insufficient
+      - Emerging patterns cite specific gap entries as evidence
+      - High-value threshold applied consistently ($500K)
+      - PM recommendations limited to top 5 with prerequisites
+      - Confidence levels stated for every analysis and recommendation
+      - Executive summary is self-sufficient
+      - Account state delta references specific evidence for each field change
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only top 5 recurring gaps and PM action recommendations. Skip detailed inventory, patterns, and trend comparison.
+      - If run_mode is DISCOVERY: produce only gap categories with counts. Skip analysis and recommendations.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.

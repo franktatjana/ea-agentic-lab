@@ -1,143 +1,1058 @@
 # II Agent Task Prompts
-# Purpose: Task-specific prompts using CAF framework (Context, Action, Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
 # Reference: Personality defined in personalities/ii_personality.yaml
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
 
 # ==============================================================================
 # INDUSTRY ANALYSIS TASKS
 # ==============================================================================
 industry_analysis:
+
   industry_deep_dive:
     name: "Industry Deep-Dive"
-    description: "Comprehensive industry structure and dynamics analysis"
+    description: "Comprehensive industry structure and dynamics analysis covering market size, key players, competitive forces, benchmarks, and sector outlook"
     prompt: |
       Context: Analyzing the {industry} / {sub_industry} sector for realm {realm_id}.
       Company: {company_name}, operating in {regions}.
       Source registry: {source_registry} (check before fetching new URLs)
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Conduct comprehensive industry analysis.
-      - Research industry structure: segments, market size, growth rate
-      - Identify key players and market leaders
-      - Analyze competitive dynamics at sector level (concentration, barriers to entry)
-      - Extract industry benchmarks: IT spending ratios, digital maturity, operational KPIs
-      - Assess industry health and outlook
+      You are building a comprehensive profile of the industry this customer operates
+      in. This profile becomes the sector-level foundation for all downstream engagement
+      planning, competitive positioning, and opportunity identification. Every claim
+      must cite a source. Follow these steps in order.
 
-      Format:
-      - industry_overview: {name, market_size, growth_rate, maturity}
-      - segments: [{name, market_share, growth, key_players}]
-      - key_players: [{name, market_position, revenue, differentiation}]
-      - competitive_dynamics: {concentration, barriers_to_entry, buyer_power, supplier_power}
-      - benchmarks: [{metric, industry_average, top_quartile, source}]
-      - sources_used: [{url, title, date_accessed, type}]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map: for each dimension, assess data richness:
+      - HIGH: multiple analyst sources, 5+ data points
+      - MEDIUM: partial data, 2-4 data points
+      - LOW: no direct data, estimates only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Market Structure, Key Players, Competitive Dynamics,
+      Industry Benchmarks, Sector Outlook.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the analysis.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Analyst reports and industry publications to acquire
+      - Public data sources to mine (SEC filings, industry associations, government data)
+      - Questions to ask the customer about their sector view
+      - Observation checklist for implicit signals in upcoming interactions
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Analysis deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: MARKET STRUCTURE ANALYSIS
+      Research and document the industry's structural characteristics.
+      For each data point, cite the source and publication date.
+      - Market size (total addressable market, serviceable addressable market)
+      - Growth rate (CAGR, year-over-year) with historical and projected figures
+      - Industry maturity stage (emerging, growth, mature, declining)
+      - Market segmentation (by product/service, geography, customer type)
+      - Value chain structure (upstream suppliers, core players, downstream channels)
+      - Revenue model patterns (subscription, transactional, hybrid, platform)
+      Trend claims require two data points minimum; single observation = INSUFFICIENT DATA.
+      Empty state: if market data is unavailable for a segment, state "NO DATA for {segment},
+      requires {specific source}" and proceed without fabrication.
+      Deliverable: Market structure overview (Attribute | Value | Source | Date |
+      Confidence: HIGH/MEDIUM/LOW with basis).
+
+      STEP 2: KEY PLAYER MAPPING
+      Identify and profile the major players in this industry.
+      For each key player:
+      - Company name and headquarters
+      - Market position (leader, challenger, niche, follower)
+      - Revenue in this sector (cite source, mark ESTIMATED if derived)
+      - Market share percentage (confidence: HIGH/MEDIUM/LOW with basis)
+      - Primary differentiation (what they compete on)
+      - Technology posture (digital leader, fast follower, laggard)
+      - Recent strategic moves (M&A, partnerships, market entry/exit)
+      Aim for 5-10 key players. Include the customer's direct competitors.
+      Empty state: if a player's financials are not publicly available, state
+      "Revenue not disclosed, estimated at {range} based on {basis}" and mark
+      confidence as LOW.
+      Deliverable: Key player table (Company | Position | Revenue | Market Share |
+      Differentiation | Tech Posture | Recent Moves | Confidence).
+
+      STEP 3: COMPETITIVE DYNAMICS ASSESSMENT
+      Analyze the competitive forces shaping this industry using Porter's Five Forces
+      as the analytical framework.
+      For each force:
+      - Force name
+      - Intensity (high, medium, low)
+      - Primary classification: which force category it maps to
+      - Secondary flags: additional force categories that also apply (e.g., supplier
+        power may also flag as barrier to entry if suppliers are scarce)
+      - Key drivers (what makes this force strong or weak)
+      - Trend direction (intensifying, stable, weakening) with two data points minimum
+      - Vendor implications (how this dynamic creates or limits opportunities)
+      - Confidence level (HIGH/MEDIUM/LOW with basis)
+      Empty state: if a force cannot be assessed due to missing data, state
+      "INSUFFICIENT DATA for {force}, requires {specific source}" and do not assign
+      an intensity rating.
+      Deliverable: Competitive dynamics table (Force | Intensity | Primary Category |
+      Secondary Flags | Drivers | Trend | Vendor Implications | Confidence).
+
+      STEP 4: INDUSTRY BENCHMARKS EXTRACTION
+      Extract benchmarks that matter for vendor engagement positioning.
+      For each benchmark:
+      - Metric name (specific, measurable)
+      - Industry average value
+      - Top quartile value
+      - Bottom quartile value (where available)
+      - Source and publication date
+      - Relevance to vendor engagement (why this benchmark matters for positioning)
+      - Confidence level (HIGH = primary research, MEDIUM = analyst estimate,
+        LOW = derived or extrapolated)
+      Benchmark categories to cover:
+      - IT spending as percentage of revenue
+      - Digital maturity index
+      - Operational KPIs (industry-specific)
+      - Security/compliance investment levels
+      - Cloud adoption rates
+      - Workforce productivity metrics
+      Empty state: if benchmark data is unavailable for a category, state
+      "No benchmark data found for {category} in {industry}, recommend sourcing
+      from {suggested source}" and proceed.
+      Deliverable: Benchmark table (Metric | Average | Top Quartile | Bottom Quartile |
+      Source | Date | Vendor Relevance | Confidence).
+
+      STEP 5: SECTOR OUTLOOK AND IMPLICATIONS
+      Synthesize findings into a forward-looking sector assessment.
+      - Overall industry health rating (strong, stable, challenged, declining)
+        with confidence level (HIGH/MEDIUM/LOW with basis)
+      - 12-month outlook (growth expectations, disruption risk, consolidation signals)
+      - 24-36 month outlook (structural shifts, regulatory horizon, technology impact)
+      - Key uncertainties (what could change the outlook)
+      - Vendor opportunity map: where industry dynamics create demand for vendor
+        capabilities, organized by urgency (immediate, near-term, strategic)
+      All trend claims in this step require two data points minimum. Single
+      observations must be labeled INSUFFICIENT DATA, not treated as trends.
+      Deliverable: Sector outlook narrative with vendor opportunity map
+      (Opportunity | Driver | Urgency | Confidence).
+
+      STEP 6: ACTION PLAN
+      Based on findings, recommend actions for the engagement team.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (immediate), P1 (this quarter), P2 (next quarter), P3 (strategic)
+      - Owner: which agent or human role should execute
+      - Prerequisites: what must be true before this action can start
+      - Expected Impact: what outcome this action produces
+      Deliverable: Action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New industry profile data added or existing data updated
+      - Benchmark comparisons to append
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every market data point cites source and publication date
+      - Key player financials marked with confidence level (CONFIRMED/ESTIMATED)
+      - Competitive dynamics assessed with two data points minimum for trend claims
+      - Benchmarks include source, date, and confidence classification
+      - Sector outlook trend claims backed by two or more time-separated observations
+      - Single observations labeled INSUFFICIENT DATA, not treated as trends
+      - Action prerequisites specified for every recommended action
+      - Account state delta specifies field paths, old values, new values, and evidence
+      - Source registry checked before adding new URLs
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, analyst reports to acquire, public sources to mine, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 7 deliverables plus the Data Availability Map
+      as labeled sections. Lead with an executive summary that states: (1) industry health
+      rating and data richness profile, (2) the weakest point or lowest confidence area
+      across all assessments, and (3) the single most urgent action to take next.
 
   sector_comparison:
     name: "Sector Comparison"
-    description: "Compare company positioning against industry benchmarks"
+    description: "Compare company positioning against industry benchmarks across financial, digital maturity, and operational dimensions to identify engagement leverage points"
     prompt: |
       Context: Comparing {company_name} against {industry} benchmarks.
       Company data: {company_profile}
       Industry benchmarks: {industry_benchmarks}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess company positioning relative to industry.
-      - Compare revenue, growth, and market share against peers
-      - Evaluate digital maturity relative to industry average
-      - Identify where the company leads or lags the sector
-      - Note implications for vendor engagement strategy
+      You are positioning this company relative to its industry peers. The comparison
+      reveals where the company leads (defensible position) and where it lags (vendor
+      opportunity). This output directly informs the AE's conversation strategy and
+      the VE's value narrative. Follow these steps in order.
 
-      Format:
-      - positioning: [{dimension, company_value, industry_average, percentile, implication}]
-      - strengths_vs_industry: [{area, description}]
-      - gaps_vs_industry: [{area, description, opportunity}]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map: for each dimension, assess data richness:
+      - HIGH: both company data and benchmark data available, 5+ data points
+      - MEDIUM: partial data on either side, 2-4 data points
+      - LOW: missing company data or benchmark data, estimates only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT.
+      Dimensions to assess: Financial Metrics, Digital Maturity, Operational KPIs,
+      Market Position, Technology Adoption.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Company data points to request from the AE or customer
+      - Industry benchmark sources to acquire
+      - Proxy metrics that could substitute for missing direct data
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: DIMENSION-BY-DIMENSION COMPARISON
+      For each comparison dimension, assess the company against industry benchmarks.
+      For each dimension:
+      - Dimension name (specific metric, not vague category)
+      - Company value (with source: customer-provided, public filing, estimated)
+      - Industry average
+      - Top quartile benchmark
+      - Percentile position (where the company falls)
+      - Gap to average (positive = above, negative = below)
+      - Gap to top quartile
+      - Trend direction (improving, stable, declining) with two data points minimum;
+        single observation = INSUFFICIENT DATA
+      - Confidence level (HIGH/MEDIUM/LOW with basis)
+      Primary comparison categories:
+      - Revenue growth vs. industry average
+      - IT spending ratio vs. industry average
+      - Digital maturity vs. industry average
+      - Operational efficiency vs. industry benchmarks
+      - Security posture vs. industry requirements
+      Empty state: if company data is missing for a dimension, state "Company value
+      unknown for {dimension}, comparison deferred pending data from {source}" and
+      do not fabricate a percentile.
+      Deliverable: Comparison table (Dimension | Company Value | Industry Average |
+      Top Quartile | Percentile | Gap to Average | Trend | Confidence).
+
+      STEP 2: STRENGTH AND GAP ANALYSIS
+      From the comparison, classify each dimension as a strength or gap.
+      For strengths (above average):
+      - Area of strength
+      - Degree of advantage (how far above average)
+      - Sustainability assessment (is this lead defensible?)
+      - Primary classification: operational, financial, technological, market position
+      - Secondary flags: additional classifications that apply
+      - Implication for engagement (what this means for vendor positioning)
+      For gaps (below average):
+      - Area of gap
+      - Degree of underperformance (how far below average)
+      - Primary classification: operational, financial, technological, market position
+      - Secondary flags: additional classifications that apply
+      - Business impact of the gap (what it costs the company)
+      - Vendor opportunity (how vendor capabilities address this gap)
+      - Urgency: immediate (competitive threat), near-term (efficiency loss),
+        strategic (long-term positioning)
+      - Confidence level (HIGH/MEDIUM/LOW with basis)
+      Empty state: if comparison data is insufficient to classify a dimension,
+      state "Classification deferred for {dimension} due to {reason}" and proceed.
+      Deliverable: Strengths table + Gaps table (Area | Degree | Classification Primary |
+      Secondary Flags | Implication or Opportunity | Confidence).
+
+      STEP 3: ENGAGEMENT LEVERAGE POINTS
+      Synthesize gaps into specific engagement opportunities.
+      For each leverage point:
+      - Gap it addresses
+      - Vendor capability that aligns
+      - Customer stakeholder most affected
+      - Conversation opener (how to introduce this in a meeting)
+      - Evidence to present (benchmark data, peer comparisons)
+      - Primary classification: cost reduction, risk mitigation, revenue enablement,
+        operational improvement, compliance
+      - Secondary flags: additional classifications that apply
+      - Expected resistance (why the customer might push back)
+      - Counter-argument (how to address resistance with data)
+      Deliverable: Leverage points table (Gap | Capability | Stakeholder |
+      Opener | Evidence | Classification | Resistance | Counter).
+
+      STEP 4: ACTION PLAN
+      Based on findings, recommend actions for the engagement team.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (immediate), P1 (this quarter), P2 (next quarter)
+      - Owner: which agent or human role should execute
+      - Prerequisites: what must be true before this action can start
+      - Expected Impact: what outcome this action produces
+      Deliverable: Action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Positioning data added or updated
+      - Engagement leverage points to append
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every comparison uses the same source for company and benchmark (apples to apples)
+      - Percentile positions are derived from actual data, not assumed
+      - Trend claims backed by two or more time-separated observations
+      - Single observations labeled INSUFFICIENT DATA, not treated as trends
+      - Gaps include business impact quantification, not just relative position
+      - Leverage points connect gaps to specific vendor capabilities
+      - Action prerequisites specified for every recommended action
+      - Account state delta specifies field paths, old values, new values, and evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, sources to acquire, proxy metrics, re-assessment date). Skip comparison and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 5 deliverables plus the Data Availability Map
+      as labeled sections. Lead with an executive summary that states: (1) overall
+      positioning assessment and number of dimensions compared, (2) the weakest point
+      or largest gap with its business impact, and (3) the single most urgent action
+      to take next.
 
 # ==============================================================================
 # REGULATORY MONITORING TASKS
 # ==============================================================================
 regulatory:
+
   regulatory_scan:
     name: "Regulatory Landscape Scan"
-    description: "Scan for regulations affecting the customer's industry"
+    description: "Scan for active and upcoming regulations affecting the customer's industry, with compliance timelines, enforcement dates, and vendor opportunity mapping"
     prompt: |
       Context: Scanning regulatory landscape for {industry} in {regions}.
       Realm: {realm_id}, Company: {company_name}
       Existing regulatory landscape: {existing_regulatory}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Research current and upcoming regulatory requirements.
-      - Identify active regulations affecting this industry
-      - Track proposed regulations and their legislative timeline
-      - Note compliance deadlines and enforcement dates
-      - Assess impact on company operations and IT infrastructure
-      - Identify vendor opportunities created by regulatory requirements
+      You are building a comprehensive view of the regulatory environment affecting
+      this customer. Regulatory changes create urgency, budget justification, and
+      executive attention that vendor engagement teams can leverage. Every regulation
+      must be verified against official sources. Follow these steps in order.
 
-      Format:
-      - active_regulations: [{name, body, jurisdiction, compliance_status, impact}]
-      - upcoming_regulations: [{name, body, stage, expected_date, impact}]
-      - compliance_deadlines: [{regulation, deadline, requirement, vendor_opportunity}]
-      - sources: [{url, title, type}]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map: for each dimension, assess data richness:
+      - HIGH: official regulatory sources confirmed, 5+ data points
+      - MEDIUM: partial regulatory data, 2-4 data points
+      - LOW: no confirmed regulatory sources, estimates only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT.
+      Dimensions to assess: Active Regulations, Upcoming Regulations, Compliance
+      Deadlines, Enforcement Actions, Industry-Specific Standards.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Regulatory bodies to monitor for this industry and region
+      - Official gazettes and regulatory feeds to subscribe to
+      - Industry association compliance resources to consult
+      - Legal/compliance contacts to engage within the customer organization
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: ACTIVE REGULATIONS INVENTORY
+      Catalog regulations currently in effect that apply to this industry and region.
+      For each regulation:
+      - Regulation name and official identifier
+      - Regulatory body and jurisdiction
+      - Effective date
+      - Scope (which operations, data types, or processes it covers)
+      - Key requirements summary (specific obligations, not vague compliance language)
+      - Penalties for non-compliance (specific amounts or consequences)
+      - Customer compliance status (compliant, partially compliant, non-compliant,
+        unknown) with confidence level (HIGH/MEDIUM/LOW with basis)
+      - Vendor opportunity: does compliance require technology capabilities the
+        vendor provides?
+      - Primary classification: data protection, financial reporting, industry safety,
+        environmental, labor, cybersecurity, sector-specific
+      - Secondary flags: additional regulatory categories that also apply
+      Empty state: if compliance status is unknown, state "Compliance status unknown
+      for {regulation}, requires assessment from {customer role or system}" and
+      mark confidence as LOW.
+      Deliverable: Active regulations table (Regulation | Body | Jurisdiction |
+      Effective Date | Requirements | Penalties | Compliance Status | Vendor
+      Opportunity | Classification | Confidence).
+
+      STEP 2: UPCOMING REGULATIONS TRACKER
+      Identify regulations in the legislative or rulemaking pipeline.
+      For each upcoming regulation:
+      - Regulation name (or working title)
+      - Regulatory body and jurisdiction
+      - Legislative stage (proposed, committee review, public comment, final rule,
+        awaiting enforcement)
+      - Expected effective date (with confidence: HIGH = date published,
+        MEDIUM = estimated from legislative timeline, LOW = speculative)
+      - Key requirements (as currently drafted)
+      - Expected impact on this industry (scope and severity)
+      - Timeline risk (could it accelerate or delay, and why)
+      - Vendor opportunity assessment
+      Trend claims about regulatory direction require two data points minimum
+      (e.g., two related regulations or two policy signals). Single observations
+      must be labeled INSUFFICIENT DATA.
+      Empty state: if no upcoming regulations are found, state "No pending
+      regulations identified for {industry} in {regions} as of {date}. Recommend
+      monitoring {specific sources} for changes."
+      Deliverable: Upcoming regulations table (Regulation | Body | Stage |
+      Expected Date | Requirements | Impact | Timeline Risk | Vendor Opportunity |
+      Confidence).
+
+      STEP 3: COMPLIANCE DEADLINE TIMELINE
+      Build a chronological timeline of compliance deadlines.
+      For each deadline:
+      - Regulation name
+      - Deadline date
+      - Requirement due (specific obligation, not general compliance)
+      - Days remaining
+      - Urgency classification (overdue, critical: <90 days, approaching: 90-180 days,
+        planned: 180+ days)
+      - Vendor opportunity: what technology or service enables compliance by this date
+      - Prerequisites for compliance (what must happen before the deadline can be met)
+      Sort by deadline date ascending.
+      Empty state: if no deadlines are imminent, state "No compliance deadlines
+      within 180 days. Next known deadline: {date} for {regulation}."
+      Deliverable: Deadline timeline (Regulation | Deadline | Requirement | Days
+      Remaining | Urgency | Vendor Opportunity | Prerequisites).
+
+      STEP 4: VENDOR OPPORTUNITY SYNTHESIS
+      Consolidate all regulatory-driven vendor opportunities.
+      For each opportunity:
+      - Regulatory driver (which regulation creates the need)
+      - Capability required (what the customer needs to comply)
+      - Vendor solution fit (how vendor offerings address this need)
+      - Urgency (tied to compliance deadline)
+      - Budget justification (regulatory mandate = stronger budget case)
+      - Stakeholder to engage (who in the customer org owns compliance)
+      - Primary classification: technology gap, process gap, skills gap, reporting gap
+      - Secondary flags: additional classifications that apply
+      - Confidence level (HIGH/MEDIUM/LOW with basis)
+      Deliverable: Opportunity table (Regulation | Capability | Solution Fit |
+      Urgency | Budget Case | Stakeholder | Classification | Confidence).
+
+      STEP 5: ACTION PLAN
+      Based on findings, recommend actions for the engagement team.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (regulatory deadline <90 days), P1 (deadline 90-180 days),
+        P2 (upcoming regulation, no deadline yet), P3 (monitoring)
+      - Owner: which agent or human role should execute
+      - Prerequisites: what must be true before this action can start
+      - Expected Impact: what outcome this action produces
+      Deliverable: Action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New regulations added to regulatory landscape
+      - Compliance deadlines added or updated
+      - Vendor opportunities added
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every regulation cites the official regulatory body and jurisdiction
+      - Compliance deadlines include specific dates, not vague timeframes
+      - Upcoming regulations include legislative stage and confidence on timeline
+      - Vendor opportunities tie directly to regulatory requirements, not general capabilities
+      - Trend claims about regulatory direction backed by two or more data points
+      - Single regulatory observations labeled INSUFFICIENT DATA, not treated as trends
+      - Action prerequisites specified for every recommended action
+      - Account state delta specifies field paths, old values, new values, and evidence
+      - Sources registered in source registry
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (regulatory bodies to monitor, feeds to subscribe, contacts to engage, re-assessment date). Skip inventory and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 6 deliverables plus the Data Availability Map
+      as labeled sections. Lead with an executive summary that states: (1) number of
+      active regulations tracked and nearest compliance deadline, (2) the weakest point
+      or highest-risk compliance gap, and (3) the single most urgent action to take next.
 
   regulatory_impact_assessment:
     name: "Regulatory Impact Assessment"
-    description: "Assess impact of a specific regulatory change on engagement"
+    description: "Assess the impact of a specific regulatory change on active engagements, affected operations, and vendor opportunity positioning"
     prompt: |
       Context: Assessing impact of {regulation_name} on {company_name}.
       Regulation details: {regulation_details}
       Active nodes: {active_nodes}
       Company profile: {company_profile}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Evaluate how this regulation affects our engagement.
-      - Determine which company operations are affected
-      - Assess compliance timeline and urgency
-      - Identify which active nodes are impacted
-      - Determine if this creates new vendor opportunities
+      You are determining how a specific regulatory change affects this customer and
+      the engagement. Regulatory impact assessments create urgency and can reshape
+      deal priorities. The assessment must be precise about what is affected and
+      what is not. Follow these steps in order.
 
-      Format:
-      - impact_summary: 2-3 sentence assessment
-      - affected_operations: [{department, impact_level, compliance_gap}]
-      - affected_nodes: [{node_id, impact, required_changes}]
-      - vendor_opportunities: [{capability, relevance, urgency}]
-      - recommended_actions: [{action, owner_agent, priority}]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map: for each dimension, assess data richness:
+      - HIGH: regulation text available, company operations mapped, 5+ data points
+      - MEDIUM: partial regulation or company data, 2-4 data points
+      - LOW: regulation summary only or company operations unclear
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT.
+      Dimensions to assess: Regulation Requirements, Company Operations, Active
+      Engagements, Compliance Timeline, Technology Landscape.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Regulation details to obtain (full text, guidance documents, FAQs)
+      - Company information needed (affected departments, current compliance posture)
+      - Engagement context to gather from AE or SA
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: REGULATION REQUIREMENTS BREAKDOWN
+      Parse the regulation into specific, actionable requirements.
+      For each requirement:
+      - Requirement ID (REQ-001, REQ-002, etc.)
+      - Description (specific obligation in plain language)
+      - Compliance deadline
+      - Scope (what entities, data, or processes it covers)
+      - Technical implications (what systems or capabilities are needed)
+      - Evidence of compliance (what auditors or regulators will look for)
+      - Confidence level (HIGH = based on final rule text, MEDIUM = based on
+        proposed rule, LOW = based on summary or industry interpretation)
+      Empty state: if regulation text is not available, state "Requirements
+      derived from {source}, may not reflect final rule. Obtain full text from
+      {regulatory body} before proceeding with compliance planning."
+      Deliverable: Requirements table (ID | Description | Deadline | Scope |
+      Technical Implications | Evidence Required | Confidence).
+
+      STEP 2: AFFECTED OPERATIONS MAPPING
+      Determine which company operations fall under the regulation's scope.
+      For each affected operation:
+      - Department or business unit
+      - Operation or process affected
+      - Current state (how they handle this today)
+      - Compliance gap (what needs to change)
+      - Impact level (high: major process change, medium: moderate adjustment,
+        low: minor update)
+      - Primary classification: process change, technology change, policy change,
+        reporting change, training requirement
+      - Secondary flags: additional change types that also apply
+      - Estimated effort to comply (quick fix, project, program)
+      - Confidence level (HIGH/MEDIUM/LOW with basis)
+      Empty state: if company operations are not mapped, state "Operations
+      mapping unavailable for {department}. Impact assessment is preliminary
+      and requires validation with {stakeholder role}."
+      Deliverable: Affected operations table (Department | Operation | Current
+      State | Gap | Impact Level | Classification | Effort | Confidence).
+
+      STEP 3: ENGAGEMENT IMPACT ANALYSIS
+      Assess how this regulation affects active and potential engagements.
+      For each affected node or opportunity:
+      - Node ID or opportunity name
+      - How the regulation impacts it (accelerates, blocks, reshapes, creates)
+      - Required changes to the engagement approach
+      - New requirements or capabilities the customer will need
+      - Timeline implications (does the compliance deadline change deal urgency?)
+      - Primary classification: deal acceleration, scope expansion, new opportunity,
+        risk to existing engagement
+      - Secondary flags: additional impact types that apply
+      - Confidence level (HIGH/MEDIUM/LOW with basis)
+      Empty state: if no active nodes are affected, state "No direct impact on
+      active engagements identified. Regulation may create new opportunities
+      outside current engagement scope."
+      Deliverable: Engagement impact table (Node/Opportunity | Impact Type |
+      Required Changes | New Requirements | Timeline Impact | Classification |
+      Confidence).
+
+      STEP 4: VENDOR OPPORTUNITY ASSESSMENT
+      Identify how vendor capabilities address the compliance requirements.
+      For each opportunity:
+      - Requirement it addresses (link to REQ-ID from Step 1)
+      - Vendor capability or product
+      - Fit assessment (direct fit, partial fit, requires customization)
+      - Competitive position (are competitors better positioned for this requirement?)
+      - Urgency (tied to compliance deadline)
+      - Revenue potential (estimate if possible, mark confidence)
+      - Stakeholder to engage (compliance officer, CTO, LOB leader)
+      - Confidence level (HIGH/MEDIUM/LOW with basis)
+      Deliverable: Vendor opportunity table (Requirement | Capability | Fit |
+      Competitive Position | Urgency | Revenue Potential | Stakeholder | Confidence).
+
+      STEP 5: ACTION PLAN
+      Based on findings, recommend actions for the engagement team.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (compliance deadline <90 days), P1 (deadline 90-180 days),
+        P2 (strategic positioning), P3 (monitoring)
+      - Owner: which agent or human role should execute
+      - Prerequisites: what must be true before this action can start
+      - Expected Impact: what outcome this action produces
+      Deliverable: Action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added from regulatory requirements
+      - Engagement nodes impacted (scope, timeline, priority changes)
+      - Vendor opportunities added
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Requirements traced to specific regulation text or official guidance
+      - Affected operations include compliance gap and effort estimate
+      - Engagement impact distinguishes acceleration from new opportunity creation
+      - Vendor opportunities tied to specific requirements, not general capabilities
+      - Confidence levels assigned to every assessment and score
+      - Trend or directional claims about regulatory trajectory require two data points;
+        single observations labeled INSUFFICIENT DATA, not treated as trends
+      - Classifications use primary + secondary flags throughout
+      - Action prerequisites specified for every recommended action
+      - Account state delta specifies field paths, old values, new values, and evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (regulation details to obtain, company information needed, engagement context to gather, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 6 deliverables plus the Data Availability Map
+      as labeled sections. Lead with an executive summary that states: (1) overall
+      impact severity and number of operations affected, (2) the weakest point or
+      highest compliance risk, and (3) the single most urgent action to take next.
 
 # ==============================================================================
 # TREND ANALYSIS TASKS
 # ==============================================================================
 trends:
+
   trend_identification:
     name: "Industry Trend Identification"
-    description: "Identify and classify industry trends"
+    description: "Identify and classify industry trends by maturity, direction, and vendor relevance with momentum tracking against previous analysis"
     prompt: |
       Context: Analyzing trends in {industry} for realm {realm_id}.
       Recent news digest: {recent_news_digest}
       Previous trend analysis: {previous_trends}
       Industry profile: {industry_profile}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Identify and classify industry trends.
-      - Scan for macro trends: consolidation, transformation, disruption, regulation
-      - Classify each trend by maturity: emerging, accelerating, mature, declining
-      - Assess vendor relevance: does this trend create opportunities or threats?
-      - Compare against previous analysis to detect momentum changes
+      You are identifying and classifying the trends shaping this industry. Trends
+      inform engagement timing, conversation topics, and opportunity identification.
+      A trend without evidence is speculation. A trend without vendor relevance is
+      academic. Follow these steps in order.
 
-      Format:
-      - trends: [{name, category, maturity, direction, vendor_relevance, evidence, source}]
-      - category values: consolidation, digital_transformation, regulatory, market_shift, technology, competitive
-      - maturity values: emerging, accelerating, mature, declining
-      - vendor_relevance values: high_opportunity, moderate, low, threat
-      - momentum_changes: [{trend, previous_maturity, current_maturity, driver}]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map: for each dimension, assess data richness:
+      - HIGH: multiple analyst sources and news signals, 5+ data points
+      - MEDIUM: partial analyst coverage or limited news, 2-4 data points
+      - LOW: no analyst coverage, single news mention only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT.
+      Dimensions to assess: Macro Trends, Technology Trends, Regulatory Trends,
+      Market Dynamics, Competitive Shifts.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Analyst reports and industry publications to acquire
+      - News feeds and industry media to monitor
+      - Conference proceedings and keynotes to review
+      - Customer conversations to mine for trend signals
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: TREND IDENTIFICATION AND CLASSIFICATION
+      Scan available sources and identify trends affecting this industry.
+      For each trend:
+      - Trend name (descriptive, specific)
+      - Description (what is happening, in concrete terms)
+      - Primary category: consolidation, digital_transformation, regulatory,
+        market_shift, technology, competitive, workforce, sustainability
+      - Secondary flags: additional categories that also apply
+      - Maturity stage: emerging (early signals, <10% adoption), accelerating
+        (growing momentum, 10-40% adoption), mature (widely adopted, >40%),
+        declining (being replaced or obsoleted)
+      - Direction: strengthening, stable, weakening
+      - Evidence: minimum two data points from different sources. Each evidence
+        item must include source, date, and specific observation.
+      - If only one data point exists, mark direction as INSUFFICIENT DATA and
+        do not assign a maturity trend. State "Single observation from {source}
+        on {date}. Second data point required to establish trend."
+      - Vendor relevance: high_opportunity, moderate, low, threat
+      - Vendor relevance rationale (why this rating, in one sentence)
+      - Confidence level (HIGH/MEDIUM/LOW with basis)
+      Empty state: if no trends are identified in a category, state "No {category}
+      trends identified from available sources. Recommend monitoring {specific sources}."
+      Deliverable: Trend table (Name | Primary Category | Secondary Flags | Maturity |
+      Direction | Evidence [2+ points] | Vendor Relevance | Rationale | Confidence).
+
+      STEP 2: MOMENTUM ANALYSIS
+      Compare current trends against previous trend analysis to detect changes.
+      For each trend that appeared in the previous analysis:
+      - Trend name
+      - Previous maturity stage
+      - Current maturity stage
+      - Maturity change (accelerated, stable, decelerated, reversed)
+      - Previous vendor relevance
+      - Current vendor relevance
+      - Relevance change (increased, stable, decreased)
+      - Driver of change (what caused the shift)
+      - Evidence for change: two data points minimum. If only one new observation
+        exists since previous analysis, state "Single new observation. Maturity
+        change assessment requires additional confirmation."
+      For new trends (not in previous analysis):
+      - Mark as "NEW" with first observation date
+      - Note that trend direction cannot be assessed without a second data point
+      For trends that disappeared:
+      - Assess whether the trend concluded, merged, or lost relevance
+      - Confidence level (HIGH/MEDIUM/LOW with basis)
+      Empty state: if no previous analysis exists, state "No previous trend analysis
+      available. All trends marked as first observation. Momentum analysis will be
+      possible on next run." Skip momentum comparison and proceed.
+      Deliverable: Momentum table (Trend | Previous Maturity | Current Maturity |
+      Change | Previous Relevance | Current Relevance | Change | Driver | Evidence |
+      Confidence) + New trends list + Disappeared trends list.
+
+      STEP 3: VENDOR OPPORTUNITY MAPPING
+      For trends with high_opportunity or moderate vendor relevance, map to
+      specific engagement opportunities.
+      For each opportunity:
+      - Trend driving the opportunity
+      - Customer pain point or need created by this trend
+      - Vendor capability that addresses it
+      - Timing (is the customer ready now, or is this a future conversation?)
+      - Competitive landscape (who else is positioning around this trend?)
+      - Primary classification: immediate opportunity, pipeline builder,
+        thought leadership, defensive positioning
+      - Secondary flags: additional classifications that apply
+      - Confidence level (HIGH/MEDIUM/LOW with basis)
+      Empty state: if no vendor opportunities emerge from trends, state "Current
+      trends do not create immediate vendor opportunities. Recommend thought
+      leadership positioning around {most relevant trend}."
+      Deliverable: Opportunity map (Trend | Pain Point | Capability | Timing |
+      Competition | Classification | Confidence).
+
+      STEP 4: ACTION PLAN
+      Based on findings, recommend actions for the engagement team.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (trend creates immediate urgency), P1 (this quarter),
+        P2 (next quarter), P3 (strategic monitoring)
+      - Owner: which agent or human role should execute
+      - Prerequisites: what must be true before this action can start
+      - Expected Impact: what outcome this action produces
+      Deliverable: Action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Trends added, updated, or removed from trend register
+      - Momentum changes flagged
+      - Vendor opportunities added
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every trend has two or more evidence points from different sources
+      - Single observations marked INSUFFICIENT DATA, not treated as confirmed trends
+      - Maturity classifications use defined stages, not ad-hoc labels
+      - Momentum changes backed by two time-separated observations
+      - Vendor relevance ratings include one-sentence rationale
+      - Compound classifications use primary category + secondary flags throughout
+      - Confidence levels assigned to every assessment
+      - Action prerequisites specified for every recommended action
+      - Account state delta specifies field paths, old values, new values, and evidence
+      - Sources registered in source registry
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (analyst reports to acquire, news feeds to monitor, conferences to review, re-assessment date). Skip trend analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 5 deliverables plus the Data Availability Map
+      as labeled sections. Lead with an executive summary that states: (1) number of
+      trends identified, momentum changes detected, and data richness profile,
+      (2) the weakest point or lowest confidence trend with its gap, and (3) the
+      single most urgent action to take next.
 
   trend_impact_analysis:
     name: "Trend Impact Analysis"
-    description: "Deep analysis of a specific trend's impact on engagement"
+    description: "Deep analysis of a specific trend's impact on customer business lines, active engagements, and vendor positioning with stakeholder-ready talking points"
     prompt: |
       Context: Analyzing impact of trend "{trend_name}" on realm {realm_id}.
       Trend details: {trend_details}
       Company profile: {company_profile}
       Active nodes: {active_nodes}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess how this trend affects our engagement with this customer.
-      - Determine how the trend affects the company's business
-      - Identify which business lines are most impacted
-      - Assess implications for active and potential engagements
-      - Recommend actions for the account team
+      You are determining how a specific industry trend affects this customer and the
+      engagement strategy. The analysis must connect macro-level trend dynamics to
+      specific customer business lines and active deals. Talking points must be
+      data-backed, not generic. Follow these steps in order.
 
-      Format:
-      - impact_assessment: 2-3 paragraph analysis
-      - affected_business_lines: [{name, impact, timeframe}]
-      - engagement_implications: [{node_or_opportunity, impact, recommended_action}]
-      - talking_points: [key points for customer conversations]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map: for each dimension, assess data richness:
+      - HIGH: trend data confirmed with multiple sources, company impact clear, 5+ data points
+      - MEDIUM: trend established but company impact partially mapped, 2-4 data points
+      - LOW: trend or company data insufficient for analysis
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT.
+      Dimensions to assess: Trend Evidence, Business Line Exposure, Engagement
+      Relevance, Competitive Response, Customer Awareness.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Trend data to acquire (analyst reports, case studies, peer examples)
+      - Company information needed (business line details, strategic priorities)
+      - Engagement context to gather from AE or SA
+      - Customer conversations to probe for trend awareness
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: TREND CHARACTERIZATION
+      Establish the trend's current state with evidence.
+      - Trend description (specific, concrete, not buzzword-level)
+      - Current maturity (emerging, accelerating, mature, declining)
+      - Rate of change: evidence from two or more time-separated data points.
+        If only one observation exists, state "Rate of change: INSUFFICIENT DATA,
+        single observation from {source} on {date}."
+      - Geographic variation (global, regional, local differences)
+      - Industry penetration (what percentage of the industry is affected)
+      - Key drivers (what is causing this trend)
+      - Key inhibitors (what is slowing adoption or response)
+      - Evidence base: minimum two sources with dates
+      - Confidence level (HIGH/MEDIUM/LOW with basis)
+      Empty state: if trend evidence is thin, state "Trend characterization based
+      on limited evidence ({count} sources). Assessment is preliminary and confidence
+      is LOW."
+      Deliverable: Trend characterization (Attribute | Assessment | Evidence |
+      Confidence).
+
+      STEP 2: BUSINESS LINE IMPACT ASSESSMENT
+      For each of the customer's business lines, assess the trend's impact.
+      For each business line:
+      - Business line name
+      - Exposure level (high, medium, low, none)
+      - Impact type: how the trend affects this business line
+      - Primary classification: revenue impact, cost impact, operational impact,
+        competitive impact, regulatory impact
+      - Secondary flags: additional impact types that apply
+      - Timeframe: when the impact will materialize (immediate, 6-12 months,
+        12-24 months, 24+ months)
+      - Magnitude: estimated business impact (quantified where possible,
+        directional where not)
+      - Customer readiness: is this business line prepared? (ready, partially
+        ready, unprepared)
+      - Confidence level (HIGH/MEDIUM/LOW with basis)
+      Trend claims about trajectory require two data points minimum.
+      Empty state: if business line details are unavailable, state "Business line
+      impact assessment is preliminary. Requires validation with {stakeholder role}
+      who owns {business area}."
+      Deliverable: Business line impact table (Line | Exposure | Impact Type |
+      Classification | Timeframe | Magnitude | Readiness | Confidence).
+
+      STEP 3: ENGAGEMENT IMPLICATIONS
+      Assess how this trend affects active and potential engagements.
+      For each affected node or opportunity:
+      - Node ID or opportunity name
+      - How the trend impacts the engagement
+      - Primary classification: accelerator (creates urgency), expander (broadens
+        scope), blocker (creates resistance), creator (new opportunity)
+      - Secondary flags: additional impact types that apply
+      - Required changes to engagement approach
+      - Recommended action (specific, not generic)
+      - Confidence level (HIGH/MEDIUM/LOW with basis)
+      Empty state: if no active engagements are affected, state "Trend does not
+      directly impact active engagements. Consider whether trend creates new
+      engagement opportunities in {suggested areas}."
+      Deliverable: Engagement implications table (Node/Opportunity | Impact |
+      Classification | Required Changes | Recommended Action | Confidence).
+
+      STEP 4: STAKEHOLDER TALKING POINTS
+      Create data-backed talking points for customer conversations.
+      For each stakeholder persona likely to discuss this trend:
+      - Stakeholder role (CTO, CFO, LOB leader, etc.)
+      - Their likely perspective on this trend (what they care about)
+      - Opening point (how to introduce the topic)
+      - Supporting data (specific numbers, benchmarks, peer examples)
+      - Vendor connection (how to naturally bridge to vendor capabilities)
+      - Potential objection (what pushback to expect)
+      - Counter with data (evidence-based response to the objection)
+      All talking points must reference specific data. No talking point should
+      rely on assertions without evidence.
+      Empty state: if stakeholder mapping is unavailable, provide generic talking
+      points by C-level persona and note "Stakeholder-specific customization
+      requires stakeholder map from AE discovery."
+      Deliverable: Talking points organized by stakeholder persona.
+
+      STEP 5: ACTION PLAN
+      Based on findings, recommend actions for the engagement team.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (trend creates immediate urgency), P1 (this quarter),
+        P2 (next quarter), P3 (strategic)
+      - Owner: which agent or human role should execute
+      - Prerequisites: what must be true before this action can start
+      - Expected Impact: what outcome this action produces
+      Deliverable: Action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Business line exposure assessments added
+      - Engagement implications flagged
+      - Talking points registered for stakeholder conversations
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Trend characterization includes two or more evidence sources
+      - Rate of change claims backed by time-separated observations or marked INSUFFICIENT DATA
+      - Business line impacts include timeframe and magnitude estimates
+      - Engagement implications are specific to active nodes, not generic advice
+      - Talking points reference specific data, not unsupported assertions
+      - Compound classifications use primary + secondary flags throughout
+      - Confidence levels assigned to every assessment
+      - Action prerequisites specified for every recommended action
+      - Account state delta specifies field paths, old values, new values, and evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (trend data to acquire, company information needed, conversations to probe, re-assessment date). Skip impact analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 6 deliverables plus the Data Availability Map
+      as labeled sections. Lead with an executive summary that states: (1) overall
+      trend impact severity and number of business lines affected, (2) the weakest
+      point or lowest confidence area, and (3) the single most urgent action to
+      take next.

@@ -1,6 +1,7 @@
 # CI Agent Task Prompts
-# Purpose: Task-specific prompts using CAF framework (Context, Action, Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
 # Reference: Personality defined in personalities/ci_personality.yaml
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
 
 # ============================================================================
 # COMPETITIVE SIGNAL DETECTION PROMPTS
@@ -9,66 +10,446 @@ signal_detection:
 
   competitor_mention_scan:
     name: "Competitor Mention Scan"
-    description: "Scan communications for competitor mentions"
+    description: "Scan communications for competitor mentions, classify signals by threat level and category, and produce prioritized action plan"
     prompt: |
       Context: Scan all communications for {account_name} in the last
       {time_period} for competitor mentions.
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Identify competitor signals:
-      - Which competitors were mentioned?
-      - In what context?
-      - What was the sentiment?
-      - What action is needed?
+      You are scanning for competitive signals in customer communications.
+      Every mention must be traceable to a source. Sentiment and threat
+      assessments must carry confidence levels. Follow these steps in order.
 
-      Format:
-      - Competitors mentioned table (Competitor | Context | Sentiment | Threat level)
-      - Key quotes with attribution
-      - Threat assessment summary
-      - Recommended actions
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: 5+ communications with competitor references, CRM data available
+      - MEDIUM: 2-4 communications, partial CRM data
+      - LOW: 0-1 communications, no CRM context
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Communication Volume, CRM Context, Historical Signals,
+      Deal Stage Data, Stakeholder Mapping.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the scan.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask in next 2-3 interactions to surface competitive landscape
+      - Data sources to request access to (call recordings, email threads, meeting notes)
+      - Observation checklist for implicit competitive signals in upcoming interactions
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Scan deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: COMPETITOR IDENTIFICATION
+      Catalog all competitor mentions found in the communication set.
+      For each mention:
+      - Competitor name (exact match from known competitor list or new entrant)
+      - Source (communication type, date, participants)
+      - Exact quote or paraphrase (mark which)
+      - Context: evaluation, complaint, comparison, preference, displacement
+      - Mention type: direct (named competitor) or indirect ("current vendor", "alternative")
+      If no mentions found: state "No competitor mentions detected in {time_period}.
+      This does not confirm absence of competitive activity, only absence of signal."
+      Deliverable: Competitor mention table (Competitor | Source | Quote | Context |
+      Mention Type).
+
+      STEP 2: SENTIMENT AND THREAT ANALYSIS
+      For each competitor mention identified in Step 1, assess:
+      - Sentiment toward competitor: POSITIVE / NEUTRAL / NEGATIVE
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Sentiment toward us: POSITIVE / NEUTRAL / NEGATIVE
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Threat level: HIGH / MEDIUM / LOW
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Primary threat classification: EVALUATION, DISPLACEMENT, FEATURE_GAP,
+        PRICING, RELATIONSHIP, PREFERENCE
+      - Secondary flags: list any additional classifications that apply
+
+      Trend claims require two data points minimum. If only one mention exists
+      for a competitor, trend is "INSUFFICIENT DATA", not "stable" or "emerging."
+      If no prior signals exist in account state: state "No historical baseline
+      for trend comparison. Current observation recorded as first data point."
+      Deliverable: Threat analysis table (Competitor | Sentiment Toward Them |
+      Sentiment Toward Us | Threat Level | Confidence | Primary Classification |
+      Secondary Flags).
+
+      STEP 3: ACTION PLAN
+      For each threat rated MEDIUM or HIGH, produce a prioritized action.
+      Action table format:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+
+      Prerequisites must specify what must be true before the action can start
+      (e.g., "AE confirms customer relationship status", "Product team confirms
+      feature parity timeline").
+      If no MEDIUM or HIGH threats found: state "No actions required. Continue
+      routine monitoring at current cadence."
+      Deliverable: Action plan table with prerequisites.
+
+      STEP 4: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New competitive risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every competitor mention traces to a specific source document or communication
+      - Sentiment assessments include confidence level with stated basis
+      - Threat levels include confidence level with stated basis
+      - Classifications use primary + secondary flags, not forced single category
+      - Trend claims reference two or more time-separated data points, or state INSUFFICIENT DATA
+      - Actions include prerequisites column, not just owner and timeline
+      - Empty states handled explicitly per step (what is missing, what it means)
+      - Account state delta specifies field path, old value, new value, evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps,
+        questions, sources, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) conclusion on competitive landscape and
+      overall threat level with confidence, (2) the weakest point or lowest confidence
+      area across all assessments, and (3) the single most urgent action to take next.
 
   threat_assessment:
     name: "Competitive Threat Assessment"
-    description: "Assess competitive threat level in opportunity"
+    description: "Assess competitive threat level per competitor in an opportunity, quantify win probability with confidence, and produce competitive strategy with prerequisites"
     prompt: |
       Context: Opportunity: {opportunity_name} at {account_name}
       Value: {deal_value}
       Stage: {deal_stage}
       Known competitors: {competitor_list}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess competitive threat:
-      - What is each competitor's position?
-      - What are their strengths here?
-      - Where are we stronger?
-      - What is our win probability?
+      You are assessing competitive threats for a specific opportunity. Every
+      assessment must be evidence-based with stated confidence. Win probability
+      requires explicit basis. Follow these steps in order.
 
-      Format:
-      - Threat level: [HIGH/MEDIUM/LOW]
-      - Competitor analysis table (Competitor | Position | Strengths | Weaknesses)
-      - Our competitive advantages (this deal)
-      - Our vulnerabilities (this deal)
-      - Win probability: {percentage}
-      - Recommended competitive strategy
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: CRM data, deal history, competitor intelligence, customer feedback
+      - MEDIUM: partial CRM, some competitive signals, limited feedback
+      - LOW: no deal data, no competitive signals, no customer input
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Competitor Profile Data, Deal History, Customer
+      Requirements, Evaluation Criteria, Relationship Mapping.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask in next 2-3 interactions to surface competitive positioning
+      - Data sources to request (evaluation scorecards, RFP criteria, stakeholder feedback)
+      - Observation checklist for competitive signals during deal progression
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: COMPETITOR POSITION MAPPING
+      For each known competitor, map their position in this opportunity:
+      - Competitor name
+      - Relationship status: incumbent, challenger, new entrant, unknown
+      - Known champion or sponsor within account (if any)
+      - Perceived strengths in this deal context
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Perceived weaknesses in this deal context
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Pricing position: premium, competitive, aggressive, unknown
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Primary threat classification: TECHNICAL, PRICING, RELATIONSHIP,
+        INCUMBENT_ADVANTAGE, FEATURE_GAP, ECOSYSTEM
+      - Secondary flags: list any additional classifications that apply
+
+      If a competitor has no data beyond a name: state "No intelligence available
+      for {competitor}. Position assessment deferred until signals acquired."
+      Deliverable: Competitor position table (Competitor | Relationship | Champion |
+      Strengths | Weaknesses | Pricing | Confidence | Primary Classification |
+      Secondary Flags).
+
+      STEP 2: OUR COMPETITIVE ADVANTAGES
+      For this specific deal, catalog our advantages:
+      - Advantage description
+      - Why it matters to this customer (mapped to their stated requirements)
+      - Evidence (customer quote, POC result, reference, benchmark)
+      - Durability: sustainable (hard to replicate), temporary (competitor closing gap),
+        or situational (depends on this deal's specifics)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      If no clear advantages identified: state "No confirmed advantages for this
+      deal context. Competitive positioning requires differentiation strategy."
+      Deliverable: Advantage table (Advantage | Customer Relevance | Evidence |
+      Durability | Confidence).
+
+      STEP 3: OUR VULNERABILITIES
+      For this specific deal, catalog our vulnerabilities:
+      - Vulnerability description
+      - Which competitor exploits it
+      - Severity: CRITICAL (could lose deal alone), SIGNIFICANT (weakens position),
+        MINOR (manageable with preparation)
+      - Mitigation available: YES (describe), PARTIAL (describe gap), NO
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      If no vulnerabilities identified: state "No known vulnerabilities surfaced.
+      This may indicate insufficient competitive intelligence rather than a
+      strong position. Validate through customer interaction."
+      Deliverable: Vulnerability table (Vulnerability | Exploited By | Severity |
+      Mitigation | Confidence).
+
+      STEP 4: WIN PROBABILITY ASSESSMENT
+      Calculate win probability with explicit methodology:
+      - Base rate: historical win rate against these competitors in similar deals
+        (if available). If not available, state "No historical base rate. Estimate
+        based on current signals only, confidence LOW."
+      - Adjustment factors: deal-specific strengths and weaknesses from Steps 2-3
+      - Final win probability: percentage with confidence level
+        (confidence: HIGH if base rate + 3+ deal factors; MEDIUM if base rate OR
+        deal factors; LOW if neither)
+      - Key swing factors: 2-3 factors that could most change the outcome
+
+      Trend assessment: if prior assessments exist in account state, compare.
+      If no prior assessment: "INSUFFICIENT DATA for trend. First assessment recorded."
+      Deliverable: Win probability with confidence and swing factors.
+
+      STEP 5: COMPETITIVE STRATEGY
+      Produce a strategy to improve win probability:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+
+      Prerequisites must specify what must be true before the action can start.
+      Group actions by:
+      - Immediate (this week): actions to secure or improve position now
+      - Near-term (this month): actions to build advantage
+      - Contingency: actions if key swing factors move against us
+      Deliverable: Competitive strategy action table with prerequisites.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Competitive risk level changes
+      - Win probability updates
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every competitor strength/weakness assessment has a confidence level with basis
+      - Win probability has explicit methodology and confidence level
+      - Classifications use primary + secondary flags, not forced single category
+      - Trend claims reference two or more time-separated data points, or state INSUFFICIENT DATA
+      - Actions include prerequisites column, not just owner and timeline
+      - Empty states handled explicitly per step (what is missing, what it means)
+      - Vulnerabilities include mitigation status, not just description
+      - Account state delta specifies field path, old value, new value, evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps,
+        questions, sources, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) overall threat level and win probability
+      with confidence, (2) the weakest point or highest-risk vulnerability, and
+      (3) the single most urgent action to take next.
 
   bake_off_analysis:
     name: "Competitive Bake-Off Analysis"
-    description: "Analyze competitive evaluation or POC"
+    description: "Analyze competitive evaluation or POC, score each criterion with confidence, and produce a win strategy with prerequisites"
     prompt: |
       Context: {account_name} is evaluating {vendor} against {competitors}.
       Evaluation criteria: {criteria}
       Timeline: {timeline}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare competitive analysis:
-      - What are the evaluation criteria?
-      - How do we compare on each?
-      - What are our risks?
-      - How do we win?
+      You are analyzing a competitive evaluation (bake-off or POC). Every scoring
+      comparison must have confidence levels. Competitor capability claims must be
+      evidence-based, never invented. Follow these steps in order.
 
-      Format:
-      - Evaluation criteria matrix (Criterion | Weight | Us | Competitor 1 | Competitor 2)
-      - Our strong points (lead with these)
-      - Risk areas (prepare for these)
-      - Competitor likely attacks
-      - Win strategy recommendations
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: formal criteria weights, POC results, customer scoring rubric
+      - MEDIUM: informal criteria, partial POC data, verbal feedback
+      - LOW: no criteria detail, no POC data, assumptions only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Evaluation Criteria Detail, Competitor Capabilities,
+      Customer Scoring Rubric, POC/Demo Results, Decision Timeline.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the analysis.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask to clarify evaluation criteria and weighting
+      - Data to request (formal scorecard, evaluation rubric, POC requirements)
+      - Observation checklist for evaluation signals in upcoming interactions
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: EVALUATION CRITERIA MATRIX
+      Build the comparison matrix for all evaluation criteria:
+      For each criterion:
+      - Criterion name
+      - Weight (customer-stated or estimated, mark which)
+      - Our score: 1-5 with confidence (HIGH/MEDIUM/LOW with basis)
+      - Each competitor score: 1-5 with confidence (HIGH/MEDIUM/LOW with basis)
+      - Score basis: what evidence supports each score
+      - Primary category: TECHNICAL, COMMERCIAL, OPERATIONAL, STRATEGIC, COMPLIANCE
+      - Secondary flags: additional categories that apply
+
+      NEVER invent competitor capabilities. If a competitor's capability on a
+      criterion is unknown, score as "UNKNOWN" with confidence "LOW, no data."
+      If criteria weights are unknown: state "Weights estimated based on customer
+      priorities. Actual weights should be confirmed with evaluation committee."
+      Deliverable: Evaluation matrix (Criterion | Weight | Us Score + Confidence |
+      Competitor Scores + Confidence | Primary Category | Secondary Flags).
+
+      STEP 2: STRENGTH AREAS
+      Identify criteria where we lead:
+      - Criterion name
+      - Our advantage (specific, quantified if possible)
+      - How to demonstrate (demo scenario, proof point, reference customer)
+      - Risk of being neutralized (competitor closing gap? customer deprioritizing?)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      If no clear lead areas: state "No criteria where we hold a clear lead.
+      Strategy must focus on reframing evaluation criteria or differentiating
+      on dimensions outside current scorecard."
+      Deliverable: Strength areas table (Criterion | Advantage | Demonstration |
+      Neutralization Risk | Confidence).
+
+      STEP 3: RISK AREAS
+      Identify criteria where we trail or are at parity:
+      - Criterion name
+      - Gap description (specific, quantified if possible)
+      - Mitigation strategy (what we can do before evaluation completes)
+      - Mitigation feasibility: HIGH / MEDIUM / LOW
+      - Fallback: if mitigation fails, how to reframe or deprioritize this criterion
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      If no risk areas identified: state "No criteria where we trail. Validate
+      by confirming competitor capabilities with customer or third-party sources."
+      Deliverable: Risk areas table (Criterion | Gap | Mitigation | Feasibility |
+      Fallback | Confidence).
+
+      STEP 4: COMPETITOR LIKELY ATTACKS
+      For each competitor, predict their likely attack strategy:
+      - Competitor name
+      - Likely claims against us (based on known messaging, not invented)
+      - Our response to each claim (factual, evidence-based)
+      - Trap questions they may seed with the customer
+      - Our handling for each trap question
+      - Confidence: HIGH/MEDIUM/LOW with basis
+
+      If competitor messaging is unknown: state "No known attack vectors for
+      {competitor}. Monitor for FUD signals in customer interactions."
+      Deliverable: Attack/response table (Competitor | Their Claim | Our Response |
+      Trap Question | Our Handling | Confidence).
+
+      STEP 5: WIN STRATEGY
+      Produce the evaluation win strategy:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+
+      Group by evaluation phase:
+      - Pre-evaluation: positioning and criteria influence
+      - During evaluation: demonstration and proof point execution
+      - Post-evaluation: follow-up and decision influence
+      - Contingency: if key criteria shift or new competitor enters
+
+      Prerequisites must specify what must be true before each action can start.
+      Deliverable: Win strategy action table with prerequisites.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Competitive evaluation status updates
+      - Risk level changes
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every score has a confidence level with stated basis
+      - Competitor capability scores never invented, UNKNOWN used when no data
+      - Criteria weights marked as customer-stated or estimated
+      - Classifications use primary + secondary flags, not forced single category
+      - Actions include prerequisites column, not just owner and timeline
+      - Empty states handled explicitly per step (what is missing, what it means)
+      - Attack responses are factual and evidence-based, not speculative
+      - Account state delta specifies field path, old value, new value, evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps,
+        questions, sources, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) overall evaluation position and weighted
+      score comparison with confidence, (2) the weakest criterion or highest-risk gap,
+      and (3) the single most urgent action to take next.
 
 # ============================================================================
 # BATTLECARD PROMPTS
@@ -77,65 +458,457 @@ battlecard:
 
   quick_battlecard:
     name: "Quick Competitive Battlecard"
-    description: "Generate quick competitive reference for call"
+    description: "Generate evidence-based competitive battlecard for an upcoming call, with confidence-rated differentiators and trap question handling"
     prompt: |
       Context: Call with {account_name} in {time_until_call}.
       Competitor mentioned: {competitor_name}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Provide quick battlecard:
-      - Top 3 differentiators vs this competitor
-      - Their likely claims
-      - Our responses
-      - Trap questions to avoid
+      You are preparing a competitive battlecard for an imminent call. Every
+      differentiator and claim must be evidence-based. Never invent competitor
+      capabilities. Follow these steps in order.
 
-      Format:
-      - Quick differentiators (3 bullets)
-      - Their claims → Our response (table)
-      - Trap questions to avoid
-      - Proof points to use
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: known competitor product details, prior deal history, customer context
+      - MEDIUM: partial competitor data, some account history
+      - LOW: competitor name only, no account context
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Competitor Product Knowledge, Account History,
+      Deal Context, Prior Competitive Interactions.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Key questions to ask during the call to surface competitive dynamics
+      - Signals to listen for (specific phrases indicating preference, evaluation, risk)
+      - Post-call data to capture for future battlecard preparation
+      - Re-assessment gate with minimum data threshold
+      Do not proceed to remaining steps.
+
+      STEP 1: TOP DIFFERENTIATORS
+      Identify the top 3 differentiators vs this competitor for this account:
+      For each differentiator:
+      - Differentiator description
+      - Why it matters to this customer specifically (not generic)
+      - Evidence: proof point, benchmark, customer reference, analyst report
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      - Primary category: TECHNICAL, COMMERCIAL, OPERATIONAL, STRATEGIC
+      - Secondary flags: additional categories that apply
+
+      If fewer than 3 differentiators can be substantiated with evidence:
+      state how many are evidence-based and note "Remaining differentiators
+      require validation before use in customer conversation."
+      Deliverable: Differentiator table (Differentiator | Customer Relevance |
+      Evidence | Confidence | Primary Category | Secondary Flags).
+
+      STEP 2: CLAIM AND RESPONSE MATRIX
+      Map likely competitor claims and our responses:
+      For each claim:
+      - Their likely claim (based on known messaging, not invented)
+      - Validity: TRUE / PARTIAL / FALSE
+      - Our response (factual, customer-ready language)
+      - Proof point to support response
+      - Confidence in their claim likelihood: HIGH/MEDIUM/LOW with basis
+
+      If competitor messaging is unknown: state "No confirmed competitor claims
+      available. Responses based on common market positioning patterns,
+      confidence LOW."
+      Deliverable: Claim/response table (Their Claim | Validity | Our Response |
+      Proof Point | Confidence).
+
+      STEP 3: TRAP QUESTIONS AND HANDLING
+      Identify questions the competitor may have seeded with the customer:
+      For each trap question:
+      - The question as customer might ask it
+      - Why it is a trap (what it is designed to expose)
+      - Handling approach (redirect, reframe, or address directly)
+      - Safe response (customer-ready language)
+      - Follow-up question to shift focus to our strengths
+
+      If no known trap patterns: state "No known trap questions for this
+      competitor. Monitor for questions that seem planted or unusually specific."
+      Deliverable: Trap question table (Question | Why It Is a Trap | Handling |
+      Safe Response | Redirect Question).
+
+      STEP 4: PROOF POINTS SUMMARY
+      Compile all proof points referenced across Steps 1-3:
+      - Proof point description
+      - Type: customer reference, benchmark, analyst report, product capability, case study
+      - Availability: READY (can share now), PENDING (needs approval), UNAVAILABLE
+      - Relevance to this account: HIGH / MEDIUM / LOW
+
+      If no proof points available: state "No proof points confirmed for this
+      competitor matchup. Recommend engaging product marketing for materials."
+      Deliverable: Proof point table (Description | Type | Availability | Relevance).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Competitive signals recorded
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Differentiators are specific to this customer, not generic positioning
+      - Every differentiator has evidence and confidence level
+      - Competitor claims are based on known messaging, never invented
+      - Classifications use primary + secondary flags, not forced single category
+      - Trap question handling provides safe, customer-ready language
+      - Empty states handled explicitly per step (what is missing, what it means)
+      - Proof points include availability status
+      - Account state delta specifies field path, old value, new value, evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the top differentiator with proof point. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (questions
+        for the call, signals to listen for, post-call capture plan). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) competitive positioning summary and
+      readiness level with confidence, (2) the weakest differentiator or biggest gap,
+      and (3) the single most important point to make during the call.
 
   objection_handling:
     name: "Competitive Objection Handling"
-    description: "Prepare responses to competitor-driven objections"
+    description: "Analyze competitor-driven objection for validity, prepare evidence-based response with redirect strategy and confidence levels"
     prompt: |
       Context: Customer objection: "{objection}"
       Likely source: {competitor_name}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare response:
-      - Is this objection valid?
-      - What is the full truth?
-      - How do we respond?
-      - How do we redirect?
+      You are preparing a response to a competitor-driven objection. The response
+      must be factual and evidence-based. Validity assessments must be honest,
+      including when the objection is true. Follow these steps in order.
 
-      Format:
-      - Objection analysis
-      - Validity: [TRUE/PARTIAL/FALSE]
-      - Full truth (what customer should know)
-      - Recommended response (customer-ready)
-      - Redirect question (to shift focus)
-      - Proof point to share
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: product documentation, competitor comparisons, customer context
+      - MEDIUM: partial product knowledge, some competitor data
+      - LOW: no product detail on objection topic, no competitor data
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Objection Subject Matter, Competitor Messaging,
+      Product Capabilities, Customer Context.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Internal teams to consult (product, engineering, product marketing)
+      - Specific questions to answer before responding to customer
+      - Interim acknowledgment language for the customer (buy time without conceding)
+      - Re-assessment gate with minimum data threshold
+      Do not proceed to remaining steps.
+
+      STEP 1: OBJECTION ANALYSIS
+      Deconstruct the objection:
+      - Core claim: what exactly is the customer saying
+      - Validity: TRUE / PARTIAL / FALSE
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - If TRUE: acknowledge honestly, what is our roadmap or mitigation
+      - If PARTIAL: what part is true, what part is misleading or out of context
+      - If FALSE: what is the actual truth with evidence
+      - Primary classification: TECHNICAL, PRICING, CAPABILITY, PERFORMANCE,
+        SECURITY, COMPLIANCE, INTEGRATION
+      - Secondary flags: additional classifications that apply
+      - Source attribution: is this a known competitor talking point, customer
+        independent discovery, or analyst/peer recommendation
+
+      If objection cannot be evaluated without product team input: state
+      "Validity cannot be confirmed without {specific team} input. Do not
+      respond to customer until validated."
+      Deliverable: Objection analysis (Claim | Validity | Confidence | Evidence |
+      Primary Classification | Secondary Flags | Source Attribution).
+
+      STEP 2: FULL TRUTH ASSESSMENT
+      Provide the complete picture the customer should have:
+      - What the customer knows (the objection)
+      - What the customer does not know (context they are missing)
+      - Our current state on this topic (honest assessment)
+      - Our roadmap on this topic (if applicable, with timeline confidence)
+      - Industry context (how peers handle this, what is standard)
+      - Confidence in our position: HIGH/MEDIUM/LOW with basis
+
+      If roadmap information is confidential or uncertain: state "Roadmap
+      details require product team approval before sharing."
+      Deliverable: Truth assessment with confidence levels.
+
+      STEP 3: CUSTOMER-READY RESPONSE
+      Craft the actual response to deliver to the customer:
+      - Acknowledgment (validate their concern without conceding)
+      - Key message (the truth, framed constructively)
+      - Evidence or proof point to support the response
+      - Redirect question (shifts focus to our strength or their real need)
+
+      The response must be deliverable as-is in a customer conversation.
+      No jargon, no defensive tone, no competitor bashing.
+      Deliverable: Customer-ready response with redirect.
+
+      STEP 4: PATTERN ANALYSIS
+      Assess whether this objection is part of a broader pattern:
+      - Is this objection seen in other accounts (if data available)
+      - Is this a known competitor campaign or talking point
+      - Trend: if this has appeared before, is frequency increasing, stable,
+        or decreasing. Trend requires two data points minimum. If only one
+        instance: "INSUFFICIENT DATA for trend. First instance recorded."
+      - Recommended systemic response (product change, messaging update,
+        proactive enablement)
+
+      If no historical data: state "No prior instances of this objection in
+      available data. Recorded as first observation for trend tracking."
+      Deliverable: Pattern analysis with trend assessment.
+
+      STEP 5: ACTION PLAN
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+
+      Include both immediate response actions and longer-term systemic actions.
+      Prerequisites must specify what must be true before each action can start.
+      Deliverable: Action plan table with prerequisites.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Competitive objection recorded
+      - Risk level changes
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Validity assessment is honest, including when the objection is true
+      - Every assessment has a confidence level with stated basis
+      - Classifications use primary + secondary flags, not forced single category
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - Customer-ready response is deliverable as-is (no jargon, no defensive tone)
+      - Actions include prerequisites column, not just owner and timeline
+      - Empty states handled explicitly per step (what is missing, what it means)
+      - Account state delta specifies field path, old value, new value, evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the customer-ready response. Skip detailed analysis deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (teams to
+        consult, questions to answer, interim language). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) objection validity and our position with
+      confidence, (2) the weakest point in our response or biggest knowledge gap,
+      and (3) the single most urgent action to take next.
 
   displacement_playbook:
     name: "Competitive Displacement Strategy"
-    description: "Strategy to displace incumbent competitor"
+    description: "Develop displacement strategy against incumbent competitor with phased entry plan, switching cost analysis, and stakeholder-specific messaging"
     prompt: |
       Context: {account_name} currently uses {competitor_name}.
       Contract status: {contract_status}
       Known pain points: {pain_points}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Develop displacement strategy:
-      - What are their pain points with incumbent?
-      - What is our entry point?
-      - What is the switching cost?
-      - How do we position?
+      You are building a displacement strategy against an incumbent competitor.
+      Pain points must be customer-confirmed, not assumed. Switching cost estimates
+      must carry confidence levels. Follow these steps in order.
 
-      Format:
-      - Incumbent analysis (what they have, what hurts)
-      - Our entry strategy
-      - Switching cost mitigation
-      - Timeline to displacement
-      - Stakeholders to target
-      - Messaging by stakeholder
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: contract details, confirmed pain points, stakeholder access, usage data
+      - MEDIUM: partial contract info, some pain points, limited stakeholder access
+      - LOW: no contract data, unconfirmed pain points, no stakeholder mapping
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Contract Details, Pain Point Validation, Stakeholder
+      Mapping, Incumbent Usage Depth, Switching Feasibility.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to validate pain points in next interactions
+      - Data sources to request (contract renewal date, usage metrics, org chart)
+      - Observation checklist for displacement readiness signals
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: INCUMBENT ANALYSIS
+      Map the incumbent's position in detail:
+      - Products deployed (which modules, editions, integrations)
+      - Depth of adoption: surface (basic features), moderate (customized),
+        deep (heavily integrated, custom workflows)
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Contract details: renewal date, term length, pricing model, exit clauses
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Relationship strength: executive sponsor, technical champion, embedded team
+      - Primary lock-in classification: TECHNICAL, CONTRACTUAL, ORGANIZATIONAL,
+        DATA, WORKFLOW
+      - Secondary flags: additional lock-in types that apply
+
+      If contract details unknown: state "Contract details unavailable.
+      Displacement timeline cannot be estimated without renewal date and exit
+      clause information."
+      Deliverable: Incumbent analysis table with confidence levels and
+      lock-in classification.
+
+      STEP 2: PAIN POINT VALIDATION
+      For each known pain point, validate and quantify:
+      - Pain point description
+      - Source: CUSTOMER_CONFIRMED (direct quote), INFERRED (from behavior or
+        indirect signals), ASSUMED (based on typical patterns, not confirmed)
+      - Severity: CRITICAL (actively seeking alternative), SIGNIFICANT
+        (causes frustration but tolerated), MINOR (inconvenience only)
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Business impact: quantified if possible (hours lost, revenue at risk,
+        compliance exposure)
+      - Who feels it most (role, department)
+      - Is incumbent aware and addressing it (yes, no, unknown)
+
+      If pain points are all ASSUMED: state "No customer-confirmed pain points.
+      Displacement strategy based on assumptions carries HIGH risk of
+      misalignment. Validate before executing."
+      Deliverable: Pain point table (Pain Point | Source | Severity | Impact |
+      Affected Role | Incumbent Response | Confidence).
+
+      STEP 3: SWITCHING COST ANALYSIS
+      Estimate total cost of switching from incumbent to us:
+      For each cost dimension:
+      - Cost type: direct (licensing, implementation, training), indirect
+        (productivity loss, risk during transition), opportunity (what they
+        give up from incumbent roadmap)
+      - Estimated cost (dollar or FTE-equivalent)
+      - Duration (one-time, transition period, ongoing)
+      - Mitigation: what we can do to reduce this cost
+      - Confidence: HIGH/MEDIUM/LOW with basis
+
+      Total switching cost with confidence range (optimistic, likely, pessimistic).
+      If data insufficient for cost estimates: state "Switching cost estimates
+      require {specific data}. Current figures are order-of-magnitude only,
+      confidence LOW."
+      Deliverable: Switching cost table (Type | Cost | Duration | Mitigation |
+      Confidence) with total and confidence range.
+
+      STEP 4: ENTRY STRATEGY
+      Define the entry approach:
+      - Entry point: which pain point or use case opens the door
+      - Land scenario: what we deploy first (smallest footprint that proves value)
+      - Expand path: how the footprint grows over time
+      - Coexistence plan: how we run alongside incumbent during transition
+      - Timeline: realistic phases from first engagement to full displacement
+        (confidence: HIGH/MEDIUM/LOW with basis)
+
+      Group actions:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+
+      Prerequisites must specify what must be true before each action can start.
+      Deliverable: Entry strategy with phased action plan and prerequisites.
+
+      STEP 5: STAKEHOLDER MESSAGING
+      For each key stakeholder role, craft targeted messaging:
+      - Stakeholder role
+      - Their primary concern regarding a switch
+      - Message that addresses their concern (customer-ready language)
+      - Proof point relevant to their role
+      - Objection they will likely raise
+      - Response to their objection
+
+      If stakeholder mapping is incomplete: state "Messaging for {roles}
+      is generic. Personalize after stakeholder discovery."
+      Deliverable: Stakeholder messaging table (Role | Concern | Message |
+      Proof Point | Likely Objection | Response).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Displacement opportunity status
+      - Competitive risk level changes
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Pain points distinguish CUSTOMER_CONFIRMED from INFERRED and ASSUMED
+      - Switching costs include confidence ranges, not single-point estimates
+      - Lock-in uses primary + secondary classification flags
+      - Every assessment has a confidence level with stated basis
+      - Actions include prerequisites column, not just owner and timeline
+      - Stakeholder messaging is customer-ready, not internal jargon
+      - Empty states handled explicitly per step (what is missing, what it means)
+      - Account state delta specifies field path, old value, new value, evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the single highest-priority entry action with prerequisites. Skip detailed deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (validation
+        questions, data sources, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) displacement feasibility assessment and
+      recommended entry point with confidence, (2) the biggest barrier to displacement
+      or lowest confidence area, and (3) the single most urgent action to take next.
 
 # ============================================================================
 # WIN/LOSS ANALYSIS PROMPTS
@@ -144,66 +917,490 @@ win_loss:
 
   win_analysis:
     name: "Competitive Win Analysis"
-    description: "Analyze why we won against competition"
+    description: "Analyze win factors against competition with confidence levels, identify replicable patterns, and produce playbook elements with state delta"
     prompt: |
       Context: Won deal: {deal_name} against {competitors}.
       Value: {deal_value}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Analyze win factors:
-      - What were the deciding factors?
-      - What did we do well?
-      - What almost cost us?
-      - What can we replicate?
+      You are analyzing why we won a competitive deal. Win factors must be
+      evidence-based, not self-congratulatory. Close calls must be documented
+      honestly. Follow these steps in order.
 
-      Format:
-      - Win factors (ranked by importance)
-      - Competitive advantages that mattered
-      - Close calls (what almost went wrong)
-      - Replicable playbook elements
-      - Lessons for similar deals
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: customer feedback, deal notes, competitor proposals, evaluation scorecards
+      - MEDIUM: partial deal notes, verbal feedback, some competitive context
+      - LOW: outcome only, no deal details, no customer feedback
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Customer Feedback, Deal Process Notes, Competitive
+      Intelligence, Evaluation Criteria, Decision Factors.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Post-win debrief questions for customer and internal team
+      - Data to capture (decision criteria, competitor proposals, scoring results)
+      - Timeline for gathering win analysis data before details fade
+      - Re-assessment gate with minimum data threshold
+      Do not proceed to remaining steps.
+
+      STEP 1: WIN FACTOR IDENTIFICATION
+      Identify and rank factors that contributed to the win:
+      For each factor:
+      - Factor description
+      - Importance: PRIMARY (deciding factor), CONTRIBUTING (supported decision),
+        MINOR (marginal impact)
+      - Evidence: customer quote, scoring data, or behavioral indicator
+      - Primary category: TECHNICAL, COMMERCIAL, RELATIONSHIP, STRATEGIC,
+        PRODUCT, SUPPORT
+      - Secondary flags: additional categories that apply
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      - Replicable: YES (can apply to future deals), SITUATIONAL (specific to
+        this deal), NO (one-time advantage)
+
+      Rank by importance descending.
+      If win factors cannot be substantiated: state "Win factors are inferred
+      from deal outcome. Customer debrief recommended for validated analysis."
+      Deliverable: Win factor table (Factor | Importance | Evidence | Primary
+      Category | Secondary Flags | Confidence | Replicable).
+
+      STEP 2: COMPETITIVE ADVANTAGE ANALYSIS
+      For each competitor we beat, document what worked:
+      - Competitor name
+      - Their perceived strengths in this deal
+      - How we countered or neutralized their strengths
+      - Where we had clear advantage
+      - What the customer valued that the competitor lacked
+      - Confidence: HIGH/MEDIUM/LOW with basis
+
+      If competitor details unavailable: state "Competitive dynamics against
+      {competitor} unclear. Analysis based on outcome only, confidence LOW."
+      Deliverable: Competitive advantage table (Competitor | Their Strengths |
+      Our Counter | Our Advantage | Customer Value Gap | Confidence).
+
+      STEP 3: CLOSE CALLS
+      Honestly assess what almost went wrong:
+      - Risk or challenge that threatened the deal
+      - When it occurred in the deal cycle
+      - How it was resolved
+      - What would have happened without resolution
+      - Lesson for future deals
+      - Confidence: HIGH/MEDIUM/LOW with basis
+
+      If no close calls identified: state "No near-misses documented. This may
+      indicate either a clean win or incomplete post-deal analysis. Validate
+      with deal team."
+      Deliverable: Close calls table (Risk | Timing | Resolution | Counterfactual |
+      Lesson | Confidence).
+
+      STEP 4: REPLICABLE PLAYBOOK ELEMENTS
+      Extract elements that can be used in future competitive deals:
+      - Playbook element description
+      - When to use (deal stage, competitor type, customer profile)
+      - How to execute (specific steps)
+      - Prerequisites for success
+      - Expected impact based on this deal's evidence
+      - Confidence: HIGH/MEDIUM/LOW with basis
+
+      Trend assessment: compare with prior win analyses if available.
+      If no prior analyses: "INSUFFICIENT DATA for pattern identification.
+      First win analysis recorded for this competitor set."
+      Deliverable: Playbook elements table with execution guidance.
+
+      STEP 5: ACTION PLAN
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+
+      Actions should focus on:
+      - Institutionalizing win factors (training, enablement, documentation)
+      - Addressing close calls for future prevention
+      - Updating competitive intelligence with validated insights
+      Prerequisites must specify what must be true before each action can start.
+      Deliverable: Action plan table with prerequisites.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Competitive intelligence updates
+      - Win pattern data to append
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Win factors are evidence-based, not self-congratulatory
+      - Close calls are documented honestly, not minimized
+      - Every assessment has a confidence level with stated basis
+      - Classifications use primary + secondary flags, not forced single category
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - Replicable elements distinguish replicable from situational
+      - Actions include prerequisites column, not just owner and timeline
+      - Empty states handled explicitly per step (what is missing, what it means)
+      - Account state delta specifies field path, old value, new value, evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the top replicable playbook element. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (debrief
+        questions, data to capture, timeline). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) primary win factors and replicability
+      assessment with confidence, (2) the biggest close call or lesson learned,
+      and (3) the single most important action to institutionalize this win.
 
   loss_analysis:
     name: "Competitive Loss Analysis"
-    description: "Analyze why we lost to competitor"
+    description: "Analyze loss factors distinguishing stated from real reasons, identify gaps and patterns, and produce corrective actions with state delta"
     prompt: |
       Context: Lost deal: {deal_name} to {competitor}.
       Value: {deal_value}
       Stated reasons: {stated_reasons}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Analyze loss factors:
-      - What were the real reasons?
-      - Where was competitor stronger?
-      - What could we have done differently?
-      - What do we learn?
+      You are analyzing why we lost a competitive deal. The analysis must
+      distinguish stated reasons from likely real reasons. Loss factors must
+      be honest and actionable. Follow these steps in order.
 
-      Format:
-      - Loss factors (stated vs real)
-      - Competitor advantages (this deal)
-      - Our gaps exposed
-      - What we should have done
-      - Pattern: Is this a trend?
-      - Recommendations for product/sales
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: customer post-mortem, competitor proposal, evaluation scores, deal notes
+      - MEDIUM: stated reasons, partial deal notes, verbal feedback
+      - LOW: outcome and competitor name only, no reasons or context
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Customer Feedback, Stated Reasons Depth, Deal Process
+      Notes, Competitor Intelligence, Evaluation Criteria.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Post-loss debrief questions for customer (if relationship allows)
+      - Internal debrief questions for deal team
+      - Data to capture before institutional memory fades
+      - Re-assessment gate with minimum data threshold and timeline
+      Do not proceed to remaining steps.
+
+      STEP 1: STATED VS REAL REASONS
+      Separate what the customer said from what likely drove the decision:
+      For each stated reason:
+      - Stated reason (customer's words)
+      - Assessment: LIKELY_REAL / CONTRIBUTING / COVER_STORY
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - If COVER_STORY: what the real reason likely is and why
+      - Evidence supporting the assessment
+
+      For unstated factors the stated reasons may be masking:
+      - Factor description
+      - Evidence or indicators
+      - Confidence: HIGH/MEDIUM/LOW with basis
+
+      If only stated reasons available: state "No independent data to validate
+      stated reasons. Analysis treats stated reasons at face value with
+      confidence MEDIUM. Customer post-mortem recommended."
+      Deliverable: Stated vs real reasons table (Stated Reason | Assessment |
+      Real Factor | Evidence | Confidence).
+
+      STEP 2: COMPETITOR ADVANTAGE ANALYSIS
+      Document where the winning competitor was stronger:
+      For each advantage:
+      - Advantage description
+      - Primary category: TECHNICAL, PRICING, RELATIONSHIP, PRODUCT,
+        ECOSYSTEM, SUPPORT, BRAND
+      - Secondary flags: additional categories that apply
+      - Was this known before the loss (did we see it coming)
+      - Could we have countered it (what would have been needed)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+
+      If competitor details unavailable: state "Competitor advantage analysis
+      limited to inferred factors from stated reasons. Direct competitive
+      intelligence would improve confidence."
+      Deliverable: Competitor advantage table (Advantage | Primary Category |
+      Secondary Flags | Known Before | Counterable | Confidence).
+
+      STEP 3: OUR GAPS EXPOSED
+      Identify gaps in our offering, process, or execution the loss revealed:
+      For each gap:
+      - Gap description
+      - Type: PRODUCT (feature/capability), PROCESS (sales execution),
+        POSITIONING (messaging/value prop), PRICING (commercial terms),
+        RELATIONSHIP (trust/access), ENABLEMENT (team skills/knowledge)
+      - Severity: CRITICAL (lost deal primarily due to this), SIGNIFICANT
+        (contributed to loss), MINOR (observed but not decisive)
+      - Addressable: YES (describe fix), PARTIAL (describe what is possible),
+        NO (structural limitation)
+      - Timeline to address (if addressable)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+
+      If gaps cannot be identified: state "Gap analysis requires deeper
+      post-mortem. Current analysis based on available signals only."
+      Deliverable: Gaps table (Gap | Type | Severity | Addressable | Timeline |
+      Confidence).
+
+      STEP 4: PATTERN ANALYSIS
+      Assess whether this loss fits a broader pattern:
+      - Is this the same competitor winning repeatedly (frequency, segment)
+      - Are the same loss reasons recurring across deals
+      - Is there a market segment where we consistently lose
+      - Trend assessment: compare with prior loss analyses if available
+
+      Trend claims require two data points minimum. If this is the first
+      loss to this competitor or with these factors: "INSUFFICIENT DATA for
+      trend. First loss recorded for pattern tracking against {competitor}."
+      Deliverable: Pattern analysis with trend assessment and data point count.
+
+      STEP 5: CORRECTIVE ACTIONS
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+
+      Group actions by:
+      - Immediate: actions for current pipeline deals against same competitor
+      - Short-term: product, process, or enablement improvements (1-3 months)
+      - Strategic: longer-term competitive positioning changes
+      - Feedback loops: what to report to product, marketing, enablement teams
+
+      Prerequisites must specify what must be true before each action can start.
+      Deliverable: Corrective action table with prerequisites.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Competitive loss recorded
+      - Gap data to append
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Stated vs real reason analysis is honest, not defensive
+      - Every assessment has a confidence level with stated basis
+      - Classifications use primary + secondary flags, not forced single category
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - Gaps are categorized by type and addressability, not just listed
+      - Actions include prerequisites column, not just owner and timeline
+      - Empty states handled explicitly per step (what is missing, what it means)
+      - Account state delta specifies field path, old value, new value, evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the single most critical corrective action. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (debrief
+        questions, data to capture, timeline). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) primary loss factor and whether it is
+      addressable with confidence, (2) the most critical gap exposed, and
+      (3) the single most urgent corrective action.
 
   competitive_trends:
     name: "Competitive Win/Loss Trends"
-    description: "Analyze competitive trends over time"
+    description: "Analyze competitive outcomes over time with trend validation, identify patterns across segments, and produce strategic recommendations with state delta"
     prompt: |
       Context: Analyze competitive outcomes for {time_period}.
       Segment: {segment}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Identify trends:
-      - Win rate vs each competitor
-      - Common win factors
-      - Common loss factors
-      - Emerging patterns
+      You are analyzing competitive win/loss trends over a time period. Every
+      trend claim requires two or more data points. Single observations are
+      not trends. Follow these steps in order.
 
-      Format:
-      - Win/loss by competitor table
-      - Win rate trends (improving/declining)
-      - Top win factors (frequency)
-      - Top loss factors (frequency)
-      - Emerging competitive threats
-      - Recommendations
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: 10+ deal outcomes, win/loss notes, competitive data, CRM records
+      - MEDIUM: 5-9 deal outcomes, partial notes, some competitive data
+      - LOW: fewer than 5 outcomes, minimal notes, no competitive context
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Deal Outcome Volume, Win/Loss Reason Data,
+      Competitive Intelligence, Segment Coverage, Temporal Span.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Data collection plan for win/loss tracking going forward
+      - CRM fields and processes to implement for competitive data capture
+      - Minimum data threshold for meaningful trend analysis
+      - Re-assessment gate with target date and data volume goal
+      Do not proceed to remaining steps.
+
+      STEP 1: WIN/LOSS BY COMPETITOR
+      For each competitor encountered in the period:
+      - Competitor name
+      - Deals won against them (count, total value)
+      - Deals lost to them (count, total value)
+      - Win rate (percentage with confidence based on sample size)
+        - N < 5: confidence LOW, "small sample, directional only"
+        - N 5-15: confidence MEDIUM, "moderate sample"
+        - N > 15: confidence HIGH, "statistically meaningful"
+      - Trend vs prior period: IMPROVING / STABLE / DECLINING / INSUFFICIENT DATA
+        (requires two time periods minimum)
+
+      If fewer than 2 deals per competitor: state "Sample size insufficient for
+      per-competitor analysis. Aggregate view only."
+      Deliverable: Win/loss by competitor table (Competitor | Wins | Losses |
+      Win Rate | Confidence | Trend | Data Points).
+
+      STEP 2: WIN FACTOR FREQUENCY
+      Across all wins in the period, identify recurring win factors:
+      - Factor description
+      - Frequency (number of deals where this was a factor)
+      - Percentage of wins where this was cited
+      - Primary category: TECHNICAL, COMMERCIAL, RELATIONSHIP, PRODUCT,
+        SUPPORT, STRATEGIC
+      - Secondary flags: additional categories that apply
+      - Trend vs prior period: requires two periods minimum
+      - Confidence: HIGH/MEDIUM/LOW based on data richness
+
+      Rank by frequency descending.
+      If win factor data unavailable: state "Win factor analysis requires
+      documented win reasons. Current data has {n} deals with win reasons
+      out of {total} wins."
+      Deliverable: Win factor frequency table with trend assessment.
+
+      STEP 3: LOSS FACTOR FREQUENCY
+      Across all losses in the period, identify recurring loss factors:
+      - Factor description
+      - Frequency (number of deals where this was a factor)
+      - Percentage of losses where this was cited
+      - Primary category: TECHNICAL, PRICING, RELATIONSHIP, PRODUCT,
+        ECOSYSTEM, SUPPORT, BRAND
+      - Secondary flags: additional categories that apply
+      - Addressable: YES / PARTIAL / NO
+      - Trend vs prior period: requires two periods minimum
+      - Confidence: HIGH/MEDIUM/LOW based on data richness
+
+      Rank by frequency descending.
+      If loss factor data unavailable: state "Loss factor analysis requires
+      documented loss reasons. Current data has {n} deals with loss reasons
+      out of {total} losses."
+      Deliverable: Loss factor frequency table with trend assessment.
+
+      STEP 4: EMERGING THREATS
+      Based on the data, identify emerging competitive threats:
+      - Threat description
+      - Competitor(s) involved
+      - Evidence: what data points signal this threat
+      - Data point count (minimum 2 required to classify as trend)
+      - Trajectory: ACCELERATING / STEADY / EARLY_SIGNAL / INSUFFICIENT DATA
+      - Potential impact on future win rates
+      - Primary classification: NEW_ENTRANT, FEATURE_PARITY, PRICING_PRESSURE,
+        MARKET_SHIFT, ECOSYSTEM_PLAY
+      - Secondary flags: additional classifications that apply
+      - Confidence: HIGH/MEDIUM/LOW with basis
+
+      If no emerging threats identified with sufficient data: state "No emerging
+      threats meet the two-data-point threshold. Continue monitoring. Single
+      observations recorded for future trend tracking: {list}."
+      Deliverable: Emerging threats table with evidence and data point count.
+
+      STEP 5: STRATEGIC RECOMMENDATIONS
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+
+      Group by:
+      - Competitive positioning: how to improve win rates
+      - Product/feature: gaps to close based on loss factors
+      - Enablement: skills or knowledge to improve based on win factors
+      - Process: sales process improvements based on patterns
+      - Intelligence: data collection improvements for better analysis
+
+      Prerequisites must specify what must be true before each action can start.
+      Deliverable: Strategic recommendation table with prerequisites.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Competitive trend data updates
+      - Threat level changes
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every win rate includes sample size and confidence level
+      - Trend claims reference two or more time-separated data points, or state INSUFFICIENT DATA
+      - Single observations are labeled as such, not presented as trends
+      - Classifications use primary + secondary flags, not forced single category
+      - Emerging threats require minimum two data points for trend classification
+      - Actions include prerequisites column, not just owner and timeline
+      - Empty states handled explicitly per step (what is missing, what it means)
+      - Account state delta specifies field path, old value, new value, evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the single most critical strategic recommendation. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data
+        collection plan, CRM fields, minimum thresholds). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) overall competitive position with win rate
+      and trend direction with confidence, (2) the most concerning loss pattern or
+      emerging threat, and (3) the single most urgent strategic action.
 
 # ============================================================================
 # MARKET INTELLIGENCE PROMPTS
@@ -212,61 +1409,474 @@ market_intel:
 
   competitor_news:
     name: "Competitor News Analysis"
-    description: "Analyze recent competitor news and implications"
+    description: "Analyze competitor news for implications, classify impact with confidence, and produce field messaging with action plan and state delta"
     prompt: |
       Context: Recent news about {competitor_name}:
       {news_summary}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Analyze implications:
-      - What does this mean for them?
-      - What does this mean for us?
-      - How should we respond?
-      - What should field know?
+      You are analyzing competitor news and its implications for our competitive
+      position. Impact assessments must carry confidence levels. Field messaging
+      must be factual and defensible. Follow these steps in order.
 
-      Format:
-      - News summary (1 paragraph)
-      - Competitor impact
-      - Our opportunity/threat
-      - Field messaging
-      - Recommended actions
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: full news article, competitor context, market data, affected deals list
+      - MEDIUM: news summary, some competitor context, partial deal exposure
+      - LOW: headline only, no competitor context, no deal impact data
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: News Detail, Competitor Context, Market Impact Data,
+      Affected Deals/Accounts, Historical Competitor Activity.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Additional sources to check for news validation and detail
+      - Internal teams to consult for impact assessment
+      - Monitoring checklist for follow-up developments
+      - Re-assessment gate when more information is available
+      Do not proceed to remaining steps.
+
+      STEP 1: NEWS IMPACT ASSESSMENT
+      Analyze what the news means:
+      - News summary (one paragraph, factual)
+      - Impact on competitor: STRENGTHENS / NEUTRAL / WEAKENS their position
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Impact on us: OPPORTUNITY / NEUTRAL / THREAT
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Primary classification: PRODUCT, FINANCIAL, LEADERSHIP, PARTNERSHIP,
+        ACQUISITION, LEGAL, MARKET_EXPANSION, RESTRUCTURING
+      - Secondary flags: additional classifications that apply
+      - Timeframe of impact: IMMEDIATE (days-weeks), NEAR_TERM (1-3 months),
+        LONG_TERM (3+ months), UNCERTAIN
+
+      If news details are ambiguous: state "Impact assessment preliminary.
+      Monitor for {specific developments} to refine analysis."
+      Deliverable: News impact assessment with confidence levels and
+      classification.
+
+      STEP 2: AFFECTED DEALS AND ACCOUNTS
+      Identify deals and accounts affected by this news:
+      - Account/deal name
+      - Current competitive status with this competitor
+      - How the news changes the competitive dynamic
+      - Risk level change: INCREASED / UNCHANGED / DECREASED
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Urgency of response: IMMEDIATE / SOON / MONITOR
+
+      If no active deals against this competitor: state "No active deals
+      against {competitor} in pipeline. Monitor for new opportunities where
+      this news changes competitive dynamics."
+      Deliverable: Affected deals table (Account | Status | Dynamic Change |
+      Risk Change | Urgency | Confidence).
+
+      STEP 3: FIELD MESSAGING
+      Craft messaging for the field team:
+      - What to say if customers ask (factual, defensible)
+      - What NOT to say (avoid speculation, competitor bashing, or claims
+        that could backfire)
+      - Proactive talking points (use only if strategically appropriate)
+      - Customer-ready language for each talking point
+
+      All messaging must be:
+      - Factual and verifiable
+      - Professional and not dismissive of competitor
+      - Focused on customer value, not competitor weakness
+      Deliverable: Field messaging guide with safe and unsafe language.
+
+      STEP 4: TREND CONTEXT
+      Place this news in historical context:
+      - Prior events for this competitor in last 12 months (if available)
+      - Pattern assessment: is this part of a trend
+        Trend requires two data points minimum. If first event of this type:
+        "INSUFFICIENT DATA for trend. Event recorded as first data point."
+      - Market-wide implications (industry shift, regulatory change, etc.)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+
+      If no historical context available: state "No prior competitor events
+      in available data for pattern assessment. First observation recorded."
+      Deliverable: Trend context with data point count.
+
+      STEP 5: ACTION PLAN
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+
+      Group by:
+      - Immediate: deals at risk or opportunities to capture now
+      - Near-term: positioning and messaging updates
+      - Monitoring: what to watch for in coming weeks
+      Prerequisites must specify what must be true before each action can start.
+      Deliverable: Action plan table with prerequisites.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Competitive intelligence updates
+      - Risk level changes for affected accounts
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - News impact assessment includes confidence levels
+      - Field messaging is factual and defensible, not speculative
+      - Classifications use primary + secondary flags, not forced single category
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - Actions include prerequisites column, not just owner and timeline
+      - Empty states handled explicitly per step (what is missing, what it means)
+      - Account state delta specifies field path, old value, new value, evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the single most urgent action. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (sources
+        to check, teams to consult, monitoring checklist). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) news impact classification and significance
+      with confidence, (2) the most at-risk deal or biggest gap in our response,
+      and (3) the single most urgent action to take next.
 
   market_positioning:
     name: "Market Positioning Update"
-    description: "Update competitive positioning in market segment"
+    description: "Update competitive positioning in a market segment with confidence-rated analysis, identify differentiation gaps, and produce messaging recommendations with state delta"
     prompt: |
       Context: Segment: {segment}
       Key competitors: {competitor_list}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Update positioning:
-      - How is market evolving?
-      - How are competitors positioning?
-      - Where is our differentiation?
-      - What messaging works?
+      You are updating competitive positioning for a market segment. Positioning
+      claims must be evidence-based. Market evolution assessments require trend
+      data. Follow these steps in order.
 
-      Format:
-      - Market evolution summary
-      - Competitor positioning table
-      - Our differentiation points
-      - Messaging recommendations
-      - Proof points to emphasize
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: analyst reports, win/loss data, competitor product releases, market data
+      - MEDIUM: some analyst coverage, partial competitive data, limited market data
+      - LOW: no analyst data, no competitive intelligence, segment definition only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Market Data, Competitor Intelligence, Analyst Coverage,
+      Win/Loss History in Segment, Customer Feedback.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Market research to commission or access
+      - Analyst briefings to schedule
+      - Customer advisory board topics to add
+      - Win/loss data collection improvements for this segment
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: MARKET EVOLUTION ASSESSMENT
+      Describe how the market segment is evolving:
+      - Current market state (size, growth, maturity stage)
+      - Key trends shaping buyer behavior
+      - Technology shifts affecting the segment
+      - Regulatory or compliance changes
+      - For each trend: evidence source and confidence (HIGH/MEDIUM/LOW)
+
+      Trend claims require two data points minimum. If only one observation:
+      "INSUFFICIENT DATA for trend. Single observation recorded: {observation}."
+      If market data unavailable: state "Market evolution assessment based on
+      limited data. Analyst briefing or market research recommended."
+      Deliverable: Market evolution assessment with evidence and confidence levels.
+
+      STEP 2: COMPETITOR POSITIONING MAP
+      For each competitor, document their positioning:
+      - Competitor name
+      - Target buyer persona in this segment
+      - Key messaging themes (from their marketing, analyst briefings, sales)
+      - Product focus areas
+      - Pricing strategy: premium, mid-market, value, freemium, usage-based
+      - Recent moves: new features, partnerships, acquisitions, pricing changes
+      - Primary positioning: PLATFORM, POINT_SOLUTION, ECOSYSTEM, SPECIALIST,
+        LEGACY_MODERNIZATION
+      - Secondary flags: additional positioning types that apply
+      - Confidence: HIGH/MEDIUM/LOW with basis
+
+      If competitor data unavailable: state "Positioning data for {competitor}
+      is limited. Analysis based on public information only, confidence LOW."
+      Deliverable: Competitor positioning table with confidence levels and
+      classification.
+
+      STEP 3: OUR DIFFERENTIATION ANALYSIS
+      Identify where we differentiate in this segment:
+      For each differentiator:
+      - Differentiator description
+      - Strength: STRONG (clear, defensible lead), MODERATE (advantage exists
+        but competitor closing), WEAK (marginal or contested)
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Durability: SUSTAINABLE (hard to replicate), ERODING (competitor catching up),
+        TEMPORARY (timing advantage only)
+      - Evidence: proof points, benchmarks, customer validation
+      - Trend vs prior assessment: STRENGTHENING / STABLE / WEAKENING / INSUFFICIENT DATA
+        (requires two assessments minimum)
+
+      If no differentiators identified: state "No confirmed differentiators for
+      this segment. Positioning strategy must focus on building differentiation."
+      Deliverable: Differentiation table (Differentiator | Strength | Durability |
+      Evidence | Trend | Confidence).
+
+      STEP 4: MESSAGING RECOMMENDATIONS
+      Based on positioning analysis, recommend messaging:
+      For each message:
+      - Target audience (buyer persona, decision stage)
+      - Key message (customer-ready language)
+      - Supporting proof point
+      - What it displaces (competitor message it counters)
+      - Channels: where to deliver (web, sales calls, RFP responses, events)
+      - Priority: HIGH / MEDIUM / LOW
+
+      Include messages to avoid (common mistakes, outdated claims, unsubstantiated
+      positioning).
+      Deliverable: Messaging recommendation table with priority ranking.
+
+      STEP 5: ACTION PLAN
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+
+      Group by:
+      - Messaging: content updates, sales enablement, website changes
+      - Competitive intelligence: data to gather, briefings to conduct
+      - Product: feature requests based on competitive gaps
+      - Go-to-market: campaign or event adjustments
+      Prerequisites must specify what must be true before each action can start.
+      Deliverable: Action plan table with prerequisites.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Segment positioning updates
+      - Competitive landscape changes
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every positioning claim has evidence and confidence level
+      - Trend claims reference two or more data points, or state INSUFFICIENT DATA
+      - Differentiator durability is assessed, not just current strength
+      - Classifications use primary + secondary flags, not forced single category
+      - Messaging recommendations are customer-ready and factual
+      - Actions include prerequisites column, not just owner and timeline
+      - Empty states handled explicitly per step (what is missing, what it means)
+      - Account state delta specifies field path, old value, new value, evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the single most urgent messaging or positioning action. Skip detailed deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (research
+        to commission, briefings to schedule, data collection plan). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) our competitive position in this segment
+      with confidence, (2) the weakest differentiator or most concerning competitive
+      trend, and (3) the single most urgent action to strengthen positioning.
 
   analyst_prep:
     name: "Analyst Report Preparation"
-    description: "Prepare for analyst briefing or report response"
+    description: "Prepare for analyst briefing with evidence-based positioning, anticipated questions, and competitive comparison strategy with state delta"
     prompt: |
       Context: Analyst: {analyst_name}
       Report/Topic: {topic}
       Our position: {current_position}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare for analyst interaction:
-      - What is analyst's likely perspective?
-      - What are our key messages?
-      - What proof points to share?
-      - What questions to expect?
+      You are preparing for an analyst interaction. Key messages must be
+      evidence-based and defensible. Anticipated questions must include
+      prepared answers. Follow these steps in order.
 
-      Format:
-      - Analyst perspective
-      - Key messages (3-5)
-      - Proof points
-      - Anticipated questions with answers
-      - Competitor comparisons to address
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, assess richness for each dimension:
+      - HIGH: analyst's prior reports, our position data, competitor analysis, proof points
+      - MEDIUM: some analyst coverage, partial position data, limited competitive context
+      - LOW: analyst name only, no prior reports, no position details
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Analyst Prior Coverage, Our Position Data,
+      Competitive Landscape, Proof Points/References, Topic Depth.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Analyst's prior reports to obtain and review
+      - Internal data to gather (customer metrics, product roadmap, competitive intel)
+      - Pre-briefing questions for product marketing and competitive intel teams
+      - Re-assessment gate with preparation timeline
+      Do not proceed to remaining steps.
+
+      STEP 1: ANALYST PERSPECTIVE ASSESSMENT
+      Map the analyst's likely viewpoint:
+      - Analyst's known biases or focus areas (from prior reports if available)
+      - Their framework or methodology for evaluating vendors
+      - Where they have historically positioned us
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Where they have historically positioned key competitors
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Key themes they are likely focused on for this briefing
+      - Primary evaluation lens: TECHNOLOGY, MARKET_SHARE, VISION, EXECUTION,
+        CUSTOMER_EXPERIENCE, INNOVATION
+      - Secondary flags: additional evaluation dimensions that apply
+
+      If no prior analyst data available: state "No prior analyst coverage data.
+      Preparation based on general analyst methodology. Pre-briefing research
+      recommended."
+      Deliverable: Analyst perspective assessment with confidence levels and
+      classification.
+
+      STEP 2: KEY MESSAGES
+      Develop 3-5 key messages for the briefing:
+      For each message:
+      - Message (concise, defensible)
+      - Supporting evidence (proof points, customer data, benchmarks)
+      - Why this matters to this analyst (connects to their framework)
+      - Potential pushback and our response
+      - Confidence in evidence: HIGH/MEDIUM/LOW with basis
+
+      Messages must be factual and substantiated. No aspirational claims
+      without evidence.
+      If proof points unavailable for a message: state "Evidence for this
+      message is {status}. Recommend obtaining {specific data} before briefing."
+      Deliverable: Key messages table (Message | Evidence | Analyst Relevance |
+      Pushback Response | Confidence).
+
+      STEP 3: ANTICIPATED QUESTIONS
+      Predict questions the analyst will likely ask:
+      For each question:
+      - The question
+      - Why they will ask it (what they are probing for)
+      - Our prepared answer (factual, evidence-based)
+      - Bridging language to redirect to our key messages if appropriate
+      - Risk level if handled poorly: HIGH / MEDIUM / LOW
+      - Confidence in question likelihood: HIGH/MEDIUM/LOW with basis
+
+      If analyst focus areas unknown: state "Questions based on standard
+      analyst evaluation framework. Actual questions may differ significantly.
+      Confirm analyst agenda before briefing if possible."
+      Deliverable: Q&A table (Question | Why Asked | Answer | Bridge |
+      Risk Level | Confidence).
+
+      STEP 4: COMPETITIVE COMPARISONS
+      Prepare for competitive comparisons the analyst will likely make:
+      For each competitor they will reference:
+      - Competitor name
+      - How analyst likely views them
+        (confidence: HIGH/MEDIUM/LOW with basis)
+      - Comparison points they will raise
+      - Our position on each comparison point (factual)
+      - Primary comparison dimension: TECHNOLOGY, MARKET, PRICING,
+        CUSTOMER_BASE, INNOVATION, ECOSYSTEM
+      - Secondary flags: additional dimensions that apply
+      - Proof points to differentiate
+
+      Never make unsubstantiated claims about competitor weaknesses.
+      If competitor data insufficient: state "Comparison with {competitor}
+      based on limited data. Avoid making claims that cannot be supported."
+      Deliverable: Competitive comparison table with confidence levels.
+
+      STEP 5: BRIEFING ACTION PLAN
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+
+      Group by:
+      - Pre-briefing: research, data gathering, internal alignment
+      - During briefing: key points to make, questions to ask analyst
+      - Post-briefing: follow-up materials, relationship maintenance
+      Prerequisites must specify what must be true before each action can start.
+      Deliverable: Briefing action plan table with prerequisites.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Analyst relationship status updates
+      - Competitive positioning updates
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Key messages are factual and supported by evidence
+      - Anticipated questions include prepared, evidence-based answers
+      - Competitive comparisons never include unsubstantiated competitor claims
+      - Every assessment has a confidence level with stated basis
+      - Classifications use primary + secondary flags, not forced single category
+      - Actions include prerequisites column, not just owner and timeline
+      - Empty states handled explicitly per step (what is missing, what it means)
+      - Account state delta specifies field path, old value, new value, evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta,
+        and the top 3 key messages. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (reports
+        to obtain, data to gather, pre-briefing questions). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      an executive summary that states: (1) briefing readiness level and key
+      positioning with confidence, (2) the weakest message or highest-risk question,
+      and (3) the single most urgent preparation action before the briefing.

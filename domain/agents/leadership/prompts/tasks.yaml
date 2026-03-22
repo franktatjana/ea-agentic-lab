@@ -1,6 +1,7 @@
 # Senior Manager Agent Task Prompts
-# Purpose: Task-specific prompts using CAF framework (Context, Action, Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
 # Reference: Agent config defined in agents/senior_manager_agent.yaml
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
 
 # ============================================================================
 # ESCALATION HANDLING PROMPTS
@@ -9,71 +10,328 @@ escalation_handling:
 
   triage_escalation:
     name: "Escalation Triage"
-    description: "Assess incoming escalation and determine response approach"
+    description: "Assess incoming escalation, classify severity and response type, determine whether to resolve directly or coach the team to resolution"
     prompt: |
       Context: New escalation received from {source_agent} regarding {account_name}.
       Escalation type: {escalation_type}
       Urgency: {urgency_level}
       Current deal value: {deal_value}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Triage this escalation:
-      - What is the specific decision needed?
-      - What options have been considered?
-      - What is the team's recommendation?
-      - What is the deadline for decision?
-      - Does this require my direct involvement or can I coach to resolution?
+      You are triaging an incoming escalation to determine severity, response approach,
+      and ownership. The goal is fast, accurate routing: either resolve directly or
+      coach the team through resolution. Follow these steps in order.
 
-      Format:
-      - Escalation summary (1-2 sentences)
-      - Decision required: [YES/NO with specifics]
-      - Options presented with pros/cons
-      - Team recommendation assessment
-      - My decision or coaching response
-      - Response deadline and communication plan
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map, dimensions to assess: Escalation Details, Account Context,
+      Deal Context, Team Recommendation, Decision History.
+      For each dimension, assess data richness:
+      - HIGH: detailed briefing, CRM data, multiple data points
+      - MEDIUM: partial information, 2-4 data points
+      - LOW: no direct data, verbal summary only
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the triage.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask the escalating agent in next interaction
+      - Data sources to pull (CRM, support tickets, recent meeting notes)
+      - Observation checklist for implicit signals
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: ESCALATION CLASSIFICATION
+      Classify the escalation along multiple dimensions:
+      - Severity: CRITICAL (revenue at risk, exec relationship damaged), HIGH (deal
+        stalled, competitive threat), MEDIUM (process issue, resource conflict),
+        LOW (informational, routine decision)
+      - Assign one primary severity classification for routing. Add secondary flags
+        where the signal spans multiple dimensions.
+      - Type: decision needed, resource conflict, customer relationship, competitive
+        response, internal process failure
+      - Time sensitivity: hours, days, weeks
+      - Scope: single deal, account-wide, portfolio-wide
+      Every classification must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      If escalation details are incomplete: state what is missing, note the implication
+      on classification accuracy, proceed without fabrication.
+      Deliverable: Escalation Classification (Dimension | Classification | Confidence |
+      Basis | Secondary Flags).
+
+      STEP 2: DECISION ANALYSIS
+      Determine what decision is needed and what options exist:
+      - Specific decision required (framed as a yes/no or A/B/C choice)
+      - Options already considered by the team (with pros and cons each)
+      - Team's recommendation and its quality (well-reasoned, incomplete, biased)
+      - Decision deadline and consequence of delay
+      - Stakeholders affected by the decision
+      If team recommendation is empty: state that no recommendation was provided,
+      note this as a coaching opportunity, proceed with independent analysis.
+      Deliverable: Decision Analysis (Decision Required | Options | Team Recommendation
+      Quality | Deadline | Delay Consequence | Affected Stakeholders).
+
+      STEP 3: RESPONSE APPROACH
+      Determine the response approach:
+      - Response type: DIRECT (I decide and act), COACH (guide team to decide),
+        DELEGATE (assign with guardrails), ESCALATE UP (requires VP involvement)
+      - Assign one primary response type for routing. Add secondary flags where
+        the situation requires a blended approach.
+      - Rationale for response type selection
+      - If DIRECT: my decision with rationale
+      - If COACH: coaching questions to ask, areas for the team to explore
+      - If DELEGATE: who owns it, what guardrails, what checkpoint
+      - If ESCALATE UP: what information VP needs, recommended framing
+      Every response type must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Deliverable: Response Plan (Response Type | Confidence | Rationale | Actions |
+      Owner | Timeline | Communication Plan).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Input Gate completed, Data Availability Map assessed, Signal Acquisition Mode check performed
+      - Every classification includes confidence level with basis
+      - Decision is framed as a specific choice, not an open-ended question
+      - Response approach matches severity and time sensitivity
+      - Communication plan addresses all affected stakeholders
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the escalation
+      severity and recommended response type, (2) the weakest point or lowest-confidence
+      area in the assessment, and (3) the single most urgent action. Then produce
+      all numbered deliverables as labeled sections.
 
   resolve_escalation:
     name: "Escalation Resolution"
-    description: "Document escalation resolution and learnings"
+    description: "Document escalation resolution, capture decision rationale, extract systemic learnings, and update account state with outcomes"
     prompt: |
       Context: Resolving escalation {escalation_id} for {account_name}.
       Original issue: {issue_summary}
       Options considered: {options}
       Decision made: {decision}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Document resolution:
-      - What was the final decision and rationale?
-      - What factors were most important?
-      - What should the team learn from this?
-      - Are there systemic issues to address?
+      You are documenting the resolution of an escalation to capture decision rationale,
+      extract learnings, and identify systemic improvements. This record becomes the
+      reference for future similar situations. Follow these steps in order.
 
-      Format:
-      - Decision: {decision} with rationale
-      - Key decision factors (prioritized list)
-      - Learnings for team
-      - Process improvements if any
-      - Follow-up actions required
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list,
+        who can provide each, and suggested deadline for re-running.
+
+      Data Availability Map, dimensions to assess: Issue Details, Options Explored,
+      Decision Rationale, Outcome Data, Team Feedback.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE: produce questions to gather, data sources to pull,
+      observation checklist, and re-assessment date. Do not proceed to remaining steps.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: DECISION DOCUMENTATION
+      Record the decision and its context:
+      - Final decision statement (clear, unambiguous)
+      - Decision rationale (why this option over alternatives)
+      - Key decision factors ranked by weight
+      - Dissenting views and how they were addressed
+      - Decision maker and authority basis
+      If options considered data is empty: state what is missing, note that decision
+      rationale cannot be fully assessed without alternatives, proceed with available data.
+      Deliverable: Decision Record (Decision | Rationale | Factor | Weight | Dissenting
+      Views | Decision Maker).
+
+      STEP 2: OUTCOME ASSESSMENT
+      Assess the resolution outcome:
+      - Was the issue fully resolved? (YES/PARTIAL/NO with details)
+      - Customer satisfaction with resolution (if known)
+      - Time to resolution vs. expected
+      - Resources consumed vs. planned
+      - Residual risks remaining
+      Every assessment must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Deliverable: Outcome Assessment (Dimension | Assessment | Confidence | Basis |
+      Residual Risk).
+
+      STEP 3: LEARNING EXTRACTION
+      Extract actionable learnings:
+      - What worked well (reinforce in future escalations)
+      - What would we do differently (specific process changes)
+      - Systemic issues revealed (patterns across escalations)
+      - Playbook/process updates recommended
+      If team feedback is empty: state that learnings are based on observable outcomes
+      only, note the value of gathering team retrospective input.
+      Deliverable: Learnings (Category | Learning | Recommended Change | Owner | Timeline).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Decision rationale explains why alternatives were rejected
+      - Outcome assessment uses measurable criteria, not subjective impressions
+      - Learnings are actionable with specific owners and timelines
+      - Systemic issues are distinguished from one-off situations
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the resolution
+      outcome and its completeness, (2) the weakest point or highest residual risk,
+      and (3) the single most important learning or follow-up action. Then produce
+      all numbered deliverables as labeled sections.
 
   pattern_recognition:
     name: "Escalation Pattern Analysis"
-    description: "Identify patterns in escalations to address root causes"
+    description: "Analyze escalation history to identify recurring patterns, root causes, and systemic improvements that reduce future escalation volume"
     prompt: |
       Context: Review escalations from the last {time_period}.
       Total escalations: {count}
       By type: {type_breakdown}
       By source: {source_breakdown}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Identify patterns:
-      - What types of escalations are recurring?
-      - Which team members or accounts generate most escalations?
-      - What root causes are driving escalations?
-      - What systemic improvements would reduce escalations?
+      You are analyzing escalation patterns to identify root causes and systemic
+      improvements. The goal is reducing escalation volume through process changes,
+      coaching, and tool improvements. Follow these steps in order.
 
-      Format:
-      - Top 3 escalation patterns
-      - Root cause analysis for each
-      - Team members needing coaching (with approach)
-      - Process/tool improvements recommended
-      - 30-day action plan to reduce escalations
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list,
+        who can provide each, and suggested deadline.
+
+      Data Availability Map, dimensions to assess: Escalation Volume, Type Distribution,
+      Source Distribution, Resolution Outcomes, Team Performance Data.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: PATTERN IDENTIFICATION
+      Identify the top escalation patterns from the data:
+      - Pattern name (descriptive label)
+      - Frequency (count and percentage of total)
+      - Trend direction (increasing, stable, decreasing)
+      - Trend requires comparison of at least two time-separated observations.
+        If only one observation exists, trend is INSUFFICIENT DATA.
+      - Typical trigger (what initiates this type of escalation)
+      - Typical resolution path (how these get resolved)
+      - Average time to resolution
+      Rank patterns by frequency descending.
+      If type breakdown data is empty: state what is missing, note that pattern
+      identification is limited to available signals, proceed without fabrication.
+      Deliverable: Pattern Table (Pattern | Frequency | % of Total | Trend |
+      Trend Confidence | Trigger | Resolution Path | Avg Resolution Time).
+
+      STEP 2: ROOT CAUSE ANALYSIS
+      For each top pattern (top 3-5), perform root cause analysis:
+      - Surface symptom (what the escalation looks like)
+      - Contributing factors (process, people, tools, information)
+      - Root cause (the underlying systemic issue)
+      - Root cause confidence (HIGH/MEDIUM/LOW) with basis
+      - Impact if unaddressed (escalation volume projection, team burden, customer risk)
+      Deliverable: Root Cause Analysis (Pattern | Symptom | Contributing Factors |
+      Root Cause | Confidence | Basis | Impact if Unaddressed).
+
+      STEP 3: TEAM COACHING ASSESSMENT
+      Identify team members who need targeted coaching:
+      - Team member generating disproportionate escalations
+      - Type of escalations they generate (skill gap vs. confidence gap vs. process gap)
+      - Coaching approach (directive, facilitative, delegative)
+      - Specific coaching actions
+      If source breakdown data is empty: state that individual coaching assessment
+      cannot be completed, note the implication, recommend gathering per-agent data.
+      Deliverable: Coaching Plan (Team Member | Escalation Pattern | Gap Type |
+      Coaching Approach | Specific Actions | Timeline | Expected Outcome).
+
+      STEP 4: SYSTEMIC IMPROVEMENT PLAN
+      Recommend improvements to reduce escalation volume:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Categories to consider: process changes, decision authority adjustments,
+      playbook additions, tool improvements, training programs.
+      Each action must include expected impact on escalation volume (percentage reduction).
+      Every expected impact must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Deliverable: Improvement Plan using format above.
+
+      STEP 5: PORTFOLIO STATE DELTA
+      Specify what this runbook's findings change across the portfolio:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Process changes to implement
+      - Coaching actions to schedule
+      Deliverable: Portfolio State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Patterns are supported by data, not anecdotal impressions
+      - Trend claims are based on at least two time-separated observations
+      - Root causes go deeper than surface symptoms
+      - Coaching recommendations are specific and constructive, not punitive
+      - Improvement actions have measurable expected impact with confidence levels
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the dominant
+      escalation pattern and overall trend, (2) the weakest point or lowest-confidence
+      root cause, and (3) the single highest-impact improvement action. Then produce
+      all numbered deliverables as labeled sections.
 
 # ============================================================================
 # BID/NO-BID DECISION PROMPTS
@@ -82,76 +340,348 @@ bid_decisions:
 
   bid_no_bid_assessment:
     name: "Bid/No-Bid Decision"
-    description: "Make go/no-go decision on major pursuit"
+    description: "Make structured go/no-go decision on major pursuit using strategic value, win probability, resource cost, and opportunity cost analysis"
     prompt: |
       Context: Bid/no-bid decision requested for {opportunity_name} at {account_name}.
       Deal value: {deal_value}
       Competitor(s): {competitors}
       Required resources: {resource_requirements}
       Team recommendation: {team_recommendation}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess opportunity:
-      - What is the strategic value beyond revenue?
-      - What do we learn even if we lose?
-      - What other deals suffer if we pursue?
-      - Is the customer worth the investment?
-      - What's our realistic win probability?
+      You are making a structured bid/no-bid decision. The output must be a clear
+      decision with quantified rationale, not an open-ended discussion. Every score
+      and rating must carry a confidence level. Follow these steps in order.
 
-      Format:
-      - Decision: [BID / NO-BID / CONDITIONAL BID]
-      - Strategic value assessment (1-10)
-      - Win probability assessment (%)
-      - Resource cost vs. expected value analysis
-      - Conditions for bid (if conditional)
-      - Communication to team and customer
-      - Review checkpoint date (if bid)
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list,
+        who can provide each, and suggested deadline.
+
+      Data Availability Map, dimensions to assess: Opportunity Details, Competitive
+      Landscape, Resource Requirements, Customer Relationship, Strategic Alignment.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: STRATEGIC VALUE ASSESSMENT
+      Score the opportunity on strategic dimensions (1-10 each with confidence):
+      - Revenue potential (deal value + expansion potential)
+      - Strategic account value (logo, reference, market position)
+      - Learning value (new capability, use case, industry)
+      - Relationship value (executive access, long-term partnership)
+      - Competitive displacement value (taking share from competitor)
+      Every score must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Calculate weighted strategic value score.
+      Deliverable: Strategic Value Assessment (Dimension | Score | Confidence | Basis |
+      Weight | Weighted Score) with total.
+
+      STEP 2: WIN PROBABILITY ANALYSIS
+      Assess win probability across key factors:
+      - Customer relationship strength (existing vs. new)
+      - Solution fit (technical and business requirements)
+      - Competitive position (advantage, parity, disadvantage)
+      - Decision process alignment (do we know the process and timeline?)
+      - Champion strength (do we have an internal advocate?)
+      - Budget confirmed (is funding allocated?)
+      Each factor scored 1-5 with confidence level (HIGH/MEDIUM/LOW) and basis.
+      Calculate overall win probability percentage.
+      If competitor data is empty: state what is missing, note that competitive
+      position defaults to UNKNOWN with LOW confidence, proceed without fabrication.
+      Deliverable: Win Probability Analysis (Factor | Score | Confidence | Basis)
+      with overall win probability percentage and confidence.
+
+      STEP 3: RESOURCE COST AND OPPORTUNITY COST
+      Quantify what this pursuit costs:
+      - Resource requirements by type (people, time, budget)
+      - Opportunity cost (what other deals suffer if we pursue)
+      - Resource availability (do we have what's needed or must we pull from elsewhere?)
+      - Cost of losing (what we spend if we bid and lose)
+      If resource requirements data is empty: state what is missing, note that
+      cost analysis is estimated, proceed with industry-typical resource profiles.
+      Deliverable: Resource Cost Analysis (Resource Type | Requirement | Availability |
+      Gap | Opportunity Cost | Cost if Loss).
+
+      STEP 4: BID DECISION
+      Render the decision:
+      - Decision: BID / NO-BID / CONDITIONAL BID
+      - Assign one primary classification for routing. Add secondary flags where
+        the signal spans multiple dimensions (e.g., BID with NO-BID risk flags).
+      - Decision rationale (2-3 sentences connecting strategic value, win probability,
+        and resource cost)
+      - Conditions for bid (if CONDITIONAL): specific conditions that must be met,
+        by whom, by when
+      - Review checkpoint date (if BID): when to reassess go/no-go
+      - Communication plan: message to team, message to customer
+      Decision confidence must include level (HIGH/MEDIUM/LOW) with basis.
+      Deliverable: Bid Decision (Decision | Confidence | Rationale | Conditions |
+      Review Date | Team Message | Customer Message).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Every score includes confidence level with basis
+      - Win probability is a realistic percentage, not aspirational
+      - Resource cost includes opportunity cost of deprioritized work
+      - Decision rationale connects all three dimensions (value, probability, cost)
+      - Conditional bid conditions are specific and time-bound
+      - Communication plan addresses both team and customer
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the bid decision
+      and overall confidence, (2) the weakest point or lowest-confidence factor,
+      and (3) the single most important condition or next action. Then produce
+      all numbered deliverables as labeled sections.
 
   pursuit_prioritization:
     name: "Pursuit Prioritization"
-    description: "Prioritize competing opportunities for resources"
+    description: "Rank competing opportunities by risk-adjusted strategic value, allocate limited resources across pursuits, and identify opportunities to defer or decline"
     prompt: |
       Context: Multiple opportunities competing for limited resources.
       Opportunities:
       {opportunity_list_with_values}
       Available resources: {resource_availability}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prioritize pursuits:
-      - Rank opportunities by strategic value adjusted for win probability
-      - Identify which opportunities to fully resource
-      - Identify which to pursue with limited investment
-      - Identify which to defer or decline
+      You are prioritizing competing pursuits to maximize risk-adjusted portfolio
+      value given resource constraints. The output must be a ranked allocation plan
+      with clear rationale for every trade-off. Follow these steps in order.
 
-      Format:
-      - Prioritized opportunity ranking with reasoning
-      - Resource allocation per opportunity
-      - Opportunities to decline/defer with customer message
-      - Trade-offs and risks of this allocation
-      - Review date for reassessment
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Opportunity Details, Win Probability
+      Data, Resource Capacity, Strategic Alignment, Competitive Intelligence.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: OPPORTUNITY SCORING
+      Score each opportunity on consistent dimensions:
+      - Strategic value (1-10 with confidence and basis)
+      - Win probability (% with confidence and basis)
+      - Resource requirement (FTE-weeks or hours)
+      - Time sensitivity (weeks until decision deadline)
+      - Risk-adjusted value: strategic value x win probability / resource requirement
+      Every score must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      If opportunity details are incomplete for any pursuit: state what is missing,
+      score as ESTIMATED with LOW confidence, proceed without fabrication.
+      Deliverable: Opportunity Scoring Matrix (Opportunity | Strategic Value | Confidence |
+      Win Prob | Confidence | Resource Req | Time Sensitivity | Risk-Adjusted Value).
+
+      STEP 2: RESOURCE ALLOCATION
+      Allocate resources across ranked opportunities:
+      - Tier 1 FULL PURSUIT: fully resourced, highest risk-adjusted value
+      - Tier 2 LIMITED INVESTMENT: partial resources, monitoring for go/no-go triggers
+      - Tier 3 DEFER/DECLINE: not resourced now, with customer communication plan
+      - Assign one primary tier for routing. Add secondary flags where an opportunity
+        could shift tiers based on emerging signals.
+      For each allocation: resources assigned, what is covered, what is not covered.
+      Deliverable: Resource Allocation Plan (Opportunity | Tier | Resources Assigned |
+      Coverage | Gaps | Tier-Shift Triggers).
+
+      STEP 3: TRADE-OFF ANALYSIS
+      Document the trade-offs explicitly:
+      - What is gained by this allocation (value captured)
+      - What is at risk (opportunities under-resourced or deferred)
+      - What conditions would change this allocation
+      - Customer relationship impact for deferred opportunities
+      Deliverable: Trade-off Analysis (Trade-off | Value Gained | Value at Risk |
+      Trigger for Reallocation | Customer Impact).
+
+      STEP 4: COMMUNICATION PLAN
+      For deferred/declined opportunities, prepare customer messaging:
+      - Account and opportunity
+      - Message framing (honest, relationship-preserving)
+      - Alternative offering (if any)
+      - Future re-engagement conditions
+      Deliverable: Communication Plan (Account | Opportunity | Message | Alternative |
+      Re-engagement Condition).
+
+      STEP 5: PORTFOLIO STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - Resource allocation changes
+      - Pursuit status changes
+      - Review dates set
+      Deliverable: Portfolio State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - All opportunities scored on identical dimensions for fair comparison
+      - Every score includes confidence level with basis
+      - Resource allocation totals do not exceed available capacity
+      - Deferred opportunities have customer communication plans
+      - Trade-offs are explicit, not hidden in tier assignments
+      - Review date set for reassessment of allocation
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the recommended
+      allocation and number of pursuits by tier, (2) the highest-risk trade-off or
+      lowest-confidence scoring, and (3) the single most urgent resource decision.
+      Then produce all numbered deliverables as labeled sections.
 
   large_deal_review:
     name: "Large Deal Review"
-    description: "Review strategic large deal progress and strategy"
+    description: "Review strategic large deal health across deal progression, stakeholder engagement, competitive position, and risk factors with structured coaching output"
     prompt: |
       Context: Regular review of large deal {opportunity_name} at {account_name}.
       Deal value: {deal_value}
       Current stage: {stage}
       Days in stage: {days_in_stage}
       MEDDPICC score: {meddpicc_score}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Review deal health and strategy:
-      - Is the deal on track? What's changed since last review?
-      - Are we engaging at the right level?
-      - What's the competitive situation?
-      - What risks need mitigation?
-      - What executive engagement is needed?
+      You are reviewing a strategic large deal to assess health, identify risks, and
+      determine whether executive intervention is needed. The output must produce a
+      clear health classification with evidence and a concrete action plan.
+      Follow these steps in order.
 
-      Format:
-      - Deal health: [GREEN/YELLOW/RED] with evidence
-      - Strategy assessment: On track / Needs adjustment
-      - Key risks and mitigations
-      - Executive engagement needed (if any)
-      - Next 30-day action plan
-      - Escalation to VP needed? [YES/NO with reasoning]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Deal Metrics, Stage Progression,
+      MEDDPICC Detail, Competitive Intel, Stakeholder Map.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: DEAL HEALTH CLASSIFICATION
+      Classify overall deal health:
+      - Classification: GREEN (on track, strong signals) / YELLOW (concerns, needs
+        attention) / RED (at risk, intervention required)
+      - Assign one primary classification for routing. Add secondary flags where the
+        signal spans multiple dimensions.
+      - Evidence for classification (specific data points, not impressions)
+      - Stage velocity: days in current stage vs. benchmark for this deal size
+      - Trend: improving, stable, deteriorating
+      - Trend requires comparison of at least two time-separated observations.
+        If only one observation exists, trend is INSUFFICIENT DATA.
+      Every classification must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Deliverable: Deal Health (Classification | Confidence | Basis | Stage Velocity |
+      Benchmark | Trend | Trend Confidence | Secondary Flags).
+
+      STEP 2: MEDDPICC GAP ANALYSIS
+      Assess each MEDDPICC element:
+      - Metrics: quantified business case exists? (score 1-5 with confidence)
+      - Economic Buyer: identified and engaged? (score 1-5 with confidence)
+      - Decision Criteria: documented and favorable? (score 1-5 with confidence)
+      - Decision Process: mapped with timeline? (score 1-5 with confidence)
+      - Paper Process: legal/procurement path known? (score 1-5 with confidence)
+      - Identified Pain: compelling event articulated? (score 1-5 with confidence)
+      - Champion: active and effective? (score 1-5 with confidence)
+      - Competition: known and addressed? (score 1-5 with confidence)
+      If MEDDPICC score data is empty: state what is missing, note that gap analysis
+      will be based on available signals only, proceed without fabrication.
+      Deliverable: MEDDPICC Analysis (Element | Score | Confidence | Basis | Gap |
+      Remediation Action).
+
+      STEP 3: RISK ASSESSMENT
+      Identify deal-specific risks:
+      - Risk description (specific scenario)
+      - Likelihood (HIGH/MEDIUM/LOW with confidence)
+      - Impact if realized (deal loss, delay, value reduction)
+      - Current mitigation in place
+      - Additional mitigation recommended
+      - Owner for mitigation action
+      Deliverable: Risk Register (Risk | Likelihood | Confidence | Impact | Current
+      Mitigation | Recommended Mitigation | Owner | Timeline).
+
+      STEP 4: EXECUTIVE ENGAGEMENT ASSESSMENT
+      Determine if executive engagement is needed:
+      - Are we engaging at the right organizational level? (YES/NO with evidence)
+      - Is VP/C-level escalation needed? (YES/NO with reasoning)
+      - If YES: what specific action, what message, what outcome expected
+      - Executive engagement actions with prerequisites
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Deliverable: Executive Engagement Plan using format above.
+
+      STEP 5: 30-DAY ACTION PLAN
+      Define concrete next actions:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include deal progression milestones, stakeholder engagement targets, and
+      risk mitigation steps.
+      Deliverable: 30-Day Action Plan using format above.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Deal health classification is supported by specific evidence, not impressions
+      - Every MEDDPICC score includes confidence level and basis
+      - Trend claims are based on at least two time-separated observations
+      - Risk mitigations have clear owners and timelines
+      - Executive engagement recommendation includes specific ask and expected outcome
+      - Action plan uses prerequisite format with expected impact
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the deal health
+      classification and overall confidence, (2) the weakest MEDDPICC element or
+      highest-risk factor, and (3) the single most urgent action. Then produce
+      all numbered deliverables as labeled sections.
 
 # ============================================================================
 # COACHING PROMPTS
@@ -160,74 +690,341 @@ coaching:
 
   deal_coaching:
     name: "Deal Strategy Coaching"
-    description: "Coach team member on deal strategy"
+    description: "Coach team member on deal strategy through structured questioning, assess their thinking quality, and guide toward self-directed resolution"
     prompt: |
       Context: Coaching session with {team_member} on {opportunity_name}.
       Deal value: {deal_value}
       Current challenge: {challenge_description}
       Team member's proposed approach: {proposed_approach}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Coach through questions, not answers:
-      - Situation: What's the current state?
-      - Options: What alternatives have been considered?
-      - Recommendation: What does the team member recommend?
-      - Risks: What's the main risk?
-      - Learning: What would change their mind?
+      You are coaching a team member through a deal challenge using questions, not
+      answers. The goal is to develop their strategic thinking while ensuring the
+      deal progresses. The output must include assessment of their thinking and
+      specific coaching questions. Follow these steps in order.
 
-      Format:
-      - Opening question to understand situation
-      - 3-5 coaching questions (not answers)
-      - Assessment of team member's thinking
-      - Guidance on areas to explore further
-      - Agreement on next steps (their actions, not mine)
-      - Follow-up checkpoint
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Deal Context, Challenge Details,
+      Proposed Approach, Team Member History, Account Relationship.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: SITUATION ASSESSMENT
+      Assess the deal situation independently before evaluating the team member's approach:
+      - What is the actual challenge? (restate in precise terms)
+      - What is at stake? (deal value, relationship, competitive position)
+      - What are the key constraints? (time, resources, customer dynamics)
+      - What would a strong approach look like? (manager's mental model)
+      If challenge description is empty: state what is missing, note that coaching
+      must begin with situation discovery questions, proceed accordingly.
+      Deliverable: Situation Assessment (Challenge Restatement | Stakes | Constraints |
+      Strong Approach Criteria).
+
+      STEP 2: THINKING QUALITY ASSESSMENT
+      Evaluate the team member's proposed approach:
+      - Completeness: does it address all dimensions of the challenge? (score 1-5
+        with confidence and basis)
+      - Feasibility: can it be executed with available resources? (score 1-5)
+      - Risk awareness: are risks identified and mitigated? (score 1-5)
+      - Customer perspective: does it consider the customer's point of view? (score 1-5)
+      - Creativity: are alternatives considered beyond the obvious? (score 1-5)
+      Every score must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      If proposed approach is empty: state that no approach was provided, note this
+      as a coaching starting point, skip to coaching questions.
+      Deliverable: Thinking Assessment (Dimension | Score | Confidence | Basis |
+      Strength | Gap).
+
+      STEP 3: COACHING QUESTIONS
+      Design 3-5 coaching questions that guide the team member toward a stronger approach:
+      - Each question targets a specific gap identified in Step 2
+      - Questions are open-ended, not leading
+      - Questions build on each other (Socratic progression)
+      - Include the purpose of each question (what it helps the team member discover)
+      Deliverable: Coaching Questions (Question | Target Gap | Purpose | Expected Insight).
+
+      STEP 4: COACHING SESSION PLAN
+      Structure the coaching conversation:
+      - Opening: question to understand their current thinking (1 question)
+      - Exploration: coaching questions from Step 3 (3-5 questions)
+      - Guidance: areas to explore further (2-3 suggestions, not directives)
+      - Closure: agreement on next steps (their actions, not mine)
+      - Follow-up checkpoint: date and criteria for check-in
+      Deliverable: Session Plan (Phase | Content | Duration | Expected Outcome).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - Coaching actions scheduled
+      - Follow-up checkpoints set
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Coaching questions are genuinely open-ended, not disguised directives
+      - Every thinking assessment score includes confidence level and basis
+      - Session plan develops the team member's capability, not just the deal
+      - Follow-up checkpoint has specific criteria, not just a date
+      - Manager's own assessment of the situation is recorded but not imposed on the team member
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the overall
+      assessment of the team member's thinking and the deal situation, (2) the
+      weakest dimension in their approach, and (3) the single most important
+      coaching question to ask. Then produce all numbered deliverables as labeled sections.
 
   skill_development:
     name: "Skill Development Plan"
-    description: "Create development plan for team member"
+    description: "Assess team member's skill profile against role requirements, identify development priorities, and create a 90-day development plan with measurable milestones"
     prompt: |
       Context: Development planning for {team_member}.
       Current role: {role}
       Tenure: {tenure}
       Recent performance: {performance_summary}
       Career aspirations: {aspirations}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess development needs:
-      - What skills are strongest?
-      - What skills need development?
-      - What experiences would accelerate growth?
-      - What coaching approach works best for this person?
+      You are building a development plan that accelerates a team member's growth
+      in their current role while preparing them for their aspirations. The plan must
+      be specific, measurable, and achievable within 90 days. Follow these steps in order.
 
-      Format:
-      - Strengths to leverage (top 3)
-      - Development areas (top 2-3)
-      - Recommended experiences/assignments
-      - Coaching approach for this individual
-      - 90-day development goals
-      - Support/resources I'll provide
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Performance History, Skill Assessment,
+      Career Aspirations, Role Requirements, Peer Comparison.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: SKILL PROFILE ASSESSMENT
+      Assess current skills against role requirements:
+      - Skill name
+      - Current level (1-5: novice, developing, competent, proficient, expert)
+      - Role requirement level (1-5)
+      - Gap (current - required, negative = development needed)
+      - Trend: improving, stable, declining
+      - Trend requires comparison of at least two time-separated observations.
+        If only one observation exists, trend is INSUFFICIENT DATA.
+      Every level assessment must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Skill categories: technical skills, deal strategy, customer engagement,
+      competitive positioning, internal navigation, communication, leadership.
+      If performance summary is empty: state what is missing, note that skill assessment
+      is based on available signals only, proceed without fabrication.
+      Deliverable: Skill Profile (Skill | Current Level | Confidence | Required Level |
+      Gap | Trend | Trend Confidence | Basis).
+
+      STEP 2: STRENGTH AND DEVELOPMENT PRIORITIZATION
+      From the skill profile, identify:
+      - Top 3 strengths to leverage (skills at or above role requirement)
+      - Top 2-3 development areas (largest gaps with highest impact on performance)
+      - For each development area: why this matters now, what good looks like,
+        how progress will be measured
+      Deliverable: Priority Assessment (Category | Skill | Rationale | Success Criteria |
+      Measurement Method).
+
+      STEP 3: DEVELOPMENT EXPERIENCE PLAN
+      Recommend specific experiences that build target skills:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Experience types to consider: stretch assignments, deal shadowing, customer
+      presentations, cross-functional projects, mentoring relationships, external
+      training, certifications.
+      Each action must be specific (not "improve communication" but "lead next QBR
+      presentation for Account X with coaching debrief").
+      Deliverable: Development Experience Plan using format above.
+
+      STEP 4: COACHING APPROACH
+      Define the coaching approach for this individual:
+      - Learning style (if known): visual, auditory, kinesthetic, reading
+      - Motivation drivers: achievement, recognition, growth, autonomy
+      - Coaching frequency: weekly, bi-weekly, monthly
+      - Coaching format: 1:1, deal review, ride-along, observation + feedback
+      - Support and resources the manager will provide
+      If career aspirations data is empty: state that coaching approach is based on
+      role requirements only, recommend gathering aspirations in next 1:1.
+      Deliverable: Coaching Approach (Dimension | Assessment | Coaching Implication).
+
+      STEP 5: 90-DAY MILESTONE PLAN
+      Define measurable milestones at 30, 60, and 90 days:
+      - 30-day: foundational actions completed, initial progress visible
+      - 60-day: skill application in real situations, measurable improvement
+      - 90-day: sustained performance at target level, ready for next challenge
+      Each milestone must include: what is achieved, how it is measured, what evidence
+      demonstrates success.
+      Deliverable: Milestone Plan (Timeframe | Milestone | Measurement | Evidence of Success).
+
+      STEP 6: PORTFOLIO STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - Development actions scheduled
+      - Coaching cadence established
+      - Review dates set
+      Deliverable: Portfolio State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Every skill level includes confidence and basis, not just a number
+      - Trend claims are based on at least two time-separated observations
+      - Development actions are specific and time-bound, not generic recommendations
+      - Actions use prerequisite format with expected impact
+      - 90-day milestones are measurable with clear success criteria
+      - Plan balances current role performance with aspiration preparation
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the team member's
+      overall development profile and readiness, (2) the most critical skill gap,
+      and (3) the single highest-priority development action. Then produce all
+      numbered deliverables as labeled sections.
 
   post_mortem_coaching:
     name: "Win/Loss Coaching"
-    description: "Extract learnings from win or loss"
+    description: "Facilitate structured win/loss post-mortem to extract reusable learnings, identify systemic patterns, and apply insights to active deals"
     prompt: |
       Context: Post-mortem on {outcome} for {opportunity_name}.
       Deal value: {deal_value}
       Key team members: {team_members}
       Duration of pursuit: {duration}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Facilitate learning:
-      - What worked well? (Reinforce)
-      - What would we do differently? (Improve)
-      - What patterns do we see? (Systemic learning)
-      - How do we apply this to active deals?
+      You are facilitating a win/loss post-mortem to extract learnings that improve
+      future deal execution. The tone must be constructive and forward-looking, not
+      blame-oriented. Learnings must be specific enough to apply to active deals.
+      Follow these steps in order.
 
-      Format:
-      - What worked well (celebrate and reinforce)
-      - What to improve (constructive, forward-looking)
-      - Patterns/insights for the team
-      - Specific applications to current deals
-      - Process/playbook updates if any
-      - Recognition for team members
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Deal Outcome Details, Team Input,
+      Customer Feedback, Competitive Intel, Deal History Timeline.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: OUTCOME ANALYSIS
+      Analyze what happened:
+      - Outcome classification: WIN / LOSS / PARTIAL WIN (reduced scope or value)
+      - Assign one primary classification for routing. Add secondary flags where
+        the outcome spans multiple dimensions (e.g., WIN with relationship damage flags).
+      - Key turning points (specific moments that influenced the outcome)
+      - Competitive dynamics (what competitors did, how we responded)
+      - Customer decision factors (what mattered most to them)
+      - Timeline analysis (where time was well-spent vs. wasted)
+      Every analysis point must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      If customer feedback is empty: state what is missing, note that outcome analysis
+      is based on internal observations only, proceed without fabrication.
+      Deliverable: Outcome Analysis (Dimension | Finding | Confidence | Basis | Evidence).
+
+      STEP 2: WHAT WORKED WELL
+      Identify actions and approaches to reinforce:
+      - What specifically worked (concrete action, not abstract quality)
+      - Why it worked (causal mechanism)
+      - How to replicate in future deals (playbook addition)
+      - Team member recognition (who deserves credit and for what)
+      Deliverable: Reinforcement List (What Worked | Why | Replication Method |
+      Recognition).
+
+      STEP 3: WHAT TO IMPROVE
+      Identify areas for improvement (constructive, not punitive):
+      - What would we do differently (specific change, not generic "be better")
+      - Root cause (process gap, skill gap, resource gap, timing issue)
+      - How to prevent recurrence (process change, training, tool)
+      - Confidence in root cause (HIGH/MEDIUM/LOW with basis)
+      Deliverable: Improvement List (What to Change | Root Cause | Confidence |
+      Prevention Method | Owner).
+
+      STEP 4: ACTIVE DEAL APPLICATION
+      Map learnings to current active deals:
+      - Active deal that benefits from this learning
+      - Specific learning to apply
+      - Recommended action
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Deliverable: Active Deal Application using format above.
+
+      STEP 5: PROCESS AND PLAYBOOK UPDATES
+      Recommend systemic updates:
+      - Playbook sections to add or modify
+      - Process changes to implement
+      - Training needs identified
+      - Tool or resource gaps to address
+      Deliverable: Systemic Updates (Update Type | Description | Owner | Timeline |
+      Expected Impact).
+
+      STEP 6: PORTFOLIO STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - Learnings added to knowledge base
+      - Process changes to implement
+      - Active deal actions scheduled
+      Deliverable: Portfolio State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Outcome analysis is evidence-based, not opinion-based
+      - Every finding includes confidence level with basis
+      - "What worked" is specific enough to replicate
+      - "What to improve" is constructive and forward-looking, not blame-oriented
+      - Active deal applications are specific with owners and timelines
+      - Team recognition is included for contributions
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the outcome
+      classification and the primary driver of the result, (2) the most impactful
+      learning or lowest-confidence analysis area, and (3) the single most urgent
+      action to apply to an active deal. Then produce all numbered deliverables
+      as labeled sections.
 
 # ============================================================================
 # EXECUTIVE ENGAGEMENT PROMPTS
@@ -236,75 +1033,338 @@ executive_engagement:
 
   executive_call_prep:
     name: "Executive Call Preparation"
-    description: "Prepare for executive-to-executive call"
+    description: "Prepare structured executive-to-executive call brief with talking points, value proof, objection handling, and success criteria"
     prompt: |
       Context: Executive call scheduled with {customer_executive} ({title})
       at {account_name}.
       Purpose: {call_purpose}
       Current relationship: {relationship_status}
       Deal context: {deal_context}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare executive brief:
-      - What does this executive care about?
-      - What value have we delivered?
-      - What's the ask/offer?
-      - What might they push back on?
+      You are preparing an executive-to-executive call brief. The output must arm
+      the executive with talking points, value proof, and objection responses so
+      the call achieves its purpose. Follow these steps in order.
 
-      Format:
-      - Executive profile (priorities, style, history)
-      - Key talking points (3-5 max)
-      - Value delivered to date (quantified)
-      - The ask (specific, clear)
-      - Potential objections with responses
-      - Meeting success criteria
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Executive Profile, Relationship
+      History, Deal Context, Value Delivered, Competitive Position.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: EXECUTIVE PROFILE
+      Build a profile of the customer executive:
+      - Name, title, reporting structure
+      - Strategic priorities they own
+      - Communication style (data-driven, relationship-focused, visionary, operational)
+      - Decision-making style (consensus, decisive, analytical, political)
+      - History with our company (meetings, interactions, sentiment)
+      - Known concerns or hot buttons
+      Every profile element must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      If relationship status is empty: state what is missing, note that profile is
+      based on public information only, proceed without fabrication.
+      Deliverable: Executive Profile (Dimension | Assessment | Confidence | Basis | Source).
+
+      STEP 2: VALUE PROOF POINTS
+      Compile quantified value delivered to date:
+      - Value delivered (specific outcomes, metrics, business impact)
+      - Value in progress (active initiatives and expected outcomes)
+      - Value proposed (future opportunities with projected impact)
+      For each proof point: metric, quantification, source, and relevance to this
+      executive's priorities.
+      If deal context is empty: state that value proof is limited to known account
+      history, note the gap, proceed with available data.
+      Deliverable: Value Proof (Category | Proof Point | Metric | Quantification |
+      Relevance to Executive).
+
+      STEP 3: TALKING POINTS AND ASK
+      Prepare the call content:
+      - 3-5 key talking points (ordered by priority)
+      - The specific ask (clear, actionable, time-bound)
+      - Bridge from value delivered to the ask (logical connection)
+      - Topics to avoid (sensitive areas, unresolved issues)
+      Deliverable: Call Content (Talking Point | Priority | Key Message | Supporting Data |
+      The Ask | Bridge Statement | Topics to Avoid).
+
+      STEP 4: OBJECTION PREPARATION
+      Anticipate and prepare for objections:
+      - Likely objection (based on executive profile and context)
+      - Probability (HIGH/MEDIUM/LOW with confidence and basis)
+      - Recommended response (concise, evidence-based)
+      - Escalation path if objection is not resolved in call
+      Deliverable: Objection Prep (Objection | Probability | Confidence | Response |
+      Escalation Path).
+
+      STEP 5: SUCCESS CRITERIA AND FOLLOW-UP
+      Define what success looks like:
+      - Call success criteria (specific, measurable outcomes)
+      - Best-case outcome
+      - Minimum acceptable outcome
+      - Follow-up actions regardless of outcome
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Deliverable: Success Criteria (Criterion | Measurement) + Follow-up Plan
+      using format above.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - Relationship status updates
+      - Next actions scheduled
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Executive profile is based on evidence, not stereotypes
+      - Every assessment includes confidence level with basis
+      - Value proof points are quantified, not qualitative claims
+      - The ask is specific and actionable, not vague
+      - Objection responses are concise and evidence-based
+      - Success criteria are measurable
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the call purpose
+      and recommended approach, (2) the weakest preparation area or lowest-confidence
+      profile element, and (3) the single most important talking point or ask.
+      Then produce all numbered deliverables as labeled sections.
 
   executive_escalation_response:
     name: "Executive Escalation Response"
-    description: "Handle customer executive escalation"
+    description: "Handle customer executive escalation by identifying root cause, preparing resolution, and planning relationship recovery"
     prompt: |
       Context: Customer executive {executive_name} has escalated issue:
       {issue_description}
       Account: {account_name}
       ARR: {arr}
       Relationship health: {health_score}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare response:
-      - What is the root cause?
-      - What does the executive actually want?
-      - What's the minimum intervention needed?
-      - How do we resolve and strengthen relationship?
+      You are handling a customer executive escalation. Speed and precision matter:
+      the executive expects acknowledgment within hours and resolution within days.
+      The response must address root cause, not just symptoms. Follow these steps in order.
 
-      Format:
-      - Issue root cause (not just symptom)
-      - Executive's underlying concern
-      - Proposed resolution
-      - Communication to executive (tone, content)
-      - Internal follow-up to prevent recurrence
-      - Relationship recovery plan
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Issue Details, Account Context,
+      Relationship History, Support Ticket History, Revenue Impact.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: ROOT CAUSE ANALYSIS
+      Separate symptom from root cause:
+      - Reported issue (what the executive described)
+      - Underlying concern (what the executive actually wants resolved)
+      - Root cause (the systemic failure that produced this issue)
+      - Root cause confidence (HIGH/MEDIUM/LOW) with basis
+      - Contributing factors (process, people, product, communication)
+      - Revenue at risk (ARR, expansion, reference value)
+      If issue description is incomplete: state what is missing, note that root
+      cause analysis is preliminary, proceed with available signals.
+      Deliverable: Root Cause Analysis (Layer | Finding | Confidence | Basis |
+      Contributing Factors | Revenue Impact).
+
+      STEP 2: RESOLUTION PLAN
+      Define the resolution approach:
+      - Immediate response (within 24 hours): acknowledgment, interim fix
+      - Short-term resolution (within 1 week): root cause fix
+      - Long-term prevention (within 30 days): systemic improvement
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Deliverable: Resolution Plan using format above.
+
+      STEP 3: EXECUTIVE COMMUNICATION
+      Prepare the response to the customer executive:
+      - Tone: empathetic, accountable, action-oriented
+      - Content structure: acknowledgment → understanding → action plan → commitment
+      - Key messages (what to say)
+      - Message boundaries (what not to say)
+      - Channel (email, call, in-person) with rationale
+      Deliverable: Executive Communication (Element | Content | Rationale).
+
+      STEP 4: RELATIONSHIP RECOVERY PLAN
+      Plan relationship recovery beyond issue resolution:
+      - Current relationship health assessment (score 1-10 with confidence and basis)
+      - Target relationship health (realistic post-recovery target)
+      - Recovery actions (specific gestures, engagements, value demonstrations)
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Internal process changes to prevent recurrence
+      Deliverable: Recovery Plan using format above + Internal Prevention Actions.
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - Risk level changes
+      - Relationship health score changes
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Root cause goes deeper than the reported symptom
+      - Root cause confidence level is stated with basis
+      - Resolution plan has clear owners and timelines for all three horizons
+      - Executive communication is empathetic and accountable, not defensive
+      - Recovery plan includes both external and internal actions
+      - Revenue at risk is quantified
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the root cause
+      and revenue at risk, (2) the weakest area in the resolution plan or lowest-
+      confidence finding, and (3) the single most urgent action (within 24 hours).
+      Then produce all numbered deliverables as labeled sections.
 
   ebr_strategy:
     name: "Executive Business Review Strategy"
-    description: "Plan strategic executive business review"
+    description: "Plan strategic executive business review with value narrative, expansion positioning, and success criteria that differentiates from routine vendor reviews"
     prompt: |
       Context: Planning EBR for {account_name}.
       Current ARR: {arr}
       Expansion opportunity: {expansion_value}
       Key executives to engage: {executives}
       Relationship health: {health}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Develop EBR strategy:
-      - What message do we want to land?
-      - What value story resonates with this executive team?
-      - What's the ask?
-      - How do we differentiate from vendor reviews?
+      You are planning a strategic Executive Business Review that positions us as a
+      strategic partner, not a vendor reporting metrics. The EBR must land a clear
+      message, demonstrate value, and advance the expansion conversation.
+      Follow these steps in order.
 
-      Format:
-      - EBR theme/message
-      - Value story with proof points
-      - Strategic alignment discussion points
-      - The ask (clear, specific)
-      - Success metrics for the EBR
-      - Follow-up plan
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Account Performance, Value Delivered,
+      Executive Priorities, Expansion Opportunities, Competitive Threats.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: EBR THEME AND MESSAGE
+      Define the strategic narrative:
+      - EBR theme (1 sentence that captures the value message)
+      - Core message (what the executive should remember after the meeting)
+      - Differentiation from vendor review (how this feels different)
+      - Alignment to executive priorities (connect our value to their goals)
+      Every alignment claim must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      If executive priorities data is empty: state what is missing, note that
+      theme alignment is based on public company priorities, proceed accordingly.
+      Deliverable: EBR Narrative (Element | Content | Confidence | Basis |
+      Executive Alignment).
+
+      STEP 2: VALUE STORY
+      Build the value narrative with proof points:
+      - Value delivered to date (quantified outcomes mapped to executive KPIs)
+      - Value trajectory (where we are heading, with projected outcomes)
+      - Industry benchmarks (how they compare to peers)
+      - Trend requires comparison of at least two time-separated observations.
+        If only one observation exists, trend is INSUFFICIENT DATA.
+      For each proof point: metric, baseline, current, improvement, executive relevance.
+      If value data is incomplete: state what is missing, note which proof points
+      are estimated, proceed without fabrication.
+      Deliverable: Value Story (Proof Point | Metric | Baseline | Current |
+      Improvement | Confidence | Executive Relevance).
+
+      STEP 3: STRATEGIC DISCUSSION DESIGN
+      Design the strategic conversation (not a presentation):
+      - Discussion topics aligned to executive priorities (3-5 topics)
+      - Questions to pose to executives (generate dialogue, not monologue)
+      - Industry insights to share (position us as thought partners)
+      - Expansion conversation framing (natural bridge from value to growth)
+      Deliverable: Discussion Design (Topic | Executive Priority | Question to Pose |
+      Insight to Share | Expansion Bridge).
+
+      STEP 4: THE ASK
+      Define what we want from this EBR:
+      - Primary ask (specific, actionable, time-bound)
+      - Supporting asks (secondary objectives)
+      - Minimum acceptable outcome (walk-away position)
+      - How to frame the ask (connect to value and executive priorities)
+      Deliverable: EBR Ask (Ask | Type | Framing | Connection to Value | Fallback).
+
+      STEP 5: SUCCESS METRICS AND FOLLOW-UP
+      Define EBR success and post-EBR plan:
+      - Success criteria (measurable outcomes from the meeting)
+      - Follow-up actions within 48 hours
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - 30-day post-EBR engagement plan
+      Deliverable: Success Criteria + Follow-up Plan using format above.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - Relationship status updates
+      - Expansion pipeline changes
+      - Next actions scheduled
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - EBR theme is strategic, not operational (partner language, not vendor language)
+      - Value proof points are quantified with confidence levels
+      - Trend claims are based on at least two time-separated observations
+      - Discussion design creates dialogue, not a slide deck walkthrough
+      - The ask is specific and naturally connected to value delivered
+      - Follow-up actions use prerequisite format with expected impact
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the EBR theme
+      and primary ask, (2) the weakest value proof point or lowest-confidence area,
+      and (3) the single most important preparation action before the EBR.
+      Then produce all numbered deliverables as labeled sections.
 
 # ============================================================================
 # PORTFOLIO OVERSIGHT PROMPTS
@@ -313,76 +1373,362 @@ portfolio_oversight:
 
   weekly_pipeline_review:
     name: "Weekly Pipeline Review"
-    description: "Review pipeline health and at-risk deals"
+    description: "Assess pipeline health against coverage targets, identify at-risk deals requiring intervention, and determine resource reallocation needs for the week"
     prompt: |
       Context: Weekly pipeline review.
       Total pipeline: {pipeline_value}
       Target: {target}
       Coverage ratio: {coverage}
       Deals in forecast: {forecast_deals}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess pipeline health:
-      - Is coverage sufficient?
-      - Which deals are at highest risk?
-      - Where is momentum stalling?
-      - What interventions are needed this week?
+      You are conducting the weekly pipeline review to assess health, identify risks,
+      and determine where to focus this week's attention. The output must be actionable
+      within the week, not a general assessment. Follow these steps in order.
 
-      Format:
-      - Pipeline health: [GREEN/YELLOW/RED]
-      - Coverage assessment
-      - Top 5 at-risk deals with required actions
-      - Deals needing my engagement
-      - Resource reallocation needed
-      - Focus areas for this week
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Pipeline Metrics, Deal Details,
+      Forecast Accuracy History, Resource Utilization, Competitive Activity.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: PIPELINE HEALTH CLASSIFICATION
+      Classify overall pipeline health:
+      - Classification: GREEN (coverage sufficient, pipeline quality high) / YELLOW
+        (coverage marginal, quality concerns) / RED (coverage insufficient, major risks)
+      - Assign one primary classification for routing. Add secondary flags where
+        the signal spans multiple dimensions.
+      - Coverage ratio vs. target (actual vs. required)
+      - Pipeline quality indicators (stage distribution, velocity, age)
+      - Week-over-week change (pipeline added, moved, lost)
+      - Trend requires comparison of at least two time-separated observations.
+        If only one observation exists, trend is INSUFFICIENT DATA.
+      Every classification must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Deliverable: Pipeline Health (Classification | Confidence | Basis | Coverage Ratio |
+      Quality Score | WoW Change | Trend | Trend Confidence | Secondary Flags).
+
+      STEP 2: AT-RISK DEAL IDENTIFICATION
+      Identify the top 5 at-risk deals:
+      - Deal name and value
+      - Risk indicator (what signals concern: stalled stage, missing champion,
+        competitive threat, budget uncertainty)
+      - Risk severity (HIGH/MEDIUM/LOW with confidence and basis)
+      - Recommended intervention (specific action, not generic "follow up")
+      - Who should act (team member, manager, executive)
+      If forecast deals data is empty: state what is missing, note that at-risk
+      identification is limited to pipeline data only, proceed accordingly.
+      Deliverable: At-Risk Deals (Deal | Value | Risk Indicator | Severity |
+      Confidence | Intervention | Owner).
+
+      STEP 3: MANAGER ENGAGEMENT PRIORITIES
+      Determine which deals need direct manager engagement this week:
+      - Deal requiring engagement
+      - Type of engagement (coaching call, customer meeting, executive alignment, deal review)
+      - Why now (time sensitivity, risk escalation, opportunity window)
+      - Expected outcome of engagement
+      Limit to 3-5 engagements maximum (manager time is the constraint).
+      Deliverable: Engagement Priorities (Deal | Engagement Type | Why Now |
+      Expected Outcome | Time Required).
+
+      STEP 4: RESOURCE REALLOCATION
+      Assess whether resources are optimally allocated:
+      - Resources to shift (from which deal to which deal, why)
+      - Resources to add (what type, from where)
+      - Resources to release (where effort is not productive)
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Deliverable: Resource Reallocation using format above.
+
+      STEP 5: WEEKLY FOCUS AREAS
+      Define the top 3 focus areas for the week:
+      - Focus area (specific, not generic)
+      - Why this week (time sensitivity or momentum opportunity)
+      - Success criteria (what good looks like by end of week)
+      - Who is responsible
+      Deliverable: Weekly Focus (Focus Area | Rationale | Success Criteria | Owner).
+
+      STEP 6: PORTFOLIO STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - Deal risk level changes
+      - Resource allocation changes
+      - Focus area changes from last week
+      Deliverable: Portfolio State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Pipeline health classification is supported by metrics, not impressions
+      - Every risk severity includes confidence level and basis
+      - Trend claims are based on at least two time-separated observations
+      - At-risk interventions are specific and assigned to owners
+      - Manager engagement is prioritized (not everything, top 3-5 only)
+      - Weekly focus areas are achievable within the week
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the pipeline
+      health classification and coverage ratio, (2) the highest-risk deal or
+      weakest pipeline dimension, and (3) the single most important action for
+      this week. Then produce all numbered deliverables as labeled sections.
 
   monthly_performance_review:
     name: "Monthly Performance Review"
-    description: "Review team and deal performance patterns"
+    description: "Analyze monthly team and deal performance patterns across wins, losses, and operational metrics to identify strategic adjustments and coaching priorities"
     prompt: |
       Context: Monthly performance review for {month}.
       Wins: {win_count} totaling {win_value}
       Losses: {loss_count} totaling {loss_value}
       Win rate: {win_rate}%
       Average deal size: {avg_deal_size}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Analyze performance patterns:
-      - What drove wins this month?
-      - What patterns do we see in losses?
-      - Which team members are excelling/struggling?
-      - What strategic adjustments are needed?
+      You are analyzing monthly performance to identify patterns, adjust strategy,
+      and determine coaching priorities. The output must distinguish between signal
+      and noise in the data and produce actionable adjustments. Follow these steps in order.
 
-      Format:
-      - Performance summary vs. target
-      - Win pattern analysis (what worked)
-      - Loss pattern analysis (what to improve)
-      - Team member performance highlights/concerns
-      - Strategic adjustments for next month
-      - Coaching priorities
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Win/Loss Data, Deal Metrics,
+      Team Performance, Competitive Outcomes, Customer Feedback.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: PERFORMANCE SUMMARY
+      Summarize month against targets:
+      - Revenue vs. target (actual, %, gap)
+      - Win rate vs. target and vs. prior month
+      - Average deal size vs. target and vs. prior month
+      - Pipeline generation vs. target
+      - Trend for each metric: improving, stable, declining
+      - Trend requires comparison of at least two time-separated observations.
+        If only one observation exists, trend is INSUFFICIENT DATA.
+      Every metric must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Deliverable: Performance Summary (Metric | Target | Actual | % of Target |
+      vs. Prior Month | Trend | Trend Confidence | Confidence | Basis).
+
+      STEP 2: WIN PATTERN ANALYSIS
+      Identify patterns across wins:
+      - Common characteristics of won deals (size, industry, use case, team)
+      - Tactics or approaches that contributed to wins
+      - Competitive dynamics in wins (who we displaced, how)
+      - Replicable elements for next month
+      If win data is sparse (fewer than 3 wins): state the sample size limitation,
+      note that patterns may not be statistically meaningful, proceed with caveats.
+      Deliverable: Win Patterns (Pattern | Frequency | Contributing Factor |
+      Replication Approach | Confidence).
+
+      STEP 3: LOSS PATTERN ANALYSIS
+      Identify patterns across losses:
+      - Common characteristics of lost deals
+      - Root causes of losses (competitive, pricing, fit, execution, timing)
+      - Preventable vs. unpreventable losses
+      - Systemic issues revealed
+      If loss data is sparse: apply same sample size caveat as wins.
+      Deliverable: Loss Patterns (Pattern | Frequency | Root Cause | Preventable |
+      Systemic Issue | Confidence).
+
+      STEP 4: TEAM PERFORMANCE ASSESSMENT
+      Assess individual team member performance:
+      - Team member performance highlights (specific achievements)
+      - Team member performance concerns (specific gaps, not personality)
+      - Coaching priorities for next month
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Deliverable: Team Assessment (Team Member | Highlights | Concerns |
+      Coaching Priority) + Coaching Plan using format above.
+
+      STEP 5: STRATEGIC ADJUSTMENTS
+      Recommend adjustments for next month:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Categories: focus areas, resource allocation, competitive response, process
+      changes, training needs.
+      Each adjustment must have expected impact with confidence level.
+      Deliverable: Strategic Adjustments using format above.
+
+      STEP 6: PORTFOLIO STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - Performance trend updates
+      - Coaching priorities changed
+      - Strategy adjustments implemented
+      Deliverable: Portfolio State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Performance metrics include confidence levels and basis
+      - Trend claims are based on at least two time-separated observations
+      - Win/loss patterns distinguish signal from noise (sample size noted)
+      - Team assessment is evidence-based, not subjective
+      - Strategic adjustments have measurable expected impact with confidence
+      - Coaching priorities use prerequisite format
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the overall
+      performance result and primary trend direction, (2) the most significant
+      win or loss pattern, and (3) the single highest-priority strategic adjustment
+      for next month. Then produce all numbered deliverables as labeled sections.
 
   quarterly_strategy_review:
     name: "Quarterly Strategy Review"
-    description: "Review and adjust territory strategy"
+    description: "Review quarterly results against plan, assess market and competitive changes, adjust territory strategy, and set priorities for the next quarter"
     prompt: |
       Context: Quarterly strategy review for {quarter}.
       Results: {quarterly_results}
       Market dynamics: {market_changes}
       Competitive landscape: {competitive_changes}
       Resource changes: {resource_changes}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess and adjust strategy:
-      - Are we focused on the right accounts?
-      - Is our competitive position strengthening?
-      - What market changes affect our strategy?
-      - What adjustments are needed?
+      You are conducting the quarterly strategy review to assess results, evaluate
+      market shifts, and set priorities for the next quarter. The output must connect
+      results to strategy adjustments with clear rationale. Follow these steps in order.
 
-      Format:
-      - Quarterly results vs. plan
-      - Strategic wins and learnings
-      - Market/competitive assessment
-      - Account tier adjustments (if any)
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Quarterly Results, Market Intelligence,
+      Competitive Intelligence, Resource Capacity, Customer Feedback.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: QUARTERLY RESULTS ANALYSIS
+      Analyze results against plan:
+      - Revenue vs. target (actual, gap, root cause of gap)
+      - Win rate trend (quarter-over-quarter)
+      - Deal size trend (quarter-over-quarter)
+      - Pipeline generation trend
+      - Trend requires comparison of at least two time-separated observations.
+        If only one observation exists, trend is INSUFFICIENT DATA.
+      Every metric must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Deliverable: Results Analysis (Metric | Plan | Actual | Gap | Root Cause |
+      QoQ Trend | Trend Confidence | Confidence).
+
+      STEP 2: STRATEGIC WINS AND LEARNINGS
+      Identify the quarter's most important wins and learnings:
+      - Strategic wins (deals, relationships, competitive displacements that matter
+        beyond revenue)
+      - Key learnings (what we now know that we did not know at quarter start)
+      - Capabilities built (new skills, playbooks, relationships developed)
+      Deliverable: Strategic Wins (Win | Strategic Value | Learning | Capability Built |
+      Confidence).
+
+      STEP 3: MARKET AND COMPETITIVE ASSESSMENT
+      Assess changes in the operating environment:
+      - Market changes (customer priorities, budget dynamics, industry trends)
+      - Competitive changes (new entrants, positioning shifts, pricing changes)
+      - Impact on our strategy (what adjustments are needed)
+      - Trend requires comparison of at least two time-separated observations.
+        If only one observation exists, trend is INSUFFICIENT DATA.
+      Every assessment must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      If market or competitive data is empty: state what is missing, note that
+      assessment is based on deal-level observations only, proceed accordingly.
+      Deliverable: Environment Assessment (Dimension | Change | Impact on Strategy |
+      Confidence | Basis | Trend | Trend Confidence).
+
+      STEP 4: ACCOUNT TIER ADJUSTMENTS
+      Reassess account tiering based on quarterly results:
+      - Accounts to upgrade (performance or potential warrants higher investment)
+      - Accounts to downgrade (results do not justify continued investment level)
+      - New accounts to add to portfolio
+      - Rationale for each change
+      Deliverable: Tier Adjustments (Account | Current Tier | Proposed Tier |
+      Rationale | Resource Impact).
+
+      STEP 5: NEXT QUARTER PRIORITIES
+      Set priorities for Q+1:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Categories: account focus, competitive response, capability building,
+      resource allocation, team development.
+      Each priority must connect to a finding from Steps 1-4.
+      Every expected impact must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Deliverable: Q+1 Priorities using format above.
+
+      STEP 6: TEAM DEVELOPMENT FOCUS
+      Define team development priorities for Q+1:
+      - Skill gaps revealed by quarterly results
+      - Development investments planned
+      - Coaching focus areas
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Deliverable: Team Development Plan using format above.
+
+      STEP 7: PORTFOLIO STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - Account tier changes
+      - Strategy adjustments
       - Resource allocation changes
-      - Q+1 priorities and investments
-      - Team development focus areas
+      - Team development priorities
+      Deliverable: Portfolio State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Results analysis includes root cause for gaps, not just numbers
+      - Every metric and assessment includes confidence level with basis
+      - Trend claims are based on at least two time-separated observations
+      - Market/competitive assessments are evidence-based, not speculative
+      - Account tier changes have clear rationale and resource impact
+      - Q+1 priorities connect to findings, not generic goals
+      - Team development addresses gaps revealed by results, not generic training
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the quarterly
+      result vs. plan and dominant trend, (2) the most significant market or
+      competitive shift, and (3) the single highest-priority strategic adjustment
+      for next quarter. Then produce all numbered deliverables as labeled sections.
 
 # ============================================================================
 # RESOURCE ALLOCATION PROMPTS
@@ -391,70 +1737,346 @@ resource_allocation:
 
   resource_conflict_resolution:
     name: "Resource Conflict Resolution"
-    description: "Resolve competing demands for limited resources"
+    description: "Resolve competing demands for limited resources using strategic value scoring, impact analysis, and clear communication to affected parties"
     prompt: |
       Context: Resource conflict for {resource_type}.
       Competing requests:
       {request_list_with_details}
       Available capacity: {capacity}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Resolve conflict:
-      - Assess strategic value of each opportunity
-      - Calculate resource cost and availability
-      - Consider relationship and momentum impact
-      - Make decision, communicate clearly
+      You are resolving a resource conflict by making a clear allocation decision
+      with documented rationale. The output must be a decision with communication
+      plan, not an analysis without conclusion. Follow these steps in order.
 
-      Format:
-      - Decision: Resource allocation by opportunity
-      - Rationale (strategic criteria applied)
-      - Impact on each requesting team
-      - Communication to affected parties
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Request Details, Strategic Context,
+      Resource Capacity, Opportunity Values, Timeline Constraints.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: REQUEST ASSESSMENT
+      Assess each competing request on consistent dimensions:
+      - Strategic value of the opportunity (1-10 with confidence and basis)
+      - Time sensitivity (deadline, consequence of delay)
+      - Resource requirement (type, duration, intensity)
+      - Win probability if resourced (% with confidence and basis)
+      - Loss probability if not resourced (% with confidence and basis)
+      - Relationship impact if declined
+      Every score must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      If request details are incomplete: state what is missing per request,
+      score as ESTIMATED with LOW confidence, proceed without fabrication.
+      Deliverable: Request Assessment (Request | Strategic Value | Confidence |
+      Time Sensitivity | Resource Req | Win Prob | Loss Prob | Relationship Impact).
+
+      STEP 2: ALLOCATION DECISION
+      Make the allocation decision:
+      - Decision: which requests get resources, which do not
+      - Allocation per request (resource type, amount, duration)
+      - Decision rationale (which criteria drove the decision)
+      - Confidence in decision (HIGH/MEDIUM/LOW with basis)
+      Deliverable: Allocation Decision (Request | Allocation | Rationale | Confidence).
+
+      STEP 3: IMPACT ANALYSIS
+      Document impact on each affected party:
+      - Impact on prioritized requests (what they get, what constraints remain)
+      - Impact on deprioritized requests (what they lose, mitigation available)
       - Mitigation for deprioritized opportunities
-      - Review date if situation changes
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Deliverable: Impact Analysis + Mitigation Plan using format above.
+
+      STEP 4: COMMUNICATION PLAN
+      Prepare communication for all affected parties:
+      - For each requesting team: message content, tone, channel, timing
+      - For prioritized teams: expectations and constraints
+      - For deprioritized teams: rationale, mitigation, re-engagement trigger
+      Deliverable: Communication Plan (Audience | Message | Tone | Channel |
+      Timing | Re-engagement Trigger).
+
+      STEP 5: PORTFOLIO STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - Resource allocation changes
+      - Opportunity risk level changes
+      - Review date for reassessment
+      Deliverable: Portfolio State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - All requests scored on identical dimensions for fair comparison
+      - Every score includes confidence level and basis
+      - Decision is clearly stated, not hedged or deferred
+      - Communication addresses both prioritized and deprioritized teams
+      - Mitigation plan gives deprioritized teams a path forward
+      - Review date set for reassessment if conditions change
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the allocation
+      decision and primary rationale, (2) the highest-risk trade-off or lowest-
+      confidence factor, and (3) the single most important communication to deliver.
+      Then produce all numbered deliverables as labeled sections.
 
   capacity_planning:
     name: "Resource Capacity Planning"
-    description: "Plan resource allocation for upcoming quarter"
+    description: "Plan resource allocation for upcoming quarter by forecasting demand against capacity, identifying gaps, and recommending hiring or contractor actions"
     prompt: |
       Context: Capacity planning for {quarter}.
       Pipeline: {pipeline_summary}
       Current resource utilization: {utilization}
       Anticipated major pursuits: {major_pursuits}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Plan resource allocation:
-      - What capacity do we have?
-      - What demand do we anticipate?
-      - Where are the gaps?
-      - What trade-offs must we make?
+      You are planning resource capacity for the upcoming quarter. The output must
+      identify gaps early enough to act: hire, contract, reallocate, or deprioritize.
+      Follow these steps in order.
 
-      Format:
-      - Capacity by resource type
-      - Demand forecast by month
-      - Gap analysis
-      - Allocation recommendations
-      - Trade-offs and risks
-      - Hiring/contractor recommendations
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Pipeline Forecast, Resource Inventory,
+      Utilization Rates, Major Pursuit Details, Historical Capacity Data.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: CAPACITY INVENTORY
+      Catalog available capacity by resource type:
+      - Resource type (SA, AE, SE, CSM, specialist)
+      - Headcount (current, planned additions, planned departures)
+      - Available capacity (FTE-weeks per month, accounting for PTO, training, overhead)
+      - Current utilization rate (%)
+      - Trend: increasing demand, stable, decreasing demand
+      - Trend requires comparison of at least two time-separated observations.
+        If only one observation exists, trend is INSUFFICIENT DATA.
+      Every capacity figure must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Deliverable: Capacity Inventory (Resource Type | Headcount | Available FTE-Weeks |
+      Current Utilization | Trend | Trend Confidence | Confidence).
+
+      STEP 2: DEMAND FORECAST
+      Forecast resource demand by month:
+      - Source of demand (specific pursuit, account, or portfolio activity)
+      - Resource type needed
+      - Estimated demand (FTE-weeks)
+      - Probability-weighted demand (FTE-weeks x win probability)
+      - Month of peak demand
+      If pipeline data is incomplete: state what is missing, note that demand forecast
+      is estimated based on historical patterns, proceed with caveats.
+      Deliverable: Demand Forecast (Source | Resource Type | Month 1 | Month 2 |
+      Month 3 | Peak Month | Confidence).
+
+      STEP 3: GAP ANALYSIS
+      Compare capacity to demand:
+      - Resource type
+      - Available capacity (from Step 1)
+      - Forecasted demand (from Step 2)
+      - Gap (surplus or deficit by month)
+      - Severity of deficit: CRITICAL (deals at risk), MODERATE (reduced quality),
+        MANAGEABLE (stretch but feasible)
+      Every gap assessment must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Deliverable: Gap Analysis (Resource Type | Month 1 Capacity | Month 1 Demand |
+      Month 1 Gap | Month 2 Gap | Month 3 Gap | Severity | Confidence).
+
+      STEP 4: ALLOCATION RECOMMENDATIONS
+      Recommend actions to close gaps:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Action types: reallocate from lower-priority work, hire (with lead time),
+      engage contractors, deprioritize pursuits, cross-train existing team.
+      Each recommendation must include cost and trade-off analysis.
+      Every expected impact must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Deliverable: Allocation Recommendations using format above.
+
+      STEP 5: HIRING AND CONTRACTOR RECOMMENDATIONS
+      If gaps cannot be closed through reallocation:
+      - Role to hire (title, skills, level)
+      - Urgency (immediate, next quarter, planned)
+      - Cost (salary range, contractor rate)
+      - Lead time to productive (onboarding weeks)
+      - Alternative if hiring is not approved
+      Deliverable: Hiring Recommendations (Role | Urgency | Cost | Lead Time |
+      Alternative | Confidence).
+
+      STEP 6: PORTFOLIO STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - Resource allocation changes
+      - Hiring requests initiated
+      - Pursuit deprioritizations recommended
+      Deliverable: Portfolio State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Capacity figures account for PTO, training, and overhead (not raw headcount)
+      - Demand forecast uses probability-weighted estimates
+      - Trend claims are based on at least two time-separated observations
+      - Gap analysis includes severity classification with confidence
+      - Recommendations include cost and trade-off analysis
+      - Hiring recommendations include alternatives if not approved
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the overall
+      capacity position and most critical gap, (2) the lowest-confidence forecast
+      dimension, and (3) the single most urgent action to close the gap.
+      Then produce all numbered deliverables as labeled sections.
 
   strategic_investment_decision:
     name: "Strategic Investment Decision"
-    description: "Decide on investment in strategic account"
+    description: "Evaluate strategic account investment proposal using risk-adjusted return analysis, alternative comparison, and conditional approval with guardrails"
     prompt: |
       Context: Investment decision for {account_name}.
       Proposed investment: {investment_description}
       Cost: {investment_cost}
       Expected return: {expected_return}
       Alternatives: {alternatives}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess investment:
-      - What's the strategic value?
-      - What's the risk-adjusted return?
-      - What alternatives exist?
-      - What opportunity cost?
+      You are making a strategic investment decision for an account. The output must
+      be a clear APPROVE/DENY/MODIFY decision with quantified rationale and guardrails.
+      Follow these steps in order.
 
-      Format:
-      - Decision: [APPROVE/DENY/MODIFY]
-      - Strategic value assessment
-      - Financial analysis (cost vs. return)
-      - Risk factors
-      - Conditions/guardrails if approved
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps
+      - DEFER: 2+ required inputs ABSENT → STOP. Produce missing inputs list.
+
+      Data Availability Map, dimensions to assess: Investment Details, Cost Structure,
+      Return Projections, Alternative Options, Account Strategic Value.
+      For each dimension, assess data richness (HIGH/MEDIUM/LOW).
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP. Switch to
+      SIGNAL ACQUISITION MODE and produce data gathering plan. Do not proceed.
+
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      STEP 1: STRATEGIC VALUE ASSESSMENT
+      Assess the strategic value of this investment:
+      - Account strategic importance (1-10 with confidence and basis)
+      - Investment alignment with portfolio strategy (HIGH/MEDIUM/LOW with basis)
+      - Long-term relationship value (beyond this specific return)
+      - Reference/logo value (market positioning benefit)
+      - Competitive implications (what happens if we do not invest)
+      Every assessment must include confidence level (HIGH/MEDIUM/LOW) with basis.
+      Deliverable: Strategic Value (Dimension | Assessment | Confidence | Basis).
+
+      STEP 2: FINANCIAL ANALYSIS
+      Analyze the financial proposition:
+      - Total investment cost (one-time and recurring)
+      - Expected return (revenue, ARR growth, expansion pipeline)
+      - Payback period
+      - Risk-adjusted return (expected return x probability of achieving it)
+      - Opportunity cost (what else could this investment fund)
+      Every financial projection must include confidence level with basis.
+      If expected return data is incomplete: state what is missing, note that
+      financial analysis uses conservative estimates, proceed accordingly.
+      Deliverable: Financial Analysis (Dimension | Amount | Confidence | Basis |
+      Assumptions).
+
+      STEP 3: ALTERNATIVE COMPARISON
+      Compare the proposed investment to alternatives:
+      - Alternative description
+      - Cost comparison
+      - Return comparison
+      - Risk comparison
+      - Strategic fit comparison
+      If alternatives data is empty: state that no alternatives were provided,
+      note that the decision is evaluated on absolute merit only, recommend
+      gathering alternatives before finalizing.
+      Deliverable: Alternative Comparison (Option | Cost | Expected Return |
+      Risk | Strategic Fit | Recommendation).
+
+      STEP 4: RISK ASSESSMENT
+      Identify risks of this investment:
+      - Risk description (specific scenario)
+      - Likelihood (HIGH/MEDIUM/LOW with confidence and basis)
+      - Impact if realized (financial, relationship, competitive)
+      - Mitigation available
+      - Residual risk after mitigation
+      Deliverable: Risk Assessment (Risk | Likelihood | Confidence | Impact |
+      Mitigation | Residual Risk).
+
+      STEP 5: INVESTMENT DECISION
+      Render the decision:
+      - Decision: APPROVE / DENY / MODIFY
+      - Assign one primary classification for routing. Add secondary flags where
+        the investment warrants conditional monitoring.
+      - Decision rationale (2-3 sentences connecting strategic value, financial
+        analysis, and risk)
+      - Decision confidence (HIGH/MEDIUM/LOW with basis)
+      - If APPROVE: guardrails (spending limits, review checkpoints, success criteria)
+      - If DENY: what would change this decision
+      - If MODIFY: specific modifications and rationale
       - Success metrics and review date
+      Deliverable: Investment Decision (Decision | Confidence | Rationale | Guardrails |
+      Success Metrics | Review Date | Secondary Flags).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change:
+      - Fields updated (field path | old value | new value | evidence)
+      - Investment status
+      - Account tier impact
+      - Budget allocation changes
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Strategic value assessment separates this account's value from generic claims
+      - Financial analysis uses risk-adjusted returns, not best-case projections
+      - Every score and projection includes confidence level with basis
+      - Alternatives are compared on identical dimensions
+      - Risk assessment includes mitigation and residual risk
+      - Decision includes guardrails and success metrics for approved investments
+      - Review date is set regardless of decision
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Lead with a 3-sentence executive summary stating: (1) the investment
+      decision and overall confidence, (2) the highest-risk factor or lowest-
+      confidence projection, and (3) the single most important guardrail or next
+      action. Then produce all numbered deliverables as labeled sections.

@@ -1,7 +1,8 @@
 # Technology Scout Task Prompts
-# Purpose: Task-specific prompts using CAF framework (Context, Action, Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
 # Reference: Scanner personality in personalities/tech_signal_scanner_personality.yaml
 # Reference: Analyzer personality in personalities/tech_signal_analyzer_personality.yaml
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
 
 # ==============================================================================
 # SCANNER TASKS
@@ -9,61 +10,423 @@
 scanning:
   job_posting_scan:
     name: "Job Posting Technology Scan"
-    description: "Scan job postings for technology adoption signals"
+    description: "Scan job postings for technology adoption signals, extract and classify technology mentions, and deduplicate across sources to produce a normalized signal inventory"
     prompt: |
       Context: Scanning job postings for {company_name} (realm: {realm_id}).
       Company domain: {company_domain}
       Known technologies: {existing_tech_map}
       Source registry: {source_registry}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Extract technology signals from job postings.
-      - Fetch job postings from configured sources (LinkedIn, Indeed, company careers)
-      - Extract technology mentions from job descriptions
-      - Classify requirement level: required, preferred, nice-to-have
-      - Detect seniority levels for each posting
-      - Deduplicate across sources
-      - Register new sources in source registry
+      You are extracting technology adoption signals from job postings.
+      Job postings are high-fidelity signals because they reflect actual hiring
+      intent rather than marketing language. Every technology mention must be
+      traced to its source posting. Follow these steps in order.
 
-      Format:
-      - scan_metadata: {scan_date, sources_checked, jobs_found, jobs_processed}
-      - technologies: [{name, canonical_name, mentions, required_count, preferred_count, avg_seniority}]
-      - new_sources: [{url, type, title, date_accessed}]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map: for each scoring dimension, assess data richness:
+      - HIGH: 3+ sources accessible, 10+ postings found
+      - MEDIUM: 1-2 sources accessible, 3-9 postings found
+      - LOW: no sources accessible, or fewer than 3 postings found
+      Dimensions to assess: Job Source Coverage, Technology Mentions, Seniority
+      Signals, Requirement Level Signals, Source Registry Currency.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Data Availability Map (Dimension | Richness | Sources | Gap)
+      + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the scan.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Alternative job board sources to add (targeted at company industry and geography)
+      - Direct career page URLs to attempt
+      - Observation checklist for implicit signals in upcoming interactions
+      - Re-scan gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Scan deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets re-scan by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: SOURCE ENUMERATION AND FETCH
+      Enumerate all configured sources for job postings.
+      For each source:
+      - Source name and URL
+      - Source type (LinkedIn, Indeed, company careers page, other)
+      - Accessibility status: REACHABLE / UNREACHABLE / RATE-LIMITED
+      - Postings found count
+      - Date range of postings
+      If {source_registry} is empty: state that no sources are registered,
+      note that results will be limited to discoverable public sources, proceed
+      without fabrication.
+      Deliverable: Source inventory table (Source | Type | Status | Postings Found |
+      Date Range) with totals.
+
+      STEP 2: TECHNOLOGY EXTRACTION
+      For each processed job posting, extract technology mentions.
+      For each technology:
+      - Name as mentioned in posting
+      - Canonical name (normalized, e.g., "K8s" becomes "Kubernetes")
+      - Requirement level: required / preferred / nice-to-have
+        Assign one primary classification for routing. Add secondary flags where
+        the posting language is ambiguous (e.g., "strongly preferred" may flag
+        both preferred and required).
+      - Seniority level of posting (junior, mid, senior, staff, principal, director)
+      - Posting URL and date
+      - Confidence: HIGH (explicit mention with context), MEDIUM (mentioned but
+        ambiguous context), LOW (inferred from adjacent terms)
+      If {existing_tech_map} is empty: state that no baseline technology map exists,
+      note that all technologies will be treated as potentially new, proceed without
+      fabrication.
+      Deliverable: Technology extraction table (Technology | Canonical Name |
+      Requirement Level | Secondary Flags | Seniority | Source URL | Date | Confidence).
+
+      STEP 3: DEDUPLICATION AND AGGREGATION
+      Deduplicate technology mentions across all sources.
+      For each unique canonical technology:
+      - Total mention count across all postings
+      - Required count, preferred count, nice-to-have count
+      - Average seniority level (weighted by posting count)
+      - Source spread (number of distinct sources mentioning it)
+      - Confidence: HIGH (5+ mentions from 2+ sources), MEDIUM (2-4 mentions or
+        single source), LOW (1 mention only)
+      Deliverable: Aggregated technology table (Canonical Name | Mentions |
+      Required Count | Preferred Count | Nice-to-Have Count | Avg Seniority |
+      Source Spread | Confidence).
+
+      STEP 4: NEW SOURCE REGISTRATION
+      Identify any new sources discovered during scanning that are not in
+      {source_registry}.
+      For each new source:
+      - URL
+      - Type (careers page, job board, aggregator)
+      - Title or description
+      - Date accessed
+      - Reliability assessment: HIGH (official company page), MEDIUM (major job board),
+        LOW (aggregator or unverified)
+      If no new sources were discovered: state "No new sources identified in this scan."
+      Deliverable: New sources table (URL | Type | Title | Date Accessed | Reliability).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New technology signals to append
+      - Source registry additions
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every technology mention traced to a specific posting URL
+      - Canonical names are consistent (no duplicate representations of the same technology)
+      - Requirement level classifications include secondary flags where ambiguous
+      - Confidence levels stated for every extraction and aggregation
+      - New sources include reliability assessment
+      - Deduplication has been verified (no canonical name appears twice)
+      - Account state delta references specific evidence for each field change
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority new technology signal. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (source inventory, alternative sources, observation checklist, re-scan date). Skip extraction and aggregation steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with a
+      3-sentence executive summary stating: (1) total technologies detected and overall
+      confidence profile, (2) the weakest point or lowest-confidence area across the scan,
+      and (3) the single most urgent action to take next.
 
   vendor_announcement_scan:
     name: "Vendor Announcement Scan"
-    description: "Scan for vendor partnerships and product announcements"
+    description: "Scan for vendor partnerships, product announcements, procurement signals, and migration indicators to build a vendor signal inventory with classified signal types"
     prompt: |
       Context: Scanning vendor announcements for {company_name} (realm: {realm_id}).
       Known vendors: {existing_vendor_landscape}
       Source registry: {source_registry}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Detect vendor-related signals.
-      - Search for partnership announcements involving the company
-      - Track vendor product launches relevant to the company's tech stack
-      - Monitor technology procurement signals (RFPs, vendor evaluations)
-      - Check for technology migration or consolidation announcements
+      You are detecting vendor-related signals that indicate technology adoption,
+      migration, or consolidation decisions. Vendor announcements reveal strategic
+      intent that job postings do not capture. Every signal must be sourced and
+      classified. Follow these steps in order.
 
-      Format:
-      - vendor_signals: [{vendor_name, signal_type, description, source, date, confidence}]
-      - signal_type values: partnership, procurement, migration, evaluation, consolidation
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map: for each scoring dimension, assess data richness:
+      - HIGH: multiple announcement sources, 5+ signals found
+      - MEDIUM: limited sources, 2-4 signals found
+      - LOW: no accessible sources, or fewer than 2 signals found
+      Dimensions to assess: Partnership Announcements, Product Launches,
+      Procurement Signals, Migration Indicators, Vendor Landscape Baseline.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Data Availability Map (Dimension | Richness | Sources | Gap)
+      + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the scan.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Industry press and analyst sources to monitor for vendor mentions
+      - Company press release feeds to subscribe to
+      - Observation checklist for vendor signals in customer conversations
+      - Re-scan gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Scan deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets re-scan by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: PARTNERSHIP AND ANNOUNCEMENT SEARCH
+      Search for partnership announcements involving {company_name}.
+      For each signal found:
+      - Vendor name
+      - Signal type: partnership / procurement / migration / evaluation / consolidation
+        Assign one primary signal_type for routing. Add secondary flags where the
+        announcement spans multiple categories (e.g., a migration announcement that
+        also implies a new partnership).
+      - Description of the announcement
+      - Source URL and publication date
+      - Confidence: HIGH (official press release or SEC filing), MEDIUM (trade press
+        or analyst report), LOW (social media or unverified blog)
+      If {existing_vendor_landscape} is empty: state that no baseline vendor landscape
+      exists, note that all vendors will be treated as potentially new, proceed without
+      fabrication.
+      Deliverable: Partnership signals table (Vendor | Signal Type | Secondary Flags |
+      Description | Source | Date | Confidence).
+
+      STEP 2: PRODUCT AND TECHNOLOGY LAUNCH TRACKING
+      Track vendor product launches relevant to {company_name}'s technology stack.
+      For each product launch:
+      - Vendor name
+      - Product or feature launched
+      - Relevance to company's known stack (direct overlap, adjacent, tangential)
+      - Potential impact on company's technology decisions
+      - Source URL and date
+      - Confidence: HIGH (vendor official announcement), MEDIUM (analyst coverage),
+        LOW (rumor or unconfirmed)
+      If no product launches are found: state "No relevant product launches detected
+      in this scan period."
+      Deliverable: Product launch table (Vendor | Product | Relevance | Impact |
+      Source | Date | Confidence).
+
+      STEP 3: PROCUREMENT AND MIGRATION SIGNAL DETECTION
+      Monitor for technology procurement and migration signals.
+      For each signal:
+      - Signal description
+      - Signal type: RFP / vendor evaluation / technology migration / consolidation
+        Assign one primary classification for routing. Add secondary flags if applicable.
+      - Technologies involved (source technology, target technology if migration)
+      - Scale indicator (department, division, enterprise-wide) if discernible
+      - Source and date
+      - Confidence: HIGH (public RFP or official statement), MEDIUM (inferred from
+        multiple corroborating signals), LOW (single indirect signal)
+      If no procurement or migration signals are found: state "No procurement or
+      migration signals detected in this scan period."
+      Deliverable: Procurement signals table (Signal | Type | Secondary Flags |
+      Technologies | Scale | Source | Date | Confidence).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New vendor signals to append
+      - Vendor landscape changes (new vendors, status changes)
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every signal traced to a specific source URL with publication date
+      - Signal type classifications include secondary flags where applicable
+      - Confidence levels stated for every signal with basis
+      - Empty states handled explicitly (no silent omissions)
+      - No fabricated signals: if nothing found, state it
+      - Account state delta references specific evidence for each field change
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority vendor signal. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (sources to monitor, observation checklist, re-scan date). Skip signal detection steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with a
+      3-sentence executive summary stating: (1) total vendor signals detected and overall
+      confidence profile, (2) the weakest point or lowest-confidence area across the scan,
+      and (3) the single most urgent action to take next.
 
   tech_blog_scan:
     name: "Tech Blog and Conference Scan"
-    description: "Scan engineering blogs and conference talks for technology signals"
+    description: "Scan engineering blogs, conference talks, and tech publications for technology adoption signals, extracting architecture decisions and tool preferences with sourced evidence"
     prompt: |
       Context: Scanning tech publications for {company_name} (realm: {realm_id}).
       Company engineering blog: {engineering_blog_url}
       Source registry: {source_registry}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Extract technology adoption signals from non-job sources.
-      - Search company engineering blog for technology mentions
-      - Check conference speaker databases for company employees
-      - Scan tech publications for articles mentioning the company
-      - Extract technology choices, architecture decisions, and tool preferences
+      You are extracting technology adoption signals from non-job-posting sources.
+      Engineering blogs and conference talks reveal architectural choices and tool
+      evaluations that represent deeper adoption signals than job postings. These
+      sources show what the company is building with, not just hiring for.
+      Follow these steps in order.
 
-      Format:
-      - tech_signals: [{technology, source_type, description, url, date, confidence}]
-      - source_type values: blog, conference, publication, open_source
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map: for each scoring dimension, assess data richness:
+      - HIGH: active engineering blog with 5+ posts/quarter, conference presence found
+      - MEDIUM: sporadic blog posts or limited conference presence
+      - LOW: no engineering blog found, no conference mentions
+      Dimensions to assess: Engineering Blog Content, Conference Presence,
+      Publication Mentions, Open Source Activity, Source Registry Currency.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Data Availability Map (Dimension | Richness | Sources | Gap)
+      + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the scan.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Engineering blog discovery tactics (common URL patterns, subdomain checks)
+      - Conference databases to search for company employee speakers
+      - Open source platforms to check for company-affiliated repositories
+      - Observation checklist for tech stack signals in customer conversations
+      - Re-scan gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Scan deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets re-scan by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: ENGINEERING BLOG ANALYSIS
+      Search and analyze the company engineering blog for technology mentions.
+      For each signal found:
+      - Technology mentioned
+      - Source type: blog
+      - Context: architecture decision / tool evaluation / migration story /
+        performance optimization / other
+        Assign one primary context for routing. Add secondary flags where the
+        post spans multiple contexts.
+      - Description of how the technology is discussed
+      - URL and publication date
+      - Author role or seniority if discernible
+      - Confidence: HIGH (detailed technical post with code examples), MEDIUM
+        (mention with some context), LOW (passing reference only)
+      If {engineering_blog_url} is empty or unreachable: state that no engineering
+      blog is available, note the implication (loss of highest-fidelity signal source),
+      proceed to other sources without fabrication.
+      Deliverable: Blog signals table (Technology | Context | Secondary Flags |
+      Description | URL | Date | Author Role | Confidence).
+
+      STEP 2: CONFERENCE AND SPEAKER SEARCH
+      Check conference speaker databases for {company_name} employees.
+      For each signal found:
+      - Technology mentioned in talk title or abstract
+      - Source type: conference
+      - Conference name, date, and location
+      - Speaker name and role
+      - Talk title and abstract summary
+      - Confidence: HIGH (recorded talk with slides available), MEDIUM (abstract
+        only), LOW (listed but no content available)
+      If no conference presence is found: state "No conference presentations by
+      {company_name} employees detected in this scan period."
+      Deliverable: Conference signals table (Technology | Conference | Date |
+      Speaker | Role | Talk Title | Confidence).
+
+      STEP 3: PUBLICATION AND OPEN SOURCE SCAN
+      Scan tech publications and open source contributions for mentions.
+      For each signal found:
+      - Technology mentioned
+      - Source type: publication / open_source
+        Assign one primary source_type for routing. Add secondary flags if the
+        signal spans categories (e.g., a blog post about an open source contribution).
+      - Description
+      - URL and date
+      - Significance: major (dedicated article or primary project), moderate
+        (substantial mention or active contributor), minor (passing mention or
+        occasional commit)
+      - Confidence: HIGH (direct company attribution), MEDIUM (employee attribution),
+        LOW (inferred company connection)
+      If no publication or open source signals are found: state "No publication or
+      open source signals detected for {company_name} in this scan period."
+      Deliverable: Publication and open source signals table (Technology | Source Type |
+      Secondary Flags | Description | URL | Date | Significance | Confidence).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New technology signals to append from blog/conference/publication sources
+      - Source registry additions
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every signal traced to a specific URL with publication date
+      - Source type classifications include secondary flags where applicable
+      - Confidence levels stated for every signal with basis
+      - Empty states handled explicitly for each source category
+      - No fabricated signals: if a source category yields nothing, state it
+      - Blog signals distinguish architecture decisions from passing mentions
+      - Account state delta references specific evidence for each field change
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority technology signal. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (blog discovery tactics, conference databases, open source platforms, observation checklist, re-scan date). Skip extraction steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with a
+      3-sentence executive summary stating: (1) total technology signals detected across
+      all non-job sources and overall confidence profile, (2) the weakest point or
+      lowest-confidence area across the scan, and (3) the single most urgent action
+      to take next.
 
 # ==============================================================================
 # ANALYZER TASKS
@@ -71,72 +434,559 @@ scanning:
 analysis:
   tech_map_generation:
     name: "Technology Signal Map Generation"
-    description: "Generate technology signal map from scan results"
+    description: "Generate technology signal map from scan results by aggregating signals, applying ring assignment rules, calculating trends, and performing competitive and skills gap analysis"
     prompt: |
       Context: Generating tech signal map for {company_name} (realm: {realm_id}).
       Scan results: {scan_results}
       Previous map: {previous_map}
       Ring rules: {ring_rules}
       Platform offerings: {platform_offerings}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Analyze scan data and generate updated technology signal map.
-      - Aggregate technology mentions across all scan sources
-      - Apply ring assignment rules (Adopt/Trial/Assess/Hold)
-      - Calculate 30-day and 90-day trends
-      - Detect new technologies not in previous map
-      - Identify competitor technology mentions
-      - Perform skills gap analysis against vendor offerings
+      You are producing the definitive technology signal map for this account.
+      This map is the primary artifact consumed by downstream agents (Account
+      Executives for positioning, Customer Architects for integration planning,
+      Value Engineering for TCO analysis). Accuracy and confidence transparency
+      are critical. Follow these steps in order.
 
-      Format:
-      - technologies: [{name, quadrant, ring, mentions, trend_30d, trend_90d, is_new, competitor_flag}]
-      - ring_changes: [{technology, previous_ring, new_ring, reason}]
-      - new_technologies: [{name, quadrant, ring, first_seen, initial_mentions}]
-      - competitor_analysis: [{competitor, technologies, trend, displacement_opportunity}]
-      - skills_gap: {opportunities: [{offering, aligned_technologies}], gaps: [{technology, no_offering}]}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map: for each scoring dimension, assess data richness:
+      - HIGH: 3+ scan sources contributing, 10+ signals, previous map available
+      - MEDIUM: 1-2 scan sources, 5-9 signals, or no previous map
+      - LOW: single scan source, fewer than 5 signals
+      Dimensions to assess: Scan Coverage, Signal Volume, Historical Baseline,
+      Competitive Intelligence, Platform Alignment Data.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Data Availability Map (Dimension | Richness | Sources | Gap)
+      + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the analysis.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Additional scan types to run (which scanner tasks would fill the gaps)
+      - Direct customer questions to surface technology stack details
+      - Industry benchmarks to establish baseline technology expectations
+      - Re-analysis gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Analysis deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets re-analysis by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: SIGNAL AGGREGATION
+      Aggregate technology mentions across all scan sources in {scan_results}.
+      For each unique technology:
+      - Canonical name
+      - Total mentions across all sources
+      - Source breakdown (job postings, vendor announcements, blogs, conferences)
+      - Quadrant assignment (languages & frameworks, platforms, tools, techniques)
+        Assign one primary quadrant for routing. Add secondary flags where the
+        technology spans multiple quadrants (e.g., Kubernetes is primarily
+        "platforms" but may flag "tools" for CLI usage patterns).
+      - Confidence: HIGH (10+ mentions from 3+ sources), MEDIUM (5-9 mentions or
+        2 sources), LOW (fewer than 5 mentions or single source)
+      If {scan_results} is empty: state that no scan results are available,
+      note that the map cannot be generated without signal input, proceed to
+      DEFER mode.
+      Deliverable: Aggregated signal table (Technology | Canonical Name | Mentions |
+      Source Breakdown | Quadrant | Secondary Flags | Confidence).
+
+      STEP 2: RING ASSIGNMENT
+      Apply ring assignment rules from {ring_rules} to each technology.
+      For each technology:
+      - Ring: Adopt / Trial / Assess / Hold
+        Assign one primary ring classification for routing. Add secondary flags
+        where the evidence is mixed (e.g., a technology with high job posting
+        mentions but declining blog coverage might be primarily "Adopt" with a
+        secondary "Hold" flag for monitoring).
+      - Ring rationale (evidence-based justification)
+      - Confidence: HIGH (clear evidence supporting ring), MEDIUM (some ambiguity
+        in signals), LOW (insufficient evidence, ring is estimated)
+      If {ring_rules} is empty: state that no ring rules are available, apply
+      default heuristic (Adopt: 10+ mentions and growing; Trial: 5-9 mentions;
+      Assess: 2-4 mentions; Hold: declining or 1 mention), note that assignments
+      are heuristic-based.
+      Deliverable: Ring assignment table (Technology | Quadrant | Ring | Secondary
+      Ring Flags | Rationale | Confidence).
+
+      STEP 3: TREND CALCULATION
+      Calculate 30-day and 90-day trends for each technology.
+      Trend requires comparison of at least two time-separated observations.
+      If only one observation exists, trend is INSUFFICIENT DATA, not "stable."
+      For each technology with sufficient history:
+      - 30-day trend: rising / stable / declining / INSUFFICIENT DATA
+      - 90-day trend: rising / stable / declining / INSUFFICIENT DATA
+      - Trend basis: number of observations and date range compared
+      - Confidence: HIGH (5+ observations over period), MEDIUM (2-4 observations),
+        LOW (exactly 2 observations)
+      If {previous_map} is empty: state that no historical baseline exists, mark
+      ALL trends as "INSUFFICIENT DATA, first observation," proceed without
+      fabrication.
+      Deliverable: Trend table (Technology | 30-Day Trend | 90-Day Trend |
+      Observations | Date Range | Confidence).
+
+      STEP 4: NEW TECHNOLOGY DETECTION
+      Identify technologies present in current scan results but absent from
+      {previous_map}.
+      For each new technology:
+      - Name and quadrant
+      - Ring assignment (from Step 2)
+      - First seen date
+      - Initial mention count and source(s)
+      - Significance assessment: HIGH (appears in required job skills or major
+        announcement), MEDIUM (appears in preferred skills or minor mentions),
+        LOW (single mention or nice-to-have)
+      - Confidence in the detection (HIGH/MEDIUM/LOW with basis)
+      If no new technologies detected: state "No new technologies identified
+      compared to previous map."
+      Deliverable: New technologies table (Technology | Quadrant | Ring |
+      First Seen | Initial Mentions | Sources | Significance | Confidence).
+
+      STEP 5: COMPETITIVE TECHNOLOGY ANALYSIS
+      Identify competitor technology mentions within the scan results.
+      For each competitor detected:
+      - Competitor name
+      - Technologies associated with the competitor
+      - Trend: rising / stable / declining / INSUFFICIENT DATA
+        Trend requires comparison of at least two time-separated observations.
+        If only one observation exists, trend is INSUFFICIENT DATA.
+      - Displacement opportunity: YES (declining signals) / POSSIBLE (stable
+        signals) / NO (rising signals) / UNKNOWN (insufficient data)
+      - Confidence: HIGH (multiple corroborating signals), MEDIUM (single clear
+        signal), LOW (inferred or indirect)
+      If no competitor mentions found: state "No competitor technology mentions
+      detected in current scan results."
+      Deliverable: Competitive analysis table (Competitor | Technologies | Trend |
+      Trend Basis | Displacement Opportunity | Confidence).
+
+      STEP 6: SKILLS GAP ANALYSIS
+      Compare detected technologies against {platform_offerings} to identify
+      alignment and gaps.
+      For each platform offering:
+      - Offering name
+      - Aligned technologies detected (technologies the company uses that our
+        offering addresses)
+      - Alignment strength: STRONG (core technology match), MODERATE (adjacent
+        technology), WEAK (tangential connection)
+      - Confidence: HIGH (direct technology match), MEDIUM (category-level match),
+        LOW (inferred alignment)
+      For each detected technology with no offering match:
+      - Technology name
+      - Gap type: no offering / partial offering / roadmap item
+      If {platform_offerings} is empty: state that no platform offerings are
+      available for comparison, skip alignment analysis, list all technologies
+      as unmapped.
+      Deliverable: Skills gap table split into two sections:
+      Opportunities (Offering | Aligned Technologies | Alignment Strength | Confidence)
+      Gaps (Technology | Gap Type | Mentions | Significance).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Technology map changes (new entries, ring changes, trend updates)
+      - Competitive landscape updates
+      - Skills gap findings to propagate
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every technology has a quadrant and ring assignment with confidence
+      - Ring assignments include secondary flags where evidence is mixed
+      - Trend calculations reference specific observation counts and dates
+      - Trends marked INSUFFICIENT DATA when fewer than two observations exist
+      - New technologies verified as absent from previous map
+      - Competitor analysis does not fabricate displacement opportunities from single signals
+      - Skills gap analysis maps to specific platform offerings, not generic categories
+      - LOW-richness dimension scores propagated as "estimated" throughout
+      - Account state delta references specific evidence for each field change
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority ring change or new technology. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (additional scans needed, customer questions, industry benchmarks, re-analysis date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with a
+      3-sentence executive summary stating: (1) total technologies mapped with ring
+      distribution and overall confidence profile, (2) the weakest point or
+      lowest-confidence area across the analysis, and (3) the single most urgent
+      action to take next.
 
   vendor_landscape_analysis:
     name: "Vendor Landscape Analysis"
-    description: "Build vendor/supplier technology landscape"
+    description: "Build comprehensive vendor/supplier technology landscape with categorization, adoption strength assessment, consolidation pattern detection, and competitive positioning"
     prompt: |
       Context: Analyzing vendor landscape for {company_name} (realm: {realm_id}).
       Technology map: {current_tech_map}
       Vendor signals: {vendor_signals}
       Competitive landscape: {competitive_context}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Build comprehensive vendor/supplier landscape.
-      - Categorize vendors by domain (infrastructure, security, observability, etc.)
-      - Assess adoption strength per vendor from evidence (job postings, announcements)
-      - Identify vendor consolidation or displacement patterns
-      - Map our vendor position relative to detected competitors
-      - Flag displacement opportunities where competitor tools are declining
+      You are building the definitive vendor landscape for this account. This
+      landscape drives competitive positioning, displacement strategy, and
+      partnership identification. Every vendor assessment must be evidence-based
+      with confidence levels. Follow these steps in order.
 
-      Format:
-      - vendors: [{name, category, adoption_strength, evidence_count, trend, status}]
-      - categories: [{name, total_vendors, dominant_vendor, consolidation_trend}]
-      - displacement_opportunities: [{incumbent, declining_signal, our_product, confidence}]
-      - our_position: [{category, our_product, detected_competitor, relative_strength}]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map: for each scoring dimension, assess data richness:
+      - HIGH: tech map and vendor signals both available, 5+ vendors identified
+      - MEDIUM: partial tech map or limited vendor signals, 2-4 vendors identified
+      - LOW: no tech map or no vendor signals, fewer than 2 vendors identified
+      Dimensions to assess: Technology Map Completeness, Vendor Signal Volume,
+      Competitive Intelligence Depth, Category Coverage, Historical Vendor Data.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Data Availability Map (Dimension | Richness | Sources | Gap)
+      + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the analysis.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Technology scan tasks to run first (which scanner tasks would provide vendor data)
+      - Customer questions to surface vendor relationships
+      - Industry analyst reports to identify likely vendor categories
+      - Re-analysis gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Analysis deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets re-analysis by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: VENDOR CATEGORIZATION
+      Categorize all detected vendors by domain.
+      For each vendor:
+      - Vendor name
+      - Primary category: infrastructure / security / observability / data /
+        development tools / collaboration / cloud / networking / identity / other
+        Assign one primary category for routing. Add secondary flags where the
+        vendor spans multiple categories (e.g., AWS is primarily "cloud" but may
+        flag "infrastructure" and "security").
+      - Evidence sources (which scan results mention this vendor)
+      - Evidence count (total mentions across all sources)
+      - Confidence: HIGH (5+ mentions from 2+ sources), MEDIUM (2-4 mentions or
+        single source), LOW (1 mention or inferred)
+      If {vendor_signals} is empty: state that no vendor signals are available,
+      attempt to infer vendors from {current_tech_map} technology names, note
+      that inferences are estimated.
+      Deliverable: Vendor categorization table (Vendor | Primary Category |
+      Secondary Flags | Evidence Count | Sources | Confidence).
+
+      STEP 2: ADOPTION STRENGTH ASSESSMENT
+      Assess adoption strength for each vendor from available evidence.
+      For each vendor:
+      - Adoption strength: DEEP (required in job postings, multiple product lines),
+        MODERATE (preferred in postings, single product), SHALLOW (mentioned but
+        not required), UNKNOWN (insufficient evidence)
+      - Evidence basis: job posting signals, announcement signals, blog signals
+      - Trend: growing / stable / declining / INSUFFICIENT DATA
+        Trend requires comparison of at least two time-separated observations.
+        If only one observation exists, trend is INSUFFICIENT DATA.
+      - Status: active / evaluating / legacy / unknown
+        Assign one primary status for routing. Add secondary flags where status
+        is ambiguous (e.g., a vendor that is "active" for one product but
+        "legacy" for another).
+      - Confidence: HIGH (multiple evidence types), MEDIUM (single evidence type),
+        LOW (inferred from indirect signals)
+      Deliverable: Adoption assessment table (Vendor | Category | Adoption Strength |
+      Evidence Basis | Trend | Trend Basis | Status | Secondary Status Flags |
+      Confidence).
+
+      STEP 3: CONSOLIDATION AND DISPLACEMENT PATTERN DETECTION
+      Identify vendor consolidation or displacement patterns.
+      For each pattern detected:
+      - Pattern type: consolidation (multiple vendors merging into one) /
+        displacement (one vendor replacing another) / fragmentation (one vendor
+        being replaced by multiple)
+        Assign one primary pattern type. Add secondary flags if applicable.
+      - Vendors involved
+      - Direction (which vendor is gaining, which is losing)
+      - Evidence (specific signals supporting this pattern)
+      - Trend basis: at least two time-separated observations required.
+        If only one observation: pattern is PRELIMINARY, not confirmed.
+      - Confidence: HIGH (3+ corroborating signals over time), MEDIUM (2
+        corroborating signals), LOW (single signal or inferred)
+      If no consolidation or displacement patterns are found: state "No vendor
+      consolidation or displacement patterns detected in current data."
+      Deliverable: Pattern detection table (Pattern Type | Secondary Flags |
+      Vendors Involved | Direction | Evidence | Observations | Confidence).
+
+      STEP 4: COMPETITIVE POSITIONING
+      Map our vendor position relative to detected competitors.
+      For each category where we have a product:
+      - Category name
+      - Our product name
+      - Detected competitor(s) in this category
+      - Relative strength: STRONGER (more adoption signals for us), EVEN (similar
+        signal levels), WEAKER (more adoption signals for competitor), UNKNOWN
+        (insufficient data to compare)
+      - Displacement opportunity assessment with prerequisites
+      - Confidence: HIGH (direct signal comparison possible), MEDIUM (partial
+        comparison), LOW (inferred positioning)
+
+      For identified displacement opportunities, specify as actions:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+
+      If {competitive_context} is empty: state that no competitive context is
+      available, limit positioning to signal-based inference, note that
+      assessments are estimated.
+      Deliverable: Competitive positioning table (Category | Our Product |
+      Competitor | Relative Strength | Confidence) + Displacement action plan
+      (Priority | Action | Owner | Timeline | Prerequisites | Expected Impact).
+
+      STEP 5: CATEGORY SUMMARY
+      Summarize each vendor category.
+      For each category:
+      - Category name
+      - Total vendors detected
+      - Dominant vendor (highest adoption strength)
+      - Consolidation trend: consolidating / stable / fragmenting / INSUFFICIENT DATA
+        Trend requires comparison of at least two time-separated observations.
+        If only one observation exists, trend is INSUFFICIENT DATA.
+      - Our presence in category: present / absent / partial
+      - Confidence: HIGH (5+ vendors in category), MEDIUM (2-4 vendors),
+        LOW (single vendor)
+      Deliverable: Category summary table (Category | Total Vendors | Dominant
+      Vendor | Consolidation Trend | Our Presence | Confidence).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Vendor landscape changes (new vendors, category changes, status changes)
+      - Competitive positioning updates
+      - Displacement opportunities identified
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every vendor has a category assignment with secondary flags where applicable
+      - Adoption strength assessments reference specific evidence, not assumptions
+      - Trend claims reference specific observation counts; single observations marked INSUFFICIENT DATA
+      - Consolidation patterns require 2+ corroborating signals over time
+      - Displacement opportunities include prerequisites and expected impact
+      - Competitive positioning acknowledges data gaps rather than fabricating strength assessments
+      - Category summaries are consistent with individual vendor assessments
+      - LOW-richness dimension scores propagated as "estimated" throughout
+      - Account state delta references specific evidence for each field change
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority displacement opportunity. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (scans to run, customer questions, analyst reports, re-analysis date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with a
+      3-sentence executive summary stating: (1) total vendors mapped with category
+      distribution and overall confidence profile, (2) the weakest point or
+      lowest-confidence area across the analysis, and (3) the single most urgent
+      action to take next.
 
   weekly_tech_digest:
     name: "Weekly Technology Intelligence Digest"
-    description: "Generate weekly technology intelligence summary"
+    description: "Generate weekly technology intelligence summary comparing current and previous week maps, highlighting new technologies, trends, competitive moves, and vendor changes contextualized to active account nodes"
     prompt: |
       Context: Generating weekly digest for {company_name} (realm: {realm_id}).
       Current map: {current_map}
       Previous week map: {previous_week_map}
       Active nodes: {active_nodes}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Summarize weekly technology intelligence.
-      - Highlight new technologies detected this week
-      - List top trending up and trending down technologies
-      - Summarize competitive technology moves
-      - Note vendor landscape changes
-      - Connect insights to active node contexts
+      You are producing the weekly intelligence digest that Account Executives,
+      Customer Architects, and Value Engineers consume for their account planning.
+      This digest must be concise, actionable, and traceable. Every insight must
+      connect to evidence. Follow these steps in order.
 
-      Format:
-      - digest_date: {date}
-      - new_technologies: [{name, quadrant, ring, relevance}]
-      - trending_up: [{name, trend_percentage, significance}]
-      - trending_down: [{name, trend_percentage, significance}]
-      - competitive_moves: [{competitor, technology, implication}]
-      - vendor_changes: [{vendor, change, impact}]
-      - node_relevance: [{node_id, relevant_insights}]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Data Availability Map: for each scoring dimension, assess data richness:
+      - HIGH: both current and previous maps available, active nodes defined
+      - MEDIUM: current map available but no previous map, or no active nodes
+      - LOW: no current map available
+      Dimensions to assess: Current Map Completeness, Previous Week Baseline,
+      Active Node Context, Competitive Intelligence, Vendor Signal Currency.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+
+      Deliverable: Input Gate table (Input | Status | Gap Detail | Impact on Output)
+      + Data Availability Map (Dimension | Richness | Sources | Gap)
+      + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the digest.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Scanner tasks to prioritize this week
+      - Data gaps that prevent meaningful weekly comparison
+      - Minimum data threshold for next week's digest
+      - Re-digest gate with target date
+      If in Signal Acquisition Mode, end with: "Digest deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets next digest by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: NEW TECHNOLOGY HIGHLIGHTS
+      Identify technologies present in {current_map} but absent from
+      {previous_week_map}.
+      For each new technology:
+      - Technology name
+      - Quadrant and ring assignment
+      - Relevance to account: HIGH (directly related to active engagement),
+        MEDIUM (adjacent to current discussions), LOW (tangential but notable)
+      - Source(s) where first detected
+      - Confidence: HIGH (multiple sources), MEDIUM (single clear source),
+        LOW (single indirect mention)
+      If {previous_week_map} is empty: state that no previous week baseline exists,
+      treat all technologies in current map as "first observation," note that
+      weekly comparison is not possible.
+      If no new technologies detected: state "No new technologies detected this week."
+      Deliverable: New technologies table (Technology | Quadrant | Ring | Relevance |
+      Sources | Confidence).
+
+      STEP 2: TREND ANALYSIS
+      Identify technologies trending up and trending down compared to previous week.
+      Trend requires comparison of at least two time-separated observations.
+      If only one observation exists, trend is INSUFFICIENT DATA.
+      For each trending technology:
+      - Technology name
+      - Direction: trending up / trending down
+      - Trend percentage (mention count change week-over-week)
+      - Significance: HIGH (ring change triggered or likely), MEDIUM (notable
+        shift but within current ring), LOW (minor fluctuation)
+      - Confidence: HIGH (consistent across sources), MEDIUM (mixed signals),
+        LOW (single source shift)
+      If {previous_week_map} is empty: state "Trend analysis requires previous
+      week data. All trends marked INSUFFICIENT DATA for this first digest."
+      Deliverable: Trend table split into two sections:
+      Trending Up (Technology | Trend % | Significance | Confidence)
+      Trending Down (Technology | Trend % | Significance | Confidence).
+
+      STEP 3: COMPETITIVE TECHNOLOGY MOVES
+      Summarize competitive technology movements detected this week.
+      For each competitive move:
+      - Competitor name
+      - Technology involved
+      - Nature of move: adoption / abandonment / migration / partnership
+        Assign one primary classification. Add secondary flags if the move
+        spans categories.
+      - Implication for our positioning
+      - Confidence: HIGH (official announcement), MEDIUM (multiple indirect
+        signals), LOW (single indirect signal)
+      If no competitive moves detected: state "No competitive technology moves
+      detected this week."
+      Deliverable: Competitive moves table (Competitor | Technology | Move Type |
+      Secondary Flags | Implication | Confidence).
+
+      STEP 4: VENDOR LANDSCAPE CHANGES
+      Note vendor landscape changes from previous week.
+      For each change:
+      - Vendor name
+      - Change type: new vendor detected / vendor status change / adoption
+        strength change / vendor departed
+      - Impact on account: HIGH (affects active engagement), MEDIUM (relevant
+        to future planning), LOW (informational)
+      - Evidence source
+      - Confidence: HIGH (direct evidence), MEDIUM (inferred from signals),
+        LOW (preliminary indication)
+      If no vendor changes detected: state "No vendor landscape changes detected
+      this week."
+      Deliverable: Vendor changes table (Vendor | Change Type | Impact | Evidence |
+      Confidence).
+
+      STEP 5: NODE RELEVANCE MAPPING
+      Connect insights to active account nodes from {active_nodes}.
+      For each active node:
+      - Node ID and description
+      - Relevant insights from this week's digest (reference step and item)
+      - Recommended actions based on new intelligence
+        Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Confidence in relevance: HIGH (direct technology overlap), MEDIUM
+        (category-level overlap), LOW (tangential connection)
+      If {active_nodes} is empty: state that no active nodes are defined, skip
+      node-level mapping, note that insights are not contextualized to specific
+      engagements.
+      Deliverable: Node relevance table (Node ID | Description | Relevant Insights |
+      Confidence) + Node action plan (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New signals to append from this week's observations
+      - Technology map changes to propagate
+      - Vendor landscape updates
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - New technology detection verified against previous week map (no false positives)
+      - Trend claims reference specific week-over-week observation counts
+      - Single-week observations marked INSUFFICIENT DATA for trend, not "stable"
+      - Competitive moves traced to specific evidence sources
+      - Vendor changes specify the nature of change, not just "changed"
+      - Node relevance connections are specific (reference step and item), not generic
+      - Action plans include prerequisites and expected impact
+      - LOW-richness dimension scores propagated as "estimated" throughout
+      - Account state delta references specific evidence for each field change
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action from node relevance mapping. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (scanner tasks to prioritize, data gaps, minimum threshold, re-digest date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with a
+      3-sentence executive summary stating: (1) key changes this week (new technologies
+      count, ring changes, competitive moves) and overall confidence profile, (2) the
+      weakest point or lowest-confidence area across the digest, and (3) the single
+      most urgent action to take next. Include digest date: {date}.

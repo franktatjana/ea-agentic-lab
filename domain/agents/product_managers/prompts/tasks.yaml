@@ -1,6 +1,7 @@
 # PM Agent Task Prompts
-# Purpose: Task-specific prompts using CAF framework (Context, Action, Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
 # Reference: Personality defined in personalities/pm_personality.yaml
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
 
 # ============================================================================
 # FEATURE GAP ANALYSIS PROMPTS
@@ -9,86 +10,476 @@ feature_gap:
 
   gap_assessment:
     name: "Feature Gap Assessment"
-    description: "Analyze gap between customer need and product capability"
+    description: "Analyze gap between customer need and product capability with quantified deal impact, workaround viability, and roadmap alignment"
     prompt: |
       Context: Customer requirement: "{requirement_description}"
       Account: {account_name}, ARR: {arr}, Deal value: {deal_value}
+      Product area: {product_area}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess the gap:
-      - What exactly is the customer asking for?
-      - What does the product currently offer?
-      - What is the gap between need and capability?
-      - Is there a workaround?
+      You are assessing the gap between what a customer needs and what the product
+      currently delivers. The output drives roadmap prioritization input, deal risk
+      assessment, and customer communication strategy. Every gap claim must reference
+      a specific product capability or its absence. Follow these steps in order.
 
-      Format:
-      - Requirement summary
-      - Current capability
-      - Gap description
-      - Classification: [FEASIBLE/LIMITED/NOT_PLANNED]
-      - Workaround (if any)
-      - Impact on deal if gap not closed
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each scoring dimension, assess data richness:
+      - HIGH: product documentation, customer transcript, 5+ data points
+      - MEDIUM: partial data, 2-4 data points
+      - LOW: no direct data, assumptions only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Customer Requirement, Current Capability, Roadmap Status,
+      Workaround Viability, Deal Impact.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask the customer to clarify the requirement
+      - Internal sources to consult (product team, documentation, engineering)
+      - Observation checklist for implicit signals in upcoming interactions
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: REQUIREMENT DECOMPOSITION
+      Break down the customer requirement into specific functional needs.
+      For each functional need:
+      - Need ID (RQ-001, RQ-002, etc.)
+      - Description (what the customer needs to accomplish)
+      - Priority from customer perspective (must-have, should-have, nice-to-have)
+      - Use case context (why they need it, what workflow it supports)
+      - Acceptance criteria (how the customer would verify this is met)
+      If no explicit acceptance criteria are available, state "ABSENT: derive from
+      next customer interaction" and proceed.
+      Deliverable: Requirement table (Need ID | Description | Priority | Use Case |
+      Acceptance Criteria).
+
+      STEP 2: CURRENT CAPABILITY MAPPING
+      For each functional need from Step 1, map to current product capability.
+      For each mapping:
+      - Need ID (from Step 1)
+      - Current capability (what the product does today)
+      - Match status: FULL (meets requirement), PARTIAL (partially meets), NONE (no capability)
+      - Gap description (what is missing for PARTIAL and NONE)
+      - Confidence: HIGH (verified against documentation), MEDIUM (based on product
+        knowledge), LOW (assumption, needs verification)
+      If no current capability exists for a need, state "No current capability
+      identified" and classify as NONE.
+      Deliverable: Capability map table (Need ID | Current Capability | Match Status |
+      Gap Description | Confidence).
+
+      STEP 3: WORKAROUND ASSESSMENT
+      For each gap identified in Step 2 (PARTIAL or NONE), evaluate workarounds.
+      For each workaround:
+      - Need ID (from Step 1)
+      - Workaround description (specific steps to achieve the outcome)
+      - Workaround type: configuration, integration, process change, partner solution
+      - Viability: VIABLE (sustainable long-term), TEMPORARY (acceptable short-term),
+        NOT_VIABLE (unacceptable to customer)
+      - Effort to implement (hours or days)
+      - Customer impact (additional complexity, performance, maintenance burden)
+      - Confidence: HIGH (tested or documented), MEDIUM (theoretically sound),
+        LOW (untested, needs validation)
+      If no workaround exists, state "No workaround identified" and classify as
+      NOT_VIABLE.
+      Deliverable: Workaround table (Need ID | Workaround | Type | Viability |
+      Effort | Customer Impact | Confidence).
+
+      STEP 4: GAP CLASSIFICATION
+      Produce an overall gap classification combining Steps 2 and 3.
+      - Primary classification: FEASIBLE (gap can be closed with workaround or
+        planned feature), LIMITED (partial closure possible, residual gap remains),
+        NOT_PLANNED (no path to closure identified)
+      - Secondary flags: ROADMAP_DEPENDENT (requires planned feature delivery),
+        WORKAROUND_AVAILABLE (temporary solution exists), DEAL_BLOCKING (gap
+        threatens deal closure), COMPETITIVE_RISK (competitor covers this gap)
+      - Confidence: HIGH/MEDIUM/LOW with basis stated
+      Deliverable: Gap classification with primary + secondary flags and confidence.
+
+      STEP 5: DEAL IMPACT ANALYSIS
+      Quantify the impact of this gap on the deal.
+      - Deal value at risk (full deal value or portion attributable to this gap)
+      - Probability of deal loss if gap not addressed (HIGH/MEDIUM/LOW with reasoning)
+      - Timeline pressure (customer deadline vs. resolution timeline)
+      - Competitive exposure (does a competitor cover this gap?)
+      - Escalation recommendation: ESCALATE (gap threatens deal, needs product team
+        attention), MONITOR (gap manageable with workaround), ACCEPT (gap is
+        minor, customer can proceed)
+      If deal value data is absent, state "Deal impact estimated based on ARR only"
+      and use ARR as proxy.
+      Deliverable: Deal impact assessment with risk quantification and escalation
+      recommendation.
+
+      STEP 6: ACTION PLAN
+      Produce specific actions to address the gap.
+      | Priority | Action | Owner | Timeline | Prerequisites | Expected Impact |
+      Include actions for: workaround implementation, product team escalation,
+      customer communication, and follow-up verification.
+      Deliverable: Action table with prerequisites.
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every capability mapping references a specific product feature or states its absence
+      - Workaround assessments include effort and customer impact, not just descriptions
+      - Gap classification uses primary + secondary flags, not a single forced category
+      - Deal impact quantification uses dollar values, not qualitative statements only
+      - Confidence levels stated for match status, workaround viability, and deal risk
+      - Action plan includes prerequisites for each action
+      - Trend claims (e.g., "gap is widening") require two data points minimum
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      a summary that states: (1) overall gap classification with confidence level,
+      (2) the weakest point or lowest confidence area across all assessments, and
+      (3) the single most urgent action to take next.
 
   roadmap_dependency:
     name: "Roadmap Dependency Analysis"
-    description: "Analyze customer dependency on roadmap items"
+    description: "Analyze customer dependency on roadmap items with timeline risk, alternative paths, and deal impact quantification"
     prompt: |
       Context: {account_name} needs {feature} for {use_case}.
       Customer timeline: {customer_deadline}
+      Deal value: {deal_value}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Check roadmap alignment:
-      - Is this feature on the roadmap?
-      - What is the planned delivery date?
-      - Does timing meet customer need?
-      - What alternatives exist?
+      You are analyzing whether the product roadmap can deliver what the customer
+      needs within their timeline. Roadmap dependency is a top deal risk when
+      customers build business cases around future capabilities. Every timeline
+      comparison must use concrete dates, not relative terms. Follow these steps
+      in order.
 
-      Format:
-      - Feature: {name}
-      - Roadmap status: [AVAILABLE/PLANNED/CONSIDERING/NOT_PLANNED]
-      - Planned date: {date or N/A}
-      - Customer deadline: {date}
-      - Gap: {positive/negative days}
-      - Alternatives: {list}
-      - Recommendation
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each scoring dimension, assess data richness:
+      - HIGH: confirmed roadmap data, product team input, 5+ data points
+      - MEDIUM: partial roadmap visibility, 2-4 data points
+      - LOW: no roadmap data, assumptions only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Feature Specification, Roadmap Status, Delivery Timeline,
+      Customer Deadline Firmness, Alternative Paths.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the analysis.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions for product team to clarify roadmap status
+      - Questions for customer to clarify deadline flexibility
+      - Internal data sources to consult (roadmap tools, release planning, engineering)
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: FEATURE ROADMAP STATUS
+      Determine the current roadmap status of the requested feature.
+      - Feature name and description (as understood from customer request)
+      - Roadmap status: AVAILABLE (already shipped), PLANNED (committed with date),
+        CONSIDERING (under evaluation, no commitment), NOT_PLANNED (not on roadmap)
+      - If PLANNED: planned delivery date, release vehicle, dependencies
+      - If CONSIDERING: evaluation criteria, decision timeline, influencing factors
+      - If NOT_PLANNED: reason (technical constraints, prioritization, market fit)
+      - Confidence: HIGH (confirmed with product team), MEDIUM (based on published
+        roadmap), LOW (inferred from indirect signals)
+      If roadmap status is unknown, state "Status unconfirmed, requires product team
+      verification" and classify confidence as LOW.
+      Deliverable: Feature roadmap status with confidence level.
+
+      STEP 2: TIMELINE ALIGNMENT ANALYSIS
+      Compare product delivery timeline to customer deadline.
+      - Customer deadline: {date} (firm / flexible / unknown)
+      - Planned delivery date: {date or N/A}
+      - Timeline gap: {positive days = customer has buffer, negative days = late}
+      - Buffer assessment: sufficient (30+ days), tight (1-29 days), late (negative),
+        unknown (one or both dates missing)
+      - Risk factors that could shift delivery date (dependencies, resource constraints,
+        scope changes)
+      - Historical delivery accuracy: on-time rate for similar features (if available).
+        If no historical data, state "INSUFFICIENT DATA for delivery accuracy trend"
+      Deliverable: Timeline alignment table (Milestone | Customer Date | Product Date |
+      Gap Days | Buffer Assessment | Risk Factors).
+
+      STEP 3: ALTERNATIVE PATH EVALUATION
+      For each timeline gap or NOT_PLANNED status, evaluate alternatives.
+      For each alternative:
+      - Alternative description (what can be done instead)
+      - Type: workaround, partner solution, phased delivery, scope reduction,
+        custom development, third-party integration
+      - Viability: VIABLE (sustainable), TEMPORARY (bridges gap until feature ships),
+        NOT_VIABLE (unacceptable)
+      - Effort and cost to implement
+      - Customer trade-offs (what they give up or accept differently)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      If no alternatives exist, state "No viable alternatives identified" and proceed
+      to deal impact with elevated risk.
+      Deliverable: Alternative path table (Alternative | Type | Viability | Effort |
+      Trade-offs | Confidence).
+
+      STEP 4: DEPENDENCY RISK ASSESSMENT
+      Assess the risk profile of this roadmap dependency.
+      - Primary classification: TIMELINE_RISK (feature planned but may not arrive
+        in time), AVAILABILITY_RISK (feature not planned or under consideration),
+        SCOPE_RISK (feature planned but may not cover full requirement)
+      - Secondary flags: DEAL_BLOCKING, COMPETITIVE_EXPOSURE, CUSTOMER_ESCALATION_LIKELY,
+        ALTERNATIVE_AVAILABLE
+      - Overall dependency risk: HIGH (deal depends on unconfirmed delivery),
+        MEDIUM (alternatives exist but add complexity), LOW (feature available
+        or viable workaround confirmed)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      Deliverable: Dependency risk assessment with primary + secondary classification
+      and confidence.
+
+      STEP 5: ACTION PLAN
+      Produce specific actions to manage this roadmap dependency.
+      | Priority | Action | Owner | Timeline | Prerequisites | Expected Impact |
+      Include actions for: product team engagement, customer expectation setting,
+      alternative implementation, and timeline monitoring.
+      Deliverable: Action table with prerequisites.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Roadmap status includes confidence level and verification source
+      - Timeline gap calculated with concrete dates, not relative terms
+      - Alternatives assessed with effort and customer trade-offs, not just listed
+      - Dependency risk uses primary + secondary classification
+      - Trend claims about delivery accuracy require two or more historical data points
+      - Action plan includes prerequisites for each action
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      a summary that states: (1) roadmap status and timeline alignment conclusion with
+      confidence, (2) the weakest point or highest risk in the dependency chain, and
+      (3) the single most urgent action to take next.
 
   pattern_analysis:
     name: "Feature Request Pattern Analysis"
-    description: "Identify patterns in feature requests across accounts, including RFP capability gap register"
+    description: "Identify patterns in feature requests across accounts using direct requests and RFP capability gap register to surface systemic product gaps"
     prompt: |
       Context: Review feature requests from the last {time_period}
       across {segment} accounts.
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
       Data sources:
       1. Direct feature requests from CRM and account interactions
-      2. RFP capability gap register (InfoHub product_gaps section) — unmatched and
+      2. RFP capability gap register (InfoHub product_gaps section), unmatched and
          partial-match requirements written by RFP Agent after each compliance matrix
 
-      Action: Identify patterns across both sources:
-      - What features are most requested or most frequently unmatched in RFPs?
-      - Which requests are deal-blocking (high-value RFPs with match_status: none)?
-      - What segments request what?
-      - Any emerging trends or gaps shifting from partial to none?
+      You are identifying systemic patterns in what customers ask for and where the
+      product falls short. Pattern analysis drives roadmap prioritization by showing
+      frequency, revenue impact, and trend direction across the installed base.
+      Single-account requests become strategic when they appear across multiple
+      accounts. Follow these steps in order.
 
-      Format:
-      Top Gaps (by frequency across both sources):
-      | Feature / Requirement | Source | Count | Blocking Deals | Total ARR at Risk |
-      |---|---|---|---|---|
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      RFP-Specific Gaps (not surfaced through direct requests):
-      - {requirements in RFP register but not in direct feature requests}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Segment Analysis:
-      - {what each segment requests most}
+      For each scoring dimension, assess data richness:
+      - HIGH: 20+ requests across both sources, 5+ accounts represented
+      - MEDIUM: 10-19 requests, 3-4 accounts
+      - LOW: fewer than 10 requests or fewer than 3 accounts
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Direct Request Volume, RFP Gap Register, Account Coverage,
+      Segment Representation, Temporal Spread.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
 
-      Trend Observations:
-      - {new patterns, worsening coverage areas}
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the analysis.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Data collection plan to increase request capture rate
+      - CRM hygiene actions to ensure requests are being logged
+      - RFP process check to verify gap register is being populated
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
 
-      Recommended Product Actions:
-      1. {highest priority: frequency x deal value}
-      2. {second priority}
-      3. {third priority}
+      STEP 1: REQUEST CONSOLIDATION
+      Merge requests from both data sources into a unified inventory.
+      For each unique feature or capability gap:
+      - Feature/requirement name (normalized across sources)
+      - Source breakdown: direct request count, RFP gap count
+      - Requesting accounts (list with ARR per account)
+      - Total ARR at risk (sum of requesting account ARRs)
+      - First requested date (earliest mention across sources)
+      - Most recent request date
+      - Deal-blocking count (requests where gap blocks deal closure)
+      Deduplicate across sources: same capability requested directly and surfaced
+      in RFP gaps counts once with both source types noted.
+      If a source has no data, state "No data from {source}" and proceed with
+      available data only.
+      Deliverable: Consolidated request table (Feature | Direct Count | RFP Count |
+      Accounts | Total ARR | First Seen | Last Seen | Deal-Blocking).
 
-      Strategic Accounts Affected:
-      - {accounts where gaps are blocking deals}
+      STEP 2: FREQUENCY AND IMPACT RANKING
+      Rank consolidated requests by combined frequency and revenue impact.
+      For each request, calculate:
+      - Frequency score: total request count across both sources
+      - Revenue impact: total ARR at risk from requesting accounts
+      - Combined priority score: frequency × revenue impact (normalized)
+      - Primary classification: SYSTEMIC (5+ accounts), SEGMENT_SPECIFIC (3-4 accounts
+        in same segment), ISOLATED (1-2 accounts)
+      - Secondary flags: DEAL_BLOCKING (blocks active deals), COMPETITIVE_GAP
+        (competitors cover this), EMERGING (appeared in last quarter only),
+        RFP_ONLY (not surfaced through direct requests)
+      Rank by combined priority score descending.
+      Deliverable: Ranked request table (Rank | Feature | Frequency | ARR at Risk |
+      Priority Score | Primary Classification | Secondary Flags).
+
+      STEP 3: SEGMENT ANALYSIS
+      Break down patterns by customer segment.
+      For each segment:
+      - Top 3 requested features (by frequency within segment)
+      - Unique segment needs (requests appearing only in this segment)
+      - Segment-specific ARR at risk
+      - Segment maturity indicator: are requests for basic capabilities (suggests
+        product-market fit gaps) or advanced capabilities (suggests expansion readiness)?
+      If a segment has fewer than 3 requests, state "Insufficient segment data for
+      {segment}" and note the implication.
+      Deliverable: Segment analysis table (Segment | Top Requests | Unique Needs |
+      ARR at Risk | Maturity Indicator).
+
+      STEP 4: TREND ANALYSIS
+      Identify temporal patterns in request data.
+      For each feature in the top 10 by priority score:
+      - Request volume trend: compare current period to previous period
+      - Trend direction: INCREASING (current > previous by 20%+), STABLE (within 20%),
+        DECREASING (current < previous by 20%+), INSUFFICIENT_DATA (only one period
+        of data)
+      - If INCREASING: acceleration rate and projected demand
+      - If DECREASING: possible reasons (feature shipped, need changed, competitor won)
+      - Coverage trend: is the gap moving from PARTIAL match to NONE across RFP
+        responses? Compare at least two RFP cycles.
+      Two data points minimum required for any trend claim. If only one period of data
+      exists, classify trend as INSUFFICIENT_DATA.
+      Deliverable: Trend table (Feature | Previous Period Count | Current Period Count |
+      Direction | Coverage Trend | Notes).
+
+      STEP 5: RFP-SPECIFIC GAP ANALYSIS
+      Identify gaps surfaced through RFPs that are not appearing in direct requests.
+      - RFP-only requirements (in gap register but never requested directly)
+      - Significance assessment: are these compliance requirements, industry-specific
+        needs, or evaluation criteria that customers do not articulate outside RFPs?
+      - Revenue exposure: ARR of RFP opportunities where these gaps appeared
+      - Recommendation: should these be added to product consideration, or are they
+        RFP-specific criteria unlikely to reflect actual usage needs?
+      If RFP gap register is empty, state "No RFP gap data available" and note that
+      this dimension cannot be assessed.
+      Deliverable: RFP-specific gap table (Requirement | RFP Count | Revenue Exposure |
+      Significance | Recommendation).
+
+      STEP 6: PRODUCT ACTION RECOMMENDATIONS
+      Produce prioritized product actions based on pattern analysis.
+      | Priority | Action | Owner | Timeline | Prerequisites | Expected Impact |
+      Include actions for: roadmap input submissions, product team briefings,
+      customer advisory board topics, and competitive response planning.
+      Deliverable: Action table with prerequisites.
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Requests deduplicated across direct and RFP sources
+      - Frequency counts distinguish direct vs. RFP sources
+      - Revenue impact uses actual ARR values, not qualitative sizing
+      - Classification uses primary + secondary flags
+      - Trend claims reference two or more time-separated data points
+      - RFP-only gaps assessed separately from direct request patterns
+      - Segment analysis covers all segments with sufficient data
+      - Action plan includes prerequisites for each action
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      a summary that states: (1) total unique requests, systemic vs. isolated split,
+      and total ARR at risk, (2) the weakest point or lowest confidence area, and
+      (3) the single most urgent product action to take next.
 
 # ============================================================================
 # FEASIBILITY ASSESSMENT PROMPTS
@@ -97,45 +488,264 @@ feasibility:
 
   quick_feasibility:
     name: "Quick Feasibility Check"
-    description: "Rapid feasibility assessment for customer request"
+    description: "Rapid feasibility assessment for customer request with verified capability status, workaround guidance, and safe customer response"
     prompt: |
       Context: Customer asks: "{customer_question}"
+      Account: {account_name}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Provide quick feasibility assessment:
-      - Can we do this today?
-      - If not, is it planned?
-      - If not planned, is it possible?
-      - What should we tell the customer?
+      You are providing a rapid feasibility answer for a customer-facing question.
+      Speed matters, but accuracy matters more. A wrong "yes" creates expectation
+      debt that compounds through the deal cycle. Every answer must be verifiable
+      against product documentation. Follow these steps in order.
 
-      Format:
-      - Answer: [YES/PARTIAL/NO]
-      - Explanation (2-3 sentences)
-      - If YES: How to configure/use
-      - If PARTIAL: What works, what doesn't
-      - If NO: Alternative suggestion
-      - Safe customer response
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Run Mode declaration.
+
+      STEP 1: CAPABILITY VERIFICATION
+      Determine whether the product can do what the customer asks.
+      - Exact capability match: does the product do this today? (YES/PARTIAL/NO)
+      - Verification source: documentation page, release notes, engineering confirmation,
+        or "UNVERIFIED" if source not available
+      - Version availability: which product version or tier includes this capability?
+      - Confidence: HIGH (documented and verified), MEDIUM (known but not formally
+        verified), LOW (uncertain, needs engineering input)
+      If capability status cannot be verified, state "Cannot confirm, requires
+      engineering verification" and set confidence to LOW.
+      Deliverable: Capability verification with source and confidence.
+
+      STEP 2: FEASIBILITY CLASSIFICATION
+      Classify the overall feasibility.
+      - Primary answer: YES (fully supported), PARTIAL (supported with limitations),
+        NO (not supported)
+      - Secondary flags: CONFIGURATION_REQUIRED (needs setup), VERSION_DEPENDENT
+        (available in specific versions), WORKAROUND_AVAILABLE (not native but
+        achievable), ROADMAP_ITEM (planned for future release)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      Deliverable: Feasibility classification with primary + secondary flags.
+
+      STEP 3: WORKAROUND OR ALTERNATIVE
+      If answer is PARTIAL or NO, provide alternatives.
+      - Workaround description (specific steps if applicable)
+      - Alternative approach (different way to achieve the outcome)
+      - Effort to implement workaround
+      - Limitations of the workaround
+      If no workaround exists, state "No workaround identified" and proceed.
+      Deliverable: Workaround or alternative assessment.
+
+      STEP 4: CUSTOMER RESPONSE DRAFT
+      Prepare a customer-safe response.
+      - Key message (1-2 sentences, accurate and non-committal on unverified items)
+      - Full response (customer-ready text)
+      - What NOT to say (commitments to avoid, features not to reference)
+      - Follow-up needed (if verification is required before final answer)
+      Deliverable: Customer response draft with guardrails.
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Capability verification cites a specific source, not general product knowledge
+      - No feature availability confirmed without verification source
+      - Feasibility classification uses primary + secondary flags
+      - Customer response avoids commitments on unverified capabilities
+      - Confidence level stated for capability verification and classification
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a summary that
+      states: (1) feasibility answer with confidence level, (2) the weakest point or
+      area requiring verification, and (3) the single most urgent follow-up action.
 
   detailed_feasibility:
     name: "Detailed Feasibility Analysis"
-    description: "Deep feasibility analysis for complex request"
+    description: "Deep feasibility analysis for complex customer requirement covering technical, resource, timeline, architectural, and risk dimensions"
     prompt: |
       Context: Customer requirement: "{detailed_requirement}"
       Use case context: {use_case_context}
+      Account: {account_name}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Conduct detailed feasibility analysis:
-      - Technical feasibility
-      - Resource requirements
-      - Timeline implications
-      - Architectural considerations
-      - Risk factors
+      You are conducting a deep feasibility analysis for a complex customer request.
+      This goes beyond "can we do it" to assess technical viability, resource
+      requirements, timeline implications, and risk factors. The output informs
+      deal strategy and product team engagement. Follow these steps in order.
 
-      Format:
-      - Executive summary (1 paragraph)
-      - Technical feasibility: [HIGH/MEDIUM/LOW]
-      - Effort estimate: [SMALL/MEDIUM/LARGE/VERY_LARGE]
-      - Dependencies identified
-      - Risks and mitigations
-      - Recommendation with rationale
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each scoring dimension, assess data richness:
+      - HIGH: detailed requirement spec, architecture context, 5+ data points
+      - MEDIUM: partial spec, 2-4 data points
+      - LOW: vague requirement, assumptions only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Requirement Clarity, Technical Context, Resource Availability,
+      Timeline Constraints, Risk Factors.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the analysis.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Clarification questions for the customer on requirement specifics
+      - Technical questions for SA Agent or engineering
+      - Information needed from product team on capability boundaries
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: REQUIREMENT ANALYSIS
+      Parse the requirement into assessable components.
+      For each component:
+      - Component ID (FC-001, FC-002, etc.)
+      - Description (specific functional or non-functional need)
+      - Complexity: LOW (standard configuration), MEDIUM (custom configuration or
+        integration), HIGH (custom development or architectural change)
+      - Dependencies on other components
+      - Assumptions made (and their impact if wrong)
+      Deliverable: Requirement component table (ID | Description | Complexity |
+      Dependencies | Assumptions).
+
+      STEP 2: TECHNICAL FEASIBILITY
+      Assess technical viability for each component.
+      For each component:
+      - Technical approach (how it would be implemented)
+      - Primary feasibility: HIGH (proven approach, existing patterns), MEDIUM
+        (achievable but requires effort), LOW (uncertain, experimental, or
+        requires architectural changes)
+      - Secondary flags: ARCHITECTURE_IMPACT (changes system design),
+        PERFORMANCE_RISK (may affect system performance), INTEGRATION_COMPLEXITY
+        (requires complex third-party integration), SECURITY_CONSIDERATION
+        (involves security-sensitive components)
+      - Confidence: HIGH (engineering-validated), MEDIUM (based on product knowledge),
+        LOW (theoretical, needs proof of concept)
+      - Technical risks and mitigations
+      If SA Agent input is needed for technical assessment, state "Requires SA Agent
+      review for {specific aspect}" and mark confidence as LOW for that component.
+      Deliverable: Technical feasibility table (Component | Approach | Feasibility |
+      Secondary Flags | Confidence | Risks).
+
+      STEP 3: RESOURCE AND EFFORT ESTIMATION
+      Estimate resources required for implementation.
+      For each component:
+      - Effort estimate: SMALL (< 1 sprint), MEDIUM (1-3 sprints), LARGE (1 quarter),
+        VERY_LARGE (multi-quarter)
+      - Skills required (roles and expertise needed)
+      - Resource availability risk (are required skills available or constrained?)
+      - Cost estimate range (if quantifiable)
+      If effort cannot be estimated without engineering input, state "Estimate requires
+      engineering scoping" and provide a range based on complexity classification.
+      Deliverable: Resource estimate table (Component | Effort | Skills | Availability
+      Risk | Cost Range).
+
+      STEP 4: TIMELINE ASSESSMENT
+      Map implementation timeline against customer expectations.
+      - Total estimated duration (sum of component efforts accounting for parallelism)
+      - Customer expected timeline: {if known}
+      - Timeline gap: positive (buffer) or negative (shortfall)
+      - Critical path: which components must be sequential?
+      - Acceleration options: what could be done to shorten the timeline?
+      - Phasing recommendation: can the requirement be delivered incrementally?
+      Deliverable: Timeline assessment with critical path and phasing options.
+
+      STEP 5: RISK ASSESSMENT
+      Consolidate risks across all feasibility dimensions.
+      For each risk:
+      - Risk description
+      - Primary category: TECHNICAL, RESOURCE, TIMELINE, SCOPE, DEPENDENCY
+      - Secondary flags: as applicable from other categories
+      - Likelihood: HIGH/MEDIUM/LOW
+      - Impact: HIGH/MEDIUM/LOW
+      - Mitigation strategy
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      Deliverable: Risk table (Risk | Primary Category | Secondary Flags | Likelihood |
+      Impact | Mitigation | Confidence).
+
+      STEP 6: RECOMMENDATION
+      Synthesize findings into a clear recommendation.
+      - Overall feasibility: HIGH/MEDIUM/LOW with rationale
+      - Recommended approach: proceed as requested, proceed with modifications,
+        defer pending further analysis, decline with alternatives
+      - Conditions for proceeding (what must be true)
+      - Alternative approaches if primary recommendation is not "proceed as requested"
+      Deliverable: Recommendation with feasibility score and conditions.
+
+      STEP 7: ACTION PLAN
+      Produce specific next actions.
+      | Priority | Action | Owner | Timeline | Prerequisites | Expected Impact |
+      Include actions for: technical validation, customer alignment, resource
+      allocation, and risk mitigation.
+      Deliverable: Action table with prerequisites.
+
+      STEP 8: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every feasibility assessment includes confidence level with basis
+      - Risk classifications use primary + secondary flags
+      - Effort estimates state their basis (engineering input vs. complexity proxy)
+      - Timeline gap calculated with concrete values, not qualitative terms
+      - Trend claims about feasibility or resource availability require two data points
+      - Action plan includes prerequisites for each action
+      - Recommendation includes conditions for proceeding, not just a yes/no
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      a summary that states: (1) overall feasibility classification with confidence,
+      (2) the weakest point or highest risk across all dimensions, and (3) the single
+      most urgent action to take next.
 
 # ============================================================================
 # CUSTOMER COMMUNICATION PROMPTS
@@ -144,44 +754,232 @@ communication:
 
   roadmap_response:
     name: "Roadmap Question Response"
-    description: "Prepare response to customer roadmap inquiry"
+    description: "Prepare verified, guardrailed response to customer roadmap inquiry with shareable vs. confidential boundaries and follow-up plan"
     prompt: |
       Context: Customer {account_name} asked about roadmap for {feature_area}.
       Relationship: {relationship_context}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare appropriate response:
-      - What can we share?
-      - What should we not commit to?
-      - How do we set expectations?
-      - What follow-up do we need?
+      You are preparing a response to a customer's roadmap question. Roadmap
+      communication is high-stakes: over-sharing creates binding expectations,
+      under-sharing erodes trust. Every piece of information shared must be
+      classified as publicly shareable or confidential. Follow these steps in order.
 
-      Format:
-      - Shareable information
-      - Messaging (customer-ready text)
-      - Caveats to include
-      - What NOT to say
-      - Follow-up actions
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Run Mode declaration.
+
+      STEP 1: INFORMATION CLASSIFICATION
+      Classify available roadmap information by shareability.
+      For each roadmap item related to the customer's question:
+      - Item description
+      - Status: AVAILABLE (shipped), PLANNED (committed), CONSIDERING (evaluating),
+        NOT_PLANNED
+      - Shareability: PUBLIC (can share freely), NDA_ONLY (share under NDA),
+        CONFIDENTIAL (do not share), UNKNOWN (check with product team)
+      - Confidence in status: HIGH (confirmed), MEDIUM (based on published roadmap),
+        LOW (inferred)
+      If shareability is UNKNOWN for any item, flag for product team verification
+      before customer communication.
+      Deliverable: Information classification table (Item | Status | Shareability |
+      Confidence).
+
+      STEP 2: MESSAGING STRATEGY
+      Define the communication approach based on relationship context and
+      information classification.
+      - Messaging tone: collaborative, cautious, enthusiastic, factual (based on
+        relationship maturity and deal stage)
+      - Key message (1-2 sentences capturing the core response)
+      - Supporting points (shareable details that build confidence)
+      - Expectation boundaries (what to set clearly vs. leave open)
+      - Primary classification of response posture: SHARE (roadmap aligns, share
+        details), BRIDGE (partial alignment, bridge gaps with alternatives),
+        REDIRECT (no alignment, redirect to current capabilities)
+      - Secondary flags: NDA_REQUIRED, PRODUCT_TEAM_REVIEW_NEEDED,
+        COMPETITIVE_CONTEXT, DEAL_CRITICAL
+      Deliverable: Messaging strategy with classification and key message.
+
+      STEP 3: RESPONSE DRAFTING
+      Write the customer-ready response.
+      - Full response text (customer-ready, using appropriate messaging tone)
+      - Caveats to include (standard roadmap disclaimers)
+      - What NOT to say (specific commitments, features, or dates to avoid mentioning)
+      - Forward-looking statement compliance (no binding promises)
+      If relationship context is absent, draft a conservative response and flag
+      "Response drafted without relationship context, review tone before sending."
+      Deliverable: Customer response draft with caveats and restrictions.
+
+      STEP 4: FOLLOW-UP PLAN
+      Define follow-up actions triggered by this roadmap inquiry.
+      | Priority | Action | Owner | Timeline | Prerequisites | Expected Impact |
+      Include actions for: internal product team check-in, customer follow-up
+      meeting, information update when roadmap evolves.
+      Deliverable: Action table with prerequisites.
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Every roadmap item classified by shareability before inclusion in response
+      - No CONFIDENTIAL items included in customer response
+      - No delivery date commitments without PLANNED status and HIGH confidence
+      - Response includes standard forward-looking disclaimers
+      - Messaging classification uses primary + secondary flags
+      - Confidence stated for each roadmap status claim
+      - Follow-up plan includes prerequisites for each action
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a summary that
+      states: (1) response posture and confidence level, (2) the highest risk in the
+      communication (e.g., unverified item, NDA concern), and (3) the most urgent
+      follow-up action.
 
   gap_messaging:
     name: "Feature Gap Customer Messaging"
-    description: "Prepare customer communication about feature gap"
+    description: "Prepare customer communication about a feature gap with confidence-preserving language, alternatives, and commitment boundaries"
     prompt: |
       Context: {account_name} has a gap: {gap_description}.
-      Classification: {FEASIBLE/LIMITED/NOT_PLANNED}
+      Classification: {gap_classification}
       Deal impact: {impact}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare customer communication:
-      - How do we acknowledge the gap?
-      - What alternatives can we offer?
-      - How do we maintain confidence?
-      - What commitment can we make?
+      You are preparing customer communication about a known feature gap. Gap
+      messaging is a trust exercise: customers respect honesty about limitations
+      more than vague deflection. The goal is to acknowledge the gap, present
+      alternatives, and maintain confidence in the partnership. Follow these steps
+      in order.
 
-      Format:
-      - Key message (1-2 sentences)
-      - Full response draft
-      - Alternatives to present
-      - Commitment language (if any)
-      - Escalation path to offer
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Run Mode declaration.
+
+      STEP 1: GAP CONTEXT ANALYSIS
+      Establish the full context of the gap before crafting messaging.
+      - Gap description (specific capability missing)
+      - Classification review: FEASIBLE / LIMITED / NOT_PLANNED (validate against
+        current product knowledge)
+      - Customer's use case (why they need this capability)
+      - Impact severity: DEAL_BLOCKING (gap prevents deal closure), DEAL_DEGRADING
+        (gap reduces deal value or scope), RELATIONSHIP_RISK (gap erodes trust
+        but does not block deal), MINOR (gap is inconvenient but manageable)
+      - Competitive context: does a named competitor cover this gap?
+      - Confidence in classification: HIGH/MEDIUM/LOW with basis
+      If gap classification is absent, analyze from gap description and note
+      "Classification derived from description, not formally assessed."
+      Deliverable: Gap context with impact severity and confidence.
+
+      STEP 2: ALTERNATIVE ASSESSMENT
+      Identify alternatives to present alongside the gap acknowledgment.
+      For each alternative:
+      - Description (specific approach)
+      - Type: workaround, partner solution, roadmap commitment, scope adjustment
+      - Viability: VIABLE / TEMPORARY / NOT_VIABLE
+      - Customer effort to adopt
+      - Trade-offs the customer accepts
+      - Primary classification: RECOMMENDED (best option), ACCEPTABLE (viable but
+        less ideal), LAST_RESORT (use only if others unavailable)
+      - Secondary flags: REQUIRES_INVESTMENT, TIME_LIMITED, PARTNER_DEPENDENT
+      If no alternatives exist, state "No viable alternatives identified" and adjust
+      messaging to focus on transparency and feedback loop.
+      Deliverable: Alternative table (Alternative | Type | Viability | Effort |
+      Trade-offs | Classification | Flags).
+
+      STEP 3: MESSAGING COMPOSITION
+      Craft the customer communication.
+      - Key message (1-2 sentences, honest and confidence-preserving)
+      - Full response draft (structured: acknowledge gap, present alternatives,
+        state commitment, offer escalation path)
+      - Commitment language boundaries:
+        - CAN commit to: specific actions, timelines for follow-up, escalation
+        - CANNOT commit to: delivery dates, feature guarantees, roadmap changes
+      - Tone calibration: match to relationship context and deal stage
+      - What NOT to say (specific phrases, features, or timelines to avoid)
+      Deliverable: Customer messaging with commitment boundaries.
+
+      STEP 4: ESCALATION PATH
+      Define the escalation path to offer the customer.
+      - Internal escalation: who to engage if customer pushes back
+      - Customer-facing escalation: what process to describe to the customer
+        (product feedback channel, advisory board, executive sponsor engagement)
+      - Escalation triggers: what customer response should trigger escalation
+      Deliverable: Escalation path with triggers.
+
+      STEP 5: ACTION PLAN
+      Produce follow-up actions.
+      | Priority | Action | Owner | Timeline | Prerequisites | Expected Impact |
+      Include actions for: internal product team notification, customer follow-up,
+      alternative implementation, and gap tracking.
+      Deliverable: Action table with prerequisites.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Gap classification validated against current product knowledge
+      - Alternatives assessed with customer effort and trade-offs, not just listed
+      - Messaging avoids commitments outside commitment boundaries
+      - No delivery date promises for unconfirmed roadmap items
+      - Alternative classification uses primary + secondary flags
+      - Confidence stated for gap classification and alternative viability
+      - Escalation path defined with specific triggers
+      - Action plan includes prerequisites for each action
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a summary that
+      states: (1) gap severity and recommended messaging posture, (2) the weakest
+      point in the alternative options, and (3) the most urgent action to take next.
 
 # ============================================================================
 # PRODUCT FEEDBACK PROMPTS
@@ -190,47 +988,291 @@ product_feedback:
 
   feedback_synthesis:
     name: "Customer Feedback Synthesis"
-    description: "Synthesize product feedback from account"
+    description: "Synthesize product feedback from an account across satisfaction, frustration, feature wishes, and usage patterns to produce actionable product team recommendations"
     prompt: |
       Context: Review all product-related feedback from {account_name}
       in the last {time_period}.
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Synthesize feedback:
-      - What are they happy about?
-      - What are they frustrated by?
-      - What do they wish we had?
-      - How does usage reflect feedback?
+      You are synthesizing scattered product feedback into a structured picture of
+      what the customer values, what frustrates them, and what they need next. Raw
+      feedback is noise. Synthesized feedback with usage correlation is signal that
+      product teams can act on. Follow these steps in order.
 
-      Format:
-      - Positive feedback summary
-      - Improvement requests table (Request | Frequency | Priority)
-      - Usage-feedback alignment analysis
-      - Product team recommendations
-      - Strategic implications
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each scoring dimension, assess data richness:
+      - HIGH: 10+ feedback items, multiple channels, usage data available
+      - MEDIUM: 5-9 feedback items, 1-2 channels
+      - LOW: fewer than 5 feedback items or single interaction only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Positive Feedback, Negative Feedback, Feature Requests,
+      Usage Data, Stakeholder Coverage.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the synthesis.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Feedback collection plan (channels to monitor, questions to ask)
+      - Usage data access requests
+      - Stakeholder engagement plan to gather missing perspectives
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: POSITIVE FEEDBACK INVENTORY
+      Catalog what the customer values about the product.
+      For each positive feedback item:
+      - Feedback source (meeting notes, support ticket, survey, NPS comment)
+      - Date of feedback
+      - Feature or capability referenced
+      - Stakeholder who provided it (role and seniority)
+      - Strength of sentiment: STRONG (enthusiastic endorsement), MODERATE
+        (satisfied mention), MILD (acknowledgment without enthusiasm)
+      If no positive feedback exists, state "No positive feedback recorded in
+      {time_period}" and note the implication for account health.
+      Deliverable: Positive feedback table (Source | Date | Feature | Stakeholder |
+      Sentiment Strength).
+
+      STEP 2: FRUSTRATION AND COMPLAINT ANALYSIS
+      Catalog negative feedback and complaints.
+      For each frustration:
+      - Feedback source and date
+      - Issue description (specific problem, not paraphrased generalization)
+      - Affected workflow (what the customer was trying to do)
+      - Frequency: ONE_TIME (single mention), RECURRING (mentioned multiple times),
+        CHRONIC (persistent complaint across interactions)
+      - Severity from customer perspective: BLOCKING (prevents work), DEGRADING
+        (slows work), ANNOYING (inconvenient but workable)
+      - Primary classification: USABILITY, PERFORMANCE, RELIABILITY, MISSING_FEATURE,
+        DOCUMENTATION, SUPPORT_EXPERIENCE
+      - Secondary flags: as applicable from other categories
+      - Confidence: HIGH (direct quote), MEDIUM (paraphrased from notes), LOW (inferred)
+      If no negative feedback exists, state "No negative feedback recorded" but flag
+      that absence of complaints does not confirm satisfaction.
+      Deliverable: Frustration table (Source | Date | Issue | Workflow | Frequency |
+      Severity | Primary Category | Secondary Flags | Confidence).
+
+      STEP 3: FEATURE WISH LIST
+      Compile features and capabilities the customer has requested or wished for.
+      For each wish:
+      - Description (specific capability)
+      - Business driver (why they want it)
+      - Priority from customer: CRITICAL (blocking expansion or renewal), IMPORTANT
+        (significant value), NICE_TO_HAVE (would appreciate)
+      - Current product status: AVAILABLE (customer unaware), PLANNED, CONSIDERING,
+        NOT_PLANNED, UNKNOWN
+      - Cross-reference: does this appear in the feature gap register or RFP gaps?
+      If no feature wishes are recorded, state "No explicit feature requests in
+      {time_period}" and flag for proactive discovery.
+      Deliverable: Wish list table (Feature | Business Driver | Customer Priority |
+      Product Status | Cross-Reference).
+
+      STEP 4: USAGE-FEEDBACK ALIGNMENT
+      Correlate feedback with usage patterns to identify disconnects.
+      - Features praised but underutilized (customer likes it but does not use it)
+      - Features criticized but heavily used (customer depends on it despite frustration)
+      - Features unused and unreferenced (potential for adoption or removal)
+      - Usage trends: compare current period to previous period. Two data points
+        minimum for any trend claim. If only one period, state "INSUFFICIENT DATA
+        for usage trend."
+      If usage data is absent, state "Usage data unavailable, alignment analysis
+      based on feedback only" and proceed with feedback-only assessment.
+      Deliverable: Usage-feedback alignment matrix (Feature | Feedback Sentiment |
+      Usage Level | Alignment | Trend | Notes).
+
+      STEP 5: PRODUCT TEAM RECOMMENDATIONS
+      Synthesize findings into actionable recommendations for the product team.
+      | Priority | Action | Owner | Timeline | Prerequisites | Expected Impact |
+      Include actions for: bug fixes, UX improvements, feature development,
+      documentation updates, and adoption enablement.
+      Deliverable: Action table with prerequisites.
+
+      STEP 6: STRATEGIC IMPLICATIONS
+      Assess what this feedback pattern means for the account relationship.
+      - Account health signal: POSITIVE (satisfaction trending up), NEUTRAL (stable),
+        NEGATIVE (frustration increasing), INSUFFICIENT_DATA (cannot determine trend)
+      - Renewal risk contribution: does feedback pattern increase or decrease renewal risk?
+      - Expansion opportunity: does feedback reveal readiness for additional capabilities?
+      - Competitive vulnerability: do frustrations align with competitor strengths?
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      Trend claims require two time periods of data. If only current period available,
+      state assessment with "single-period observation, trend cannot be determined."
+      Deliverable: Strategic implications assessment with confidence levels.
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Feedback items attributed to specific sources and dates, not generalized
+      - Frustration classification uses primary + secondary flags
+      - Usage-feedback alignment attempted even if usage data is partial
+      - Trend claims reference two or more time-separated data points
+      - Strategic implications include confidence levels
+      - Recommendations are actionable with clear owners, not generic suggestions
+      - Action plan includes prerequisites for each action
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with
+      a summary that states: (1) overall feedback sentiment with confidence and data
+      richness, (2) the most critical frustration or gap, and (3) the single most
+      urgent product action to take next.
 
   enhancement_request:
     name: "Enhancement Request Documentation"
-    description: "Document customer enhancement request formally"
+    description: "Document customer enhancement request with quantified business impact, pattern cross-reference, and prioritization recommendation"
     prompt: |
       Context: {account_name} requests: "{enhancement_description}"
       Business justification: {business_context}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Document enhancement request:
-      - Clear problem statement
-      - Proposed solution from customer
-      - Business impact
-      - Technical considerations
-      - Priority justification
+      You are formalizing a customer enhancement request into a structured document
+      that product teams can evaluate, prioritize, and track. A well-documented
+      enhancement request connects customer pain to business impact and provides
+      enough context for engineering scoping without requiring re-discovery.
+      Follow these steps in order.
 
-      Format:
-      - Request ID: ENH-{date}-{account}
-      - Summary: (1 sentence)
-      - Problem statement
-      - Customer proposed solution
-      - Business impact (quantified if possible)
-      - Affected accounts (if pattern)
-      - Priority: [high/medium/low]
-      - Recommendation
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Run Mode declaration.
+
+      STEP 1: PROBLEM STATEMENT
+      Define the problem the enhancement would solve.
+      - Problem description (what the customer cannot do or struggles with)
+      - Affected personas (roles impacted by this problem)
+      - Frequency of encountering this problem (daily, weekly, per project, per event)
+      - Current workaround (what they do today, and why it is insufficient)
+      - Cost of the problem (time, money, risk, or opportunity cost)
+      If cost cannot be quantified, state "Cost not quantified, requires follow-up
+      with {stakeholder}" and provide qualitative assessment.
+      Deliverable: Problem statement with affected personas and cost assessment.
+
+      STEP 2: CUSTOMER PROPOSED SOLUTION
+      Document what the customer envisions as the solution.
+      - Customer's proposed approach (their description of what they want built)
+      - Acceptance criteria from customer perspective (how they would verify success)
+      - Desired timeline (when they need it)
+      - Flexibility: how firmly attached are they to this specific implementation
+        vs. the outcome it achieves?
+      Separate the customer's proposed mechanism from their desired outcome. The
+      product team may solve the outcome differently than the customer envisions.
+      Deliverable: Customer solution proposal with outcome vs. mechanism separation.
+
+      STEP 3: BUSINESS IMPACT QUANTIFICATION
+      Quantify the business impact of addressing this enhancement.
+      - Revenue impact: deal value protected or enabled if enhancement ships
+      - Account retention impact: renewal risk if enhancement is not addressed
+      - Expansion impact: upsell or cross-sell enabled by this capability
+      - Operational impact: efficiency gain or cost reduction for customer
+      - Confidence: HIGH (customer-provided numbers), MEDIUM (estimated from
+        context), LOW (qualitative only)
+      If business justification is absent, state "Business impact requires customer
+      validation" and estimate based on account ARR and context.
+      Deliverable: Business impact table (Impact Type | Quantification | Confidence |
+      Source).
+
+      STEP 4: PATTERN CROSS-REFERENCE
+      Check whether this request is unique to this account or part of a pattern.
+      - Other accounts requesting similar capability (from feature request register)
+      - RFP gap register matches (from InfoHub product_gaps)
+      - Total accounts affected (count)
+      - Total ARR represented by requesting accounts
+      - Pattern classification: SYSTEMIC (5+ accounts), SEGMENT_SPECIFIC (3-4 in
+        same segment), ISOLATED (1-2 accounts)
+      - Secondary flags: COMPETITIVE_GAP, MARKET_TREND, COMPLIANCE_DRIVEN
+      If no pattern data is available, state "Pattern cross-reference unavailable,
+      recommend checking feature request register" and proceed.
+      Deliverable: Pattern analysis with classification and ARR impact.
+
+      STEP 5: PRIORITIZATION RECOMMENDATION
+      Provide a prioritization recommendation for the product team.
+      - Priority: HIGH (systemic need, significant revenue impact, competitive gap),
+        MEDIUM (multiple accounts, moderate impact), LOW (isolated request,
+        limited impact)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      - Rationale (2-3 sentences connecting business impact, pattern, and urgency)
+      - Recommended next step for product team
+      Deliverable: Priority recommendation with rationale and confidence.
+
+      STEP 6: ACTION PLAN
+      Produce follow-up actions.
+      | Priority | Action | Owner | Timeline | Prerequisites | Expected Impact |
+      Include actions for: product team submission, customer acknowledgment,
+      pattern monitoring, and follow-up communication.
+      Deliverable: Action table with prerequisites.
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks added or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Problem statement separates customer pain from proposed solution
+      - Business impact includes quantified values where possible
+      - Pattern cross-reference attempted against feature request and RFP registers
+      - Classification uses primary + secondary flags for pattern analysis
+      - Confidence stated for business impact and priority recommendation
+      - Enhancement request includes a unique ID (ENH-{date}-{account})
+      - Action plan includes prerequisites for each action
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a summary that
+      states: (1) enhancement priority with pattern scope and confidence, (2) the
+      weakest point in the business justification, and (3) the single most urgent
+      action to take next. Include Request ID: ENH-{date}-{account} at the top.
 
 # ============================================================================
 # MEETING SUPPORT PROMPTS
@@ -239,43 +1281,254 @@ meeting_support:
 
   cab_prep:
     name: "Customer Advisory Board Preparation"
-    description: "Prepare for CAB meeting with customer"
+    description: "Prepare for CAB meeting with structured roadmap discussion plan, feedback collection strategy, commitment boundaries, and follow-up actions"
     prompt: |
       Context: CAB meeting with {account_name} on {date}.
       Topics: {proposed_topics}
       Customer priorities: {known_priorities}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare CAB materials:
-      - What roadmap items to share?
-      - What feedback to gather?
-      - What commitments can we make?
-      - What should we avoid discussing?
+      You are preparing materials for a Customer Advisory Board meeting. CAB
+      meetings are strategic engagement touchpoints where product direction meets
+      customer reality. Preparation quality determines whether the meeting produces
+      actionable input or polite but useless conversation. Follow these steps in
+      order.
 
-      Format:
-      - Roadmap items for discussion
-      - Feedback questions to ask
-      - Commitment boundaries
-      - Topics to avoid
-      - Materials to prepare
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Run Mode declaration.
+
+      STEP 1: TOPIC PRIORITIZATION
+      Evaluate and prioritize proposed topics against customer priorities and
+      strategic value.
+      For each topic:
+      - Topic description
+      - Alignment to customer priorities: HIGH / MEDIUM / LOW
+      - Strategic value for us: HIGH (validates roadmap direction), MEDIUM (gathers
+        useful input), LOW (informational only)
+      - Sensitivity level: SAFE (general direction), MODERATE (specifics that need
+        care), SENSITIVE (competitive or confidential)
+      - Primary classification: ROADMAP_VALIDATION (test direction with customer),
+        FEEDBACK_COLLECTION (gather input), RELATIONSHIP_BUILDING (deepen trust),
+        ISSUE_RESOLUTION (address known concerns)
+      - Secondary flags: COMPETITIVE_CONTEXT, REQUIRES_NDA, PRODUCT_TEAM_ATTENDANCE
+      - Recommended discussion time allocation
+      Rank topics by combined customer alignment and strategic value.
+      If customer priorities are absent, rank by strategic value only and note
+      "Topic alignment to customer priorities not validated."
+      Deliverable: Prioritized topic table (Topic | Customer Alignment | Strategic
+      Value | Sensitivity | Classification | Flags | Time Allocation).
+
+      STEP 2: ROADMAP DISCUSSION PLAN
+      Prepare roadmap items for discussion.
+      For each shareable roadmap item:
+      - Item description (customer-appropriate language)
+      - Shareability: PUBLIC / NDA_ONLY / DO_NOT_SHARE
+      - Relevance to this customer's priorities
+      - Discussion approach: PRESENT (share and explain), VALIDATE (present and
+        ask for input), PROBE (explore customer interest without committing)
+      - Potential customer questions to prepare for
+      - Commitment boundary: what can be said vs. what must be avoided
+      Deliverable: Roadmap discussion guide (Item | Shareability | Relevance |
+      Approach | Anticipated Questions | Commitment Boundary).
+
+      STEP 3: FEEDBACK COLLECTION STRATEGY
+      Design specific questions to extract actionable feedback.
+      For each feedback area:
+      - Question (specific, not generic)
+      - What we want to learn (internal objective)
+      - How this input will be used (roadmap, prioritization, messaging)
+      - Fallback question if primary question does not yield useful response
+      Include at least one question per customer priority area.
+      If customer priorities are unknown, design discovery questions and note
+      "Feedback questions designed for priority discovery, not validation."
+      Deliverable: Feedback question table (Question | Internal Objective | Usage |
+      Fallback Question).
+
+      STEP 4: COMMITMENT BOUNDARIES
+      Define what can and cannot be committed during the meeting.
+      - CAN commit: specific categories (follow-up timelines, access to beta
+        programs, feedback channel establishment)
+      - CANNOT commit: specific categories (delivery dates, feature guarantees,
+        pricing changes, resource allocation)
+      - Escalation protocol: what to say if customer pushes for commitments
+        beyond boundaries
+      Deliverable: Commitment boundary guide with escalation language.
+
+      STEP 5: MATERIALS AND LOGISTICS
+      List materials to prepare and logistical items to confirm.
+      | Priority | Action | Owner | Timeline | Prerequisites | Expected Impact |
+      Include actions for: presentation preparation, demo environment setup,
+      attendee confirmation, pre-meeting briefing, and post-meeting follow-up plan.
+      Deliverable: Action table with prerequisites.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Topics prioritized against customer priorities, not just internal interest
+      - Roadmap items classified by shareability before inclusion
+      - No CONFIDENTIAL items in discussion plan without explicit justification
+      - Feedback questions are specific and outcome-oriented, not generic
+      - Commitment boundaries explicitly stated for the meeting team
+      - Topic classification uses primary + secondary flags
+      - Materials action plan includes prerequisites for each action
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a summary that
+      states: (1) meeting readiness assessment and top discussion priorities, (2) the
+      weakest preparation area or highest sensitivity topic, and (3) the most urgent
+      pre-meeting action.
 
   product_demo:
     name: "Product Demo Preparation"
-    description: "Prepare product demonstration for customer"
+    description: "Prepare product demonstration with use-case-aligned flow, objection handling, feature avoidance list, and talking points per section"
     prompt: |
       Context: Demo for {account_name}.
       Use case: {use_case}
       Audience: {audience_roles}
       Concerns: {known_concerns}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare demo plan:
-      - What to show first?
-      - What features address their needs?
-      - What objections to preempt?
-      - What to avoid showing?
+      You are preparing a product demonstration tailored to a specific customer's
+      use case and audience. A demo that shows features is a tour. A demo that
+      solves the customer's problem is a proof point. Every demo element must connect
+      to the customer's stated needs or known concerns. Follow these steps in order.
 
-      Format:
-      - Demo flow (numbered steps)
-      - Key features to highlight
-      - Talking points per section
-      - Objection handling
-      - Features to avoid (and why)
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Run Mode declaration.
+
+      STEP 1: AUDIENCE ANALYSIS
+      Profile the demo audience to calibrate depth and language.
+      For each audience role:
+      - Role and decision authority (economic buyer, technical evaluator, end user,
+        champion, blocker)
+      - Technical depth appropriate for this role
+      - What they care about (KPIs, outcomes, concerns)
+      - Language to use (their vocabulary, not product vocabulary)
+      - Known objections or skepticism from this persona
+      - Primary classification: DECISION_MAKER, INFLUENCER, END_USER, EVALUATOR
+      - Secondary flags: SKEPTIC, CHAMPION, TECHNICAL, EXECUTIVE
+      If audience roles are absent, design for a mixed audience and note "Audience
+      profile assumed, validate before demo."
+      Deliverable: Audience profile table (Role | Authority | Technical Depth |
+      Priorities | Language | Objections | Classification | Flags).
+
+      STEP 2: DEMO FLOW DESIGN
+      Design the demo sequence aligned to use case and audience.
+      For each demo section (aim for 4-6 sections):
+      - Section number and title
+      - Duration (minutes)
+      - What to show (specific feature or workflow)
+      - Why this matters to the customer (connection to use case or concern)
+      - Key talking point (1-2 sentences linking feature to customer outcome)
+      - Transition to next section (how to connect the story)
+      - Audience engagement moment (question to ask or input to request)
+      Start with the customer's primary pain point, not the product's strongest
+      feature. End with a forward-looking scenario showing expansion potential.
+      Deliverable: Demo flow table (Section | Duration | What to Show | Customer
+      Connection | Talking Point | Transition | Engagement).
+
+      STEP 3: OBJECTION PREPARATION
+      Prepare responses for anticipated objections and difficult questions.
+      For each known concern and likely objection:
+      - Objection or question (specific phrasing)
+      - Source: KNOWN (from discovery), ANTICIPATED (based on persona/industry),
+        COMPETITIVE (likely competitor comparison)
+      - Prepared response (concise, honest, redirecting to value)
+      - Supporting evidence (reference customer, data point, or demonstration)
+      - If the objection is valid and unresolvable in demo: acknowledgment language
+        and redirect strategy
+      - Confidence: HIGH (tested response), MEDIUM (logical response), LOW (untested)
+      If no known concerns are provided, anticipate 3-5 based on use case and
+      audience profile and note "Objections anticipated, not confirmed."
+      Deliverable: Objection handling table (Objection | Source | Response | Evidence |
+      Confidence).
+
+      STEP 4: FEATURE AVOIDANCE LIST
+      Identify features to avoid showing during the demo.
+      For each feature to avoid:
+      - Feature name
+      - Reason to avoid: NOT_READY (beta/unstable), NOT_RELEVANT (distracts from
+        use case), COMPETITIVE_RISK (highlights a weakness), GAP_EXPOSURE (shows
+        a known gap), COMPLEXITY (adds confusion for this audience)
+      - What to do if customer asks about it (redirect language)
+      Deliverable: Feature avoidance table (Feature | Reason | Redirect Language).
+
+      STEP 5: DEMO ENVIRONMENT CHECKLIST
+      List technical preparation items.
+      | Priority | Action | Owner | Timeline | Prerequisites | Expected Impact |
+      Include actions for: environment setup, data preparation, backup plan for
+      technical failures, and post-demo follow-up.
+      Deliverable: Action table with prerequisites.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
+      Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Every demo section connects to a customer use case or concern
+      - Demo flow starts with customer pain, not product features
+      - Objection responses are honest, not dismissive
+      - Feature avoidance list reviewed against known gaps
+      - Audience classification uses primary + secondary flags
+      - Confidence stated for objection responses
+      - Demo environment actions include prerequisites
+      - Talking points use customer language, not product jargon
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a summary that
+      states: (1) demo readiness and primary use case alignment, (2) the highest-risk
+      objection or weakest demo section, and (3) the most urgent preparation action.

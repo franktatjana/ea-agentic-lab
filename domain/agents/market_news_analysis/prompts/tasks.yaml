@@ -1,192 +1,1138 @@
 # MNA Agent Task Prompts
-# Purpose: Task-specific prompts using CAF framework (Context, Action, Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
 # Reference: Personality defined in personalities/mna_personality.yaml
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
 
 # ============================================================================
 # REALM-LEVEL NEWS ANALYSIS
+# ============================================================================
+# Full runbook prompts: multi-step with phase gates, deliverable specs,
+# and quality checks. Each step produces a named deliverable.
 # ============================================================================
 realm_news:
 
   company_news_scan:
     name: "Company News Scan"
-    description: "Scan news sources for realm-associated company developments"
+    description: "Scan news sources for realm-associated company developments, classify by category and relevance, and produce actionable intelligence with source citations"
     prompt: |
       Context: Scan news for {company_name} ({realm_id}).
       Industry: {industry} / {sub_industry}
       Region: {region}
       Known strategic initiatives: {strategic_initiatives}
       Scan period: last {scan_days} days
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Identify and classify company news:
-      - Earnings, financial performance, M&A activity
-      - Leadership changes (C-suite, board, key hires)
-      - Strategic announcements (partnerships, expansions, pivots)
-      - Regulatory developments affecting the company
-      - Public statements from known stakeholders
+      You are scanning public news sources for developments at {company_name} that
+      affect active engagements. Every news item must link to a source. Relevance
+      scoring must reflect the specific account context, not generic importance.
+      Follow these steps in order.
 
-      Format:
-      - News items table (Date | Headline | Category | Source | Relevance Score)
-      - High-impact items with detailed relevance assessment
-      - Connection to known strategic initiatives
-      - Recommended actions for account team
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each scanning dimension, assess data richness:
+      - HIGH: realm profile complete, strategic initiatives documented, 5+ active nodes
+      - MEDIUM: partial realm profile, 2-4 known initiatives
+      - LOW: no realm profile, no documented initiatives
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Company Profile, Strategic Initiatives, Stakeholder Map,
+      Industry Context, Competitive Landscape.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the scan.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Search queries to set up for this company (specific keywords, Boolean strings)
+      - Data sources to configure (news feeds, SEC filings, press release wires)
+      - Baseline company information to gather before meaningful scanning begins
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Scan deferred due to insufficient
+      context in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: NEWS COLLECTION
+      Scan all available sources for {company_name} developments within the scan period.
+      For each news item found:
+      - Headline (verbatim from source)
+      - Publication date
+      - Source name and URL
+      - Primary category: FINANCIAL (earnings, revenue, M&A, funding), LEADERSHIP
+        (C-suite changes, board changes, key hires), STRATEGIC (partnerships,
+        expansions, pivots, restructuring), REGULATORY (compliance, legal,
+        government action), PRODUCT (launches, deprecations, roadmap signals)
+      - Secondary category(ies): if applicable, list additional categories that also apply
+        (e.g., an M&A announcement is primary FINANCIAL but also flagged STRATEGIC
+        and COMPETITIVE)
+      - Confidence: CONFIRMED (official press release, SEC filing), REPORTED
+        (credible media), RUMORED (single source, unconfirmed)
+      If no news items found for a category, state "No items found for {category}
+      in the scan period" rather than omitting the category.
+      Deliverable: News collection table (Date | Headline | Source | Primary Category |
+      Secondary Category(ies) | Confidence) sorted by date descending.
+
+      STEP 2: RELEVANCE SCORING
+      Score each news item for relevance to the active engagement context.
+      For each item:
+      - Relevance score (1-10 scale)
+      - Confidence in score: HIGH (clear connection to active engagement),
+        MEDIUM (indirect connection, requires interpretation), LOW (tangential,
+        included for completeness)
+      - Basis for score (one sentence explaining why this score)
+      - Connection to known strategic initiatives (which initiative, if any)
+      - Affected engagement areas (which nodes or deal stages)
+      Items scoring 7+ are classified as high-impact.
+      If no items score 7+, state "No high-impact items detected in this scan
+      period" and note whether this represents a change from typical scan results.
+      Deliverable: Scored news table (Headline | Relevance Score | Confidence |
+      Basis | Connected Initiative | Affected Areas).
+
+      STEP 3: HIGH-IMPACT ANALYSIS
+      For each item scoring 7+ relevance, produce a detailed assessment:
+      - What happened (factual summary, 2-3 sentences)
+      - Why it matters for our engagement (specific connection to deal context)
+      - Urgency classification: IMMEDIATE (act within 24h), THIS_WEEK (act within
+        5 business days), NEXT_REVIEW (include in next planning cycle)
+      - Stakeholder impact (which customer stakeholders are affected and how)
+      - Competitive implications (does this change competitive dynamics)
+      If no high-impact items exist, skip this step and note in the executive summary.
+      Deliverable: High-impact analysis (one section per item with all fields above).
+
+      STEP 4: ACTION RECOMMENDATIONS
+      Based on the analysis, produce prioritized actions for the account team.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (act now), P1 (this week), P2 (next review cycle)
+      - Owner: role responsible (AE, SA, CSM, leadership)
+      - Prerequisites: what must be true or available before this action can start
+      - Expected Impact: what outcome this action should produce
+      If no actions are warranted, state "No actions required from this scan period.
+      Continue routine monitoring."
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this scan's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks surfaced or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every news item has a source citation (name + URL or reference)
+      - Relevance scores include confidence level and one-sentence basis
+      - High-impact items include urgency classification and stakeholder impact
+      - News items have primary + secondary category classification
+      - Actions include prerequisites and expected impact, not just the action itself
+      - No news items fabricated or sourced from memory rather than scan results
+      - Trend claims reference at least two data points across different dates or sources
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (search queries, data sources, baseline info, re-assessment date). Skip scanning and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 5 deliverables as labeled sections. Lead with
+      a summary that states: (1) number of news items found, number scoring high-impact,
+      and data richness profile, (2) the weakest point or lowest confidence area across
+      all assessments, and (3) the single most urgent action to take next.
 
   strategic_initiative_tracking:
     name: "Strategic Initiative Tracking"
-    description: "Track progress of known company strategic initiatives"
+    description: "Track progress of known company strategic initiatives against public signals, detect new initiatives, and assess engagement implications with evidence trails"
     prompt: |
       Context: Company: {company_name}
       Known initiatives:
       {strategic_initiatives_list}
       Last update: {last_updated}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Find updates on each initiative:
-      - Any public announcements or progress reports?
-      - New initiatives not previously tracked?
-      - Changes in timeline, scope, or leadership?
-      - How does each initiative affect our engagement?
+      You are tracking the progress of known strategic initiatives at {company_name}
+      and detecting new ones. Every status update must cite a public source. Initiative
+      status that has not changed since last update should be explicitly noted as
+      unchanged, not omitted. Follow these steps in order.
 
-      Format:
-      - Initiative status table (Initiative | Previous Status | Current Status | Source)
-      - New initiatives discovered
-      - Implications for our engagement (per node)
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each tracking dimension, assess data richness:
+      - HIGH: initiative list documented, previous status available, 5+ data points
+      - MEDIUM: partial initiative list, 2-4 data points
+      - LOW: no initiative list, no previous status baseline
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Initiative Registry, Previous Status Baseline, Public
+      Signal Availability, Stakeholder Context, Engagement Mapping.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the tracking.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask the account team about known company initiatives
+      - Public sources to monitor for initiative signals (investor relations, press releases, job postings)
+      - Baseline initiative inventory to build before tracking can begin
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Tracking deferred due to insufficient
+      baseline in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: KNOWN INITIATIVE STATUS UPDATE
+      For each initiative in the known list, find public evidence of progress:
+      - Initiative name
+      - Previous status (from last update)
+      - Current status: ON_TRACK, ACCELERATED, DELAYED, PIVOTED, COMPLETED,
+        ABANDONED, NO_UPDATE
+      - Primary evidence type: FINANCIAL (earnings mention, investment disclosure),
+        STRATEGIC (partnership, expansion announcement), OPERATIONAL (hiring patterns,
+        organizational changes), PRODUCT (launch, roadmap signal)
+      - Secondary evidence type(s): if applicable, additional categories
+      - Evidence (source, date, quote or summary)
+      - Confidence in status: HIGH (direct company statement), MEDIUM (analyst
+        interpretation or indirect signals), LOW (inference from absence of signals)
+      - Days since last update
+      If no evidence found for an initiative, set status to NO_UPDATE and note
+      "No public signals detected since {last_updated}."
+      Deliverable: Initiative status table (Initiative | Previous Status | Current Status |
+      Primary Evidence Type | Secondary Type(s) | Evidence | Confidence | Days Since Update).
+
+      STEP 2: NEW INITIATIVE DETECTION
+      Scan for company initiatives not in the known list:
+      - Initiative name or description
+      - Primary category: DIGITAL_TRANSFORMATION, MARKET_EXPANSION, COST_OPTIMIZATION,
+        M_AND_A, ORGANIZATIONAL_CHANGE, TECHNOLOGY_MODERNIZATION, SUSTAINABILITY
+      - Secondary category(ies): additional categories that apply
+      - Evidence (source, date, summary)
+      - Confidence: HIGH (official announcement), MEDIUM (multiple indirect signals),
+        LOW (single signal, speculative)
+      - Relevance to our engagement (which nodes or opportunities affected)
+      If no new initiatives detected, state "No new initiatives detected in this
+      scan period" rather than omitting the section.
+      Deliverable: New initiatives table (Initiative | Primary Category | Secondary Category(ies) |
+      Evidence | Confidence | Engagement Relevance).
+
+      STEP 3: ENGAGEMENT IMPACT ASSESSMENT
+      For each initiative (known and new) that has changed status or is newly detected:
+      - Which engagement nodes are affected
+      - How the initiative impacts our opportunity (accelerator, neutral, blocker)
+      - Timeline implications (does this change expected deal timing)
+      - Budget implications (does this signal budget availability or constraints)
+      - Stakeholder implications (new decision-makers, changed priorities)
+      - Confidence in assessment: HIGH (clear causal link), MEDIUM (plausible
+        connection), LOW (speculative inference)
+      If no initiatives have changed, state "No engagement impact changes detected."
+      Deliverable: Impact assessment table (Initiative | Affected Nodes | Impact Type |
+      Timeline Effect | Budget Effect | Stakeholder Effect | Confidence).
+
+      STEP 4: ACTION RECOMMENDATIONS
+      Based on initiative tracking results, produce prioritized actions.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (act now), P1 (this week), P2 (next review cycle)
+      - Owner: role responsible (AE, SA, CSM, leadership)
+      - Prerequisites: what must be true or available before this action can start
+      - Expected Impact: what outcome this action should produce
+      If no actions warranted, state "No actions required. Continue routine tracking."
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this tracking run's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks surfaced or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every status update cites a public source with date
+      - NO_UPDATE initiatives are explicitly listed, not omitted
+      - New initiatives have confidence levels and engagement relevance
+      - Initiative categories include primary + secondary classification
+      - Confidence levels attached to every status assessment and impact claim
+      - Trend claims (e.g., "initiative is accelerating") cite at least two data points from different dates
+      - Actions include prerequisites, not just the recommended action
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (questions, sources, baseline inventory, re-assessment date). Skip tracking and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 5 deliverables as labeled sections. Lead with
+      a summary that states: (1) number of initiatives tracked, number with status
+      changes, number of new initiatives detected, (2) the weakest point or lowest
+      confidence area across all assessments, and (3) the single most urgent action
+      to take next.
 
   leadership_monitoring:
     name: "Leadership Change Detection"
-    description: "Detect leadership changes at realm companies"
+    description: "Detect leadership changes at realm companies, assess impact on engagement relationships, and produce urgency-classified actions with stakeholder implications"
     prompt: |
       Context: Company: {company_name}
       Known stakeholders: {stakeholder_names}
       Key relationships: {key_relationships}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Detect leadership changes:
-      - C-suite appointments or departures
-      - Board changes
-      - Key stakeholder role changes
-      - New hires in relevant departments
+      You are detecting leadership changes at {company_name} that could affect active
+      engagements. Leadership transitions are among the highest-impact events for
+      deal teams because they can shift priorities, budgets, and decision authority
+      overnight. Every change must be verified against a public source. Follow these
+      steps in order.
 
-      Format:
-      - Changes detected (Person | Previous Role | New Role | Date | Source)
-      - Impact assessment on our engagement
-      - Urgency: [IMMEDIATE|MONITOR|BACKGROUND]
-      - Recommended relationship actions
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each monitoring dimension, assess data richness:
+      - HIGH: stakeholder map complete, relationship history documented, 5+ contacts
+      - MEDIUM: partial stakeholder list, 2-4 known contacts
+      - LOW: no stakeholder map, no relationship history
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Stakeholder Registry, Relationship History, Organizational
+      Structure, Decision Authority Map, Engagement Contacts.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the monitoring.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask the account team about key contacts and org structure
+      - Public sources to monitor for leadership signals (LinkedIn, press releases, SEC filings)
+      - Baseline stakeholder inventory to build before monitoring can begin
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Monitoring deferred due to insufficient
+      stakeholder baseline in {dimensions}. Signal acquisition plan targets re-assessment
+      by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: LEADERSHIP CHANGE DETECTION
+      Scan for leadership changes at {company_name}:
+      - Person name
+      - Previous role (if known)
+      - New role or departure status
+      - Change date (exact or approximate)
+      - Source (URL or reference)
+      - Primary change type: C_SUITE (CEO, CFO, CTO, COO, CIO, CISO), BOARD
+        (director appointments or departures), VP_DIRECTOR (VP/Director level in
+        relevant departments), KEY_HIRE (notable external hire)
+      - Secondary type(s): if applicable (e.g., a CTO departure is primary C_SUITE
+        but also flagged KEY_HIRE if replacement announced simultaneously)
+      - Confidence: CONFIRMED (official announcement), REPORTED (credible media),
+        RUMORED (single source, unconfirmed)
+      If no leadership changes detected, state "No leadership changes detected for
+      {company_name} in the scan period" and note the scan sources checked.
+      Deliverable: Leadership changes table (Person | Previous Role | New Role/Status |
+      Date | Source | Primary Type | Secondary Type(s) | Confidence).
+
+      STEP 2: RELATIONSHIP IMPACT ASSESSMENT
+      For each detected change, assess impact on our engagement relationships:
+      - Was this person a known stakeholder in our engagement (yes/no, which role)
+      - Relationship strength before change: CHAMPION, SUPPORTER, NEUTRAL, DETRACTOR,
+        NO_RELATIONSHIP
+      - Impact on engagement: HIGH (decision authority affected), MEDIUM (influence
+        affected), LOW (peripheral impact), NONE (no connection to our engagement)
+      - Confidence in impact assessment: HIGH (clear causal link to our deal),
+        MEDIUM (plausible impact), LOW (speculative)
+      - Successor information (if available: who replaces them, what is known about
+        the successor's priorities and vendor preferences)
+      If no changes affect our engagement, state "No detected changes impact current
+      engagement relationships."
+      Deliverable: Relationship impact table (Person | Change | Stakeholder Role |
+      Relationship Strength | Engagement Impact | Confidence | Successor Info).
+
+      STEP 3: URGENCY CLASSIFICATION
+      Classify each change by response urgency:
+      - IMMEDIATE: champion or economic buyer departed, deal authority shifted,
+        new decision-maker with unknown stance. Act within 24 hours.
+      - THIS_WEEK: supporter departed, relevant department reorganized,
+        new hire in adjacent role. Act within 5 business days.
+      - MONITOR: peripheral stakeholder changed, board rotation with no direct
+        engagement impact. Include in next review cycle.
+      For IMMEDIATE items, include specific recommended response (who should reach
+      out, to whom, with what message or ask).
+      If no changes detected, state "No urgency actions required."
+      Deliverable: Urgency classification table (Person | Change | Urgency | Rationale |
+      Recommended Response).
+
+      STEP 4: ACTION RECOMMENDATIONS
+      Based on leadership changes, produce prioritized relationship actions.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (act now), P1 (this week), P2 (next review cycle)
+      - Owner: role responsible (AE, SA, CSM, leadership)
+      - Prerequisites: what must be true or available before this action can start
+        (e.g., "successor identified and publicly announced")
+      - Expected Impact: what outcome this action should produce
+      If no actions warranted, state "No relationship actions required. Continue
+      routine monitoring."
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this monitoring run's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Stakeholder map changes (additions, removals, role changes)
+      - New risks surfaced or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every leadership change cites a public source with date
+      - Known stakeholders who have NOT changed are not listed as changes
+      - Changes include primary + secondary type classification
+      - Relationship impact includes confidence levels
+      - IMMEDIATE urgency items include specific recommended response
+      - Trend claims (e.g., "pattern of executive departures") cite at least two data points
+      - Actions include prerequisites, not just the recommended action
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (questions, sources, baseline inventory, re-assessment date). Skip monitoring and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 5 deliverables as labeled sections. Lead with
+      a summary that states: (1) number of changes detected, number affecting known
+      stakeholders, number classified IMMEDIATE, (2) the weakest point or lowest
+      confidence area across all assessments, and (3) the single most urgent action
+      to take next.
 
 # ============================================================================
 # NODE-LEVEL NEWS ANALYSIS
+# ============================================================================
+# Full runbook prompts: multi-step with phase gates, deliverable specs,
+# and quality checks. Each step produces a named deliverable.
 # ============================================================================
 node_news:
 
   solution_domain_scan:
     name: "Solution Domain News Scan"
-    description: "Scan industry and solution news relevant to a specific node"
+    description: "Scan industry and solution news relevant to a specific node, classify by source type and impact, and produce engagement-contextualized intelligence"
     prompt: |
       Context: Node: {node_name} ({node_id})
       Domain: {domain} (e.g., security, observability, search)
       Engagement type: {operating_mode}
       Active competitors: {competitors}
       Scan period: last {scan_days} days
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Find domain-relevant news:
-      - Analyst reports (Gartner, Forrester, IDC) on {domain}
-      - Competitor product launches, pricing changes, partnerships
-      - Technology trend shifts affecting {domain}
-      - Regulatory changes impacting {domain} solutions
-      - Industry adoption patterns and benchmarks
+      You are scanning for market intelligence in the {domain} solution domain that
+      is relevant to the {node_name} engagement. This includes analyst reports,
+      competitor moves, technology trends, and regulatory developments. Every item
+      must link to a source and be scored for relevance to this specific deal context.
+      Follow these steps in order.
 
-      Format:
-      - News items by category:
-        - Analyst & Market Reports
-        - Competitor Moves
-        - Technology Trends
-        - Regulatory & Compliance
-      - Each item: Date | Headline | Source | Relevance | Impact on Node
-      - Top 3 implications for this engagement
-      - Recommended talking points for next customer meeting
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each scanning dimension, assess data richness:
+      - HIGH: node profile complete, competitors documented, deal stage known, 5+ data points
+      - MEDIUM: partial node context, 2-4 known competitors
+      - LOW: no node profile, no competitive context
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Node Profile, Domain Context, Competitive Landscape,
+      Deal Stage Context, Technology Stack.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the scan.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Key analyst reports to obtain for this domain (Gartner MQ, Forrester Wave, IDC MarketScape)
+      - Competitor intelligence gaps to fill before meaningful scanning
+      - Domain-specific news sources to configure for ongoing monitoring
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Scan deferred due to insufficient
+      domain context in {dimensions}. Signal acquisition plan targets re-assessment
+      by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: ANALYST AND MARKET REPORTS
+      Scan for analyst and market research relevant to {domain}:
+      - Report title or headline
+      - Analyst firm (Gartner, Forrester, IDC, etc.)
+      - Publication date
+      - Source reference
+      - Primary category: MARKET_SIZING, COMPETITIVE_POSITIONING, TECHNOLOGY_TREND,
+        ADOPTION_PATTERN, BEST_PRACTICE
+      - Secondary category(ies): additional categories that apply
+      - Key finding relevant to our engagement (1-2 sentences)
+      - Our positioning mentioned (yes/no, favorable/unfavorable/neutral)
+      - Confidence: HIGH (full report accessed), MEDIUM (summary or press coverage
+        of report), LOW (secondhand reference)
+      If no analyst reports found, state "No new analyst reports detected for {domain}
+      in the scan period."
+      Deliverable: Analyst reports table (Report | Firm | Date | Source | Primary Category |
+      Secondary Category(ies) | Key Finding | Our Position | Confidence).
+
+      STEP 2: COMPETITOR ACTIVITY
+      Scan for competitor developments in {domain}:
+      - Competitor name
+      - Development headline
+      - Date
+      - Source
+      - Primary type: PRODUCT_LAUNCH, PRICING_CHANGE, PARTNERSHIP, CUSTOMER_WIN,
+        CUSTOMER_LOSS, LEADERSHIP_CHANGE, FUNDING, ACQUISITION
+      - Secondary type(s): additional types that apply
+      - Impact on our position: THREAT (weakens us), OPPORTUNITY (creates opening),
+        NEUTRAL (no direct impact)
+      - Confidence in impact assessment: HIGH (clear competitive implication),
+        MEDIUM (indirect effect), LOW (speculative)
+      If no competitor activity found, state "No competitor developments detected
+      for {domain} in the scan period."
+      Deliverable: Competitor activity table (Competitor | Development | Date | Source |
+      Primary Type | Secondary Type(s) | Impact | Confidence).
+
+      STEP 3: TECHNOLOGY TRENDS
+      Scan for technology trends affecting {domain}:
+      - Trend name or description
+      - Source and date
+      - Primary category: EMERGING_TECHNOLOGY, ARCHITECTURE_SHIFT, STANDARD_CHANGE,
+        OPEN_SOURCE_DEVELOPMENT, CLOUD_PLATFORM_CHANGE
+      - Secondary category(ies): additional categories
+      - Maturity: EMERGING (early signals), GROWING (increasing adoption),
+        MAINSTREAM (widely adopted), DECLINING (being replaced)
+      - Relevance to engagement (how this affects {node_name} specifically)
+      - Confidence in trend assessment: HIGH (multiple sources, quantified adoption),
+        MEDIUM (analyst consensus but limited data), LOW (single source or early signal)
+      Trend claims require at least two data points from different sources or dates.
+      If only one data point exists, label as "early signal" not "trend."
+      If no technology trends found, state "No significant technology trends detected
+      for {domain} in the scan period."
+      Deliverable: Technology trends table (Trend | Source | Primary Category |
+      Secondary Category(ies) | Maturity | Engagement Relevance | Confidence).
+
+      STEP 4: REGULATORY AND COMPLIANCE
+      Scan for regulatory developments affecting {domain}:
+      - Regulation or standard name
+      - Issuing body
+      - Effective or expected date
+      - Source reference
+      - Primary impact type: NEW_REQUIREMENT, REQUIREMENT_CHANGE, ENFORCEMENT_ACTION,
+        GUIDANCE_UPDATE, DEADLINE_CHANGE
+      - Secondary impact type(s): additional types
+      - Customer impact: DIRECT (customer must comply), INDIRECT (affects customer's
+        customers or suppliers), NONE (not applicable to customer's industry/region)
+      - Opportunity or risk for our solution (how this creates demand or constraint)
+      - Confidence: HIGH (published regulation), MEDIUM (proposed rule or guidance),
+        LOW (anticipated but not yet published)
+      If no regulatory developments found, state "No regulatory developments detected
+      for {domain} in the scan period."
+      Deliverable: Regulatory table (Regulation | Body | Date | Source | Primary Impact Type |
+      Secondary Type(s) | Customer Impact | Solution Opportunity | Confidence).
+
+      STEP 5: ENGAGEMENT IMPLICATIONS AND TALKING POINTS
+      Synthesize across all categories to produce engagement-specific intelligence:
+      - Top 3 implications for this engagement (ranked by urgency)
+      - For each implication: what changed, why it matters, what to do about it
+      - Customer-ready talking points for the next meeting (framed from customer
+        benefit perspective, not vendor perspective)
+      - Questions to ask the customer based on market developments
+      If no significant implications, state "No market developments require
+      engagement strategy changes this period."
+      Deliverable: Implications list (Implication | Category | Urgency | Talking Point |
+      Customer Question).
+
+      STEP 6: ACTION RECOMMENDATIONS
+      Based on domain scan results, produce prioritized actions.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (act now), P1 (this week), P2 (next review cycle)
+      - Owner: role responsible (AE, SA, CSM, leadership)
+      - Prerequisites: what must be true before this action can start
+      - Expected Impact: what outcome this action should produce
+      If no actions warranted, state "No actions required. Continue routine scanning."
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this scan's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks surfaced or existing risks resolved
+      - Competitive position changes
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every item has a source citation (name + URL or reference)
+      - Items have primary + secondary category classification
+      - Competitor impact assessments include confidence levels
+      - Technology trend claims cite at least two data points from different sources or dates
+      - Regulatory items distinguish published from proposed requirements
+      - Talking points are customer-benefit-framed, not vendor-pitch-framed
+      - Actions include prerequisites and expected impact
+      - No analyst report findings fabricated or sourced from memory
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (analyst reports to obtain, competitor gaps, domain sources, re-assessment date). Skip scanning and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 7 deliverables as labeled sections. Lead with
+      a summary that states: (1) total items found across all categories with breakdown,
+      (2) the weakest point or lowest confidence area across all assessments, and
+      (3) the single most urgent action to take next.
 
   competitor_news_scan:
     name: "Competitor News Scan"
-    description: "Focused scan on competitors active in a node"
+    description: "Focused scan on competitors active in a node, assess competitive position changes, and produce counter-actions with threat and opportunity classification"
     prompt: |
       Context: Node: {node_name}
       Primary competitor: {primary_competitor}
       Secondary competitors: {secondary_competitors}
       Our competitive position: {competitive_summary}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Find competitor news:
-      - Product announcements or releases
-      - Pricing or packaging changes
-      - Partnership announcements
-      - Customer wins or losses
-      - Leadership changes at competitor
-      - Analyst positioning changes
+      You are conducting a focused competitive intelligence scan for the {node_name}
+      engagement. The goal is to detect competitor moves that change our competitive
+      position in this specific deal. Every claim must cite a source. Competitive
+      position assessments must separate factual developments from interpretive
+      conclusions. Follow these steps in order.
 
-      Format:
-      - Competitor news table (Competitor | Date | News | Impact on Us)
-      - Threat assessment: Has our competitive position changed?
-      - Opportunities created by competitor moves
-      - Recommended counter-actions
-      - Urgency: [IMMEDIATE|THIS_WEEK|NEXT_REVIEW]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each scanning dimension, assess data richness:
+      - HIGH: competitive position documented, competitor profiles available, 5+ data points
+      - MEDIUM: partial competitive context, 2-4 known competitor activities
+      - LOW: no competitive baseline, no competitor profiles
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Competitive Position Baseline, Primary Competitor Profile,
+      Secondary Competitor Profiles, Deal Context, Win/Loss History.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the scan.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Competitor intelligence to gather before meaningful comparison (product capabilities, pricing, recent wins)
+      - Sources to monitor for each competitor (press releases, product blogs, job postings)
+      - Baseline competitive position to establish before tracking changes
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Scan deferred due to insufficient
+      competitive baseline in {dimensions}. Signal acquisition plan targets
+      re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: COMPETITOR NEWS COLLECTION
+      For each competitor (primary and secondary), scan for recent developments:
+      - Competitor name
+      - Headline (verbatim from source)
+      - Date
+      - Source (URL or reference)
+      - Primary category: PRODUCT (launches, features, deprecations), PRICING
+        (pricing changes, new packaging, discounts), PARTNERSHIP (new alliances,
+        integrations), CUSTOMER (wins, losses, case studies), LEADERSHIP (hires,
+        departures), ANALYST (positioning changes, ratings), FINANCIAL (funding,
+        revenue, M&A)
+      - Secondary category(ies): additional categories that apply (e.g., a partnership
+        announcement is primary PARTNERSHIP but also flagged PRODUCT if it includes
+        integration capabilities)
+      - Confidence: CONFIRMED (official announcement), REPORTED (credible media),
+        RUMORED (single source, unconfirmed)
+      If no news found for a competitor, state "No developments detected for
+      {competitor_name} in the scan period."
+      Deliverable: Competitor news table (Competitor | Headline | Date | Source |
+      Primary Category | Secondary Category(ies) | Confidence).
+
+      STEP 2: COMPETITIVE POSITION ASSESSMENT
+      Assess whether our competitive position has changed based on detected developments.
+      Separate observable facts from interpretive assessment:
+
+      Observable layer (facts):
+      - What changed (specific development)
+      - Source and date
+      - Direct feature or capability comparison (if applicable)
+
+      Interpretive layer (with confidence):
+      - Position change: STRENGTHENED (competitor weakened or we gained advantage),
+        UNCHANGED (no material shift), WEAKENED (competitor gained advantage),
+        UNCERTAIN (conflicting signals)
+      - Confidence in assessment: HIGH (clear causal link to our deal), MEDIUM
+        (plausible impact), LOW (speculative)
+      - Basis for assessment (one sentence)
+      If no position change detected, state "Competitive position remains unchanged
+      based on available intelligence."
+      Deliverable: Position assessment (Development | Observable Facts | Position Change |
+      Confidence | Basis).
+
+      STEP 3: THREAT AND OPPORTUNITY ANALYSIS
+      For each significant competitor development:
+      - Classification: THREAT or OPPORTUNITY
+      - Description (what specifically threatens us or creates an opening)
+      - Severity/magnitude: HIGH, MEDIUM, LOW
+      - Time horizon: IMMEDIATE (affects current deal cycle), SHORT_TERM (affects
+        next 1-2 quarters), LONG_TERM (strategic shift over 6+ months)
+      - Confidence: HIGH (clear evidence), MEDIUM (probable), LOW (possible)
+      If no threats or opportunities detected, state "No competitive threats or
+      opportunities identified in this scan period."
+      Deliverable: Threat/opportunity table (Classification | Description | Severity |
+      Time Horizon | Confidence).
+
+      STEP 4: COUNTER-ACTION RECOMMENDATIONS
+      For each identified threat or opportunity, recommend a counter-action.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (act now), P1 (this week), P2 (next review cycle)
+      - Owner: role responsible (AE, SA, CSM, leadership)
+      - Prerequisites: what must be true before this action can start
+      - Expected Impact: what outcome this action should produce
+      - Urgency: IMMEDIATE (respond within 24h), THIS_WEEK (respond within 5
+        business days), NEXT_REVIEW (include in next planning cycle)
+      If no counter-actions warranted, state "No competitive counter-actions required.
+      Continue routine monitoring."
+      Deliverable: Counter-action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact | Urgency).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this scan's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Competitive position changes
+      - New risks surfaced or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every competitor development cites a public source with date
+      - Observable facts separated from interpretive assessments
+      - Competitor news includes primary + secondary category classification
+      - Position assessments include confidence levels and one-sentence basis
+      - Threats and opportunities include severity, time horizon, and confidence
+      - Counter-actions include prerequisites and expected impact
+      - Trend claims (e.g., "competitor is gaining momentum") cite at least two data points
+      - No competitor capabilities fabricated or assumed without source
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (competitor intelligence to gather, sources, baseline position, re-assessment date). Skip scanning and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 5 deliverables as labeled sections. Lead with
+      a summary that states: (1) number of competitor developments found, overall
+      position assessment, and number of threats/opportunities, (2) the weakest point
+      or lowest confidence area across all assessments, and (3) the single most urgent
+      action to take next.
 
   regulatory_impact_scan:
     name: "Regulatory Impact Scan"
-    description: "Scan for regulatory changes affecting node's solution domain"
+    description: "Scan for regulatory changes affecting node's solution domain, assess compliance impact on customer, and identify solution positioning opportunities"
     prompt: |
       Context: Node domain: {domain}
       Customer industry: {industry}
       Customer region: {region}
       Known compliance requirements: {compliance_requirements}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Identify regulatory developments:
-      - New regulations or standards affecting {domain}
-      - Enforcement actions relevant to customer's industry
-      - Compliance deadline changes
-      - Industry body guideline updates
+      You are scanning for regulatory and compliance developments that affect the
+      {domain} solution domain in the {industry} industry within {region}. Regulatory
+      changes create both compliance obligations and solution opportunities. Every
+      regulatory item must cite the official source or authoritative reporting.
+      Follow these steps in order.
 
-      Format:
-      - Regulatory items (Regulation | Effective Date | Impact | Source)
-      - Customer impact assessment
-      - Opportunity or risk for our solution
-      - Recommended discussion points
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each scanning dimension, assess data richness:
+      - HIGH: compliance requirements documented, industry regulations known, 5+ data points
+      - MEDIUM: partial compliance context, 2-4 known requirements
+      - LOW: no compliance baseline, no regulatory context
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Current Compliance Requirements, Industry Regulatory
+      Landscape, Regional Jurisdiction, Domain-Specific Standards, Customer
+      Compliance Posture.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the scan.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Regulatory frameworks applicable to this industry/region/domain combination
+      - Compliance baseline to establish with the customer
+      - Regulatory monitoring sources to configure (government registers, industry bodies)
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Scan deferred due to insufficient
+      regulatory baseline in {dimensions}. Signal acquisition plan targets
+      re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: REGULATORY DEVELOPMENT COLLECTION
+      Scan for regulatory developments affecting {domain} in {industry}/{region}:
+      - Regulation or standard name
+      - Issuing body (government agency, standards organization, industry body)
+      - Status: ENACTED (in force), EFFECTIVE_SOON (published, effective date
+        approaching), PROPOSED (under review or comment period), ANTICIPATED
+        (expected but not yet published)
+      - Effective date or expected date
+      - Source (official reference, URL)
+      - Primary category: DATA_PRIVACY, CYBERSECURITY, FINANCIAL_REPORTING,
+        OPERATIONAL_RESILIENCE, ENVIRONMENTAL, INDUSTRY_SPECIFIC, CROSS_BORDER
+      - Secondary category(ies): additional categories that apply
+      - Confidence: HIGH (official publication), MEDIUM (proposed or under review),
+        LOW (anticipated based on regulatory signals)
+      If no regulatory developments found, state "No regulatory developments detected
+      for {domain} in {industry}/{region} during the scan period."
+      Deliverable: Regulatory developments table (Regulation | Body | Status | Date |
+      Source | Primary Category | Secondary Category(ies) | Confidence).
+
+      STEP 2: CUSTOMER COMPLIANCE IMPACT
+      For each regulatory development, assess impact on the customer:
+      - Applicability: DIRECT (customer must comply), INDIRECT (affects customer's
+        ecosystem), NOT_APPLICABLE (does not apply to this customer)
+      - Impact severity: HIGH (material compliance obligation or penalty risk),
+        MEDIUM (process or reporting change required), LOW (minor adjustment)
+      - Current customer posture: COMPLIANT, PARTIALLY_COMPLIANT, NON_COMPLIANT,
+        UNKNOWN
+      - Gap description (what the customer needs to do to comply)
+      - Timeline pressure (how soon action is needed)
+      - Confidence in impact assessment: HIGH (clear applicability), MEDIUM
+        (interpretation required), LOW (uncertain applicability)
+      If no developments are applicable to the customer, state "No regulatory
+      developments directly impact this customer."
+      Deliverable: Compliance impact table (Regulation | Applicability | Severity |
+      Current Posture | Gap | Timeline | Confidence).
+
+      STEP 3: SOLUTION POSITIONING OPPORTUNITIES
+      For each applicable regulatory development, identify solution positioning:
+      - How our solution addresses the compliance requirement
+      - Specific capabilities that map to regulatory needs
+      - Primary positioning: COMPLIANCE_ENABLER (directly enables compliance),
+        RISK_REDUCER (reduces compliance risk), EFFICIENCY_DRIVER (makes compliance
+        more efficient), NOT_APPLICABLE
+      - Secondary positioning: additional angles if applicable
+      - Competitor response (how competitors are positioning against this regulation)
+      - Confidence: HIGH (clear capability match), MEDIUM (partial match, requires
+        explanation), LOW (stretch positioning)
+      If no positioning opportunities, state "No regulatory developments create
+      solution positioning opportunities at this time."
+      Deliverable: Positioning table (Regulation | Our Capability | Primary Positioning |
+      Secondary Positioning | Competitor Response | Confidence).
+
+      STEP 4: ACTION RECOMMENDATIONS
+      Based on regulatory scan, produce prioritized discussion points and actions.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (act now, compliance deadline imminent), P1 (this quarter),
+        P2 (next planning cycle)
+      - Owner: role responsible (AE, SA, CSM, legal, compliance)
+      - Prerequisites: what must be true before this action can start
+      - Expected Impact: what outcome this action should produce
+      If no actions warranted, state "No regulatory actions required. Continue
+      routine monitoring."
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this scan's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Compliance posture changes
+      - New risks surfaced or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every regulatory item cites an official source or authoritative reporting
+      - Regulatory items include primary + secondary category classification
+      - Applicability assessments distinguish DIRECT from INDIRECT impact
+      - Compliance impact includes confidence levels
+      - Solution positioning separates capability facts from interpretive positioning
+      - Trend claims (e.g., "regulatory tightening in this area") cite at least two regulatory actions or proposals
+      - Actions include prerequisites and expected impact
+      - No regulations fabricated or details assumed without source verification
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (regulatory frameworks, compliance baseline, monitoring sources, re-assessment date). Skip scanning and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 5 deliverables as labeled sections. Lead with
+      a summary that states: (1) number of regulatory developments found, number
+      directly applicable to customer, and compliance gaps identified, (2) the weakest
+      point or lowest confidence area across all assessments, and (3) the single most
+      urgent action to take next.
 
 # ============================================================================
 # DIGEST GENERATION
+# ============================================================================
+# Full runbook prompts: multi-step with phase gates, deliverable specs,
+# and quality checks. Each step produces a named deliverable.
 # ============================================================================
 digests:
 
   weekly_realm_digest:
     name: "Weekly Realm News Digest"
-    description: "Generate weekly news digest for a realm"
+    description: "Generate weekly news digest for a realm by aggregating, prioritizing, and pattern-detecting across all news categories with source-cited evidence"
     prompt: |
       Context: Realm: {realm_name} ({realm_id})
       Industry: {industry}
       Active nodes: {active_nodes}
       Digest period: {start_date} to {end_date}
       Previous digest highlights: {previous_highlights}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Compile weekly digest:
-      - Aggregate all news from the scan period
-      - Prioritize by relevance and impact
-      - Group by category
-      - Highlight changes from previous digest
-      - Identify emerging patterns
+      You are compiling a weekly intelligence digest for {realm_name}. The digest
+      must aggregate all news from the scan period, prioritize by relevance and
+      impact to active engagements, and surface emerging patterns. The digest is
+      the primary intelligence product consumed by the account team. Every item
+      must cite a source. Follow these steps in order.
 
-      Format:
-      digest:
-        period: "{start_date} to {end_date}"
-        executive_summary: "2-3 sentence overview"
-        high_impact:
-          - headline, date, source, relevance, recommended_action
-        company_news:
-          - headline, date, source, category, relevance_score
-        industry_trends:
-          - headline, date, source, impact_assessment
-        regulatory_updates:
-          - headline, date, source, compliance_impact
-        emerging_patterns:
-          - pattern, evidence, implication
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each digest dimension, assess data richness:
+      - HIGH: scan results available, previous digest available, 5+ active nodes
+      - MEDIUM: partial scan results, 2-4 active nodes
+      - LOW: no scan results, no previous digest baseline
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Scan Results Availability, Previous Digest Baseline,
+      Active Node Coverage, Industry Context, Stakeholder Map.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the digest.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Scans to run before a meaningful digest can be compiled (company, domain, competitor)
+      - Data sources to configure for this realm
+      - Baseline information to gather from the account team
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Digest deferred due to insufficient
+      scan coverage in {dimensions}. Signal acquisition plan targets first digest
+      by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: HIGH-IMPACT ITEMS
+      Identify and detail the highest-impact news items from the digest period:
+      - Headline
+      - Date and source
+      - Primary category: FINANCIAL, LEADERSHIP, STRATEGIC, REGULATORY, PRODUCT,
+        COMPETITIVE
+      - Secondary category(ies): additional categories
+      - Relevance score (1-10) with confidence: HIGH/MEDIUM/LOW and basis
+      - Impact on active engagements (which nodes affected, how)
+      - Recommended action for account team
+      Items scoring 7+ relevance are included. If no items score 7+, state
+      "No high-impact items detected this period" and note whether this is normal
+      or unusual for this realm.
+      Deliverable: High-impact items section (Headline | Date | Source | Primary Category |
+      Secondary Category(ies) | Relevance | Confidence | Impact | Action).
+
+      STEP 2: COMPANY NEWS AGGREGATION
+      Aggregate all company-specific news from the period:
+      - Headline, date, source
+      - Primary category: FINANCIAL, LEADERSHIP, STRATEGIC, REGULATORY, PRODUCT
+      - Secondary category(ies): additional categories
+      - Relevance score (1-10) with confidence
+      - Change from previous digest: NEW (not in previous), UPDATED (status changed),
+        CONTINUING (ongoing story), RESOLVED (issue closed)
+      If no company news found, state "No company news detected for {realm_name}
+      this period."
+      Deliverable: Company news table (Headline | Date | Source | Primary Category |
+      Secondary Category(ies) | Relevance | Confidence | Status vs Previous).
+
+      STEP 3: INDUSTRY TRENDS
+      Aggregate industry-level developments relevant to {realm_name}:
+      - Headline, date, source
+      - Primary category: MARKET_SHIFT, TECHNOLOGY_TREND, REGULATORY_CHANGE,
+        COMPETITIVE_LANDSCAPE, ECONOMIC_INDICATOR
+      - Secondary category(ies): additional categories
+      - Impact assessment for this realm (1-2 sentences)
+      - Confidence: HIGH (multiple sources, quantified), MEDIUM (analyst consensus),
+        LOW (single source or early signal)
+      Trend claims require at least two data points from different sources or dates.
+      If only one data point exists, label as "early signal" not "trend."
+      If no industry trends found, state "No significant industry trends detected
+      this period."
+      Deliverable: Industry trends table (Headline | Date | Source | Primary Category |
+      Secondary Category(ies) | Impact Assessment | Confidence).
+
+      STEP 4: REGULATORY UPDATES
+      Aggregate regulatory developments relevant to this realm:
+      - Regulation name, issuing body, date, source
+      - Status: ENACTED, EFFECTIVE_SOON, PROPOSED, ANTICIPATED
+      - Primary compliance impact: DIRECT, INDIRECT, NOT_APPLICABLE
+      - Secondary impact classification: additional angles
+      - Urgency: IMMEDIATE (deadline within 30 days), UPCOMING (deadline within
+        90 days), MONITOR (longer horizon)
+      - Confidence: HIGH (official publication), MEDIUM (proposed), LOW (anticipated)
+      If no regulatory updates found, state "No regulatory updates detected for
+      this realm's industry/region."
+      Deliverable: Regulatory updates table (Regulation | Body | Date | Source | Status |
+      Primary Impact | Secondary Impact | Urgency | Confidence).
+
+      STEP 5: EMERGING PATTERNS
+      Analyze across all news items to identify emerging patterns:
+      - Pattern description (what recurring theme or direction is emerging)
+      - Evidence count (number of items supporting this pattern, minimum 2 required)
+      - Evidence items (list specific headlines/sources that support the pattern)
+      - Confidence: HIGH (5+ supporting items, clear direction), MEDIUM (3-4 items,
+        probable direction), LOW (2 items, possible pattern)
+      - Implication for engagement strategy
+      - Change from previous digest: NEW, STRENGTHENING, STABLE, WEAKENING
+      Patterns require at least two supporting data points. A single item is a
+      signal, not a pattern.
+      If no patterns emerging, state "No emerging patterns detected across this
+      period's intelligence."
+      Deliverable: Emerging patterns section (Pattern | Evidence Count | Evidence Items |
+      Confidence | Implication | Trend Direction).
+
+      STEP 6: ACTION RECOMMENDATIONS
+      Synthesize all findings into prioritized actions for the account team.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (act now), P1 (this week), P2 (next review cycle)
+      - Owner: role responsible (AE, SA, CSM, leadership)
+      - Prerequisites: what must be true before this action can start
+      - Expected Impact: what outcome this action should produce
+      If no actions warranted, state "No actions required this period. Continue
+      routine monitoring."
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this digest's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks surfaced or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every item has a source citation (name + URL or reference)
+      - Items include primary + secondary category classification
+      - Relevance scores include confidence level and basis
+      - Changes from previous digest are noted (NEW, UPDATED, CONTINUING, RESOLVED)
+      - Emerging patterns cite at least two supporting data points
+      - Trend claims require two data points minimum from different sources or dates
+      - Actions include prerequisites and expected impact
+      - No news items fabricated or sourced from memory
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (scans to run, data sources, baseline info, re-assessment date). Skip aggregation and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 7 deliverables as labeled sections. Lead with
+      a summary that states: (1) total items aggregated, high-impact count, patterns
+      detected, and period comparison, (2) the weakest point or lowest confidence area
+      across all assessments, and (3) the single most urgent action to take next.
 
   weekly_node_digest:
     name: "Weekly Node Market Intelligence Digest"
-    description: "Generate weekly solution-domain digest for a node"
+    description: "Generate weekly solution-domain digest for a node with competitive moves, market signals, analyst insights, and deal-contextualized talking points"
     prompt: |
       Context: Node: {node_name} ({node_id})
       Domain: {domain}
@@ -194,76 +1140,509 @@ digests:
       Active competitors: {competitors}
       Current deal stage: {deal_stage}
       Digest period: {start_date} to {end_date}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Compile node-specific intelligence digest:
-      - Solution domain market developments
-      - Competitor activity relevant to this deal
-      - Technology trends affecting the engagement
-      - Analyst insights and positioning changes
-      - Customer industry developments affecting buying behavior
+      You are compiling a weekly market intelligence digest for the {node_name}
+      engagement in the {domain} solution domain. This digest must connect market
+      developments to the specific deal context, including deal stage, competitive
+      exposure, and customer priorities. Every item must cite a source and be scored
+      for deal relevance. Follow these steps in order.
 
-      Format:
-      digest:
-        period: "{start_date} to {end_date}"
-        executive_summary: "2-3 sentence overview focused on this deal"
-        competitive_moves:
-          - competitor, news, our_response
-        market_signals:
-          - signal, source, implication_for_deal
-        analyst_insights:
-          - analyst, report, key_finding, our_positioning
-        talking_points:
-          - "Customer-ready insight for next meeting"
-        risks_surfaced:
-          - risk, source, recommended_mitigation
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each digest dimension, assess data richness:
+      - HIGH: node profile complete, deal stage known, competitors documented, 5+ data points
+      - MEDIUM: partial node context, 2-4 known parameters
+      - LOW: no node profile, no deal context
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Node Profile, Deal Stage Context, Competitive Landscape,
+      Domain Market Data, Customer Technology Stack.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the digest.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Node context to gather before meaningful intelligence (deal stage, competitors, requirements)
+      - Domain-specific sources to configure for this engagement
+      - Baseline market position to establish before tracking changes
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Digest deferred due to insufficient
+      node context in {dimensions}. Signal acquisition plan targets first digest
+      by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: COMPETITIVE MOVES
+      Aggregate competitor activity relevant to this deal:
+      - Competitor name
+      - Development (what happened)
+      - Date and source
+      - Primary category: PRODUCT, PRICING, PARTNERSHIP, CUSTOMER, LEADERSHIP,
+        ANALYST, FINANCIAL
+      - Secondary category(ies): additional categories
+      - Our recommended response (specific to this deal context)
+      - Deal impact: POSITIVE (creates opening for us), NEGATIVE (strengthens
+        competitor), NEUTRAL (no direct deal impact)
+      - Confidence in deal impact: HIGH/MEDIUM/LOW with basis
+      If no competitive moves detected, state "No competitor developments detected
+      for this deal context this period."
+      Deliverable: Competitive moves table (Competitor | Development | Date | Source |
+      Primary Category | Secondary Category(ies) | Response | Deal Impact | Confidence).
+
+      STEP 2: MARKET SIGNALS
+      Aggregate market signals relevant to this engagement:
+      - Signal description
+      - Source and date
+      - Primary type: ADOPTION_TREND, BUDGET_INDICATOR, TECHNOLOGY_SHIFT,
+        INDUSTRY_EVENT, REGULATORY_SIGNAL
+      - Secondary type(s): additional types
+      - Implication for this deal (1-2 sentences, specific to deal stage and context)
+      - Signal strength: STRONG (multiple sources, quantified), MODERATE (credible
+        but single source), WEAK (indirect or inferential)
+      - Confidence: HIGH/MEDIUM/LOW
+      If no market signals detected, state "No significant market signals detected
+      for {domain} this period."
+      Deliverable: Market signals table (Signal | Source | Date | Primary Type |
+      Secondary Type(s) | Deal Implication | Strength | Confidence).
+
+      STEP 3: ANALYST INSIGHTS
+      Aggregate analyst reports and positioning relevant to this deal:
+      - Analyst firm and report name
+      - Date and source reference
+      - Key finding relevant to this engagement
+      - Our positioning: LEADER, STRONG_PERFORMER, CONTENDER, CHALLENGER,
+        NOT_EVALUATED, IMPROVED, DECLINED
+      - Competitor positioning changes (if any)
+      - Confidence: HIGH (full report), MEDIUM (summary or press), LOW (secondhand)
+      If no analyst insights found, state "No new analyst insights detected for
+      {domain} this period."
+      Deliverable: Analyst insights table (Firm | Report | Date | Key Finding |
+      Our Position | Competitor Changes | Confidence).
+
+      STEP 4: CUSTOMER-READY TALKING POINTS
+      Synthesize across all intelligence to produce deal-relevant talking points:
+      - Talking point (customer-benefit-framed, not vendor-pitch-framed)
+      - Supporting evidence (source and date)
+      - Best used when (meeting type, stakeholder, deal stage)
+      - Primary framing: MARKET_VALIDATION (market moving our direction),
+        RISK_MITIGATION (risks of inaction), COMPETITIVE_DIFFERENTIATION
+        (why us over them), TREND_ALIGNMENT (aligned with industry direction)
+      - Secondary framing: additional angles
+      - Confidence: HIGH (strong evidence), MEDIUM (reasonable inference),
+        LOW (directional only)
+      Aim for 3-5 talking points. Fewer means a quiet market period. More than 5
+      means insufficient prioritization.
+      If no talking points warranted, state "No market-driven talking points
+      recommended this period. Use existing deal-specific positioning."
+      Deliverable: Talking points list (Point | Evidence | Context | Primary Framing |
+      Secondary Framing | Confidence).
+
+      STEP 5: RISKS SURFACED
+      Identify deal risks surfaced by market intelligence:
+      - Risk description (specific to this deal)
+      - Source signal (what market development surfaced this risk)
+      - Severity: HIGH, MEDIUM, LOW
+      - Recommended mitigation
+      - Confidence: HIGH (clear causal link), MEDIUM (probable), LOW (possible)
+      - Prerequisites for mitigation (what must be true before mitigation can start)
+      If no risks surfaced, state "No new deal risks surfaced by market intelligence
+      this period."
+      Deliverable: Risks table (Risk | Source Signal | Severity | Mitigation |
+      Confidence | Mitigation Prerequisites).
+
+      STEP 6: ACTION RECOMMENDATIONS
+      Synthesize all findings into prioritized actions for the deal team.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (act now), P1 (this week), P2 (next review cycle)
+      - Owner: role responsible (AE, SA, CSM, leadership)
+      - Prerequisites: what must be true before this action can start
+      - Expected Impact: what outcome this action should produce
+      If no actions warranted, state "No actions required this period. Continue
+      routine monitoring."
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this digest's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Competitive position changes
+      - New risks surfaced or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every item cites a source with date
+      - Items include primary + secondary category/type classification
+      - Deal impact assessments include confidence levels
+      - Talking points are customer-benefit-framed, not vendor-pitch-framed
+      - Trend claims cite at least two data points from different sources or dates
+      - Risks include mitigation prerequisites
+      - Actions include prerequisites and expected impact
+      - No intelligence items fabricated or sourced from memory
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (node context to gather, domain sources, baseline position, re-assessment date). Skip aggregation and analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 7 deliverables as labeled sections. Lead with
+      a summary that states: (1) competitive moves count, market signals count,
+      analyst insights count, and overall deal impact direction, (2) the weakest
+      point or lowest confidence area across all assessments, and (3) the single
+      most urgent action to take next.
 
 # ============================================================================
 # IMPACT ASSESSMENT
+# ============================================================================
+# Full runbook prompts: multi-step with phase gates, deliverable specs,
+# and quality checks. Each step produces a named deliverable.
 # ============================================================================
 impact:
 
   news_impact_assessment:
     name: "News Impact Assessment"
-    description: "Assess impact of specific news item on engagement"
+    description: "Assess impact of a specific news item on active engagements with multi-dimensional analysis, urgency classification, and role-specific action recommendations"
     prompt: |
       Context: News item: "{headline}"
       Source: {source}
       Date: {date}
       Affected realm: {realm_name}
       Affected nodes: {affected_nodes}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess impact:
-      - What does this mean for the company?
-      - How does it affect our active engagements?
-      - Does it change competitive dynamics?
-      - Does it create urgency or opportunity?
-      - Who on our team needs to know?
+      You are assessing the impact of a specific news event on active engagements.
+      This assessment must be fast (high-impact news is time-sensitive) but rigorous
+      (the account team will act on your conclusions). Separate observable facts
+      from interpretive conclusions and attach confidence to every judgment.
+      Follow these steps in order.
 
-      Format:
-      - Impact level: [CRITICAL|HIGH|MEDIUM|LOW]
-      - Impact summary (2-3 sentences)
-      - Affected nodes and how
-      - Competitive implications
-      - Recommended actions (by role: AE, SA, CSM)
-      - Timeline: When to act
-      - Stakeholders to brief
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each assessment dimension, assess data richness:
+      - HIGH: news item verified, realm profile complete, affected nodes documented
+      - MEDIUM: news item available but realm context partial
+      - LOW: news item reference only, no realm or node context
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: News Item Verification, Realm Context, Node Context,
+      Competitive Context, Stakeholder Map.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Additional context needed to assess this news item meaningfully
+      - Sources to check for verification and background
+      - Account context to gather from the deal team
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
+      context in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: NEWS ITEM VERIFICATION
+      Verify and contextualize the news item:
+      - Headline (verbatim)
+      - Source credibility: TIER_1 (official company announcement, SEC filing),
+        TIER_2 (major media, established analyst), TIER_3 (trade press, blog),
+        TIER_4 (social media, rumor)
+      - Verification status: CONFIRMED (multiple sources or official), REPORTED
+        (single credible source), UNVERIFIED (no corroboration found)
+      - Primary news category: FINANCIAL, LEADERSHIP, STRATEGIC, REGULATORY,
+        PRODUCT, COMPETITIVE
+      - Secondary category(ies): additional categories that apply
+      - Factual summary (what happened, 2-3 sentences, facts only)
+      - Additional sources found (if any, for corroboration)
+      If the news item cannot be verified, flag "UNVERIFIED" and note that all
+      downstream assessments carry reduced confidence.
+      Deliverable: Verification section (Source Credibility | Verification Status |
+      Primary Category | Secondary Category(ies) | Factual Summary | Additional Sources).
+
+      STEP 2: COMPANY IMPACT ANALYSIS
+      Assess what this news means for the affected company:
+      - Strategic implications (how this changes company direction or priorities)
+      - Financial implications (budget, investment, cost structure effects)
+      - Organizational implications (team structure, decision authority, priorities)
+      - Timeline implications (does this accelerate or delay known plans)
+      - Confidence in each implication: HIGH (direct causal link), MEDIUM (probable
+        connection), LOW (speculative inference)
+      Deliverable: Company impact section (Implication Type | Assessment | Confidence).
+
+      STEP 3: ENGAGEMENT IMPACT ANALYSIS
+      Assess impact on each affected engagement node:
+      - Node name
+      - Impact level: CRITICAL (deal at risk or major opportunity created), HIGH
+        (significant change in deal dynamics), MEDIUM (notable but manageable
+        impact), LOW (peripheral effect)
+      - Impact description (specific to this node's deal context)
+      - Deal stage effect (does this change where we are in the sales cycle)
+      - Competitive dynamics effect (does this change our competitive position)
+      - Stakeholder effect (does this change who we need to engage or how)
+      - Confidence: HIGH (clear causal link), MEDIUM (probable), LOW (possible)
+      If no nodes are affected, state "This news item does not directly impact
+      any active engagement nodes."
+      Deliverable: Engagement impact table (Node | Impact Level | Description |
+      Deal Stage Effect | Competitive Effect | Stakeholder Effect | Confidence).
+
+      STEP 4: URGENCY AND TIMELINE
+      Classify the response urgency:
+      - Overall impact level: CRITICAL, HIGH, MEDIUM, LOW
+      - Response window: IMMEDIATE (act within 24 hours), THIS_WEEK (act within
+        5 business days), NEXT_REVIEW (include in next planning cycle),
+        MONITOR (no immediate action, watch for follow-up developments)
+      - Rationale for urgency classification (one sentence)
+      - Who needs to know (specific roles and why)
+      - Briefing priority: URGENT_BRIEFING (schedule within 24h),
+        NEXT_STANDUP (include in next team meeting), DIGEST_INCLUSION
+        (include in next weekly digest)
+      Deliverable: Urgency classification (Impact Level | Response Window | Rationale |
+      Stakeholders to Brief | Briefing Priority).
+
+      STEP 5: ACTION RECOMMENDATIONS
+      Produce role-specific action recommendations:
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (act now), P1 (this week), P2 (next review cycle)
+      - Owner: specific role (AE, SA, CSM, leadership)
+      - Prerequisites: what must be true before this action can start
+      - Expected Impact: what outcome this action should produce
+      Group actions by role for easy delegation.
+      If no actions warranted, state "No immediate actions required. Monitor for
+      follow-up developments."
+      Deliverable: Role-specific action table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this assessment's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks surfaced or existing risks resolved
+      - Deal stage changes
+      - Competitive position changes
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - News item source credibility and verification status assessed
+      - News item includes primary + secondary category classification
+      - Observable facts separated from interpretive conclusions
+      - Confidence levels attached to every impact assessment
+      - Urgency classification includes rationale, not just the label
+      - Actions are role-specific with prerequisites and expected impact
+      - No impact conclusions drawn without citing the causal connection
+      - Trend claims (e.g., "this continues a pattern") cite at least two prior events
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (context needed, sources to check, account context, re-assessment date). Skip impact analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 6 deliverables as labeled sections. Lead with
+      a summary that states: (1) overall impact level, number of nodes affected, and
+      urgency classification, (2) the weakest point or lowest confidence area across
+      all assessments, and (3) the single most urgent action to take next.
 
   trend_pattern_analysis:
     name: "Trend Pattern Analysis"
-    description: "Analyze emerging patterns across multiple news items"
+    description: "Analyze emerging patterns across multiple news items with evidence-based pattern detection, confidence scoring, and strategic response recommendations"
     prompt: |
       Context: Recent news items for {realm_name}:
       {news_items_summary}
       Time period: {period}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Identify patterns:
-      - Are there recurring themes?
-      - Is the company shifting strategy?
-      - Are industry dynamics changing?
-      - What do these patterns mean for our position?
+      You are analyzing multiple news items to detect emerging patterns that
+      individual item analysis would miss. Pattern detection requires discipline:
+      a pattern needs at least two supporting data points from different sources
+      or dates. A single data point is a signal, not a pattern. Correlation is
+      not causation. Follow these steps in order.
 
-      Format:
-      - Patterns identified (Pattern | Evidence Count | Confidence)
-      - Strategic interpretation
-      - Impact on our engagement strategy
-      - Recommended strategic response
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each analysis dimension, assess data richness:
+      - HIGH: 10+ news items, diverse sources, 30+ day span
+      - MEDIUM: 5-9 news items, multiple sources, 14+ day span
+      - LOW: fewer than 5 news items, limited sources, short time span
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: News Item Volume, Source Diversity, Time Span Coverage,
+      Category Coverage, Realm Context.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the analysis.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Additional news items or scans needed to reach pattern-detection threshold
+      - Time period that should be covered for meaningful trend analysis
+      - Data sources to configure for broader coverage
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Analysis deferred due to insufficient
+      data volume in {dimensions}. Signal acquisition plan targets re-assessment
+      by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: NEWS ITEM CATEGORIZATION
+      Categorize all provided news items for pattern analysis:
+      - Item ID (NI-001, NI-002, etc.)
+      - Headline summary
+      - Date
+      - Source
+      - Primary category: FINANCIAL, LEADERSHIP, STRATEGIC, REGULATORY, PRODUCT,
+        COMPETITIVE, MARKET
+      - Secondary category(ies): additional categories
+      - Sentiment: POSITIVE (favorable development), NEGATIVE (unfavorable),
+        NEUTRAL (informational), MIXED (contains both positive and negative elements)
+      - Key entities mentioned (companies, people, products, regulations)
+      If fewer than 5 items are available, note that pattern detection reliability
+      is reduced and flag all patterns as LOW confidence.
+      Deliverable: Categorized items table (ID | Headline | Date | Source |
+      Primary Category | Secondary Category(ies) | Sentiment | Key Entities).
+
+      STEP 2: PATTERN DETECTION
+      Analyze across categorized items to identify recurring themes or directional shifts:
+      - Pattern ID (PAT-001, PAT-002, etc.)
+      - Pattern description (what recurring theme or direction is emerging)
+      - Supporting evidence (list specific Item IDs that support this pattern,
+        minimum 2 required)
+      - Evidence count (number of items supporting this pattern)
+      - Primary pattern type: STRATEGY_SHIFT (company changing direction),
+        MARKET_CONSOLIDATION (M&A, partnerships reducing players),
+        TECHNOLOGY_TRANSITION (adoption of new approaches), REGULATORY_TIGHTENING
+        (increasing compliance requirements), COMPETITIVE_REPOSITIONING
+        (competitors changing strategy), ORGANIZATIONAL_RESTRUCTURING
+        (leadership and structural changes)
+      - Secondary pattern type(s): additional types
+      - Confidence: HIGH (5+ supporting items, clear direction, diverse sources),
+        MEDIUM (3-4 items, probable direction), LOW (2 items, possible pattern)
+      - Direction: ACCELERATING (pattern strengthening over time),
+        STABLE (consistent presence), DECELERATING (pattern weakening),
+        EMERGING (too early to determine direction)
+      Patterns require at least two supporting data points from different sources
+      or dates. Reject patterns supported by a single item.
+      If no patterns detected, state "No patterns detected across the provided
+      news items. Individual items should be assessed independently."
+      Deliverable: Pattern table (ID | Description | Supporting Items | Evidence Count |
+      Primary Type | Secondary Type(s) | Confidence | Direction).
+
+      STEP 3: STRATEGIC INTERPRETATION
+      For each detected pattern, provide strategic interpretation:
+      - What is the company likely doing and why (based on evidence, not speculation)
+      - Alternative interpretations (what else could explain this pattern)
+      - Implications for the industry landscape
+      - Timeline: how quickly is this pattern likely to play out
+
+      Separate observable conclusions from interpretive assessments:
+      Observable (facts): what the evidence directly shows
+      Interpretive (with confidence): what the evidence likely means
+      - Confidence in interpretation: HIGH (pattern is clear and has historical
+        precedent), MEDIUM (pattern is plausible but could have other explanations),
+        LOW (interpretation is speculative)
+      If no patterns were detected in Step 2, skip this step.
+      Deliverable: Strategic interpretation (Pattern ID | Observable Conclusion |
+      Interpretive Assessment | Alternative Interpretation | Timeline | Confidence).
+
+      STEP 4: ENGAGEMENT IMPACT
+      For each pattern, assess impact on our engagement:
+      - Affected engagement areas (which nodes, deal stages, relationships)
+      - Impact type: ACCELERATOR (creates urgency or opportunity),
+        BLOCKER (creates obstacle), NEUTRAL (informational only)
+      - Magnitude: HIGH, MEDIUM, LOW
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      If no patterns impact our engagement, state "Detected patterns do not
+      materially impact current engagement strategy."
+      Deliverable: Engagement impact table (Pattern ID | Affected Areas |
+      Impact Type | Magnitude | Confidence | Basis).
+
+      STEP 5: STRATEGIC RESPONSE RECOMMENDATIONS
+      For each pattern that impacts our engagement, recommend a strategic response.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Priority: P0 (act now), P1 (this week), P2 (next review cycle)
+      - Owner: role responsible (AE, SA, CSM, leadership)
+      - Prerequisites: what must be true before this action can start
+      - Expected Impact: what outcome this action should produce
+      If no strategic responses warranted, state "No strategic responses required.
+      Continue monitoring for pattern development."
+      Deliverable: Strategic response table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this analysis's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks surfaced or existing risks resolved
+      - Pattern-based signals to append to recent history
+      - Strategic position changes
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every pattern cites at least two supporting data points from different sources or dates
+      - Single-item observations are labeled "signal" not "pattern"
+      - Items include primary + secondary category classification
+      - Observable facts separated from interpretive conclusions
+      - Alternative interpretations considered for each pattern
+      - Confidence levels attached to every pattern and interpretation
+      - Correlation is not assumed to be causation
+      - Actions include prerequisites and expected impact
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (additional items needed, time period, data sources, re-assessment date). Skip pattern analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 6 deliverables as labeled sections. Lead with
+      a summary that states: (1) number of items analyzed, patterns detected, and
+      highest-confidence pattern, (2) the weakest point or lowest confidence area
+      across all assessments, and (3) the single most urgent action to take next.

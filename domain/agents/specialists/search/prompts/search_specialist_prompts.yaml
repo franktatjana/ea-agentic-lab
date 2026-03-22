@@ -1,192 +1,1237 @@
 # Search Specialist Prompts
-# Reusable prompt templates for search specialist tasks
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
+# Purpose: Full runbook prompts for search specialist tasks
+# Format: Multi-step with input gates, named deliverables, confidence metadata,
+# state deltas, and quality checks per runbook design principles
 
 prompts:
   # =============================================================================
   # SEARCH ARCHITECTURE PROMPTS
   # =============================================================================
   design_search_architecture:
-    description: "Design search architecture for customer use case"
+    description: "Design search architecture for customer use case with quantified trade-offs, scaling plan, and relevance strategy"
     template: |
-      As a Search Specialist, design the search architecture for:
+      Context: Designing search architecture for {account_name}.
+      Use case: {use_case}
+      Content type: {content_type}
+      Query patterns: {query_patterns}
+      Scale requirements: documents={document_count}, QPS={qps}, latency={latency_ms}ms
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Use Case:** {use_case}
-      **Content Type:** {content_type}
-      **Query Patterns:** {query_patterns}
-      **Scale Requirements:**
-      - Documents: {document_count}
-      - Queries per second: {qps}
-      - Latency requirement: {latency_ms}ms
+      You are producing a search architecture recommendation that the SA and customer
+      can evaluate against alternatives. Every design decision must state what it
+      optimizes for and what it sacrifices. Follow these steps in order.
 
-      Provide:
-      1. **Architecture Overview** - High-level design
-      2. **Index Design** - Schema, analyzers, mappings
-      3. **Query Strategy** - How queries will be processed
-      4. **Relevance Approach** - Ranking and tuning strategy
-      5. **Scaling Considerations** - How to grow
-      6. **Trade-offs** - What we're optimizing for and what we're sacrificing
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each design dimension, assess data richness:
+      - HIGH: concrete numbers, benchmarks, or measured traffic patterns (5+ data points)
+      - MEDIUM: estimates with some basis (2-4 data points)
+      - LOW: no direct data, assumptions only
+      Dimensions to assess: Query Patterns, Content Profile, Scale Numbers, Latency Targets, Relevance Criteria.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the architecture.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask in next 2-3 interactions (targeted at highest-leverage data gaps)
+      - Data sources to request access to (query logs, content samples, traffic dashboards)
+      - Observation checklist for implicit signals in upcoming interactions
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: ARCHITECTURE OVERVIEW
+      Produce a high-level architecture covering:
+      - Component topology (ingestion, indexing, query, ranking, caching layers)
+      - Data flow from source to search result
+      - Technology candidates with rationale
+      - Primary classification of architecture style: real-time, batch, hybrid, federated
+      - Secondary flags if applicable (e.g., primarily real-time but also federated across sources)
+      For each technology recommendation, state confidence:
+      - HIGH: proven at comparable scale with this content type
+      - MEDIUM: proven technology but unvalidated at stated scale or content type
+      - LOW: emerging technology or untested combination
+      Empty state: if content type or query patterns are unknown, state "architecture assumes
+      generic document search, revisit when content profile is available" and proceed with
+      general-purpose design.
+      Deliverable: Architecture diagram description + component list (Component | Purpose | Technology | Confidence | Alternatives Considered).
+
+      STEP 2: INDEX DESIGN
+      Design the index structure:
+      - Schema definition (fields, types, analyzers per field)
+      - Text analysis chain (tokenizers, filters, normalizers) with rationale
+      - Multi-field strategy (same content indexed differently for different query types)
+      - Nested/object handling for relationships
+      - Shard and replica strategy based on scale requirements
+      For each analyzer choice, state what query pattern it serves and what it cannot handle.
+      Empty state: if sample documents are unavailable, design a minimal schema with
+      extension points and flag "schema requires validation against real documents."
+      Deliverable: Index schema specification (Field | Type | Analyzer | Serves Query Pattern | Limitations).
+
+      STEP 3: QUERY STRATEGY
+      Define how queries are processed:
+      - Query parsing and understanding pipeline
+      - Query classification (navigational, informational, transactional, faceted)
+        with primary + secondary classification for ambiguous queries
+      - Query expansion and synonym handling
+      - Spell correction and fuzzy matching approach
+      - Filter and facet strategy
+      - Caching strategy with invalidation rules
+      For each pipeline stage, state latency budget allocation from total {latency_ms}ms.
+      Deliverable: Query pipeline specification (Stage | Purpose | Latency Budget | Configuration | Fallback if Stage Fails).
+
+      STEP 4: RELEVANCE APPROACH
+      Define the ranking strategy:
+      - Base scoring model (BM25, TF-IDF, learned ranking)
+      - Boosting factors with weights and justification
+      - Personalization approach if applicable
+      - A/B testing framework for relevance changes
+      - Relevance metrics and targets (NDCG, MRR, precision@k with target values)
+      Confidence on each metric target:
+      - HIGH: based on comparable implementation data (cite source or prior engagement)
+      - MEDIUM: based on industry benchmarks
+      - LOW: aspirational target without supporting data
+      Empty state: if success definition is unavailable, propose default metrics with
+      industry benchmarks and flag "relevance targets require stakeholder validation."
+      Deliverable: Relevance model specification (Factor | Weight | Justification | Confidence) + metrics table (Metric | Target | Basis | Confidence).
+
+      STEP 5: SCALING CONSIDERATIONS
+      Plan for growth:
+      - Horizontal scaling approach (sharding strategy, rebalancing)
+      - Vertical scaling limits and triggers
+      - Performance degradation profile (what breaks first at 2x, 5x, 10x scale)
+      - Cost scaling curve (linear, sublinear, superlinear with inflection points)
+      - Capacity planning milestones with action triggers
+      Trend claims require two data points: if only current scale is known, state
+      "growth trajectory unknown, scaling plan based on {document_count} baseline only"
+      rather than assuming growth rate.
+      Deliverable: Scaling plan (Milestone | Trigger | Action | Cost Impact | Risk).
+
+      STEP 6: TRADE-OFF MATRIX
+      Summarize architectural trade-offs:
+      - What this design optimizes for (with quantified targets)
+      - What this design sacrifices (with quantified impact)
+      - Alternative approaches considered and why they were rejected
+      - Conditions under which this design should be revisited
+      Each trade-off entry: primary category (PERFORMANCE, COST, COMPLEXITY, RELEVANCE, OPERABILITY)
+      with secondary flags where applicable.
+      Deliverable: Trade-off matrix (Decision | Optimizes For | Sacrifices | Revisit When | Category).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks identified or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every technology recommendation includes confidence level with basis
+      - Latency budget across query pipeline stages sums to <= {latency_ms}ms
+      - Trade-off matrix covers at least PERFORMANCE, COST, and RELEVANCE dimensions
+      - Scaling plan includes quantified triggers, not vague "when needed" thresholds
+      - Index schema links each analyzer to a specific query pattern
+      - Relevance metrics include target values with confidence levels
+      - Trend claims cite two data points or state INSUFFICIENT DATA
+      - Classifications use primary + secondary flags where applicable
+      - Empty states handled explicitly per step (no silent gaps, no fabricated data)
+      - Account state delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip design steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the recommended architecture style and its
+      highest-confidence strengths, (2) the weakest point or lowest confidence area
+      across all design dimensions, and (3) the single most urgent action to validate
+      the design before implementation begins.
 
   assess_search_requirements:
-    description: "Assess and structure search requirements"
+    description: "Assess and structure search requirements with gap analysis, query taxonomy, and prioritized clarification plan"
     template: |
-      As a Search Specialist, analyze the following search requirements:
+      Context: Assessing search requirements for {account_name}.
+      Business context: {business_context}
+      Stated requirements: {requirements}
+      Current state: {current_state}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Business Context:** {business_context}
-      **Stated Requirements:**
-      {requirements}
+      You are translating business needs into structured search requirements that
+      an implementation team can act on. Stated requirements often conflate needs
+      with solutions, so your job is to separate the two and identify gaps.
+      Follow these steps in order.
 
-      **Current State:**
-      {current_state}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Provide:
-      1. **Requirements Analysis** - What are they really asking for?
-      2. **Query Types** - Categorize expected query patterns
-      3. **Relevance Expectations** - What does "good" look like?
-      4. **Technical Considerations** - Challenges and constraints
-      5. **Clarifying Questions** - What we need to understand better
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data
+      - DEFER: 2+ required inputs ABSENT, STOP. Produce:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Dimensions to assess: Business Context, User Personas, Query Patterns, Content Corpus, Performance Expectations.
+      For each, rate data richness: HIGH / MEDIUM / LOW.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Produce signal acquisition plan: questions, data sources to request, observation checklist, re-assessment date.
+      Do not proceed to remaining steps.
+
+      STEP 1: REQUIREMENTS ANALYSIS
+      For each stated requirement:
+      - Restate in user-need language (what the user wants to accomplish, not how)
+      - Classify: primary category (FUNCTIONAL, PERFORMANCE, RELEVANCE, OPERATIONAL, COMPLIANCE)
+        with secondary flags where applicable
+      - Priority: MUST / SHOULD / COULD with stakeholder attribution
+      - Feasibility assessment (confidence: HIGH/MEDIUM/LOW with basis)
+      - Hidden assumptions (what the requirement takes for granted)
+      Separate genuine requirements from solution preferences (e.g., "we need Elasticsearch"
+      is a solution preference, "we need sub-100ms autocomplete" is a requirement).
+      Empty state: if no requirements are stated, produce a requirements elicitation
+      plan based on business context and flag "no stated requirements, plan is inference-based."
+      Deliverable: Requirements table (ID | Stated | Restated Need | Category | Secondary Flags | Priority | Feasibility | Confidence | Assumptions).
+
+      STEP 2: QUERY TYPE TAXONOMY
+      Categorize expected query patterns:
+      - Query type (keyword, phrase, natural language, structured filter, autocomplete, faceted browse)
+      - Expected volume distribution (% of total queries per type)
+      - Complexity (simple term match, multi-field, nested, aggregation-dependent)
+      - Latency expectation per type
+      - Example queries per type (minimum 3 each, or flag as "examples needed")
+      For volume distribution estimates, state confidence:
+      - HIGH: based on query log analysis
+      - MEDIUM: based on comparable systems or user research
+      - LOW: assumption without supporting data
+      Empty state: if no query examples exist, derive likely patterns from business context
+      and flag "query taxonomy is projected, validate with query log sample."
+      Deliverable: Query taxonomy table (Type | Volume % | Confidence | Complexity | Latency Target | Examples).
+
+      STEP 3: RELEVANCE EXPECTATIONS
+      Define what "good results" means for this use case:
+      - Success criteria per query type (first result correct, top-3 relevant, comprehensive recall)
+      - Failure modes to avoid (false positives, missing results, stale results, wrong ranking)
+      - Tolerance for precision vs. recall trade-off per use case
+      - Stakeholder-specific definitions (end user vs. admin vs. analyst may differ)
+      Each criterion: confidence level (HIGH if validated with stakeholders, MEDIUM if
+      inferred from use case, LOW if assumed).
+      Empty state: if success criteria are undefined, propose defaults from industry
+      benchmarks and flag "relevance expectations require stakeholder sign-off."
+      Deliverable: Relevance criteria table (Query Type | Success Criterion | Failure Mode | P/R Bias | Stakeholder | Confidence).
+
+      STEP 4: TECHNICAL CONSTRAINTS AND RISKS
+      Identify technical factors that constrain the solution:
+      - Content volume and growth rate (trend claims require two data points or state INSUFFICIENT DATA)
+      - Update frequency and freshness requirements
+      - Integration constraints (existing systems, APIs, data pipelines)
+      - Security and compliance requirements (PII handling, access control, audit logging)
+      - Infrastructure constraints (cloud provider, region, budget)
+      For each constraint, classify risk:
+      - Primary: TECHNICAL, OPERATIONAL, COMPLIANCE, COST
+      - Secondary flags where applicable
+      - Impact if not addressed (confidence: HIGH/MEDIUM/LOW)
+      Empty state: if current state is unknown, flag "constraints are assumed from
+      business context, validate with infrastructure team."
+      Deliverable: Constraints and risks table (Constraint | Category | Secondary Flags | Impact | Confidence | Mitigation).
+
+      STEP 5: CLARIFICATION PLAN
+      Produce a prioritized list of questions that must be answered before design begins:
+      - Question (specific, not open-ended)
+      - Why it matters (what design decision it unlocks)
+      - Who can answer it (role or system)
+      - Priority: BLOCKING (cannot design without it) / IMPORTANT (affects quality) / NICE-TO-HAVE
+      - Prerequisites: what must be true before this question can be answered
+      Rank by priority descending, then by expected effort to answer ascending.
+      Deliverable: Clarification plan (Priority | Question | Unlocks | Owner | Prerequisites | Effort).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks identified or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every requirement has been restated in user-need language, not solution language
+      - Solution preferences separated from genuine requirements
+      - Query taxonomy includes volume distribution with confidence levels
+      - Relevance criteria defined per query type, not generically
+      - Constraints include security and compliance dimensions
+      - Clarification plan items ranked and include prerequisites
+      - Trend claims cite two data points or state INSUFFICIENT DATA
+      - Classifications use primary + secondary flags
+      - Empty states handled explicitly per step
+      - Account state delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan. Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the requirements maturity level and how many
+      requirements are actionable vs. need clarification, (2) the weakest area or
+      biggest gap in the requirements, and (3) the single most urgent clarification
+      to resolve before design can begin.
 
   # =============================================================================
   # RELEVANCE TUNING PROMPTS
   # =============================================================================
   analyze_relevance:
-    description: "Analyze search relevance issues"
+    description: "Diagnose search relevance problems with root cause analysis, fix recommendations, and measurable improvement targets"
     template: |
-      As a Search Specialist, analyze the relevance problem:
+      Context: Analyzing relevance issues for {account_name}.
+      Symptom: {symptom}
+      Example queries: {example_queries}
+      Expected results: {expected_results}
+      Actual results: {actual_results}
+      Current configuration: {current_config}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Symptom:** {symptom}
-      **Example Queries:** {example_queries}
-      **Expected Results:** {expected_results}
-      **Actual Results:** {actual_results}
+      You are diagnosing why search results do not meet expectations. The output must
+      give the implementation team specific, testable fixes, not general advice.
+      Every recommendation must predict a measurable improvement. Follow these steps in order.
 
-      **Current Configuration:**
-      {current_config}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      Provide:
-      1. **Root Cause Analysis** - Why is relevance poor?
-      2. **Specific Issues** - Detailed problem identification
-      3. **Recommended Fixes** - Configuration or design changes
-      4. **Testing Approach** - How to validate improvements
-      5. **Expected Impact** - What improvement to expect
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data
+      - DEFER: 2+ required inputs ABSENT, STOP. Produce:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Dimensions to assess: Query Examples, Expected Results, Actual Results, Configuration, Historical Relevance Metrics.
+      For each, rate data richness: HIGH / MEDIUM / LOW.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Produce signal acquisition plan: specific query-result pairs to collect, relevance
+      judgment guidelines, metrics to capture, re-assessment date.
+      Do not proceed to remaining steps.
+
+      STEP 1: ROOT CAUSE ANALYSIS
+      For each example query, trace the relevance failure:
+      - What happened (observed behavior)
+      - What should have happened (expected behavior)
+      - Where in the pipeline the failure occurs (indexing, analysis, query parsing,
+        scoring, boosting, filtering, re-ranking)
+      - Root cause classification: primary category (ANALYSIS, SCORING, BOOSTING,
+        FILTERING, DATA_QUALITY, SCHEMA, QUERY_PARSING) with secondary flags
+      - Evidence supporting the diagnosis (specific field values, scoring explanations,
+        analyzer output)
+      Confidence per diagnosis:
+      - HIGH: reproducible with explain API or analyzer output
+      - MEDIUM: inferred from result patterns
+      - LOW: hypothesis requiring testing
+      Empty state: if current configuration is unavailable, state "root cause analysis
+      is hypothesis-based, validate with explain API output" and proceed with observable
+      symptoms only.
+      Deliverable: Root cause table (Query | Symptom | Pipeline Stage | Root Cause | Category | Secondary Flags | Evidence | Confidence).
+
+      STEP 2: ISSUE INVENTORY
+      Consolidate root causes into distinct issues:
+      - Issue description (specific, not generic)
+      - Affected query types (which patterns are impacted)
+      - Severity: CRITICAL (results are wrong), MAJOR (results are poor), MINOR (results could be better)
+      - Scope: percentage of queries likely affected (confidence: HIGH/MEDIUM/LOW)
+      - Interdependencies: does fixing this issue affect other issues positively or negatively
+      Rank by severity descending, then scope descending.
+      Empty state: if only one query example is available, state "issue scope cannot be
+      assessed from single example, generalization confidence is LOW."
+      Deliverable: Issue inventory (ID | Issue | Affected Query Types | Severity | Scope | Scope Confidence | Dependencies).
+
+      STEP 3: FIX RECOMMENDATIONS
+      For each issue, provide a specific fix:
+      - Configuration change (exact setting, old value, new value)
+      - Schema change (field mapping modifications)
+      - Query change (query structure or parameter adjustments)
+      - Data change (content enrichment, cleanup, or re-indexing)
+      For each fix:
+      - Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      - Predicted improvement: metric, current value, target value (confidence: HIGH/MEDIUM/LOW)
+      - Risk of the fix (what could break or degrade)
+      - Rollback plan (how to revert if the fix causes regression)
+      Prerequisites must specify what must be true before the fix can be applied
+      (e.g., "staging environment available," "query log baseline captured").
+      Deliverable: Fix plan table (Priority | Issue ID | Action | Owner | Timeline | Prerequisites | Expected Impact | Risk | Rollback).
+
+      STEP 4: TESTING APPROACH
+      Define how to validate each fix:
+      - Test query set (minimum 10 queries covering affected patterns)
+      - Relevance judgments (expected results per query with graded relevance)
+      - Metrics to capture (NDCG@k, precision@k, MRR, recall)
+      - Baseline measurement (before fix)
+      - Success threshold per metric
+      - A/B testing plan if applicable (traffic split, duration, statistical significance threshold)
+      Trend claims: any "improvement" assessment requires before and after measurements.
+      State "baseline not yet captured" if pre-fix metrics are unavailable.
+      Deliverable: Test plan (Query Set | Metrics | Baseline | Success Threshold | A/B Plan).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks identified or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every root cause includes pipeline stage and evidence
+      - Fix recommendations include exact configuration changes, not vague "tune boosting"
+      - Each fix has predicted improvement with confidence level
+      - Each fix has prerequisites and rollback plan
+      - Testing approach includes baseline requirement (no "improvement" without before/after)
+      - Trend claims cite two data points or state INSUFFICIENT DATA
+      - Issue classifications use primary + secondary flags
+      - Empty states handled explicitly per step
+      - Account state delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority fix with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (query-result pairs to collect, judgment guidelines, metrics to capture). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the number of distinct issues found and the
+      most impactful root cause, (2) the lowest confidence diagnosis or biggest data gap,
+      and (3) the single most urgent fix to apply first with its expected impact.
 
   design_relevance_strategy:
-    description: "Design relevance strategy for search use case"
+    description: "Design relevance strategy with scoring model, boosting factors, personalization approach, and measurable testing framework"
     template: |
-      As a Search Specialist, design the relevance strategy for:
+      Context: Designing relevance strategy for {account_name}.
+      Use case: {use_case}
+      Query types: {query_types}
+      Success definition: {success_definition}
+      Available signals: {available_signals}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Use Case:** {use_case}
-      **Query Types:**
-      {query_types}
+      You are designing how search results get ranked and how relevance will be
+      measured and improved over time. The strategy must be testable from day one,
+      not aspirational. Follow these steps in order.
 
-      **Success Definition:**
-      {success_definition}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      **Available Signals:**
-      {available_signals}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data
+      - DEFER: 2+ required inputs ABSENT, STOP. Produce:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Provide:
-      1. **Relevance Model** - How to score and rank results
-      2. **Boosting Strategy** - What factors to boost/bury
-      3. **Query Understanding** - How to interpret user intent
-      4. **Personalization** - If/how to personalize
-      5. **Testing Framework** - How to measure relevance
-      6. **Iteration Plan** - How to improve over time
+      Dimensions to assess: Query Types, Success Definition, Available Signals, User Behavior Data, Content Metadata Quality.
+      For each, rate data richness: HIGH / MEDIUM / LOW.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Produce signal acquisition plan: behavioral data to collect, A/B infrastructure
+      to set up, relevance judgment guidelines to create, re-assessment date.
+      Do not proceed to remaining steps.
+
+      STEP 1: RELEVANCE MODEL DESIGN
+      Define the scoring and ranking approach:
+      - Base scoring model (BM25, TF-IDF, learned ranking, vector similarity, hybrid)
+      - Rationale for model selection (confidence: HIGH/MEDIUM/LOW with basis)
+      - Score composition: how multiple signals combine (weighted sum, cascade, learned)
+      - Tie-breaking strategy for equal scores
+      - Query-type-specific variations (different ranking for autocomplete vs. full search)
+      Empty state: if query types are unknown, design for general-purpose text ranking
+      and flag "model selection assumes keyword search, revisit when query taxonomy exists."
+      Deliverable: Relevance model specification (Component | Approach | Rationale | Confidence | Query Types Served).
+
+      STEP 2: BOOSTING AND SIGNAL STRATEGY
+      Define what factors influence ranking beyond text relevance:
+      - Boost factors with weights and justification for each
+        (recency, popularity, authority, completeness, freshness)
+      - Bury factors (what signals push results down)
+      - Signal sources (where each factor's data comes from)
+      - Signal freshness (how often each signal updates, staleness risk)
+      For each factor:
+      - Classification: primary (CONTENT, BEHAVIORAL, TEMPORAL, AUTHORITY, CONTEXTUAL)
+        with secondary flags
+      - Weight recommendation with confidence (HIGH: A/B tested, MEDIUM: based on
+        comparable systems, LOW: initial hypothesis)
+      - Risk if over-weighted or under-weighted
+      Empty state: if available signals list is empty, propose minimum viable signal
+      set and flag "boosting strategy based on assumed signals, validate availability."
+      Deliverable: Boosting matrix (Factor | Category | Secondary Flags | Weight | Source | Freshness | Confidence | Over-weight Risk | Under-weight Risk).
+
+      STEP 3: QUERY UNDERSTANDING
+      Define how user intent is interpreted:
+      - Intent classification approach (rule-based, ML, hybrid)
+      - Synonym and expansion handling
+      - Spell correction strategy
+      - Query segmentation for multi-concept queries
+      - Context signals used for disambiguation (user role, session history, location)
+      For each interpretation technique, state:
+      - Query types it serves
+      - Precision risk (false positives from over-expansion)
+      - Recall risk (missed results from under-expansion)
+      Deliverable: Query understanding pipeline (Technique | Purpose | Query Types | Precision Risk | Recall Risk | Implementation Complexity).
+
+      STEP 4: PERSONALIZATION ASSESSMENT
+      Evaluate whether and how to personalize:
+      - Personalization feasibility (data availability, user base size, privacy constraints)
+      - Recommended approach: none, segment-based, individual, or hybrid
+      - Signals for personalization (click history, role, preferences, session context)
+      - Cold start handling (new users with no history)
+      - Privacy and consent requirements
+      - A/B validation plan for personalization impact
+      Confidence on personalization value:
+      - HIGH: comparable implementation showed measurable lift (cite source)
+      - MEDIUM: user base characteristics suggest benefit
+      - LOW: speculative, recommend testing before investment
+      Empty state: if user behavior data is unavailable, state "personalization deferred,
+      implement behavioral logging first" and specify what to log.
+      Deliverable: Personalization assessment (Approach | Feasibility | Signals | Cold Start | Privacy | Confidence | Validation Plan).
+
+      STEP 5: TESTING AND MEASUREMENT FRAMEWORK
+      Define how relevance will be measured and improved:
+      - Offline metrics (NDCG, MAP, precision@k, recall) with target values
+      - Online metrics (click-through rate, zero-result rate, query abandonment)
+      - Judgment collection process (who judges, how many judgments, inter-rater agreement)
+      - A/B testing infrastructure requirements
+      - Iteration cadence (how often to re-evaluate and tune)
+      - Regression detection (how to catch relevance degradation)
+      For each metric target, state confidence:
+      - HIGH: based on industry benchmarks for comparable use case
+      - MEDIUM: extrapolated from partial data
+      - LOW: aspirational target
+      Trend requirement: any "improving" or "declining" claim about relevance requires
+      at least two measurement points. State "baseline not yet established" if first measurement.
+      Deliverable: Measurement framework (Metric | Type | Target | Confidence | Collection Method | Cadence).
+
+      STEP 6: ITERATION PLAN
+      Define the relevance improvement roadmap:
+      - Phase 1: baseline establishment (what to measure, how long)
+      - Phase 2: initial tuning (highest-impact changes first)
+      - Phase 3: advanced features (learned ranking, personalization)
+      - Phase 4: continuous improvement (feedback loops, automated tuning)
+      For each phase:
+      - Priority | Actions | Owner | Timeline | Prerequisites | Expected Impact
+      Prerequisites must specify what must be true before the phase can begin.
+      Deliverable: Iteration roadmap (Phase | Actions | Prerequisites | Timeline | Expected Impact | Success Criteria).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks identified or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every weight and boost factor includes confidence level with basis
+      - Personalization assessment addresses privacy and consent, not just feasibility
+      - Testing framework includes both offline and online metrics
+      - Iteration plan phases have prerequisites, not just timelines
+      - Trend claims cite two data points or state INSUFFICIENT DATA
+      - Classifications use primary + secondary flags
+      - Empty states handled explicitly per step
+      - Account state delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan. Skip design steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the recommended relevance model and its
+      highest-confidence strengths, (2) the weakest area or lowest confidence factor
+      in the strategy, and (3) the single most urgent action to establish a measurable
+      relevance baseline.
 
   # =============================================================================
   # VECTOR SEARCH PROMPTS
   # =============================================================================
   design_vector_search:
-    description: "Design vector search architecture"
+    description: "Design vector search architecture with embedding strategy, ANN configuration, hybrid approach, and performance benchmarks"
     template: |
-      As a Search Specialist, design the vector search solution:
+      Context: Designing vector search for {account_name}.
+      Use case: {use_case}
+      Content type: {content_type}
+      Query type: {query_type}
+      Scale: vectors={vector_count}, dimensions={dimensions}, QPS={qps}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Use Case:** {use_case}
-      **Content Type:** {content_type}
-      **Query Type:** {query_type}
-      **Scale:**
-      - Vectors: {vector_count}
-      - Dimensions: {dimensions}
-      - QPS: {qps}
+      You are designing a vector search solution where semantic understanding matters
+      more than keyword matching. Every model and algorithm choice must justify itself
+      against alternatives with quantified trade-offs. Follow these steps in order.
 
-      Provide:
-      1. **Embedding Strategy** - What embedding model and why
-      2. **Index Configuration** - ANN algorithm and parameters
-      3. **Hybrid Approach** - Combine with keyword search?
-      4. **Query Pipeline** - How queries flow through system
-      5. **Performance Tuning** - Latency vs. accuracy trade-offs
-      6. **Testing Approach** - How to validate quality
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data
+      - DEFER: 2+ required inputs ABSENT, STOP. Produce:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Dimensions to assess: Content Corpus, Query Characteristics, Scale Numbers, Latency Requirements, Accuracy Expectations.
+      For each, rate data richness: HIGH / MEDIUM / LOW.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Produce signal acquisition plan: content samples to collect, query examples to
+      gather, benchmark tests to run, re-assessment date.
+      Do not proceed to remaining steps.
+
+      STEP 1: EMBEDDING STRATEGY
+      Select and justify the embedding approach:
+      - Model candidates (minimum 3, with dimension count, context window, and domain fit)
+      - Selection criteria: domain relevance, multilingual support, max sequence length,
+        inference cost, fine-tuning feasibility
+      - Recommended model with rationale
+      - Fine-tuning assessment: needed or not, data requirements, expected improvement
+      - Embedding generation pipeline: batch vs. real-time, caching strategy, update policy
+      Confidence on model selection:
+      - HIGH: evaluated on representative content samples with quantified results
+      - MEDIUM: benchmarked on similar domain in published evaluations
+      - LOW: selected based on general capability, not domain-tested
+      Empty state: if content samples are unavailable, recommend top-3 candidates with
+      evaluation criteria and flag "model selection requires content sample evaluation."
+      Deliverable: Embedding model comparison (Model | Dimensions | Context Window | Domain Fit | Cost | Confidence) + recommended model with rationale.
+
+      STEP 2: INDEX CONFIGURATION
+      Design the ANN index:
+      - Algorithm selection (HNSW, IVF, PQ, ScaNN, or hybrid) with rationale
+      - Parameter configuration (ef_construction, M, nprobe, etc.) with justification
+      - Recall vs. latency vs. memory trade-off analysis (quantified)
+      - Distance metric selection (cosine, dot product, L2) with rationale
+      - Shard strategy for scale
+      - Index build time and resource requirements
+      For each parameter choice, state:
+      - What it optimizes (recall, latency, or memory)
+      - What it sacrifices
+      - Sensitivity (how much does 2x change affect results)
+      Deliverable: Index configuration spec (Parameter | Value | Optimizes | Sacrifices | Sensitivity) + trade-off matrix (Recall Target | Latency | Memory | Configuration).
+
+      STEP 3: HYBRID SEARCH DESIGN
+      Assess and design keyword + vector combination:
+      - Whether hybrid is needed (justify with query type analysis)
+      - Fusion strategy (reciprocal rank fusion, weighted linear, cascade)
+      - Weight allocation between keyword and vector scores
+      - Query routing: which queries go keyword-only, vector-only, or hybrid
+      - Fallback strategy (if vector search fails or returns low-confidence results)
+      Classification for each query route:
+      - Primary: KEYWORD, VECTOR, HYBRID
+      - Secondary flags for edge cases (e.g., primarily VECTOR but KEYWORD fallback for exact-match terms)
+      Confidence on fusion weights:
+      - HIGH: A/B tested on comparable workload
+      - MEDIUM: based on published benchmarks for similar use case
+      - LOW: initial hypothesis requiring testing
+      Empty state: if query type distribution is unknown, recommend hybrid as default
+      and flag "fusion weights require A/B testing after baseline traffic analysis."
+      Deliverable: Hybrid design spec (Query Route | Strategy | Keyword Weight | Vector Weight | Confidence | Fallback).
+
+      STEP 4: QUERY PIPELINE
+      Define end-to-end query processing:
+      - Query preprocessing (normalization, expansion, embedding generation)
+      - Retrieval stage (ANN search parameters, candidate set size)
+      - Re-ranking stage (cross-encoder, business rules, or none)
+      - Post-processing (deduplication, filtering, grouping)
+      - Latency budget per stage (must sum to <= target QPS latency)
+      For each stage:
+      - Purpose and output
+      - Latency budget allocation
+      - Failure mode and fallback behavior
+      Deliverable: Query pipeline spec (Stage | Purpose | Latency Budget | Output | Failure Mode | Fallback).
+
+      STEP 5: PERFORMANCE BENCHMARKS
+      Define validation approach:
+      - Benchmark dataset requirements (size, representativeness, judgment criteria)
+      - Metrics: recall@k, latency p50/p95/p99, throughput, index memory
+      - Target values per metric with confidence level
+      - Comparison framework (how to evaluate model A vs. model B)
+      - Load testing plan (ramp profile, sustained QPS, burst handling)
+      Trend requirement: any "faster" or "more accurate" claim requires before/after
+      measurements. State "benchmark not yet run" for initial designs.
+      Deliverable: Benchmark plan (Metric | Target | Confidence | Collection Method | Comparison Baseline).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks identified or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Embedding model selection includes at least 3 candidates with comparison
+      - ANN parameters include sensitivity analysis, not just recommended values
+      - Hybrid design justifies fusion strategy with query type analysis
+      - Latency budget across pipeline stages is accounted for
+      - Benchmark plan includes both accuracy and performance metrics
+      - Trend claims cite two data points or state INSUFFICIENT DATA
+      - Classifications use primary + secondary flags
+      - Empty states handled explicitly per step
+      - Account state delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan. Skip design steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the recommended embedding model and index
+      algorithm with their confidence levels, (2) the weakest design area or biggest
+      unknown, and (3) the single most urgent validation step before implementation.
 
   design_rag_system:
-    description: "Design RAG retrieval architecture"
+    description: "Design RAG retrieval architecture with chunking strategy, embedding pipeline, re-ranking, and grounding validation"
     template: |
-      As a Search Specialist, design the RAG retrieval system:
+      Context: Designing RAG retrieval system for {account_name}.
+      Application: {application}
+      Content corpus: {corpus_description}
+      Query characteristics: {query_characteristics}
+      LLM context window: {context_window}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Application:** {application}
-      **Content Corpus:** {corpus_description}
-      **Query Characteristics:** {query_characteristics}
-      **LLM Context Window:** {context_window}
+      You are designing the retrieval layer for a RAG system. The retrieval quality
+      directly determines the LLM output quality: irrelevant chunks produce
+      hallucination, missing chunks produce incomplete answers. Every design decision
+      must be validated against this constraint. Follow these steps in order.
 
-      Provide:
-      1. **Chunking Strategy** - How to split documents
-      2. **Embedding Approach** - Model selection and generation
-      3. **Retrieval Pipeline** - Query processing and retrieval
-      4. **Re-ranking** - How to select best chunks for context
-      5. **Grounding Strategy** - How to ensure accuracy
-      6. **Evaluation Approach** - How to measure RAG quality
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data
+      - DEFER: 2+ required inputs ABSENT, STOP. Produce:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      Dimensions to assess: Content Corpus, Query Characteristics, LLM Constraints, Accuracy Requirements, Content Update Frequency.
+      For each, rate data richness: HIGH / MEDIUM / LOW.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Produce signal acquisition plan: content samples to analyze, query logs to collect,
+      accuracy requirements to define with stakeholders, re-assessment date.
+      Do not proceed to remaining steps.
+
+      STEP 1: CHUNKING STRATEGY
+      Design how documents are split for retrieval:
+      - Chunking method (fixed-size, sentence-based, semantic, hierarchical, document-structure-aware)
+      - Chunk size recommendation with rationale (target tokens, overlap tokens)
+      - Handling of document structure (headers, tables, lists, code blocks)
+      - Metadata preservation per chunk (source, section, page, hierarchy path)
+      - Cross-reference handling (chunks that depend on context from other chunks)
+      For each design choice:
+      - Confidence: HIGH (tested on representative corpus samples), MEDIUM (based on
+        similar content types), LOW (general best practice)
+      - Trade-off: what recall/precision balance it creates
+      Empty state: if corpus samples are unavailable, recommend conservative defaults
+      (512 tokens, 50-token overlap, sentence-boundary-aware) and flag "chunking
+      parameters require validation on real documents."
+      Deliverable: Chunking specification (Parameter | Value | Rationale | Confidence | Trade-off) + document structure handling rules.
+
+      STEP 2: EMBEDDING AND INDEXING
+      Design the embedding pipeline:
+      - Embedding model selection (with comparison against alternatives)
+      - Embedding generation: batch pipeline for corpus, real-time for queries
+      - Index type and configuration (vector database selection, ANN parameters)
+      - Metadata index for hybrid retrieval (keyword + vector)
+      - Update pipeline: how new/changed documents flow through
+      - Storage and cost estimation at current and projected corpus sizes
+      For model selection, classify:
+      - Primary fit: GENERAL_PURPOSE, DOMAIN_SPECIFIC, MULTILINGUAL, CODE
+      - Secondary flags where applicable
+      Confidence on model selection:
+      - HIGH: evaluated on corpus samples with relevance judgments
+      - MEDIUM: model benchmarks align with content type
+      - LOW: general-purpose selection, not domain-validated
+      Deliverable: Embedding pipeline spec (Component | Configuration | Rationale | Confidence) + model comparison table.
+
+      STEP 3: RETRIEVAL PIPELINE
+      Design query processing and retrieval:
+      - Query preprocessing (expansion, decomposition for multi-part questions)
+      - Retrieval strategy (single-pass, multi-pass, iterative refinement)
+      - Candidate set size and retrieval threshold
+      - Hybrid retrieval (keyword + vector fusion, weights, routing)
+      - Multi-query strategies for complex questions (HyDE, query decomposition)
+      - Context assembly: how retrieved chunks are ordered and presented to LLM
+      - Context window budget: how many tokens allocated to retrieved content vs. instructions
+      For each retrieval technique, state:
+      - What query types it handles well
+      - What query types it handles poorly
+      - Confidence level with basis
+      Empty state: if query characteristics are unknown, design for general Q&A retrieval
+      and flag "retrieval strategy assumes single-turn factual questions, revisit for
+      multi-turn or analytical queries."
+      Deliverable: Retrieval pipeline spec (Stage | Technique | Handles Well | Handles Poorly | Confidence | Configuration).
+
+      STEP 4: RE-RANKING AND CONTEXT SELECTION
+      Design the re-ranking and context assembly layer:
+      - Re-ranking model (cross-encoder, ColBERT, LLM-based, or none) with rationale
+      - Re-ranking candidates (how many to re-rank from initial retrieval)
+      - Relevance threshold (minimum score to include in context)
+      - Diversity strategy (avoid redundant chunks consuming context window)
+      - Context ordering (chronological, relevance-descending, source-grouped)
+      - Token budget management (hard limit vs. dynamic based on query complexity)
+      Confidence on re-ranker selection:
+      - HIGH: evaluated on domain-relevant benchmarks
+      - MEDIUM: general benchmarks show strong performance
+      - LOW: selected based on architecture fit, not evaluated
+      Deliverable: Re-ranking specification (Component | Configuration | Rationale | Confidence) + context assembly rules.
+
+      STEP 5: GROUNDING AND ACCURACY
+      Design safeguards against hallucination:
+      - Citation strategy (how LLM output links back to source chunks)
+      - Confidence signaling (how the system indicates low-confidence answers)
+      - Unanswerable detection (when to say "I don't know" vs. attempting an answer)
+      - Fact verification approach (cross-referencing multiple chunks)
+      - Content freshness validation (how to detect and handle stale information)
+      - Guardrails for out-of-scope queries
+      For each safeguard:
+      - Primary category: CITATION, CONFIDENCE, BOUNDARY, FRESHNESS
+      - Secondary flags where applicable
+      - Effectiveness assessment (confidence: HIGH/MEDIUM/LOW)
+      Empty state: if accuracy requirements are undefined, propose conservative defaults
+      (mandatory citation, explicit confidence levels) and flag "grounding thresholds
+      require stakeholder sign-off."
+      Deliverable: Grounding framework (Safeguard | Category | Implementation | Effectiveness | Confidence).
+
+      STEP 6: EVALUATION APPROACH
+      Define how RAG quality will be measured:
+      - Retrieval metrics (recall@k, precision@k, MRR for the retrieval layer)
+      - End-to-end metrics (answer correctness, faithfulness, relevance)
+      - Evaluation dataset requirements (question-answer-context triples)
+      - Automated evaluation pipeline (LLM-as-judge, RAGAS, or custom)
+      - Human evaluation protocol (sampling strategy, judgment guidelines)
+      - Regression detection for ongoing monitoring
+      Trend requirement: any claim about RAG quality "improving" or "degrading" requires
+      two measurement points. State "baseline not yet established" for initial designs.
+      Deliverable: Evaluation framework (Metric | Type | Target | Confidence | Collection Method | Cadence).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks identified or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Chunking strategy addresses document structure, not just token counts
+      - Embedding model compared against at least 2 alternatives
+      - Retrieval pipeline accounts for context window budget
+      - Re-ranking justified with expected improvement over base retrieval
+      - Grounding framework includes citation, confidence, and boundary safeguards
+      - Evaluation framework includes both retrieval and end-to-end metrics
+      - Trend claims cite two data points or state INSUFFICIENT DATA
+      - Classifications use primary + secondary flags
+      - Empty states handled explicitly per step
+      - Account state delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan. Skip design steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the recommended RAG architecture and its
+      strongest design element, (2) the highest hallucination risk area or lowest
+      confidence design choice, and (3) the single most urgent validation step
+      before deploying to users.
 
   # =============================================================================
   # SCHEMA DESIGN PROMPTS
   # =============================================================================
   design_index_schema:
-    description: "Design search index schema"
+    description: "Design search index schema with field mappings, text analysis chains, and migration notes"
     template: |
-      As a Search Specialist, design the index schema for:
+      Context: Designing index schema for {account_name}.
+      Document type: {document_type}
+      Sample document: {sample_document}
+      Search requirements: {search_requirements}
+      Query patterns: {query_patterns}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Document Type:** {document_type}
-      **Sample Document:**
-      ```json
-      {sample_document}
-      ```
+      You are designing the index schema that determines what is searchable, how it
+      is analyzed, and how fast queries execute. Schema mistakes are expensive to fix
+      after indexing begins, so every decision must be justified against query
+      patterns. Follow these steps in order.
 
-      **Search Requirements:**
-      {search_requirements}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      **Query Patterns:**
-      {query_patterns}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data
+      - DEFER: 2+ required inputs ABSENT, STOP. Produce:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Provide:
-      1. **Field Mappings** - Types and analyzers for each field
-      2. **Text Analysis** - Tokenization, filters, normalizers
-      3. **Multi-field Strategy** - How to index same content differently
-      4. **Nested/Object Handling** - Relationship modeling
-      5. **Performance Considerations** - Index size, query speed
-      6. **Migration Notes** - If replacing existing schema
+      Dimensions to assess: Document Structure, Query Patterns, Search Requirements, Scale Projections, Existing Schema (if migration).
+      For each, rate data richness: HIGH / MEDIUM / LOW.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Produce signal acquisition plan: sample documents to collect, query logs to
+      analyze, requirements to clarify, re-assessment date.
+      Do not proceed to remaining steps.
+
+      STEP 1: FIELD MAPPINGS
+      Design the field structure:
+      - For each document field: field name, type, analyzer, indexed (yes/no), stored (yes/no)
+      - Rationale for type selection (text vs. keyword vs. numeric vs. date vs. geo vs. nested)
+      - Which query patterns each field serves
+      - Fields derived from source data (computed, extracted, enriched)
+      - Fields omitted from indexing with rationale
+      For each field, classify purpose:
+      - Primary: SEARCH (full-text), FILTER (exact match), SORT, AGGREGATE, DISPLAY-ONLY
+      - Secondary flags where applicable (e.g., primarily SEARCH but also FILTER for faceting)
+      Confidence per field mapping:
+      - HIGH: validated against sample documents and query patterns
+      - MEDIUM: inferred from document type, not validated against samples
+      - LOW: assumed, requires sample document validation
+      Empty state: if sample document is unavailable, design schema from requirements
+      only and flag "field mappings require validation against real documents."
+      Deliverable: Field mapping table (Field | Type | Analyzer | Purpose | Secondary Flags | Serves Query Pattern | Confidence | Notes).
+
+      STEP 2: TEXT ANALYSIS CHAINS
+      Design text processing for each searchable field:
+      - Tokenizer selection and configuration
+      - Character filters (HTML strip, pattern replace, mapping)
+      - Token filters (lowercase, stemming, stop words, synonyms, n-grams)
+      - Normalizers for keyword fields
+      - Language-specific considerations
+      For each analysis chain:
+      - What it enables (the query patterns it supports)
+      - What it prevents (the query patterns it breaks or degrades)
+      - Index size impact (estimated growth factor from analysis choices)
+      Empty state: if language requirements are unknown, design for English with
+      extension points and flag "analysis chains assume English, add language-specific
+      analyzers when confirmed."
+      Deliverable: Analysis chain specification (Field | Tokenizer | Char Filters | Token Filters | Enables | Prevents | Size Impact).
+
+      STEP 3: MULTI-FIELD AND RELATIONSHIP STRATEGY
+      Design how complex content is handled:
+      - Multi-field strategy (same content indexed with different analyzers for different query types)
+      - Nested vs. object vs. flattened for hierarchical data
+      - Parent-child relationships (if applicable)
+      - Join strategy across document types (if applicable)
+      - Denormalization decisions with rationale
+      For each relationship choice:
+      - Query patterns it enables
+      - Query patterns it makes impossible or expensive
+      - Performance impact (query latency, index size)
+      - Confidence (HIGH: validated approach, MEDIUM: common pattern, LOW: experimental)
+      Deliverable: Relationship strategy (Relationship | Approach | Enables | Prevents | Performance Impact | Confidence).
+
+      STEP 4: PERFORMANCE CONSIDERATIONS
+      Assess schema impact on performance:
+      - Index size estimation (document count x avg document size x analysis expansion)
+      - Query latency impact per field type and analyzer
+      - Refresh interval recommendation with rationale
+      - Merge policy configuration
+      - Codec selection (if applicable)
+      - Warmup requirements (field data, global ordinals)
+      Trend requirement: any "growth" projection requires two data points or state
+      "growth rate unknown, estimates based on current {document_count} only."
+      Deliverable: Performance assessment (Factor | Impact | Recommendation | Confidence | Revisit When).
+
+      STEP 5: MIGRATION NOTES
+      If replacing or evolving an existing schema:
+      - Breaking changes (fields removed, type changes, analyzer changes)
+      - Backward-compatible changes (new fields, new analyzers on new sub-fields)
+      - Re-indexing requirements and estimated duration
+      - Zero-downtime migration approach (alias-based, dual-write, or blue-green)
+      - Rollback plan with prerequisites
+      For each breaking change:
+      - Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Empty state: if this is a greenfield schema, state "no existing schema to migrate
+      from, section not applicable" and skip.
+      Deliverable: Migration plan (Change | Type | Impact | Migration Approach | Prerequisites | Rollback) or "N/A: greenfield."
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks identified or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every field mapping links to at least one query pattern
+      - Analysis chains document both what they enable and what they prevent
+      - Multi-field strategy justified against specific query type requirements
+      - Performance estimates include index size and query latency impact
+      - Migration plan (if applicable) includes rollback with prerequisites
+      - Trend claims cite two data points or state INSUFFICIENT DATA
+      - Classifications use primary + secondary flags
+      - Empty states handled explicitly per step
+      - Account state delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan. Skip design steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the schema design approach and number of fields
+      with their confidence profile, (2) the highest-risk schema decision or lowest
+      confidence mapping, and (3) the single most urgent validation step before
+      indexing begins.
 
   # =============================================================================
   # MIGRATION PROMPTS
   # =============================================================================
   plan_search_migration:
-    description: "Plan search platform migration"
+    description: "Plan search platform migration with phased approach, schema mapping, relevance parity validation, and rollback strategy"
     template: |
-      As a Search Specialist, plan the migration from:
+      Context: Planning search migration for {account_name}.
+      Source platform: {source_platform}
+      Target platform: {target_platform}
+      Current scale: indexes={index_count}, documents={document_count}, QPS={current_qps}
+      Current architecture: {current_architecture}
+      Migration drivers: {migration_drivers}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      **Source:** {source_platform}
-      **Target:** {target_platform}
-      **Current Scale:**
-      - Indexes: {index_count}
-      - Documents: {document_count}
-      - QPS: {current_qps}
+      You are planning a search platform migration where the primary risk is relevance
+      regression: users expect the same or better results after migration. Every phase
+      must include a relevance validation gate. Follow these steps in order.
 
-      **Current Architecture:**
-      {current_architecture}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what is missing)
+      - ABSENT: no data received
 
-      **Migration Drivers:**
-      {migration_drivers}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT, proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
+        that depends on partial data
+      - DEFER: 2+ required inputs ABSENT, STOP. Produce:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Provide:
-      1. **Migration Strategy** - Approach and phases
-      2. **Schema Migration** - Mapping transformations
-      3. **Data Migration** - How to move data
-      4. **Query Migration** - Query syntax/logic changes
-      5. **Relevance Validation** - Ensure parity or improvement
-      6. **Cutover Plan** - How to switch traffic
-      7. **Rollback Plan** - If things go wrong
+      Dimensions to assess: Source Platform Config, Target Platform Capabilities, Current Query Patterns, Current Relevance Baseline, Migration Drivers.
+      For each, rate data richness: HIGH / MEDIUM / LOW.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP.
+      Produce signal acquisition plan: source platform configs to export, query logs
+      to capture, relevance baseline to establish, re-assessment date.
+      Do not proceed to remaining steps.
+
+      STEP 1: MIGRATION STRATEGY
+      Define the overall approach:
+      - Migration pattern: big bang, parallel run, strangler fig, phased by index
+      - Rationale for pattern selection (risk tolerance, downtime tolerance, team capacity)
+      - Phase definitions with scope, duration, and success criteria per phase
+      - Dependency map between phases
+      - Team and skill requirements per phase
+      Classification of migration complexity:
+      - Primary: SCHEMA (heavy mapping changes), DATA (volume/pipeline challenge),
+        QUERY (syntax/logic translation), RELEVANCE (ranking parity risk), OPERATIONAL (infra/tooling)
+      - Secondary flags where applicable
+      Confidence on timeline:
+      - HIGH: based on comparable migration experience (cite reference)
+      - MEDIUM: estimated from component analysis
+      - LOW: rough estimate, requires proof-of-concept
+      Empty state: if current architecture details are unavailable, state "migration
+      strategy assumes standard deployment, validate against actual architecture."
+      Deliverable: Migration strategy (Phase | Scope | Duration | Dependencies | Success Criteria | Complexity Category | Confidence).
+
+      STEP 2: SCHEMA MIGRATION
+      Map source schema to target platform:
+      - Field-by-field mapping (source field, type, target field, type, transformation)
+      - Analyzer equivalents (source analyzer, target equivalent, behavioral differences)
+      - Feature gaps (source features with no target equivalent, and workarounds)
+      - New capabilities (target features not available in source, worth adopting)
+      For each mapping:
+      - Fidelity: EXACT (same behavior), APPROXIMATE (similar but not identical),
+        WORKAROUND (different approach to achieve same result), GAP (no equivalent)
+      - Risk if fidelity is not EXACT (impact on which query patterns)
+      Deliverable: Schema mapping table (Source Field | Source Type | Target Field | Target Type | Fidelity | Risk | Notes) + analyzer mapping + gap list.
+
+      STEP 3: DATA MIGRATION
+      Plan how data moves between platforms:
+      - Extraction approach from source (API, snapshot, export)
+      - Transformation pipeline (format conversion, enrichment, cleanup)
+      - Loading strategy (bulk indexing, streaming, batch windows)
+      - Data validation (row counts, spot checks, checksum comparison)
+      - Estimated migration duration based on volume and throughput
+      - Incremental sync strategy during parallel-run period
+      For each stage:
+      - Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Prerequisites must be explicit (e.g., "target cluster provisioned and tested,"
+      "transformation scripts validated against 1000-document sample").
+      Deliverable: Data migration plan (Stage | Approach | Duration | Prerequisites | Validation | Risk).
+
+      STEP 4: QUERY MIGRATION
+      Translate query logic between platforms:
+      - Query syntax mapping (source syntax, target equivalent, behavioral differences)
+      - Query API changes (endpoint, authentication, response format)
+      - Feature parity assessment per query type
+      - Performance comparison expectations (latency, throughput)
+      For each query translation:
+      - Fidelity: EXACT, APPROXIMATE, WORKAROUND, GAP
+      - Classification: primary query type (SEARCH, FILTER, AGGREGATE, SUGGEST, AUTOCOMPLETE)
+        with secondary flags
+      - Testing requirement (specific queries to validate)
+      Empty state: if query patterns are undocumented, state "query migration requires
+      query log analysis to identify patterns, recommend 2-week log capture."
+      Deliverable: Query migration table (Source Query Pattern | Target Equivalent | Fidelity | Type | Testing Queries | Risk).
+
+      STEP 5: RELEVANCE VALIDATION
+      Ensure search quality parity or improvement:
+      - Baseline capture: current relevance metrics on source platform
+      - Test query set (representative queries covering all query types)
+      - Relevance judgment set (expected results per query with graded relevance)
+      - Parity criteria: which metrics must match or exceed, which can degrade
+      - Side-by-side comparison methodology
+      - Statistical significance requirements for declaring parity
+      Trend requirement: relevance "improvement" or "degradation" claims require
+      source platform baseline AND target platform measurement. State "baseline not yet
+      captured" if source metrics are unavailable.
+      Deliverable: Relevance validation plan (Metric | Source Baseline | Target Threshold | Parity Criteria | Test Set Size | Significance Level).
+
+      STEP 6: CUTOVER AND ROLLBACK
+      Plan the traffic switch and failure recovery:
+      - Cutover approach (DNS switch, load balancer, application config, feature flag)
+      - Traffic ramp strategy (percentage-based rollout, user segment, geography)
+      - Monitoring during cutover (metrics, alerts, dashboards)
+      - Rollback trigger criteria (specific metrics that trigger automatic or manual rollback)
+      - Rollback procedure (steps, estimated time, data handling)
+      - Post-cutover validation checklist
+      For each rollback trigger:
+      - Metric and threshold
+      - Automatic vs. manual decision
+      - Time to detect and time to rollback
+      - Prerequisites for rollback (e.g., "source platform maintained in sync during parallel run")
+      Deliverable: Cutover plan (Step | Action | Duration | Validation | Rollback Trigger) + rollback procedure (Step | Action | Prerequisites | Duration).
+
+      STEP 7: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New risks identified or existing risks resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every migration phase has success criteria and relevance validation gate
+      - Schema mapping includes fidelity assessment per field, not just type translation
+      - Query migration covers all identified query types with fidelity classification
+      - Relevance validation has statistical significance requirements
+      - Cutover plan includes specific rollback triggers with thresholds
+      - Rollback procedure includes prerequisites and estimated time
+      - Data migration includes validation steps, not just move steps
+      - Trend claims cite two data points or state INSUFFICIENT DATA
+      - Classifications use primary + secondary flags
+      - Empty states handled explicitly per step
+      - Account state delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan. Skip planning steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with an
+      executive summary that states: (1) the recommended migration pattern and overall
+      complexity classification, (2) the highest-risk phase or lowest confidence area
+      in the plan, and (3) the single most urgent prerequisite to address before
+      migration begins.

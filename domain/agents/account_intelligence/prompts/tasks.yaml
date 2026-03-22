@@ -1,6 +1,7 @@
 # ACI Agent Task Prompts
-# Purpose: Task-specific prompts using CAF framework (Context, Action, Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
 # Reference: Personality defined in personalities/aci_personality.yaml
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
 
 # ==============================================================================
 # COMPANY RESEARCH TASKS
@@ -8,45 +9,300 @@
 company_research:
   company_deep_dive:
     name: "Company Deep-Dive Research"
-    description: "Comprehensive company research from public sources"
+    description: "Comprehensive company research from public sources covering business overview, revenue segments, strategic initiatives, and competitive landscape to establish a quantified account profile"
     prompt: |
       Context: You are researching {company_name} (realm: {realm_id}).
       Industry: {industry}, Sub-industry: {sub_industry}.
       Current company profile: {existing_company_profile}
       Source registry: {source_registry} (check before fetching new URLs)
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Conduct deep-dive research on this company.
-      - Search annual reports, 10-K filings, and investor presentations
-      - Extract business description, revenue segments, and geographic breakdown
-      - Identify business lines and their relative revenue contribution
-      - Map strategic initiatives and digital transformation programs
-      - Note any recent M&A activity, partnerships, or restructuring
+      You are building a comprehensive company profile from public sources.
+      This profile becomes the foundation for all downstream account intelligence,
+      opportunity identification, and stakeholder mapping. Every claim must cite
+      a source. Follow these steps in order.
 
-      Format:
-      - company_overview: {founded, hq, employees, revenue, public_private}
-      - business_description: 2-3 paragraph summary
-      - business_lines: [{name, description, revenue_contribution, head}]
-      - strategic_initiatives: [{initiative, timeframe, relevance_to_vendor, status}]
-      - sources_used: [{url, title, date_accessed, type}]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each research dimension, assess data richness:
+      - HIGH: multiple confirmed sources, 5+ data points
+      - MEDIUM: partial data, 2-4 data points
+      - LOW: no direct data, estimates only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Company Overview, Business Lines, Strategic Initiatives,
+      Financial Performance, Competitive Landscape.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the research.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Public data sources to search (SEC filings, press releases, industry reports)
+      - Specific search queries to run per data gap
+      - Observation checklist for signals in upcoming customer interactions
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Research deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: COMPANY OVERVIEW
+      Build the foundational company profile from public sources.
+      For each data point:
+      - Source classification: CONFIRMED (official filing or company page),
+        REPORTED (press, analyst report), INFERRED (derived from other data)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      Data points to extract:
+      - Founded date, headquarters location, ownership (public/private)
+      - Employee count (total and by region if available)
+      - Revenue (annual, latest available, currency)
+      - Market capitalization (if public)
+      - Industry classification (SIC/NAICS codes)
+      - Geographic footprint (regions of operation)
+      If any data point is unavailable, state "NOT FOUND" with search sources attempted.
+      Do not fabricate numbers.
+      Deliverable: Company overview table (Data Point | Value | Source | Confidence).
+
+      STEP 2: BUSINESS LINE ANALYSIS
+      Extract and analyze business segments from annual reports and 10-K filings.
+      For each business line:
+      - Name and description
+      - Revenue contribution (amount and percentage, confidence: HIGH/MEDIUM/LOW)
+      - Growth trajectory: compare at least two periods if data exists.
+        If only one period available, state "INSUFFICIENT DATA" for trend.
+      - Geographic distribution
+      - Strategic focus areas
+      - Head of business line (if publicly identified)
+      - Relevance to vendor engagement (HIGH/MEDIUM/LOW with rationale)
+      Deliverable: Business line table (Name | Revenue | % of Total | Growth Trend |
+      Confidence | Geographic Markets | Relevance | Head).
+
+      STEP 3: STRATEGIC INITIATIVE MAPPING
+      Identify strategic initiatives and transformation programs.
+      For each initiative:
+      - Initiative name and description
+      - Primary category: digital transformation, cost optimization, market expansion,
+        M&A integration, operational excellence, sustainability, innovation
+      - Secondary category(ies): if applicable, list additional categories that also apply
+      - Timeframe (announced date, expected completion)
+      - Investment magnitude if disclosed (confidence: HIGH/MEDIUM/LOW)
+      - Relevance to vendor capabilities (HIGH/MEDIUM/LOW with specific mapping)
+      - Status: ANNOUNCED, IN_PROGRESS, COMPLETED, STALLED (with evidence)
+      If no initiatives are found, state: "No strategic initiatives identified from
+      public sources. Recommend direct discovery in next customer interaction."
+      Deliverable: Strategic initiative table (Initiative | Primary Category |
+      Secondary Category(ies) | Timeframe | Investment | Vendor Relevance | Status | Source | Confidence).
+
+      STEP 4: COMPETITIVE LANDSCAPE
+      Map the competitive and partnership landscape relevant to vendor positioning.
+      For each competitor or partner:
+      - Company name and relationship type (competitor, partner, supplier, customer)
+      - Scope of relationship (which business lines or domains)
+      - Contract status if known (active, expiring, recently signed)
+      - Confidence: HIGH (public announcement), MEDIUM (press report), LOW (inferred)
+      If no competitive intelligence is available, state: "No competitive landscape
+      data found from public sources. Flag for AE discovery."
+      Deliverable: Competitive landscape table (Company | Relationship | Scope |
+      Contract Status | Source | Confidence).
+
+      STEP 5: SOURCE REGISTRY UPDATE
+      Compile all sources used during this research cycle.
+      For each source:
+      - URL, title, publication date, date accessed
+      - Type: annual_report, 10K_filing, press_release, analyst_report,
+        company_website, linkedin, news_article, industry_report
+      - Reliability: PRIMARY (company-issued), SECONDARY (third-party), TERTIARY (aggregator)
+      - Data points sourced from this document
+      Cross-reference against existing source registry to flag new vs. previously known sources.
+      Deliverable: Source registry table (URL | Title | Date | Type | Reliability | Data Points).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - New data points added or existing data corrected
+      - Signals to append to recent history
+      - Data gaps requiring follow-up research
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every data point has a source classification (CONFIRMED, REPORTED, INFERRED)
+      - Revenue and employee figures include confidence levels
+      - Growth trend claims reference at least two data points, or state "INSUFFICIENT DATA"
+      - Strategic initiatives include vendor relevance mapping
+      - Business lines include relevance scoring with rationale
+      - Competitive landscape flags gaps explicitly rather than omitting silently
+      - Source registry is complete with all URLs and access dates
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, search queries, sources to check, observation checklist, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 6 deliverables plus the Data Availability Map
+      as labeled sections. Lead with an executive summary that states: (1) company profile
+      completeness and data richness, (2) the weakest point or lowest confidence area
+      across all research dimensions, and (3) the single most urgent research gap to close.
 
   business_line_analysis:
     name: "Business Line Analysis"
-    description: "Detailed analysis of company revenue segments and business units"
+    description: "Detailed analysis of company revenue segments and business units with vendor relevance scoring, growth trajectory assessment, and engagement opportunity identification"
     prompt: |
       Context: Analyzing business lines for {company_name} (realm: {realm_id}).
       Latest annual report data: {annual_report_data}
       Existing business lines: {existing_business_lines}
+      Vendor product catalog: {vendor_offerings}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Analyze the company's business line structure.
-      - Extract revenue segments from latest financial disclosures
-      - Identify each business line's strategic focus and growth trajectory
-      - Determine geographic distribution per business line
-      - Assess which business lines are most relevant to vendor engagement
+      You are building a detailed view of the company's revenue structure and
+      business units. This analysis drives opportunity identification by revealing
+      which segments are growing, which are relevant to vendor capabilities, and
+      where engagement gaps exist. Follow these steps in order.
 
-      Format:
-      - business_lines: [{id, name, revenue, growth_rate, focus_areas, geographic_markets}]
-      - relevance_assessment: [{business_line_id, relevance_score, reason}]
-      - sources: [{url, title, type}]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each analysis dimension, assess data richness:
+      - HIGH: financial disclosures with segment data, 5+ data points
+      - MEDIUM: partial financials or press-sourced estimates, 2-4 data points
+      - LOW: no segment data, company-level figures only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Revenue Segmentation, Growth Trajectories,
+      Geographic Distribution, Strategic Focus, Leadership Mapping.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the analysis.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Specific filings or reports to locate (10-K segment disclosures, investor day materials)
+      - Questions to ask AE or customer contacts about business unit structure
+      - Proxy indicators to watch (job postings by division, press releases by business unit)
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Analysis deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: REVENUE SEGMENT EXTRACTION
+      Extract revenue segments from latest financial disclosures.
+      For each segment:
+      - Segment name (as reported in filings)
+      - Revenue (amount and currency)
+      - Percentage of total revenue
+      - Source: CONFIRMED (from filing), ESTIMATED (from analyst report), INFERRED
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      If the company does not report segment revenue, state "Segment revenue not
+      disclosed" and note the most granular breakdown available.
+      Deliverable: Revenue segment table (Segment | Revenue | % Total | Source | Confidence).
+
+      STEP 2: GROWTH TRAJECTORY ANALYSIS
+      Assess growth trajectory for each business line.
+      For each line:
+      - Revenue for at least two periods (current and prior year minimum)
+      - Year-over-year growth rate (calculated, not claimed)
+      - Growth classification: ACCELERATING, STABLE, DECELERATING, DECLINING, NEW
+      - If only one data point exists, classify as "INSUFFICIENT DATA" for trend
+      - Strategic investment signals (capex allocation, hiring patterns, M&A in segment)
+      - Confidence: HIGH (multi-year financials), MEDIUM (two data points),
+        LOW (single period only)
+      Deliverable: Growth trajectory table (Business Line | Prior Revenue | Current Revenue |
+      YoY Growth | Classification | Confidence | Investment Signals).
+
+      STEP 3: GEOGRAPHIC AND MARKET DISTRIBUTION
+      Map geographic distribution per business line.
+      For each business line:
+      - Primary markets (regions or countries)
+      - Revenue distribution by geography if disclosed
+      - Expansion signals (new market entries, geographic hiring)
+      If geographic data is unavailable for a segment, state: "Geographic breakdown
+      not disclosed for {segment}. Recommend discovery in next customer interaction."
+      Deliverable: Geographic distribution table (Business Line | Primary Markets |
+      Revenue Split | Expansion Signals | Source | Confidence).
+
+      STEP 4: VENDOR RELEVANCE ASSESSMENT
+      Assess each business line's relevance to vendor engagement.
+      For each business line:
+      - Relevance score: HIGH/MEDIUM/LOW
+      - Primary rationale (which vendor capability maps to which business need)
+      - Secondary rationale(s): additional vendor capabilities that could apply
+      - Current engagement status: ACTIVE, EXPLORING, NOT_ENGAGED, UNKNOWN
+      - Engagement gap: if NOT_ENGAGED or UNKNOWN, describe the opportunity
+      - Recommended entry point (specific use case or initiative)
+      - Confidence: HIGH/MEDIUM/LOW with basis
+      Rank by relevance score descending, then by revenue contribution.
+      Deliverable: Relevance assessment table (Business Line | Relevance | Primary Rationale |
+      Secondary Rationale(s) | Engagement Status | Gap | Entry Point | Confidence).
+
+      STEP 5: ACTION PLAN
+      Based on the analysis, recommend specific actions.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Prerequisites must specify what must be true before the action can start
+      (contact identified, AE alignment, competitive intelligence gathered, etc.).
+      If no actions are warranted, state: "No immediate actions identified.
+      Business line structure is well-understood and engagement coverage is adequate."
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Business lines added, updated, or removed
+      - Relevance scores changed
+      - Data gaps requiring follow-up
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every revenue figure has source classification and confidence level
+      - Growth trend claims reference at least two data points, or state "INSUFFICIENT DATA"
+      - Relevance assessments include both primary and secondary rationale where applicable
+      - Engagement gaps are flagged explicitly for NOT_ENGAGED or UNKNOWN business lines
+      - Action prerequisites are specific and verifiable, not generic
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (filings to locate, questions to ask, proxy indicators, re-assessment date). Skip analysis steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 6 deliverables plus the Data Availability Map
+      as labeled sections. Lead with an executive summary that states: (1) business line
+      structure completeness and highest-relevance segments, (2) the weakest point or
+      lowest confidence area, and (3) the single most urgent action to take next.
 
 # ==============================================================================
 # ORGANIGRAM TASKS
@@ -54,44 +310,287 @@ company_research:
 organigram:
   leadership_extraction:
     name: "Leadership Extraction"
-    description: "Extract C-suite and senior leadership from public sources"
+    description: "Extract C-suite and senior leadership from public sources with confidence-scored reporting relationships and cross-source validation"
     prompt: |
       Context: Building organigram for {company_name} (realm: {realm_id}).
       Company website: {company_website_url}
       Existing organigram: {existing_organigram}
+      Business lines: {business_lines}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Extract leadership structure from public sources.
-      - Identify C-suite executives (CEO, CFO, CTO, CIO, CISO, COO, etc.)
-      - Find VP and SVP-level leaders for key functions
-      - Determine reporting relationships where publicly available
-      - Cross-reference LinkedIn profiles with company website data
-      - Flag any discrepancies between sources
+      You are extracting the leadership structure of this company from public sources.
+      This organigram drives stakeholder engagement strategy, decision chain mapping,
+      and opportunity routing. Every person and relationship must have a source and
+      confidence level. Follow these steps in order.
 
-      Format:
-      - leaders: [{name, title, reports_to, source, confidence, linkedin_url}]
-      - confidence levels: confirmed (official page), reported (press), inferred (LinkedIn)
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each extraction dimension, assess data richness:
+      - HIGH: company leadership page + LinkedIn cross-reference, 5+ confirmed leaders
+      - MEDIUM: partial company page or LinkedIn only, 2-4 leaders confirmed
+      - LOW: no official source, press mentions only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: C-Suite Coverage, VP/SVP Layer, Reporting Relationships,
+      Business Line Leadership, IT/Security Leadership.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the extraction.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Public sources to search (company about page, LinkedIn company page, press releases, SEC filings with officer lists)
+      - Specific search queries per leadership gap
+      - AE questions to surface organizational structure in next interaction
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Extraction deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: C-SUITE EXTRACTION
+      Identify all C-suite executives.
+      For each executive:
+      - Full name
+      - Title (exact as publicly listed)
+      - Tenure (start date if available)
+      - Reports to (if determinable)
+      - Source: CONFIRMED (official company page), REPORTED (press release),
+        INFERRED (LinkedIn profile, job title pattern)
+      - Confidence: HIGH (official page listing), MEDIUM (press or LinkedIn),
+        LOW (inferred from other data)
+      - LinkedIn URL (if found)
+      - Discrepancy flag: note any conflicts between sources (different titles,
+        different reporting lines)
+      Standard C-suite roles to search: CEO, CFO, CTO, CIO, CISO, COO, CMO,
+      CHRO, CLO, CDO, CPO. If a role is not found, state "NOT FOUND" with
+      sources searched.
+      Deliverable: C-suite table (Name | Title | Tenure | Reports To | Source |
+      Confidence | LinkedIn | Discrepancies).
+
+      STEP 2: VP/SVP LAYER EXTRACTION
+      Identify VP and SVP-level leaders for key functions.
+      For each leader:
+      - Full name, title, function (engineering, sales, product, operations, etc.)
+      - Business line or corporate function alignment
+      - Reports to (C-suite executive, confidence: HIGH/MEDIUM/LOW)
+      - Source and confidence (same classification as STEP 1)
+      - LinkedIn URL (if found)
+      Focus on functions relevant to vendor engagement: IT, engineering, security,
+      operations, procurement, digital transformation.
+      If no VP/SVP layer is discoverable, state: "VP/SVP layer not identifiable
+      from public sources. Recommend AE discovery or LinkedIn Sales Navigator search."
+      Deliverable: VP/SVP table (Name | Title | Function | Business Line |
+      Reports To | Source | Confidence | LinkedIn).
+
+      STEP 3: CROSS-SOURCE VALIDATION
+      For each identified leader, cross-reference across available sources.
+      Flag any of the following:
+      - Title mismatch between company website and LinkedIn
+      - Role listed on company page but LinkedIn shows different company (possible departure)
+      - Recent role change (within last 6 months) that may indicate new reporting lines
+      - Multiple people listed for the same role across sources
+      For each discrepancy:
+      - Description of the conflict
+      - Sources involved
+      - Recommended resolution (which source to trust, or flag for AE verification)
+      If no discrepancies found, state: "No cross-source discrepancies identified.
+      All {N} leaders validated across available sources."
+      Deliverable: Validation table (Leader | Discrepancy | Sources | Resolution | Confidence).
+
+      STEP 4: ACTION PLAN
+      Based on the extraction, recommend specific actions to close gaps.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Prerequisites must specify what must be true before the action can start.
+      Common actions: request AE to validate specific leaders, search additional
+      sources for missing roles, schedule discovery call to map unreachable layers.
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Leaders added, updated, or flagged for removal
+      - Reporting relationships updated
+      - Confidence levels changed
+      - Gaps in organigram coverage identified
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every leader has a source classification and confidence level
+      - Cross-source discrepancies are flagged, not silently resolved
+      - Missing C-suite roles explicitly noted as "NOT FOUND" with sources searched
+      - Reporting relationships include confidence levels
+      - Action prerequisites are specific and verifiable
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (sources to search, queries to run, AE questions, re-assessment date). Skip extraction steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 5 deliverables plus the Data Availability Map
+      as labeled sections. Lead with an executive summary that states: (1) organigram
+      coverage and total leaders identified with average confidence, (2) the weakest
+      coverage area or most critical gap, and (3) the single most urgent action to
+      close the most important gap.
 
   org_hierarchy_mapping:
     name: "Organizational Hierarchy Mapping"
-    description: "Map leadership to business lines and build department structure"
+    description: "Map leadership to business lines and build department structure with decision chains, engagement status, and vendor relevance scoring"
     prompt: |
       Context: Mapping org hierarchy for {company_name} (realm: {realm_id}).
       Identified leaders: {leaders_list}
       Business lines: {business_lines}
+      Vendor product catalog: {vendor_offerings}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Build organizational hierarchy organized by business lines.
-      - Map each leader to their business line or corporate function
-      - Identify department heads within each business line
-      - Build decision chains for IT, security, and operations domains
-      - Assess relevance of each department to vendor engagement
-      - Mark engagement status (ACTIVE, EXPLORING, NOT_ENGAGED, BLOCKED)
+      You are building the organizational hierarchy that maps leaders to business
+      lines and corporate functions. This hierarchy drives engagement routing,
+      decision chain analysis, and whitespace identification. Every mapping must
+      have a confidence level. Follow these steps in order.
 
-      Format:
-      - organigram:
-          ceo: {name, title}
-          business_lines: [{name, head, departments: [{name, head, relevance, engagement_status}]}]
-          corporate_functions: [{name, head, sub_functions}]
-          decision_chains: [{domain, chain: [{name, title, role_in_decision}]}]
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each mapping dimension, assess data richness:
+      - HIGH: confirmed leader-to-unit assignments, 5+ mappings verified
+      - MEDIUM: partial mappings, 2-4 confirmed assignments
+      - LOW: no confirmed mappings, title-based inference only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Business Line Leadership, Department Structure,
+      Decision Chains, Engagement Status, Corporate Functions.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the mapping.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Specific information to request from AE about organizational structure
+      - LinkedIn search strategies to map leaders to business units
+      - Discovery questions for upcoming customer meetings
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Mapping deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: BUSINESS LINE HIERARCHY
+      Map each identified leader to their business line or corporate function.
+      For each business line:
+      - Business line name and head (from leaders list)
+      - Departments within the business line
+      - Department heads (from leaders list or inferred)
+      - Headcount estimate per department if available (confidence: HIGH/MEDIUM/LOW)
+      - Mapping confidence: CONFIRMED (org chart or official source),
+        INFERRED (title and LinkedIn analysis), ASSUMED (best guess from available data)
+      If a business line has no identifiable leadership, state: "No leadership
+      identified for {business_line}. Recommend AE discovery."
+      Deliverable: Business line hierarchy (Business Line | Head | Department |
+      Department Head | Headcount | Mapping Confidence).
+
+      STEP 2: DECISION CHAIN ANALYSIS
+      Build decision chains for domains relevant to vendor engagement.
+      For each domain (IT, security, operations, procurement, digital transformation):
+      - Chain: ordered list of decision-makers from technical evaluator to economic buyer
+      - For each person in the chain:
+        - Name, title
+        - Role in decision: ECONOMIC_BUYER, TECHNICAL_EVALUATOR, CHAMPION,
+          INFLUENCER, GATEKEEPER, BLOCKER
+        - Secondary role(s): if applicable, additional decision roles that also apply
+        - Engagement status: ACTIVE, EXPLORING, NOT_ENGAGED, BLOCKED, UNKNOWN
+        - Confidence: HIGH/MEDIUM/LOW with basis
+      If a decision chain cannot be built for a domain, state: "Decision chain for
+      {domain} incomplete. Missing: {specific roles}. Recommend: {specific discovery action}."
+      Deliverable: Decision chain table (Domain | Person | Title | Primary Role |
+      Secondary Role(s) | Engagement Status | Confidence).
+
+      STEP 3: ENGAGEMENT COVERAGE MAP
+      Assess engagement coverage across the organization.
+      For each department/function:
+      - Engagement status: ACTIVE (current engagement), EXPLORING (conversations started),
+        NOT_ENGAGED (no contact), BLOCKED (access denied or competitor locked)
+      - Vendor relevance: HIGH/MEDIUM/LOW with rationale
+      - Whitespace flag: if NOT_ENGAGED and vendor relevance is HIGH or MEDIUM
+      - Coverage confidence: HIGH/MEDIUM/LOW
+      Calculate overall metrics:
+      - Total departments mapped
+      - Departments with ACTIVE engagement (count and percentage)
+      - Whitespace departments (NOT_ENGAGED + HIGH/MEDIUM relevance)
+      Deliverable: Engagement coverage table (Department | Business Line | Status |
+      Vendor Relevance | Whitespace | Confidence) with summary metrics.
+
+      STEP 4: ACTION PLAN
+      Based on the hierarchy mapping, recommend specific engagement actions.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Focus actions on:
+      - Closing whitespace gaps in high-relevance departments
+      - Building missing decision chains
+      - Converting EXPLORING to ACTIVE engagements
+      - Unblocking BLOCKED departments
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Organigram structure updates (new departments, reporting changes)
+      - Engagement status changes per department
+      - Decision chain updates
+      - Whitespace identification changes
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every leader-to-unit mapping has a confidence level
+      - Decision chains specify role in decision with primary and secondary classifications
+      - Engagement status is assigned to every mapped department
+      - Whitespace is flagged for NOT_ENGAGED departments with HIGH/MEDIUM vendor relevance
+      - No trend claims without at least two data points (engagement trajectory requires history)
+      - Action prerequisites are specific and verifiable
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (AE questions, LinkedIn strategies, discovery questions, re-assessment date). Skip mapping steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 5 deliverables plus the Data Availability Map
+      as labeled sections. Lead with an executive summary that states: (1) hierarchy
+      coverage with engagement percentage and whitespace count, (2) the weakest coverage
+      area or most critical unmapped decision chain, and (3) the single most urgent
+      action to close the most important coverage gap.
 
 # ==============================================================================
 # OPPORTUNITY IDENTIFICATION TASKS
@@ -99,41 +598,318 @@ organigram:
 opportunities:
   opportunity_mapping:
     name: "Opportunity Mapping"
-    description: "Map company strategy to vendor capabilities and identify opportunities"
+    description: "Map company strategy to vendor capabilities and identify new business opportunities with confidence-scored potential, action prerequisites, and engagement routing"
     prompt: |
       Context: Identifying opportunities for {company_name} (realm: {realm_id}).
       Company strategy: {strategic_initiatives}
       Organigram: {organigram_summary}
       Active nodes: {active_nodes}
       Vendor product catalog: {vendor_offerings}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Identify new business opportunities.
-      - Map each strategic initiative to potentially relevant vendor capabilities
-      - Identify business lines and departments not currently engaged
-      - Assess which unengaged areas have the highest potential
-      - Cross-reference with active nodes to avoid suggesting existing engagements
+      You are identifying new business opportunities by mapping the company's
+      strategic initiatives and organizational structure against vendor capabilities.
+      Every opportunity must be grounded in evidence, not speculation. Opportunities
+      without a clear strategic driver or organizational sponsor are hypotheses,
+      not opportunities. Follow these steps in order.
 
-      Format:
-      - opportunities: [{name, type, business_line, department, strategic_initiative, vendor_capability, estimated_potential, confidence, source}]
-      - type values: expansion, cross_sell, new_use_case, geographic
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each identification dimension, assess data richness:
+      - HIGH: confirmed strategy + confirmed org structure + known vendor catalog, 5+ data points
+      - MEDIUM: partial strategy or partial org, 2-4 data points
+      - LOW: no strategy data or no org data, single source only
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Strategic Initiatives, Organizational Coverage,
+      Vendor Capability Mapping, Competitive Landscape, Engagement History.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the identification.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Discovery questions to surface strategic priorities in next customer interaction
+      - Public sources to research for strategy signals (earnings calls, press releases)
+      - Organizational gaps to close before opportunity identification is meaningful
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Opportunity identification deferred due
+      to insufficient signal in {dimensions}. Signal acquisition plan targets
+      re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: STRATEGY-TO-CAPABILITY MAPPING
+      Map each strategic initiative to potentially relevant vendor capabilities.
+      For each mapping:
+      - Strategic initiative name (from company strategy input)
+      - Vendor capability or product that addresses the initiative
+      - Fit assessment: DIRECT (capability directly addresses initiative),
+        ADJACENT (capability supports adjacent need), STRETCH (requires adaptation)
+      - Primary fit category: cost reduction, risk reduction, revenue enablement,
+        operational efficiency, compliance, innovation
+      - Secondary fit category(ies): additional categories that also apply
+      - Evidence: why this mapping is valid (specific feature, use case, reference customer)
+      - Confidence: HIGH (proven use case), MEDIUM (logical fit), LOW (theoretical)
+      If a strategic initiative has no vendor capability match, state: "No current
+      vendor capability maps to {initiative}. Flag for product feedback if recurring."
+      Deliverable: Strategy-capability map (Initiative | Capability | Fit | Primary Category |
+      Secondary Category(ies) | Evidence | Confidence).
+
+      STEP 2: WHITESPACE IDENTIFICATION
+      Identify business lines and departments not currently engaged.
+      For each whitespace area:
+      - Business line or department name
+      - Head/leader (from organigram)
+      - Why not currently engaged (no contact, competitor locked, not prioritized, unknown)
+      - Vendor relevance: HIGH/MEDIUM/LOW with rationale
+      - Strategic initiative linkage (if any initiative maps to this area)
+      - Estimated potential: size indicator based on department scope and initiative scale
+        (confidence: HIGH/MEDIUM/LOW)
+      Cross-reference against active nodes to avoid flagging existing engagements.
+      If no whitespace exists, state: "Full engagement coverage across all relevant
+      departments. Focus on deepening existing engagements rather than new entry points."
+      Deliverable: Whitespace table (Area | Leader | Reason Unengaged | Relevance |
+      Initiative Link | Potential | Confidence).
+
+      STEP 3: OPPORTUNITY SYNTHESIS
+      Combine strategy-capability mapping and whitespace analysis into concrete opportunities.
+      For each opportunity:
+      - Opportunity name (outcome-oriented, not product-oriented)
+      - Primary type: EXPANSION (grow existing), CROSS_SELL (new capability to existing contact),
+        NEW_USE_CASE (new application of existing capability), GEOGRAPHIC (new region)
+      - Secondary type(s): if applicable, additional opportunity types that also apply
+      - Business line and department
+      - Strategic initiative driver
+      - Vendor capability
+      - Decision chain (who must approve, from organigram)
+      - Estimated potential (confidence: HIGH/MEDIUM/LOW with basis)
+      - Competitive risk: known competitors in this space (confidence: HIGH/MEDIUM/LOW)
+      - Time horizon: IMMEDIATE (0-3 months), NEAR_TERM (3-6 months), MEDIUM_TERM (6-12 months)
+      Rank by estimated potential descending, then by confidence.
+      Deliverable: Opportunity table (Name | Primary Type | Secondary Type(s) | Business Line |
+      Initiative | Capability | Decision Chain | Potential | Confidence | Competitive Risk |
+      Time Horizon).
+
+      STEP 4: ACTION PLAN
+      For each opportunity, define the engagement action to pursue it.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Prerequisites must be specific: "AE has met with {person}," "competitive
+      displacement strategy approved," "technical proof of concept scoped," etc.
+      Group actions by time horizon (IMMEDIATE first).
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - New opportunities added to pipeline
+      - Whitespace areas identified or updated
+      - Engagement status changes recommended
+      - Competitive intelligence updates
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every opportunity has a strategic initiative driver, not just a product push
+      - Strategy-capability mappings include fit assessment and evidence
+      - Opportunities include both primary and secondary type classifications
+      - Whitespace analysis cross-references active nodes to avoid duplicate suggestions
+      - Estimated potential includes confidence level with basis
+      - Competitive risk is assessed per opportunity, not generically
+      - No trend claims (e.g., "growing opportunity") without at least two data points
+      - Action prerequisites are specific and verifiable
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (discovery questions, public sources, org gaps, re-assessment date). Skip identification steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 5 deliverables plus the Data Availability Map
+      as labeled sections. Lead with an executive summary that states: (1) total
+      opportunities identified with aggregate potential and average confidence,
+      (2) the weakest point or highest-risk opportunity, and (3) the single most
+      urgent action to pursue the highest-value opportunity.
 
   refresh_delta:
     name: "Refresh Delta Analysis"
-    description: "Identify what has changed since last research cycle"
+    description: "Identify what has changed since last research cycle by comparing current public information against previous profile, with impact classification, confidence scoring, and field-level state updates"
     prompt: |
       Context: Performing periodic refresh for {company_name} (realm: {realm_id}).
       Previous company profile: {previous_profile}
       Previous organigram: {previous_organigram}
       Recent news digest: {recent_news}
       Last refresh date: {last_refresh_date}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Identify meaningful changes since last refresh.
-      - Compare current public information against previous profile
-      - Detect leadership changes, new hires, departures
-      - Identify new strategic initiatives or shifts in existing ones
-      - Flag organizational restructuring or M&A integration changes
+      You are identifying what has changed since the last research cycle.
+      This delta analysis drives account strategy adjustments, organigram updates,
+      and opportunity re-evaluation. Every change must be sourced and
+      impact-classified. Follow these steps in order.
 
-      Format:
-      - changes: [{category, description, impact, source, date_detected}]
-      - category values: leadership, strategy, structure, financial, other
-      - impact values: HIGH, MEDIUM, LOW
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
+
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+
+      For each detection dimension, assess data richness:
+      - HIGH: previous profile complete + multiple news sources, 5+ signals
+      - MEDIUM: partial previous profile or limited news, 2-4 signals
+      - LOW: no previous profile or no news sources
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Dimensions to assess: Leadership Changes, Strategic Shifts, Financial Updates,
+      Organizational Restructuring, Competitive Moves.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
+      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
+
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the analysis.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - News monitoring queries to set up for ongoing change detection
+      - Public sources to check periodically (SEC filings, press page, LinkedIn)
+      - AE questions to surface recent changes in next customer interaction
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Delta analysis deferred due to insufficient
+      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
+      Do not proceed to remaining steps.
+
+      STEP 1: LEADERSHIP CHANGE DETECTION
+      Compare current leadership information against previous organigram.
+      For each change detected:
+      - Change type: NEW_HIRE, DEPARTURE, ROLE_CHANGE, TITLE_CHANGE, REPORTING_CHANGE
+      - Person: name, previous title/role, new title/role
+      - Date of change (if known)
+      - Source: press release, LinkedIn update, company website, SEC filing
+      - Confidence: HIGH (official announcement), MEDIUM (LinkedIn change),
+        LOW (inferred from absence)
+      - Impact on vendor engagement: assessment of how this change affects
+        current or planned engagements (confidence: HIGH/MEDIUM/LOW)
+      If no leadership changes detected, state: "No leadership changes identified
+      since {last_refresh_date}. Organigram stable."
+      Deliverable: Leadership changes table (Person | Change Type | Previous | Current |
+      Date | Source | Confidence | Engagement Impact).
+
+      STEP 2: STRATEGIC SHIFT DETECTION
+      Identify new strategic initiatives or shifts in existing ones.
+      For each change:
+      - Initiative name
+      - Change type: NEW (not in previous profile), MODIFIED (scope or timeline changed),
+        CANCELLED (previously listed, now absent or explicitly ended),
+        COMPLETED (reached stated objective)
+      - Primary category: digital transformation, cost optimization, market expansion,
+        M&A integration, operational excellence, sustainability, innovation
+      - Secondary category(ies): additional categories that also apply
+      - Description of what changed
+      - Source and date
+      - Confidence: HIGH/MEDIUM/LOW
+      - Vendor relevance impact: how this shift affects opportunity landscape
+      Trend assessment: compare current strategy direction against previous profile.
+      If only one observation exists (no previous profile), state "INSUFFICIENT DATA"
+      for strategic trend.
+      Deliverable: Strategic shifts table (Initiative | Change Type | Primary Category |
+      Secondary Category(ies) | Description | Source | Confidence | Vendor Relevance Impact).
+
+      STEP 3: STRUCTURAL AND FINANCIAL CHANGES
+      Detect organizational restructuring, M&A activity, and financial changes.
+      For each change:
+      - Change type: RESTRUCTURING, ACQUISITION, DIVESTITURE, PARTNERSHIP,
+        FINANCIAL_RESULT, CREDIT_EVENT
+      - Description (specific, not generic)
+      - Scope (which business lines or functions affected)
+      - Impact classification:
+        - Primary: HIGH, MEDIUM, LOW
+        - Secondary: if the change affects multiple dimensions, list all
+      - Source and date
+      - Confidence: HIGH/MEDIUM/LOW
+      - Implication for vendor engagement (specific, actionable)
+      If no structural or financial changes detected, state: "No structural or
+      financial changes identified since {last_refresh_date}."
+      Deliverable: Structural changes table (Change Type | Description | Scope |
+      Primary Impact | Secondary Impact(s) | Source | Confidence | Engagement Implication).
+
+      STEP 4: CHANGE IMPACT SYNTHESIS
+      Synthesize all detected changes into an integrated impact assessment.
+      For each impacted area (business line, department, engagement, opportunity):
+      - Area affected
+      - Changes contributing to impact (cross-reference steps 1-3)
+      - Net impact: POSITIVE (new opportunity), NEGATIVE (risk to engagement),
+        NEUTRAL (informational only)
+      - Urgency: IMMEDIATE (action needed now), MONITOR (watch for developments),
+        INFORMATIONAL (no action needed)
+      - Recommended response (specific action)
+      Deliverable: Impact synthesis table (Area | Contributing Changes | Net Impact |
+      Urgency | Recommended Response).
+
+      STEP 5: ACTION PLAN
+      Based on the delta analysis, recommend specific response actions.
+      For each action:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Prioritize by urgency (IMMEDIATE first), then by impact magnitude.
+      Common actions: update organigram, revise opportunity pipeline, brief AE on
+      leadership change, adjust engagement strategy for restructured department.
+      If no actions are warranted, state: "No changes detected requiring action.
+      Next scheduled refresh: {suggested_date}."
+      Deliverable: Action table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Organigram changes (leaders added, removed, moved)
+      - Strategic initiative updates
+      - Opportunity pipeline changes (new, modified, closed)
+      - Risk register updates
+      - Last refresh date update
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every change has a source and date of detection
+      - Every change has a confidence level with basis
+      - Impact classifications use primary and secondary flags where applicable
+      - Trend claims compare current state against previous profile (two data points minimum), or state "INSUFFICIENT DATA"
+      - Leadership changes assess engagement impact, not just the change itself
+      - Strategic shifts include vendor relevance impact assessment
+      - Action prerequisites are specific and verifiable
+      - State delta specifies field-level changes with evidence
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (monitoring queries, sources to check, AE questions, re-assessment date). Skip detection steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all 6 deliverables plus the Data Availability Map
+      as labeled sections. Lead with an executive summary that states: (1) total changes
+      detected with breakdown by category and overall account trajectory since last refresh,
+      (2) the highest-impact change or most urgent risk, and (3) the single most urgent
+      action to take in response.

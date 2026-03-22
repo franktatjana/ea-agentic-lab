@@ -1,6 +1,7 @@
 # InfoSec Agent Task Prompts
-# Purpose: Task-specific prompts using CAF framework (Context, Action, Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
 # Reference: Agent config defined in agents/infosec_agent.yaml
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
 
 # ============================================================================
 # SECURITY QUESTIONNAIRE PROMPTS
@@ -9,101 +10,366 @@ questionnaires:
 
   process_questionnaire:
     name: "Process Security Questionnaire"
-    description: "Complete security questionnaire for customer"
+    description: "Intake and triage a security questionnaire, categorize questions, match against answer library, flag SME dependencies, and produce a completion plan with timeline"
     prompt: |
       Context: Security questionnaire received from customer.
       Customer: {customer_name}
       Questionnaire type: {type} (SIG/CAIQ/custom)
       Question count: {count}
       Due date: {due_date}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Process questionnaire:
-      - Identify question categories
-      - Check for previously answered similar questions
-      - Flag questions requiring SME input
-      - Draft responses following templates
+      You are triaging a customer security questionnaire to determine how much can
+      be answered from existing evidence and where SME involvement is required.
+      The output drives workstream assignments and a completion timeline.
+      Follow these steps in order.
 
-      Format:
-      Questionnaire Processing: {customer_name}
-      Type: {type}
-      Questions: {count}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      Category Breakdown:
-      - Data Protection: {count}
-      - Access Control: {count}
-      - Compliance: {count}
-      - Infrastructure: {count}
-      - Vendor Management: {count}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Questions with Existing Answers: {count}
-      Questions Needing Fresh Response: {count}
-      Questions Requiring SME: {count}
+      Data Availability Map: for each dimension, assess data richness:
+      - HIGH: full questionnaire text available, answer library indexed, SME roster current
+      - MEDIUM: partial questionnaire or incomplete answer library
+      - LOW: no questionnaire text, no prior answers, no SME mapping
+      Dimensions to assess: Questionnaire Content, Answer Library, SME Availability,
+      Customer Context, Compliance Certifications.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
 
-      SME Needed:
-      | Question | Topic | Recommended SME |
-      |----------|-------|-----------------|
-      | Q{n} | {topic} | {person/team} |
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the processing.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Documents to request from customer (questionnaire file, specific format requirements)
+      - Internal systems to query (answer library, certification database, prior questionnaire responses)
+      - SME contacts to confirm availability for the timeline
+      - Re-assessment gate with minimum data threshold and target date
+      If in Signal Acquisition Mode, end with: "Questionnaire processing deferred due to
+      insufficient signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
+      Do not proceed to remaining steps.
 
-      Timeline:
-      - Draft completion: {date}
-      - Review: {date}
-      - Submission: {date}
+      STEP 1: QUESTION CATEGORIZATION
+      Parse the questionnaire and categorize every question.
+      For each question:
+      - Question ID (original numbering from questionnaire)
+      - Question text (verbatim)
+      - Primary category: Data Protection, Access Control, Compliance, Infrastructure,
+        Vendor Management, Incident Response, Business Continuity, Encryption, Logging/Monitoring
+      - Secondary category: if the question spans multiple domains, assign secondary flags
+        for completeness. Assign one primary category for routing. Add secondary flags
+        where the question spans multiple domains.
+      - Complexity: STANDARD (template answer exists), CUSTOM (needs tailored response),
+        SME (requires subject matter expert input)
+      If questionnaire text is empty: state that the questionnaire document was not
+      provided, note that categorization cannot proceed without it, proceed without fabrication.
+      Deliverable: Category breakdown table (Category | Question Count | Standard | Custom | SME).
+
+      STEP 2: ANSWER LIBRARY MATCHING
+      For each question, search the existing answer library for matches.
+      For each question:
+      - Match status: EXACT (identical question answered before), SIMILAR (related question
+        with adaptable answer), NONE (no prior answer available)
+      - Match confidence: HIGH (same customer type, same framework, <6 months old),
+        MEDIUM (different context but same topic, 6-12 months old),
+        LOW (tangentially related or >12 months old)
+      - Source reference (prior questionnaire ID, customer, date)
+      - Adaptation needed (what must change for this customer's context)
+      If answer library is empty: state that no prior answers are available, note that
+      all questions will require fresh responses, proceed without fabrication.
+      Deliverable: Match summary table (Match Status | Count | Avg Confidence) +
+      detailed match list (Question ID | Match Status | Confidence | Source | Adaptation Needed).
+
+      STEP 3: SME DEPENDENCY MAPPING
+      For every question classified as SME in Step 1:
+      - Question ID and topic
+      - Required expertise (security engineering, compliance, legal, infrastructure, product)
+      - Recommended SME (specific person or team)
+      - Estimated effort (hours to draft response)
+      - Deadline for SME input (working backwards from due date)
+      - Prerequisite: any information the SME needs before they can answer
+      If SME roster is unavailable: state that SME assignments cannot be confirmed,
+      list the expertise domains needed, proceed without fabrication.
+      Deliverable: SME dependency table (Question ID | Topic | Expertise | SME | Effort Hours |
+      SME Deadline | Prerequisites).
+
+      STEP 4: COMPLETION PLAN
+      Build a workstream plan for completing the questionnaire on time.
+      For each workstream:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Workstreams to define:
+      - Batch 1: questions with EXACT matches (review and adapt)
+      - Batch 2: questions with SIMILAR matches (revise and validate)
+      - Batch 3: custom questions (draft from scratch)
+      - Batch 4: SME-dependent questions (coordinate and draft)
+      - Review cycle: internal review of all responses
+      - Final submission: quality check and delivery
+      Include review checkpoints with dates.
+      Deliverable: Completion plan table (Priority | Action | Owner | Timeline |
+      Prerequisites | Expected Impact) + timeline summary with milestone dates.
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Security questionnaire status added or updated
+      - Signals to append to recent history (questionnaire received, SME dependencies identified)
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every question is categorized with primary and secondary domain flags
+      - Answer library matches include confidence levels with basis
+      - SME dependencies include effort estimates and deadlines, not just names
+      - Completion plan actions include prerequisites column
+      - Timeline works backwards from due date with buffer for review
+      - All workstreams have clear owners
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, documents to request, SME contacts, re-assessment date). Skip categorization and planning steps.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with a
+      3-sentence executive summary stating: (1) the overall questionnaire readiness
+      assessment (how many can be answered from library vs fresh), (2) the highest-risk
+      gap or tightest bottleneck (e.g., SME availability vs deadline), and (3) the single
+      most urgent action to take next.
 
   answer_question:
     name: "Answer Security Question"
-    description: "Draft answer to specific security question"
+    description: "Draft a precise, evidence-backed answer to a specific security questionnaire question with compliance status, confidence level, and review notes"
     prompt: |
       Context: Answering security questionnaire question.
       Question: {question_text}
       Category: {category}
       Customer context: {customer_context}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Draft response following principles:
-      - Answer the question asked (not adjacent questions)
-      - Be specific, not vague
-      - Provide evidence references
-      - If partially compliant, explain clearly
+      You are drafting a precise response to a single security questionnaire question.
+      The answer must be specific, evidence-backed, and honest about partial compliance.
+      Follow these steps in order.
 
-      Format:
-      Question: {question_text}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      Answer: {Yes/No/Partial/N/A}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Run Mode declaration.
 
-      Response:
-      {Detailed response with evidence}
+      STEP 1: QUESTION ANALYSIS
+      Parse the question to understand what is actually being asked:
+      - Core requirement (what the question demands)
+      - Compliance framework reference (if the question maps to a specific control)
+      - Scope (what systems, processes, or data are in scope)
+      - Intent (what the customer is trying to validate about our security posture)
+      If question text is ambiguous: state the ambiguity, provide the most reasonable
+      interpretation, note the assumption, proceed without fabrication.
+      Deliverable: Question analysis (Core Requirement | Framework Reference | Scope | Intent).
 
-      Evidence Reference:
-      - {certification/document/link}
+      STEP 2: COMPLIANCE ASSESSMENT
+      Assess our compliance against the requirement:
+      - Status: Compliant / Partially Compliant / Non-Compliant / Not Applicable
+      - Confidence: HIGH (verified against current certification or audit evidence),
+        MEDIUM (based on known practices but not recently verified),
+        LOW (assumed based on general knowledge, needs verification)
+      - Basis for assessment (specific certification, policy, or practice that supports the answer)
+      Assign one primary classification for routing. Add secondary flags where the
+      question spans multiple compliance domains (e.g., primary: Data Protection,
+      secondary: Access Control, Encryption).
+      If evidence is unavailable: state what evidence is missing, note that the
+      compliance status cannot be confirmed, proceed without fabrication.
+      Deliverable: Compliance assessment (Status | Confidence | Basis | Primary Domain | Secondary Domains).
 
-      Notes for Review:
-      - {any caveats or context}
+      STEP 3: RESPONSE DRAFTING
+      Draft the response following these principles:
+      - Answer the question asked, not adjacent questions
+      - Be specific: name the control, the policy, the certification
+      - If partially compliant, explain what is in place and what is not
+      - Reference evidence (certifications, audit reports, policies, SOC reports)
+      - Do not overstate: "we support X" only if we actually support X today
+      - Include compensating controls if the direct requirement is not fully met
+      Deliverable: Draft response with answer (Yes/No/Partial/N/A), detailed response text,
+      and evidence references list.
+
+      STEP 4: REVIEW FLAGS
+      Flag anything that needs review before submission:
+      - Accuracy concerns (answer depends on information that needs verification)
+      - Legal sensitivity (answer involves contractual commitments or liability statements)
+      - Customer-specific nuance (answer may vary based on deployment model or contract terms)
+      - Staleness risk (evidence is >6 months old and may have changed)
+      Deliverable: Review flags table (Flag Type | Description | Reviewer | Resolution Needed).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Compliance gaps identified or resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Question analysis identifies the core requirement, not a paraphrase of the question
+      - Compliance status includes confidence level with basis stated
+      - Response answers the specific question asked, not a related one
+      - Evidence references are specific (document name, date, section) not generic
+      - Partial compliance clearly states what is and is not in place
+      - Review flags identify who should review and what resolution is needed
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority review flag. Skip detailed analysis.
+      - If run_mode is DISCOVERY: produce only the evidence gaps and data sources needed to answer the question. Skip drafting.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a 3-sentence
+      executive summary stating: (1) the compliance assessment (Compliant/Partial/Non-Compliant
+      with confidence), (2) the highest-risk gap or lowest-confidence area in the answer,
+      and (3) the single most urgent action (e.g., verify with SME, update evidence, escalate).
 
   bulk_questionnaire_response:
     name: "Bulk Questionnaire Response"
-    description: "Generate responses for multiple questions"
+    description: "Generate consistent, evidence-backed responses for multiple security questions with cross-question consistency checks and gap summary"
     prompt: |
       Context: Multiple questions to answer from questionnaire.
       Customer: {customer_name}
       Questions: {question_list}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Generate responses for all questions:
-      - Use standard answer templates where applicable
-      - Maintain consistent terminology
-      - Flag any questions needing custom response
+      You are generating responses for a batch of security questionnaire questions.
+      Consistency across answers is critical: contradictions between responses undermine
+      credibility. Follow these steps in order.
 
-      Format:
-      Questionnaire Responses: {customer_name}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      | # | Question | Answer | Response | Evidence |
-      |---|----------|--------|----------|----------|
-      | 1 | {q1} | Yes | {response} | {evidence} |
-      | 2 | {q2} | Partial | {response} | {evidence} |
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Questions Requiring Custom Response:
-      - Q{n}: {reason}
+      Data Availability Map: for each dimension, assess data richness:
+      - HIGH: question list complete, answer templates indexed, certifications current
+      - MEDIUM: partial question list or outdated templates
+      - LOW: no question text, no templates, no certification data
+      Dimensions to assess: Question Content, Answer Templates, Certification Status,
+      Customer Context, Evidence Library.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
 
-      Questions Flagged for Review:
-      - Q{n}: {concern}
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP processing.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Documents to request (questionnaire file, customer security requirements)
+      - Internal sources to query (answer library, certification database)
+      - Templates to prepare for common question categories
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
+
+      STEP 1: QUESTION CLUSTERING
+      Group questions by topic to ensure consistent answers within each domain:
+      - Cluster ID and name (e.g., C1-Encryption, C2-Access Control)
+      - Questions in cluster (by question number)
+      - Shared evidence base (certifications, policies, or controls that apply to all questions in cluster)
+      - Consistency constraints (facts that must be stated identically across all questions in cluster)
+      Deliverable: Cluster table (Cluster ID | Name | Question Numbers | Evidence Base | Consistency Constraints).
+
+      STEP 2: BATCH RESPONSE GENERATION
+      For each question, generate a response:
+      - Question number and text
+      - Answer: Yes / No / Partial / N/A
+      - Response text (specific, evidence-backed)
+      - Evidence references (certification, policy, audit report)
+      - Compliance confidence: HIGH / MEDIUM / LOW with basis
+      - Cluster ID (from Step 1, for cross-reference)
+      Apply answer templates where applicable. Maintain consistent terminology
+      across all responses in the same cluster.
+      If a question cannot be answered from available data: state what is missing,
+      mark as "REQUIRES INPUT" rather than fabricating, proceed without fabrication.
+      Deliverable: Response table (# | Question | Answer | Response | Evidence |
+      Confidence | Cluster ID).
+
+      STEP 3: CONSISTENCY VALIDATION
+      Cross-check all responses for contradictions:
+      - Within-cluster consistency (same facts stated identically)
+      - Cross-cluster consistency (no conflicting claims about the same system or process)
+      - Terminology consistency (same terms used for same concepts throughout)
+      - Evidence consistency (same certification referenced with same scope and date)
+      Flag any contradictions found with specific question numbers and conflicting statements.
+      Deliverable: Consistency check results (Check Type | Status | Questions Involved | Issue | Resolution).
+
+      STEP 4: CUSTOM RESPONSE AND REVIEW FLAGS
+      Identify questions requiring special handling:
+      - Questions needing custom response (not answerable from templates, reason why)
+      - Questions flagged for review (legal sensitivity, accuracy concern, staleness)
+      - Questions with LOW confidence (need SME verification before submission)
+      For each flagged question:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Deliverable: Custom/review flags table with action plan.
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Compliance gaps surfaced across the batch
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every response includes compliance confidence with basis
+      - No contradictions between answers in the same cluster
+      - No contradictions between answers across clusters
+      - Custom response flags include prerequisites and owner
+      - Terminology is consistent throughout (same system names, same policy names)
+      - Evidence references are specific (document, date, section)
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the highest-priority review flag. Skip detailed responses.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan. Skip response generation.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with a
+      3-sentence executive summary stating: (1) the overall response readiness (count of
+      Yes/No/Partial/N/A and confidence distribution), (2) the highest-risk gap or
+      lowest-confidence cluster, and (3) the single most urgent action to take next.
 
 # ============================================================================
 # GAP ANALYSIS PROMPTS
@@ -112,125 +378,398 @@ gap_analysis:
 
   assess_customer_requirements:
     name: "Assess Customer Security Requirements"
-    description: "Analyze customer security requirements vs capabilities"
+    description: "Map customer security requirements against our capabilities, classify gaps by severity and type, propose compensating controls, and produce an action plan with prerequisites"
     prompt: |
       Context: Customer has specific security requirements.
       Customer: {customer_name}
       Requirements: {requirements_list}
       Industry: {industry}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess requirements against our capabilities:
-      - Map requirements to our certifications
-      - Identify gaps between requirement and capability
-      - Classify gap severity (blocker, workaround, roadmap)
-      - Propose compensating controls or mitigations
+      You are assessing whether our security capabilities meet the customer's requirements.
+      Every gap must be classified by severity and accompanied by a mitigation path.
+      Follow these steps in order.
 
-      Format:
-      Security Requirements Assessment: {customer_name}
-      Industry: {industry}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      Requirements Analysis:
-      | Requirement | Status | Gap | Mitigation |
-      |-------------|--------|-----|------------|
-      | {req 1} | Compliant | - | - |
-      | {req 2} | Gap | {gap description} | {mitigation} |
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Summary:
-      - Compliant: {count}
-      - Gaps with workaround: {count}
-      - Gaps on roadmap: {count}
-      - Blockers: {count}
+      Data Availability Map: for each dimension, assess data richness:
+      - HIGH: full requirements list with regulatory context, current certification matrix, capability inventory
+      - MEDIUM: partial requirements or incomplete capability mapping
+      - LOW: no requirements detail, no certification data, no capability inventory
+      Dimensions to assess: Requirements Detail, Certification Status, Capability Inventory,
+      Industry Regulatory Context, Customer Deployment Model.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
 
-      Blockers (if any):
-      - {blocker}: {impact on deal}
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask customer about specific requirements and regulatory drivers
+      - Internal data to gather (certification matrix, product capability docs)
+      - Industry regulatory research to conduct for {industry}
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
 
-      Recommended Actions:
-      - {action to address gaps}
+      STEP 1: REQUIREMENT MAPPING
+      Map each customer requirement to our capabilities:
+      - Requirement ID (R-001, R-002, etc.)
+      - Requirement description (verbatim from customer)
+      - Regulatory driver (which regulation or standard drives this requirement, if known)
+      - Our capability (specific feature, certification, or practice that addresses it)
+      - Status: Compliant / Gap / Partial / Not Applicable
+      - Confidence: HIGH (verified against current audit or certification),
+        MEDIUM (known practice but not formally verified),
+        LOW (assumed, needs verification)
+      Assign one primary classification for routing. Add secondary flags where the
+      requirement spans multiple security domains.
+      If requirements list is vague: state which requirements lack specificity,
+      note the interpretation used, proceed without fabrication.
+      Deliverable: Requirements mapping table (Req ID | Description | Regulatory Driver |
+      Our Capability | Status | Confidence | Primary Domain | Secondary Domains).
+
+      STEP 2: GAP SEVERITY CLASSIFICATION
+      For each gap identified in Step 1:
+      - Gap description (what is missing)
+      - Primary severity: BLOCKER (deal cannot proceed without resolution),
+        WORKAROUND (can proceed with compensating control),
+        ROADMAP (planned capability, not yet available)
+      - Secondary severity flags: if the gap has implications beyond its primary
+        classification, add flags (e.g., primary WORKAROUND but also flagged
+        COMPLIANCE RISK if the workaround is time-limited)
+      - Deal impact: how this gap affects the opportunity (timeline, scope, pricing, terms)
+      - Customer perception risk: how the customer will react if this gap is disclosed
+      - Confidence: HIGH / MEDIUM / LOW with basis for the severity classification
+      Deliverable: Gap severity table (Req ID | Gap | Primary Severity | Secondary Flags |
+      Deal Impact | Perception Risk | Confidence).
+
+      STEP 3: COMPENSATING CONTROLS AND MITIGATIONS
+      For each gap, propose mitigations:
+      - Compensating control (what we can do instead)
+      - Feasibility: HIGH (available now), MEDIUM (requires configuration or process change),
+        LOW (requires development or third-party solution)
+      - Timeline to implement
+      - Residual risk after mitigation (what remains unaddressed)
+      - Customer acceptance likelihood (based on industry norms and customer context)
+      If no compensating control exists: state this clearly, note the implication
+      for the deal, proceed without fabrication.
+      Deliverable: Mitigation table (Req ID | Compensating Control | Feasibility |
+      Timeline | Residual Risk | Acceptance Likelihood).
+
+      STEP 4: ACTION PLAN
+      Build the action plan to address gaps:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Prioritize BLOCKER gaps first, then WORKAROUND, then ROADMAP.
+      For each action, state what must be true before it can start.
+      Deliverable: Action plan table with all columns populated.
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Security gaps added to risk register
+      - Compliance status changes
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every requirement has a status with confidence level and basis
+      - Gap severity classifications include primary and secondary flags
+      - Compensating controls are feasible and time-bound, not aspirational
+      - BLOCKER gaps have clear resolution paths or explicit "no path" statements
+      - Action plan includes prerequisites for every action
+      - No gap is described without a mitigation attempt or explicit "no mitigation" statement
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority blocker action. Skip detailed mapping.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan. Skip gap analysis.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with a
+      3-sentence executive summary stating: (1) the overall compliance posture
+      (compliant/gap/partial counts with confidence distribution), (2) the highest-severity
+      gap or lowest-confidence area, and (3) the single most urgent action to take next.
 
   compliance_gap_assessment:
     name: "Compliance Gap Assessment"
-    description: "Assess gaps for specific compliance framework"
+    description: "Assess gaps against a specific compliance framework, map control domains to our status, quantify remediation effort, and produce a path-to-compliance plan"
     prompt: |
       Context: Customer requires specific compliance framework.
       Customer: {customer_name}
       Framework: {framework} (SOC2/ISO27001/GDPR/HIPAA/FedRAMP/etc)
       Our status: {current_certification_status}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess compliance gap:
-      - What does the framework require?
-      - What is our current status?
-      - What gaps exist?
-      - What is the path to compliance?
+      You are assessing our compliance posture against a specific framework the customer
+      requires. The output must give a clear picture of where we stand, what gaps exist,
+      and what the path to compliance looks like. Follow these steps in order.
 
-      Format:
-      Compliance Assessment: {framework}
-      Customer: {customer_name}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      Framework Requirements:
-      - {key requirements}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Run Mode declaration.
 
-      Our Status:
-      - Certified: {YES/NO}
-      - Certification date: {date or N/A}
-      - Scope: {what's covered}
+      STEP 1: FRAMEWORK REQUIREMENTS INVENTORY
+      Map the key requirements of the {framework}:
+      - Control domain (e.g., Access Control, Data Protection, Incident Response)
+      - Key controls within each domain
+      - Applicability to our environment (applicable, partially applicable, not applicable)
+      - Customer-specific emphasis (if the customer has highlighted specific controls)
+      If framework details are incomplete: state which control domains could not be
+      fully mapped, note the limitation, proceed without fabrication.
+      Deliverable: Framework requirements table (Domain | Control | Description |
+      Applicability | Customer Emphasis).
 
-      Gap Analysis:
-      | Domain | Requirement | Our Status | Gap |
-      |--------|-------------|------------|-----|
-      | {domain} | {requirement} | {status} | {gap if any} |
+      STEP 2: CURRENT STATUS ASSESSMENT
+      Assess our current status against each control domain:
+      - Domain
+      - Our status: Compliant / Partially Compliant / Non-Compliant / In Progress
+      - Confidence: HIGH (current audit evidence or certification covers this),
+        MEDIUM (practices exist but not formally audited for this control),
+        LOW (status assumed, needs verification)
+      - Evidence (certification name, audit date, policy reference)
+      - Certification details: certified (yes/no), certification date, scope of coverage,
+        next renewal date
+      Assign one primary status for routing. Add secondary flags where a domain
+      is compliant for some controls but not others within the domain.
+      Trend assessment for each domain: if comparing against a prior assessment,
+      note whether status has improved, held steady, or regressed. Trend requires
+      comparison of at least two time-separated observations. If only one observation
+      exists, trend is INSUFFICIENT DATA.
+      Deliverable: Status table (Domain | Status | Confidence | Evidence | Trend)
+      + certification summary.
 
-      Risk Level: {HIGH/MEDIUM/LOW}
-      Impact on Deal: {description}
+      STEP 3: GAP ANALYSIS
+      For each non-compliant or partially compliant domain:
+      - Gap description (specific control that is not met)
+      - Primary severity: BLOCKER / WORKAROUND / ROADMAP
+      - Secondary flags: if the gap has cross-domain implications
+      - Remediation effort: LOW (policy update), MEDIUM (process change or configuration),
+        HIGH (development, new tooling, or organizational change)
+      - Estimated timeline to remediate
+      - Deal impact (how this gap affects the customer engagement)
+      - Confidence in severity assessment: HIGH / MEDIUM / LOW with basis
+      If no gaps exist: state that all assessed domains are compliant, note confidence
+      levels across the assessment, proceed without fabrication.
+      Deliverable: Gap table (Domain | Control | Gap | Primary Severity | Secondary Flags |
+      Remediation Effort | Timeline | Deal Impact | Confidence).
 
-      Options:
-      1. {option 1 with implications}
-      2. {option 2 with implications}
+      STEP 4: RISK ASSESSMENT
+      Assess the overall risk of the compliance gap:
+      - Overall risk level: HIGH / MEDIUM / LOW
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Risk to deal: can the deal proceed, what conditions apply
+      - Risk to customer: what exposure does the customer carry if they proceed with gaps
+      - Regulatory risk: likelihood and impact of regulatory action
+      Deliverable: Risk assessment (Risk Level | Confidence | Deal Risk | Customer Risk |
+      Regulatory Risk).
 
-      Recommendation:
-      - {recommended path forward}
+      STEP 5: PATH TO COMPLIANCE
+      Define options for addressing the gaps:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include:
+      - Immediate options (compensating controls, contractual commitments)
+      - Short-term options (process changes, configuration updates)
+      - Long-term options (certification pursuit, product development)
+      For each option, state what must be true before it can start.
+      Deliverable: Path-to-compliance action plan with all columns populated +
+      options comparison (Option | Pros | Cons | Timeline | Effort | Customer Acceptance).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Compliance gaps added or resolved
+      - Risk level changes
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Every control domain has a status with confidence level and basis
+      - Gap severity classifications include primary and secondary flags
+      - Remediation effort estimates are realistic (not all "LOW")
+      - Risk assessment includes confidence level
+      - Path-to-compliance actions include prerequisites
+      - Trend claims reference two time-separated observations or state INSUFFICIENT DATA
+      - Options comparison includes customer acceptance likelihood
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action. Skip detailed domain mapping.
+      - If run_mode is DISCOVERY: produce only the data gaps and sources needed for a full assessment. Skip analysis.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a 3-sentence
+      executive summary stating: (1) the overall compliance posture against {framework}
+      with confidence, (2) the highest-severity gap or lowest-confidence domain, and
+      (3) the single most urgent action to take next.
 
   data_residency_assessment:
     name: "Data Residency Assessment"
-    description: "Assess data residency requirements and options"
+    description: "Assess data residency requirements against our architecture, map data flows by type and region, identify gaps, and recommend architectural options"
     prompt: |
       Context: Customer has data residency requirements.
       Customer: {customer_name}
       Required regions: {regions}
       Data types: {data_types}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Assess data residency options:
-      - What data will be processed?
-      - What are our regional deployment options?
-      - How does data flow in our architecture?
-      - What options can we offer?
+      You are assessing whether our data handling architecture meets the customer's
+      residency requirements. Data residency failures are deal blockers in regulated
+      industries, so precision matters. Follow these steps in order.
 
-      Format:
-      Data Residency Assessment: {customer_name}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      Customer Requirements:
-      - Data must reside in: {regions}
-      - Data types: {types}
-      - Regulatory driver: {regulation}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Our Capabilities:
-      - Available regions: {regions}
-      - Data storage: {where data is stored}
-      - Data processing: {where data is processed}
-      - Data flow: {description of flows}
+      Data Availability Map: for each dimension, assess data richness:
+      - HIGH: full data type inventory, architecture diagrams, regional deployment docs
+      - MEDIUM: partial data type list or incomplete architecture documentation
+      - LOW: no data type detail, no architecture docs, no regional deployment info
+      Dimensions to assess: Data Type Inventory, Architecture Documentation,
+      Regional Deployment Options, Regulatory Requirements, Data Flow Maps.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
 
-      Gap Analysis:
-      | Data Type | Requirement | Current | Gap |
-      |-----------|-------------|---------|-----|
-      | {type} | {region} | {current} | {gap} |
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Questions to ask customer about specific data types and regulatory drivers
+      - Internal architecture documentation to request
+      - Regional deployment capabilities to verify with engineering
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
 
-      Options:
-      1. {option with pros/cons}
+      STEP 1: DATA TYPE CLASSIFICATION
+      Classify each data type the customer will process through our system:
+      - Data type name
+      - Sensitivity classification: PUBLIC / INTERNAL / CONFIDENTIAL / RESTRICTED
+      - Regulatory classification: PII / PHI / PCI / financial / government / none
+      - Volume estimate (if known)
+      - Processing requirements (storage only, processing, analytics, ML training)
+      Assign one primary sensitivity classification. Add secondary regulatory flags
+      where data spans multiple regulatory domains.
+      If data types are vague: state which types lack specificity, note assumptions
+      made, proceed without fabrication.
+      Deliverable: Data classification table (Data Type | Sensitivity | Regulatory Class |
+      Volume | Processing | Primary Class | Secondary Flags).
 
-      Recommendation:
-      - {recommended approach}
+      STEP 2: DATA FLOW MAPPING
+      Map how each data type flows through our architecture:
+      - Ingestion point (where data enters our system, region)
+      - Processing location(s) (where computation happens, region)
+      - Storage location(s) (where data at rest resides, region)
+      - Transit paths (data movement between regions, if any)
+      - Third-party processors (any sub-processors that handle the data, their regions)
+      - Backup/DR locations (where replicas exist)
+      If architecture documentation is incomplete: state which data flows could not
+      be mapped, note the risk to the assessment, proceed without fabrication.
+      Deliverable: Data flow table (Data Type | Ingestion Region | Processing Region |
+      Storage Region | Transit | Sub-processors | Backup Region).
 
-      Architecture Changes Required:
-      - {if any}
+      STEP 3: GAP ANALYSIS
+      Compare customer requirements against our data flow capabilities:
+      - Data type
+      - Customer requirement (must reside in {region})
+      - Our current state (where data actually flows)
+      - Gap: NONE / STORAGE GAP / PROCESSING GAP / TRANSIT GAP / BACKUP GAP
+      - Severity: BLOCKER (cannot meet requirement with current architecture),
+        WORKAROUND (can meet with configuration change),
+        ROADMAP (requires engineering work)
+      - Confidence: HIGH (verified data flow), MEDIUM (documented but not verified),
+        LOW (assumed, needs engineering confirmation)
+      Assign one primary gap type for routing. Add secondary flags where
+      multiple gap types apply to the same data type.
+      Deliverable: Gap analysis table (Data Type | Requirement | Current | Gap Type |
+      Secondary Flags | Severity | Confidence).
+
+      STEP 4: ARCHITECTURAL OPTIONS
+      For each gap, propose solutions:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Options to evaluate:
+      - Regional deployment changes (new region, data isolation)
+      - Data flow reconfiguration (routing changes, processing relocation)
+      - Contractual controls (DPA amendments, SCCs, adequacy decisions)
+      - Sub-processor changes (alternative providers in required regions)
+      For each option, state what must be true before it can start.
+      Include architecture changes required with complexity estimate.
+      Deliverable: Options table (Priority | Action | Owner | Timeline | Prerequisites |
+      Expected Impact) + architecture change summary.
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Data residency gaps added to risk register
+      - Architecture requirements identified
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every data type has sensitivity and regulatory classification with confidence
+      - Data flow mapping covers ingestion, processing, storage, transit, and backup
+      - Gap analysis distinguishes storage, processing, transit, and backup gaps
+      - Architectural options include prerequisites and timeline
+      - No gap is described without a proposed option or explicit "no option" statement
+      - Confidence levels accompany all assessments
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority blocker action. Skip detailed flow mapping.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan. Skip gap analysis.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with a
+      3-sentence executive summary stating: (1) the overall data residency posture
+      (how many data types meet requirements vs have gaps), (2) the highest-severity
+      gap or most critical architectural limitation, and (3) the single most urgent
+      action to take next.
 
 # ============================================================================
 # RISK TRANSLATION PROMPTS
@@ -239,80 +778,243 @@ risk_translation:
 
   translate_security_concern:
     name: "Translate Security Concern"
-    description: "Convert security concern to business impact"
+    description: "Convert a technical security concern into business impact terms with risk quantification, stakeholder messaging, and option analysis"
     prompt: |
       Context: Security concern needs business translation.
       Concern: {security_concern}
       Customer: {customer_name}
       Deal context: {deal_context}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Translate security concern to business terms:
-      - What is the technical issue?
-      - What is the business impact?
-      - What is the risk level?
-      - What are the options?
+      You are translating a technical security concern into business language that
+      non-technical stakeholders can understand and act on. The translation must
+      preserve accuracy while making the risk tangible. Follow these steps in order.
 
-      Format:
-      Security Concern Translation
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      Technical Issue:
-      {description of the security concern}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Run Mode declaration.
 
-      Business Impact:
-      - For customer: {how this affects them}
-      - For deal: {impact on opportunity}
-      - Risk level: {HIGH/MEDIUM/LOW}
+      STEP 1: TECHNICAL ASSESSMENT
+      Analyze the security concern in technical terms:
+      - Technical description (what the issue is, precisely)
+      - Attack vector or failure mode (how it could be exploited or how it manifests)
+      - Affected systems and data (scope of exposure)
+      - Current controls (what mitigations exist today)
+      - Residual risk (what remains after current controls)
+      - Confidence in assessment: HIGH (verified through testing or audit),
+        MEDIUM (based on architecture review), LOW (theoretical, needs validation)
+      If concern description is vague: state the ambiguity, provide the most
+      reasonable technical interpretation, note the assumption, proceed without fabrication.
+      Deliverable: Technical assessment (Issue | Vector | Scope | Controls | Residual Risk | Confidence).
 
-      Stakeholder Message:
-      {How to explain this to non-technical stakeholders}
+      STEP 2: BUSINESS IMPACT TRANSLATION
+      Translate the technical concern into business terms:
+      - Customer impact: what this means for their operations, revenue, reputation
+      - Deal impact: how this affects the opportunity (timeline, scope, risk of loss)
+      - Financial exposure: estimated cost if the risk materializes (range, not single number)
+      - Risk level: HIGH / MEDIUM / LOW
+      - Confidence in risk level: HIGH / MEDIUM / LOW with basis
+      - Primary impact category: OPERATIONAL / FINANCIAL / REGULATORY / REPUTATIONAL
+      - Secondary impact flags: additional categories that also apply.
+        Assign one primary classification for routing. Add secondary flags where
+        the concern spans multiple impact domains.
+      Trend assessment: if this concern has been raised before, note whether the risk
+      is increasing, stable, or decreasing. Trend requires comparison of at least two
+      time-separated observations. If only one observation exists, trend is INSUFFICIENT DATA.
+      If deal context is missing: state that deal impact cannot be precisely assessed,
+      provide a general business impact assessment, proceed without fabrication.
+      Deliverable: Business impact table (Dimension | Impact | Severity | Confidence)
+      + financial exposure range + risk level with confidence.
 
-      Options:
-      1. {option with trade-offs}
+      STEP 3: STAKEHOLDER MESSAGING
+      Create communication for non-technical stakeholders:
+      - Message for executive sponsor (2-3 sentences, business outcome focus)
+      - Message for procurement/legal (compliance and contractual focus)
+      - Message for technical evaluator (architecture and control focus)
+      - Talking points for the AE/SA to use in conversation
+      - Language to avoid (technical jargon that will confuse or alarm)
+      Each message must be accurate: do not downplay risk to avoid difficult conversations.
+      Deliverable: Stakeholder messages by persona + talking points + language guide.
 
-      Recommendation:
-      - {recommended path}
+      STEP 4: OPTION ANALYSIS
+      Present options for addressing the concern:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      For each option:
+      - What changes for the customer (risk reduction)
+      - What it costs us (effort, timeline, resources)
+      - Trade-offs (what we gain vs what we give up)
+      - Customer acceptance likelihood
+      For each action, state what must be true before it can start.
+      Deliverable: Options table with all columns populated.
+
+      STEP 5: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Security risks added or resolved
+      - Deal risk changes
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Technical assessment is precise, not generic security boilerplate
+      - Business impact uses financial ranges, not vague "significant impact" language
+      - Risk level includes confidence level with basis
+      - Stakeholder messages are accurate (do not minimize real risks)
+      - Options include prerequisites and expected impact
+      - Trend claims reference two observations or state INSUFFICIENT DATA
+      - No jargon in stakeholder messages (test: would a CFO understand every word?)
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single most urgent recommended action. Skip detailed messaging.
+      - If run_mode is DISCOVERY: produce only the information gaps that prevent a full risk translation. Skip analysis.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a 3-sentence
+      executive summary stating: (1) the business risk level with confidence,
+      (2) the highest-impact dimension (financial, regulatory, or reputational),
+      and (3) the single most urgent action to take next.
 
   prepare_security_briefing:
     name: "Prepare Security Briefing"
-    description: "Prepare security briefing for customer meeting"
+    description: "Prepare a structured security briefing for a customer meeting with topic coverage, anticipated questions, evidence materials, and follow-up commitments"
     prompt: |
       Context: Preparing for customer security review meeting.
       Customer: {customer_name}
       Attendees: {attendees}
       Topics: {topics_to_cover}
       Known concerns: {concerns}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Prepare security briefing:
-      - Address known concerns
-      - Present our security posture
-      - Anticipate follow-up questions
-      - Prepare supporting evidence
+      You are preparing a comprehensive briefing for a customer security review meeting.
+      The briefing must anticipate questions, prepare evidence, and plan follow-ups.
+      Follow these steps in order.
 
-      Format:
-      Security Briefing: {customer_name}
-      Meeting: {date}
-      Attendees: {attendees}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      Opening (set context):
-      - {brief on our security program}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Run Mode declaration.
 
-      Topic Coverage:
-      {Topic 1}:
-      - Key points: {points}
-      - Evidence: {references}
-      - Anticipated questions: {questions}
-      - Prepared responses: {responses}
+      STEP 1: ATTENDEE ANALYSIS
+      Profile each attendee to tailor the briefing:
+      - Name and role
+      - Security expertise level (technical, semi-technical, non-technical)
+      - Decision authority (approver, evaluator, influencer)
+      - Known priorities and concerns (from prior interactions)
+      - Communication preference (data-driven, risk-focused, compliance-focused)
+      - Confidence in profile: HIGH (prior interaction data available),
+        MEDIUM (role-based assumptions), LOW (no prior data)
+      If attendee information is limited: state what is unknown about each attendee,
+      note how this affects briefing preparation, proceed without fabrication.
+      Deliverable: Attendee profile table (Name | Role | Expertise | Authority |
+      Priorities | Communication Style | Confidence).
 
-      Known Concerns Response:
-      | Concern | Response | Evidence |
-      |---------|----------|----------|
-      | {concern} | {response} | {evidence} |
+      STEP 2: TOPIC PREPARATION
+      For each topic to cover:
+      - Topic name
+      - Key points to make (3-5 per topic, ordered by importance)
+      - Supporting evidence (specific documents, certifications, metrics)
+      - Our position strength: STRONG (fully compliant with evidence),
+        MODERATE (compliant with caveats), WEAK (gap exists)
+      - Confidence in position: HIGH / MEDIUM / LOW with basis
+      - Anticipated follow-up questions (2-3 per topic)
+      - Prepared responses to each anticipated question
+      - Redirect strategy (if the question goes into an area we should handle offline)
+      If topics are vague: state which topics lack specificity, prepare for the most
+      likely interpretation, proceed without fabrication.
+      Deliverable: Topic preparation table (Topic | Key Points | Evidence | Position |
+      Confidence | Anticipated Questions | Responses).
 
-      Materials to Share:
-      - {document list}
+      STEP 3: KNOWN CONCERNS RESPONSE PLAN
+      For each known concern:
+      - Concern (as stated by the customer)
+      - Root issue (what they are really asking about)
+      - Our response (specific, evidence-backed)
+      - Evidence to present (document, certification, demo)
+      - Risk of this concern: HIGH / MEDIUM / LOW (how much this could derail the meeting)
+      - Confidence in response: HIGH / MEDIUM / LOW with basis
+      - Escalation plan (if the response is not satisfactory, what do we offer next)
+      If no concerns are listed: state that no prior concerns were provided, prepare
+      for common concerns based on industry and customer profile, proceed without fabrication.
+      Deliverable: Concerns response table (Concern | Root Issue | Response | Evidence |
+      Risk Level | Confidence | Escalation Plan).
 
-      Follow-up Commitments:
-      - {what we'll provide after meeting}
+      STEP 4: MATERIALS AND LOGISTICS
+      Prepare meeting materials:
+      - Documents to share before the meeting (pre-reads)
+      - Documents to present during the meeting (slides, architecture diagrams)
+      - Documents to share after the meeting (detailed evidence, follow-up materials)
+      - NDA requirements (which materials require NDA before sharing)
+      - Demo or walkthrough preparation (if applicable)
+      Deliverable: Materials checklist (Material | Purpose | Timing | NDA Required | Status).
+
+      STEP 5: FOLLOW-UP PLAN
+      Define post-meeting commitments and actions:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include:
+      - Commitments to make during the meeting (what we will promise to deliver)
+      - Information requests to anticipate (what the customer will ask for after)
+      - Internal follow-ups (briefing notes, issue escalation, product feedback)
+      For each action, state what must be true before it can start.
+      Deliverable: Follow-up action plan with all columns populated.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Meeting preparation status updated
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Attendee profiles include expertise level to calibrate technical depth
+      - Every topic has anticipated questions with prepared responses
+      - Known concerns have escalation plans, not just responses
+      - Evidence references are specific (document name, section, date)
+      - Materials checklist distinguishes pre-meeting, during-meeting, and post-meeting
+      - Follow-up actions include prerequisites
+      - NDA requirements are flagged before materials are shared
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the top-priority preparation action. Skip detailed topic preparation.
+      - If run_mode is DISCOVERY: produce only the information gaps preventing full briefing preparation. Skip detailed planning.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a 3-sentence
+      executive summary stating: (1) the overall briefing readiness (how many topics
+      are STRONG vs WEAK position), (2) the highest-risk concern or weakest topic area,
+      and (3) the single most urgent preparation action to take before the meeting.
 
 # ============================================================================
 # DEAL ENABLEMENT PROMPTS
@@ -321,51 +1023,133 @@ deal_enablement:
 
   unblock_security_issue:
     name: "Unblock Security Issue"
-    description: "Find path to resolve security blocker"
+    description: "Diagnose a security blocker, identify root concern, evaluate resolution options with feasibility and prerequisites, and produce a resolution plan with customer communication"
     prompt: |
       Context: Security issue blocking deal progress.
       Customer: {customer_name}
       Blocker: {blocker_description}
       Deal value: {deal_value}
       Timeline: {timeline}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Find path to unblock:
-      - Understand the real concern
-      - Identify possible solutions
-      - Assess feasibility and timeline
-      - Recommend approach
+      You are finding a path to resolve a security issue that is blocking deal progress.
+      Speed matters, but the solution must be defensible. Follow these steps in order.
 
-      Format:
-      Security Blocker Resolution: {customer_name}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      Blocker:
-      {description of the issue}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Run Mode declaration.
 
-      Root Concern:
-      {what the customer is really worried about}
+      STEP 1: BLOCKER DIAGNOSIS
+      Analyze the security blocker to understand what is actually at stake:
+      - Surface issue (what the customer stated)
+      - Root concern (what the customer is actually worried about)
+      - Technical reality (what our actual capability or limitation is)
+      - Gap between concern and reality (is this a real gap, a perception gap, or a communication gap)
+      - Primary classification: TECHNICAL (real capability gap), PROCESS (missing documentation
+        or certification), COMMUNICATION (capability exists but not demonstrated),
+        CONTRACTUAL (terms or commitments needed)
+      - Secondary flags: if the blocker spans multiple domains, add secondary classifications.
+        Assign one primary classification for routing. Add secondary flags where
+        the blocker spans multiple domains.
+      - Confidence in diagnosis: HIGH (customer stated the root concern explicitly),
+        MEDIUM (inferred from context), LOW (speculative, needs customer validation)
+      If blocker description is vague: state what is unclear, provide the most
+      reasonable interpretation, note the assumption, proceed without fabrication.
+      Deliverable: Blocker diagnosis (Surface Issue | Root Concern | Technical Reality |
+      Gap Type | Primary Class | Secondary Flags | Confidence).
 
-      Solution Options:
-      1. {solution 1}
-         - Feasibility: {HIGH/MEDIUM/LOW}
-         - Timeline: {estimate}
-         - Effort: {description}
+      STEP 2: SOLUTION OPTIONS
+      Identify all viable resolution paths:
+      For each option:
+      - Solution description
+      - Feasibility: HIGH (can execute immediately), MEDIUM (requires effort but achievable
+        in timeline), LOW (exceeds timeline or requires significant resources)
+      - Timeline to implement
+      - Effort required (people, systems, approvals)
+      - Risk of this solution (what could go wrong)
+      - Customer perception (how they will react to this approach)
+      - Confidence in feasibility: HIGH / MEDIUM / LOW with basis
+      If no viable option exists within the timeline: state this clearly, propose
+      the fastest achievable path, note the gap to the customer's timeline,
+      proceed without fabrication.
+      Deliverable: Solution options table (Option | Description | Feasibility | Timeline |
+      Effort | Risk | Customer Perception | Confidence).
 
-      2. {solution 2}
-         ...
+      STEP 3: RECOMMENDED APPROACH
+      Select and detail the recommended solution:
+      - Why this option (trade-off analysis against alternatives)
+      - Implementation steps
+      - Dependencies and prerequisites
+      - Success criteria (how we know the blocker is resolved)
+      - Fallback plan (if the recommended approach fails, what next)
+      Deliverable: Recommendation with trade-off justification, implementation steps,
+      and success criteria.
 
-      Recommended Approach:
-      - {recommended solution}
-      - {why this is best}
+      STEP 4: CUSTOMER COMMUNICATION
+      Draft communication for the customer:
+      - Message to customer (professional, specific, action-oriented)
+      - What to say (key points that address their concern)
+      - What not to say (avoid making promises we cannot keep, avoid technical jargon)
+      - Evidence to provide (what supports our message)
+      - Follow-up commitment (what we will deliver and by when)
+      Deliverable: Customer communication draft + talking points.
 
-      Customer Communication:
-      {suggested message to customer}
+      STEP 5: INTERNAL ACTION PLAN
+      Define internal actions to resolve the blocker:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include escalation triggers: conditions under which this should be escalated
+      to leadership (e.g., if customer rejects the proposed solution, if timeline
+      slips, if additional blockers surface).
+      For each action, state what must be true before it can start.
+      Deliverable: Internal action plan with all columns populated + escalation triggers.
 
-      Internal Actions:
-      - {what we need to do}
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Security blockers added or resolved
+      - Deal risk changes
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Root concern is identified, not just the surface issue restated
+      - At least two solution options are presented (unless only one viable path exists, with reasoning)
+      - Feasibility assessments include confidence levels
+      - Recommended approach includes fallback plan
+      - Customer communication is accurate (does not overstate our capabilities)
+      - Internal actions include prerequisites and escalation triggers
+      - Timeline is realistic given the deal timeline constraint
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single most urgent unblocking action. Skip detailed option analysis.
+      - If run_mode is DISCOVERY: produce only the information gaps preventing diagnosis. Skip solution design.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a 3-sentence
+      executive summary stating: (1) the blocker classification and root concern with
+      confidence, (2) the recommended resolution path with feasibility and timeline,
+      and (3) the single most urgent action to take next.
 
   expedite_questionnaire:
     name: "Expedite Questionnaire"
-    description: "Fast-track questionnaire completion"
+    description: "Create an expedited completion plan for an urgent questionnaire with prioritized workstreams, resource allocation, review checkpoints, and risk mitigation"
     prompt: |
       Context: Customer needs questionnaire completed urgently.
       Customer: {customer_name}
@@ -373,78 +1157,265 @@ deal_enablement:
       Questions: {count}
       Deadline: {deadline}
       Current status: {status}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Plan expedited completion:
-      - Prioritize critical questions
-      - Identify parallel workstreams
-      - Allocate resources
-      - Set review checkpoints
+      You are building an expedited plan to complete a security questionnaire under
+      time pressure. The plan must be realistic: promising a timeline we cannot hit
+      is worse than negotiating an extension. Follow these steps in order.
 
-      Format:
-      Expedited Questionnaire Plan: {customer_name}
-      Deadline: {deadline}
-      Days remaining: {days}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      Prioritization:
-      - Critical (must complete): {count}
-      - Important (should complete): {count}
-      - Optional (if time permits): {count}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Run Mode declaration.
 
-      Workstream Assignments:
-      | Section | Owner | Due | Status |
-      |---------|-------|-----|--------|
-      | {section} | {owner} | {date} | {status} |
+      STEP 1: FEASIBILITY ASSESSMENT
+      Determine whether the deadline is achievable:
+      - Total questions: {count}
+      - Already completed: count from current status
+      - Remaining: total minus completed
+      - Estimated effort per question by type (template-based: 10 min, custom: 30 min, SME: 60 min)
+      - Total estimated effort (hours)
+      - Available capacity (hours between now and deadline, accounting for other commitments)
+      - Feasibility verdict: ON TRACK / AT RISK / NOT FEASIBLE
+      - Confidence: HIGH (capacity data verified), MEDIUM (estimated capacity),
+        LOW (unknown team availability)
+      If deadline is not feasible: state clearly, quantify the gap (how many
+      additional days needed), propose extension request messaging, proceed
+      with the best achievable plan without fabrication.
+      Deliverable: Feasibility assessment (Total | Completed | Remaining | Effort Hours |
+      Capacity Hours | Verdict | Confidence | Gap if Not Feasible).
 
-      Review Checkpoints:
-      - {date}: {milestone}
+      STEP 2: QUESTION PRIORITIZATION
+      Prioritize remaining questions for expedited processing:
+      - Critical (must complete): questions the customer will check first, deal-blocking topics
+      - Important (should complete): questions that support our security narrative
+      - Optional (if time permits): low-impact or low-likelihood-to-be-scrutinized questions
+      For each priority tier:
+      - Count of questions
+      - Estimated effort
+      - Cumulative hours
+      - Can this tier be completed by deadline? (yes/no/partial)
+      Assign one primary priority tier. Add secondary flags where a question could
+      be argued for a different tier.
+      If question content is unknown: state that prioritization is based on category
+      assumptions, note the risk, proceed without fabrication.
+      Deliverable: Prioritization table (Tier | Count | Effort Hours | Cumulative Hours |
+      Achievable by Deadline).
 
-      Risk Mitigation:
-      - {risk}: {mitigation}
+      STEP 3: WORKSTREAM ASSIGNMENTS
+      Create parallel workstreams to maximize throughput:
+      For each workstream:
+      - Section/topic coverage
+      - Assigned owner
+      - Start date and due date
+      - Dependencies on other workstreams
+      - Escalation contact if blocked
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      For each assignment, state what must be true before the owner can start.
+      Deliverable: Workstream assignment table with all columns populated.
 
-      Escalation Triggers:
-      - {when to escalate}
+      STEP 4: REVIEW AND SUBMISSION PLAN
+      Plan the review cycle within the compressed timeline:
+      - Review checkpoints (date, milestone, reviewer)
+      - Quality gate criteria (what must be true before submission)
+      - Final review owner and date
+      - Submission method and confirmation process
+      - Buffer time (hours between final review and deadline)
+      Deliverable: Review plan table (Checkpoint Date | Milestone | Reviewer | Criteria).
+
+      STEP 5: RISK MITIGATION
+      Identify risks to the expedited plan and mitigations:
+      For each risk:
+      - Risk description
+      - Likelihood: HIGH / MEDIUM / LOW
+      - Impact if realized (delay in hours/days)
+      - Mitigation action
+      - Escalation trigger (when to escalate)
+      - Confidence in mitigation: HIGH / MEDIUM / LOW with basis
+      Deliverable: Risk table (Risk | Likelihood | Impact | Mitigation | Escalation Trigger | Confidence).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Questionnaire status updated
+      - Deal timeline risks added or resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Feasibility assessment is honest (if deadline is not achievable, it says so)
+      - Prioritization is defensible (critical tier contains genuinely critical questions)
+      - Workstream assignments include prerequisites and dependencies
+      - Review plan includes buffer time before deadline
+      - Risk mitigations are specific actions, not generic "monitor closely"
+      - Escalation triggers are defined with specific conditions
+      - Confidence levels accompany feasibility and risk assessments
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single most urgent action. Skip detailed workstream assignments.
+      - If run_mode is DISCOVERY: produce only the feasibility assessment and data gaps. Skip detailed planning.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a 3-sentence
+      executive summary stating: (1) the feasibility verdict (on track, at risk, or
+      not feasible with confidence), (2) the biggest risk to the timeline, and
+      (3) the single most urgent action to take next.
 
   certification_roadmap:
     name: "Certification Roadmap"
-    description: "Provide certification roadmap for customer"
+    description: "Provide a clear roadmap for a certification the customer needs, including current status, milestone timeline, interim options, and contractual commitment possibilities"
     prompt: |
       Context: Customer asking about certification we don't have.
       Customer: {customer_name}
       Certification: {certification_name}
       Customer timeline: {when_they_need_it}
       Our status: {current_status}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Provide clear roadmap:
-      - Current status
-      - Planned timeline
-      - Interim options
-      - Contractual commitment options
+      You are providing a clear, honest roadmap for a certification the customer requires.
+      The output must help the customer decide whether to wait, accept an interim option,
+      or require a contractual commitment. Follow these steps in order.
 
-      Format:
-      Certification Roadmap: {certification_name}
-      Customer: {customer_name}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      Current Status:
-      - {where we are today}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Run Mode declaration.
 
-      Roadmap:
-      | Milestone | Target Date | Status |
-      |-----------|-------------|--------|
-      | {milestone} | {date} | {status} |
+      STEP 1: CURRENT STATUS ASSESSMENT
+      Assess where we stand on this certification:
+      - Certification name and governing body
+      - Our current status: NOT STARTED / IN PROGRESS / AUDIT SCHEDULED / CERTIFIED / EXPIRED
+      - Confidence in status: HIGH (verified with compliance team),
+        MEDIUM (based on last known status), LOW (assumed, needs verification)
+      - If in progress: what phase, what remains, key dependencies
+      - If certified: scope of certification, expiration date, renewal timeline
+      - If not started: estimated effort and duration to achieve certification
+      Trend: if comparing against a prior status check, note progress. Trend requires
+      comparison of at least two time-separated observations. If only one observation
+      exists, trend is INSUFFICIENT DATA.
+      If our status is unknown: state that certification status needs verification
+      with the compliance team, note the risk to the assessment, proceed without fabrication.
+      Deliverable: Status assessment (Certification | Status | Confidence | Phase Details |
+      Scope | Expiration | Trend).
 
-      Customer Timeline:
-      - They need: {date}
-      - We expect: {date}
-      - Gap: {analysis}
+      STEP 2: TIMELINE GAP ANALYSIS
+      Compare our timeline to the customer's need:
+      - Customer needs certification by: {when_they_need_it}
+      - Our expected certification date (if in progress or planned)
+      - Gap: days/months between customer need and our expected date
+      - Gap classification: NO GAP (we meet their timeline), MINOR (1-3 months delay),
+        SIGNIFICANT (3-12 months delay), MAJOR (>12 months or no plan)
+      - Confidence in our timeline: HIGH (audit date scheduled), MEDIUM (plan exists
+        but dates are estimates), LOW (no formal plan, dates are speculative)
+      If our timeline is unknown: state that no formal timeline exists, note that
+      all timeline estimates are speculative, proceed without fabrication.
+      Deliverable: Timeline comparison (Customer Need | Our Date | Gap | Gap Class | Confidence).
 
-      Interim Options:
-      1. {option with description}
+      STEP 3: INTERIM OPTIONS
+      For each viable interim option:
+      - Option description
+      - How it addresses the customer's underlying concern (not just the certification check-box)
+      - Validity period (how long this option remains viable)
+      - Customer acceptance likelihood: HIGH / MEDIUM / LOW
+      - Confidence in viability: HIGH / MEDIUM / LOW with basis
+      - Primary type: COMPENSATING CONTROL / BRIDGE LETTER / THIRD-PARTY ATTESTATION /
+        CONTRACTUAL COMMITMENT / PARALLEL CERTIFICATION
+      - Secondary flags: if the option serves multiple purposes
+      Common interim options to evaluate:
+      - SOC 2 bridge letter or readiness assessment
+      - Third-party penetration test results
+      - Independent security assessment
+      - Contractual security commitments with SLAs
+      - Mapping to equivalent certifications we hold
+      If no interim options exist: state this clearly, note the deal impact,
+      proceed without fabrication.
+      Deliverable: Interim options table (Option | Type | Addresses | Validity |
+      Acceptance Likelihood | Confidence).
 
-      Contractual Commitment:
-      - We can commit to: {what we can contractually guarantee}
+      STEP 4: CERTIFICATION ROADMAP
+      Build the milestone roadmap:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Include:
+      - Pre-assessment activities
+      - Gap remediation milestones
+      - Auditor engagement
+      - Audit execution
+      - Certification issuance
+      - Communication milestones to customer
+      For each milestone, state what must be true before it can start.
+      Deliverable: Roadmap table with all columns populated.
 
-      Recommendation:
-      - {recommended approach}
+      STEP 5: CONTRACTUAL COMMITMENT OPTIONS
+      Define what we can contractually guarantee:
+      - Commitment option (what we guarantee in writing)
+      - Penalty/remedy if we miss (what the customer gets if we fail)
+      - Legal review required (yes/no)
+      - Precedent (have we made similar commitments before)
+      - Risk to us: HIGH / MEDIUM / LOW with basis
+      - Confidence in ability to deliver: HIGH / MEDIUM / LOW with basis
+      If contractual commitments are not possible: state the limitation,
+      suggest alternative assurances, proceed without fabrication.
+      Deliverable: Contractual options table (Commitment | Penalty | Legal Review |
+      Precedent | Our Risk | Delivery Confidence).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Certification status updated in account record
+      - Deal risk changes based on timeline gap
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Current status includes confidence level and is verified, not assumed
+      - Timeline gap is quantified in days/months, not vague
+      - Interim options address the underlying concern, not just the certification label
+      - Roadmap milestones include prerequisites
+      - Contractual commitment options include risk assessment
+      - Trend claims reference two observations or state INSUFFICIENT DATA
+      - Confidence levels accompany all assessments
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single most urgent action. Skip detailed roadmap.
+      - If run_mode is DISCOVERY: produce only the status verification gaps and data needed for a full assessment. Skip option analysis.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a 3-sentence
+      executive summary stating: (1) the certification status and timeline gap with
+      confidence, (2) the most viable interim option or biggest risk to the deal,
+      and (3) the single most urgent action to take next.
 
 # ============================================================================
 # COMPLIANCE TRACKING PROMPTS
@@ -453,66 +1424,267 @@ compliance_tracking:
 
   certification_status_update:
     name: "Certification Status Update"
-    description: "Update on certification status"
+    description: "Produce a structured certification status update with activity log, upcoming milestones, risk assessment, and action plan with prerequisites"
     prompt: |
       Context: Certification status update needed.
       Certification: {certification_name}
       Current status: {status}
       Renewal date: {date}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Provide status update:
-      - Current certification status
-      - Upcoming milestones
-      - Any risks or concerns
-      - Actions needed
+      You are producing a structured status update on a certification. The update must
+      be precise enough that anyone reading it knows exactly where things stand and what
+      needs to happen next. Follow these steps in order.
 
-      Format:
-      Certification Status: {certification_name}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      Status: {ACTIVE/IN_PROGRESS/EXPIRED/PLANNED}
-      Current validity: {date range}
-      Next renewal: {date}
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Run Mode declaration.
 
-      Recent Activity:
-      - {audit/review activity}
+      STEP 1: CERTIFICATION STATUS SNAPSHOT
+      Provide the current certification status:
+      - Certification name and standard
+      - Status: ACTIVE / IN PROGRESS / EXPIRED / PLANNED / NOT PURSUED
+      - Confidence in status: HIGH (verified with compliance team within 30 days),
+        MEDIUM (verified 30-90 days ago), LOW (>90 days since verification or assumed)
+      - Current validity period (start date to end date)
+      - Scope of certification (what systems, processes, or regions are covered)
+      - Next renewal date
+      - Days until renewal (calculated)
+      - Renewal risk: ON TRACK / AT RISK / OVERDUE
+      Trend: compare against prior status if available. Trend requires comparison of
+      at least two time-separated observations. If only one observation exists,
+      trend is INSUFFICIENT DATA.
+      Deliverable: Status snapshot (Certification | Status | Confidence | Validity |
+      Scope | Renewal Date | Days to Renewal | Renewal Risk | Trend).
 
-      Upcoming:
-      - {milestone}: {date}
+      STEP 2: RECENT ACTIVITY LOG
+      Document recent certification-related activity:
+      - Activity date
+      - Activity type (audit, review, remediation, submission, renewal filing)
+      - Description
+      - Outcome (completed, in progress, finding issued, cleared)
+      - Follow-up required (yes/no, if yes what)
+      If no recent activity exists: state that no certification activity has been
+      logged in the review period, note the implication for renewal readiness,
+      proceed without fabrication.
+      Deliverable: Activity log table (Date | Type | Description | Outcome | Follow-up).
 
-      Risks/Concerns:
-      - {any issues}
+      STEP 3: UPCOMING MILESTONES
+      List upcoming certification milestones:
+      - Milestone description
+      - Target date
+      - Owner
+      - Status: NOT STARTED / IN PROGRESS / COMPLETE
+      - Risk of missing the milestone: HIGH / MEDIUM / LOW
+      - Confidence in target date: HIGH / MEDIUM / LOW with basis
+      - Dependencies (what must happen before this milestone can be achieved)
+      Deliverable: Milestone table (Milestone | Target Date | Owner | Status | Risk |
+      Confidence | Dependencies).
 
-      Actions Needed:
-      - {action}: Owner: {who} | Due: {date}
+      STEP 4: RISK AND CONCERNS ASSESSMENT
+      Assess risks to certification maintenance or renewal:
+      - Risk description
+      - Primary category: PROCESS (internal process gap), TECHNICAL (system or control gap),
+        RESOURCE (people or budget gap), EXTERNAL (auditor, regulatory, or vendor dependency)
+      - Secondary flags: additional categories that apply
+      - Likelihood: HIGH / MEDIUM / LOW
+      - Impact if realized (what happens to the certification)
+      - Mitigation in place (what we are doing about it)
+      - Confidence in risk assessment: HIGH / MEDIUM / LOW with basis
+      If no risks are identified: state that no current risks were found, note the
+      confidence level of the assessment, proceed without fabrication.
+      Deliverable: Risk table (Risk | Primary Category | Secondary Flags | Likelihood |
+      Impact | Mitigation | Confidence).
+
+      STEP 5: ACTION PLAN
+      Define actions needed to maintain or achieve certification:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      For each action, state what must be true before it can start.
+      Include escalation triggers for high-risk items.
+      Deliverable: Action plan with all columns populated.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Certification status changes
+      - Risks added or resolved
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Certification status includes confidence level with verification date
+      - Renewal timeline is quantified in days, not vague
+      - Activity log covers the review period, or explicitly states no activity
+      - Milestone dates include confidence levels
+      - Risk assessment uses primary + secondary category flags
+      - Action plan includes prerequisites for every action
+      - Trend claims reference two observations or state INSUFFICIENT DATA
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single most urgent action. Skip detailed activity log and milestone tracking.
+      - If run_mode is DISCOVERY: produce only the verification gaps and data needed for a full status update. Skip analysis.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: Produce all deliverables as labeled sections. Lead with a 3-sentence
+      executive summary stating: (1) the certification status and renewal risk with
+      confidence, (2) the highest-risk item or closest approaching milestone, and
+      (3) the single most urgent action to take next.
 
   evidence_library_update:
     name: "Evidence Library Update"
-    description: "Update evidence library for compliance"
+    description: "Review and update the evidence library for a compliance category, assess document currency, identify gaps, track NDA requirements, and produce a refresh action plan"
     prompt: |
       Context: Evidence library needs updating.
       Category: {category}
       Documents: {document_list}
       Last update: {date}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      Action: Review and update evidence:
-      - Check document currency
-      - Identify outdated items
-      - Note what needs refresh
-      - Track NDA requirements
+      You are reviewing the evidence library to ensure all compliance evidence is current,
+      complete, and properly classified. Stale evidence undermines questionnaire response
+      quality and audit readiness. Follow these steps in order.
 
-      Format:
-      Evidence Library Update: {category}
+      STEP 0: INPUT GATE
+      Validate all inputs before proceeding. For each required input listed in the
+      context block, classify as:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify what's missing)
+      - ABSENT: no data received
 
-      Current Evidence:
-      | Document | Version | Date | NDA Required | Status |
-      |----------|---------|------|--------------|--------|
-      | {doc} | {ver} | {date} | {Y/N} | {current/stale} |
+      Based on input status, select run mode:
+      - FULL: all required inputs PRESENT → proceed with all steps
+      - DEGRADED: 1+ inputs PARTIAL → proceed but flag gaps in every deliverable
+        that depends on partial data, mark affected outputs as "estimated" or
+        "based on incomplete data"
+      - DEFER: 2+ required inputs ABSENT → STOP. Do not guess. Produce instead:
+        (a) list of missing inputs with specific ask per input
+        (b) who can provide each input (role, system, or data source)
+        (c) suggested deadline for re-running this runbook with complete inputs
 
-      Updates Needed:
-      - {document}: {what needs updating}
+      Data Availability Map: for each dimension, assess data richness:
+      - HIGH: full document inventory with metadata, last review dates, NDA tracking
+      - MEDIUM: partial document list or missing metadata
+      - LOW: no document inventory, no metadata, no prior review records
+      Dimensions to assess: Document Inventory, Document Metadata, NDA Tracking,
+      Compliance Framework Mapping, Usage History.
+      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode declaration.
 
-      New Evidence Available:
-      - {new document to add}
+      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the review.
+      Switch to SIGNAL ACQUISITION MODE and produce instead:
+      - Documents to collect and catalog
+      - Metadata to gather for each document (version, date, owner, NDA status)
+      - Systems to query for document inventory
+      - Re-assessment gate with minimum data threshold and target date
+      Do not proceed to remaining steps.
 
-      Actions:
-      - {action to refresh evidence}
+      STEP 1: DOCUMENT CURRENCY REVIEW
+      For each document in the library:
+      - Document name
+      - Current version
+      - Document date
+      - Age (days since document date)
+      - Currency status: CURRENT (<6 months), AGING (6-12 months), STALE (>12 months)
+      - Confidence in status: HIGH (document reviewed and verified current),
+        MEDIUM (date checked but content not reviewed), LOW (date from metadata only,
+        content not verified)
+      - Impact of staleness (if stale, what questionnaire answers or audits are affected)
+      If document list is empty: state that no documents were provided for review,
+      note that the evidence library cannot be assessed, proceed without fabrication.
+      Deliverable: Currency review table (Document | Version | Date | Age Days |
+      Currency Status | Confidence | Staleness Impact).
+
+      STEP 2: NDA AND ACCESS CLASSIFICATION
+      For each document, classify sharing restrictions:
+      - NDA required: YES / NO / CONDITIONAL (explain conditions)
+      - Sharing level: PUBLIC / CUSTOMER (under NDA) / INTERNAL ONLY / RESTRICTED
+      - Approved recipients (who has been authorized to receive this document)
+      - Expiration of sharing authorization (if time-limited)
+      If NDA status is unknown: state that NDA classification is missing for specific
+      documents, flag as requiring legal review, proceed without fabrication.
+      Deliverable: NDA classification table (Document | NDA Required | Sharing Level |
+      Approved Recipients | Authorization Expiration).
+
+      STEP 3: GAP IDENTIFICATION
+      Identify evidence gaps, missing documents needed for compliance:
+      - Gap description (what evidence is missing)
+      - Compliance framework requiring it (which framework or questionnaire type needs this)
+      - Frequency of request (how often this evidence is requested in questionnaires)
+      - Impact of gap: HIGH (frequently requested, blocks questionnaire completion),
+        MEDIUM (occasionally requested, workaround available),
+        LOW (rarely requested, minimal impact)
+      - Confidence in gap assessment: HIGH / MEDIUM / LOW with basis
+      Assign one primary impact level for routing. Add secondary flags where the
+      gap affects multiple compliance frameworks.
+      Deliverable: Gap table (Gap | Framework | Request Frequency | Primary Impact |
+      Secondary Flags | Confidence).
+
+      STEP 4: NEW EVIDENCE IDENTIFICATION
+      Identify new evidence that should be added to the library:
+      - Document or evidence type
+      - Source (where to obtain it)
+      - Compliance value (which frameworks or questionnaire categories it supports)
+      - Priority: HIGH (fills a gap identified in Step 3), MEDIUM (strengthens existing coverage),
+        LOW (nice to have)
+      - Effort to obtain: LOW (already exists, needs cataloging), MEDIUM (needs to be
+        created or requested), HIGH (requires audit or assessment to produce)
+      Deliverable: New evidence table (Evidence | Source | Compliance Value | Priority | Effort).
+
+      STEP 5: REFRESH ACTION PLAN
+      Build the action plan for updating the library:
+      Priority | Action | Owner | Timeline | Prerequisites | Expected Impact
+      Group actions by:
+      - Immediate refreshes (stale documents with active questionnaire dependencies)
+      - Scheduled refreshes (aging documents approaching staleness)
+      - New evidence acquisition (gaps to fill)
+      - NDA and access updates (classification changes needed)
+      For each action, state what must be true before it can start.
+      Deliverable: Refresh action plan with all columns populated.
+
+      STEP 6: ACCOUNT STATE DELTA
+      Specify what this runbook's findings change in the account state:
+      - Fields updated (field path | old value | new value | evidence)
+      - Evidence library status updated
+      - Compliance readiness changes
+      - Signals to append to recent history
+      - Next actions to add or complete
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS BEFORE OUTPUT:
+      - Data Availability Map completed first, Signal Acquisition Mode check performed
+      - Every document has a currency status with confidence level
+      - NDA classifications are complete for all documents
+      - Gaps are prioritized by request frequency and compliance impact
+      - New evidence suggestions address identified gaps
+      - Refresh actions include prerequisites and owners
+      - Staleness impact is connected to specific questionnaire or audit dependencies
+      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+
+      RUN MODE EXECUTION:
+      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single most urgent refresh action. Skip detailed document review.
+      - If run_mode is DISCOVERY: produce only the signal acquisition plan. Skip analysis.
+      - If run_mode is FULL or not specified: produce all deliverables as described above.
+
+      Format: If Signal Acquisition Mode was triggered, produce the signal acquisition
+      plan only. Otherwise, produce all deliverables as labeled sections. Lead with a
+      3-sentence executive summary stating: (1) the overall evidence library health
+      (count of current vs aging vs stale documents), (2) the highest-impact gap or
+      most critical stale document, and (3) the single most urgent action to take next.
