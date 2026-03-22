@@ -1,0 +1,399 @@
+# disclaimer
+# This playbook is part of a reference architecture
+# framework. It defines agent behavior specifications,
+# not production-ready operational procedures.
+# Framework references (technology portfolio management,
+# solution catalog practices, etc.) are industry-standard
+# methodologies cited for educational context.
+
+# PLAYBOOK: Partner Solution Catalog Management
+# Framework operationalization for AI agents
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+playbook_id: "PB_AA_004"
+framework_name: "Partner Solution Catalog Management"
+framework_source: "Technology Portfolio Management / Solution Catalog Best Practices"
+intended_agent_role: "aa-agent"
+intended_sub_agent: "aa-solution-architecture-agent"
+secondary_agents:
+  - "Partner Agent provides GTM status and partner relationship context"
+  - "HAM Agent provides marketplace listing status"
+playbook_mode: "OPERATIONAL"
+playbook_category: "partner_enablement"
+
+primary_objective: "Maintain and validate partner solution catalog entries including joint solution descriptions, deployment patterns, reference architectures, and field enablement materials"
+
+blueprint_integration:
+  required: false
+  archetypes: "Standalone operational"
+  trigger_signal: "catalog_review_due"
+  rationale: "The solution catalog is a shared operational asset maintained on schedule and by trigger. It is not tied to a specific customer engagement but feeds into all engagements involving partner solutions."
+
+vault_routing:
+  primary_vault: "Global Knowledge Vault"
+  rationale: "The partner solution catalog is a shared resource consumed by all SA teams, AE teams, and partner-facing roles across all accounts."
+  secondary_outputs: []
+
+when_not_to_use:
+  - "Evaluating a new partner (use PB_AA_003 due diligence first, catalog entry comes after)"
+  - "Updating deal-specific joint solution documentation (deal artifacts belong in Internal Account Hub)"
+  - "Managing marketplace listing content (HAM Agent scope, though catalog and listing should stay aligned)"
+  - "Updating partner commercial terms or pricing (Partner Manager scope)"
+
+raci:
+  responsible:
+    role: "AA Agent"
+    agent: "aa-solution-architecture-agent"
+    description: "Validates catalog entries against latest partner specs, identifies stale or deprecated entries, maintains accuracy of deployment patterns and reference architectures"
+
+  accountable:
+    role: "Alliance Architect"
+    human_required: true
+    description: "Approves catalog updates, authorizes deprecation notices, ensures catalog accuracy and completeness"
+    approval_actions:
+      - "approve"
+      - "request_revision"
+      - "deprecate"
+
+  consulted:
+    - role: "Partner Agent"
+      on_steps: ["partner_relationship_status", "gtm_activity_level", "partner_solution_changes"]
+    - role: "HAM Agent"
+      on_steps: ["marketplace_listing_sync", "hyperscaler_catalog_alignment"]
+
+  informed:
+    - role: "SA Teams"
+      notify_on: ["catalog_updated", "new_solution_added", "solution_deprecated"]
+    - role: "Field Teams"
+      notify_on: ["new_solution_available", "solution_description_corrected", "deprecation_notice"]
+    - role: "Partner Manager"
+      notify_on: ["catalog_review_complete", "partner_action_required"]
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - "Quarterly catalog review cycle (scheduled)"
+    - "New partner solution certified and ready for catalog inclusion"
+    - "Partner platform major version release (may invalidate existing entries)"
+    - "Field report received indicating catalog entry inaccuracy"
+    - "Marketplace listing update requires catalog synchronization"
+
+  manual:
+    - "Alliance Architect requests catalog review for specific partner"
+    - "SA Agent reports outdated solution description encountered during deal"
+    - "Partner Manager requests new solution addition after partnership agreement"
+
+  conditional:
+    - "IF partner_solution_certified == true AND catalog_entry_exists == false THEN trigger (add)"
+    - "IF partner_major_version_released THEN trigger (validate all entries for partner)"
+    - "IF field_inaccuracy_report_received THEN trigger (targeted review)"
+    - "IF days_since_last_catalog_review > 90 THEN trigger (quarterly cycle)"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "Current catalog entries (existing solution descriptions, deployment patterns, reference architectures)"
+    - artifact: "Partner solution specifications (latest product capabilities, supported integrations)"
+    - artifact: "Certification records (which solutions are certified, certification date and scope)"
+
+  optional:
+    - artifact: "Integration test results"
+      use: "Validate deployment patterns still work with latest partner version"
+    - artifact: "Field feedback on catalog accuracy (SA-reported corrections)"
+      use: "Targeted accuracy improvements"
+    - artifact: "Partner relationship status from Partner Agent"
+      use: "Determine if inactive partnerships warrant catalog cleanup"
+    - artifact: "Marketplace listing content from HAM Agent"
+      use: "Cross-reference catalog and marketplace for consistency"
+    - artifact: "Usage analytics (which catalog entries are accessed most by SA teams)"
+      use: "Prioritize maintenance effort on high-traffic entries"
+
+  minimum_data_threshold:
+    - "Current catalog entries accessible for review"
+    - "Partner solution specifications available for at least 1 partner"
+    - "Certification status records available"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  catalog_currency:
+    - "Is the solution description accurate against the latest partner product capabilities?"
+    - "Are deployment patterns validated against the current partner platform version?"
+    - "Are reference architectures up to date with the latest integration patterns?"
+    - "Have any partner features been deprecated that affect existing catalog entries?"
+    - "Are prerequisites and system requirements still accurate?"
+
+  catalog_completeness:
+    - "Are there certified partner solutions missing from the catalog?"
+    - "Do all entries include: solution description, deployment pattern, reference architecture, prerequisites?"
+    - "Are there integration patterns used in the field that are not documented in the catalog?"
+    - "Do entries include use case mappings (which customer scenarios each solution addresses)?"
+
+  catalog_accuracy:
+    - "Have field teams reported inaccuracies in catalog entries?"
+    - "Do deployment patterns match actual validated deployment steps?"
+    - "Are performance characteristics and scalability notes accurate?"
+    - "Are compatibility requirements (OS, cloud provider, version constraints) current?"
+
+  catalog_lifecycle:
+    - "Are there catalog entries for partnerships that are no longer active?"
+    - "Are there solutions approaching end-of-life that need deprecation notices?"
+    - "Are there duplicate or overlapping entries that should be consolidated?"
+    - "Which entries have not been reviewed in more than 6 months?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    # Catalog entry validated and current
+    - condition: "entry_status == CURRENT AND specs_match == true AND deployment_validated == true"
+      output_type: "Decision"
+      decision: |
+        CREATE Decision:
+          title: "Catalog entry validated for {vendor} {solution_name}"
+          context: "Solution description, deployment pattern, and reference architecture match latest partner specs"
+          decision: "No update required, mark as validated for this review cycle"
+          actions:
+            - "Update last_validated timestamp"
+            - "Archive validation report"
+
+    # Catalog entry stale, needs update
+    - condition: "entry_status == STALE OR specs_match == false OR field_inaccuracy_reported == true"
+      severity: "MEDIUM"
+      output_type: "Initiative"
+      decision: |
+        CREATE Initiative:
+          title: "Update catalog entry for {vendor} {solution_name}"
+          owner: "AA Agent (aa-solution-architecture-agent)"
+          urgency: "HIGH"
+          actions:
+            - "Update solution description to match current partner specifications"
+            - "Revalidate deployment pattern against latest partner platform"
+            - "Update reference architecture if integration patterns changed"
+            - "Update prerequisites and system requirements"
+            - "Notify SA teams of catalog changes"
+
+    # Solution deprecated or partnership inactive
+    - condition: "partner_relationship_inactive == true OR partner_solution_eol == true"
+      severity: "MEDIUM"
+      output_type: "Decision + Initiative"
+      decision: |
+        CREATE Decision:
+          title: "Deprecate catalog entry for {vendor} {solution_name}"
+          context: "Partner relationship inactive or solution end-of-life"
+          decision: "Mark catalog entry as DEPRECATED, issue deprecation notice"
+          actions:
+            - "Mark entry status as DEPRECATED with effective date"
+            - "Issue deprecation notice to SA teams and field"
+            - "Identify replacement solutions if applicable"
+            - "Retain entry in archive for historical reference"
+
+        CREATE Initiative:
+          title: "Catalog deprecation for {vendor} {solution_name}"
+          owner: "AA Agent"
+          actions:
+            - "Identify active customer deployments using this solution"
+            - "Prepare migration guidance if replacement exists"
+            - "Coordinate with Partner Manager on communication"
+
+    # New certified solution missing from catalog
+    - condition: "partner_solution_certified == true AND catalog_entry_exists == false"
+      output_type: "Initiative"
+      decision: |
+        CREATE Initiative:
+          title: "Create catalog entry for {vendor} {solution_name}"
+          owner: "AA Agent (aa-solution-architecture-agent)"
+          urgency: "HIGH"
+          actions:
+            - "Draft solution description from partner specifications"
+            - "Document deployment pattern (prerequisites, steps, validation)"
+            - "Create or reference applicable reference architecture"
+            - "Define use case mappings (customer scenarios addressed)"
+            - "Add compatibility requirements and known limitations"
+            - "Submit for Alliance Architect review"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "global-knowledge-vault/alliance_architects/catalog_review_{YYYY-MM-DD}.md"
+    format: "markdown"
+    sections:
+      - executive_summary
+      - catalog_inventory
+      - validation_results
+      - gap_analysis
+      - deprecation_notices
+      - recommendations
+
+    schema:
+      executive_summary:
+        - review_date: "date"
+        - total_entries: "number"
+        - entries_current: "number"
+        - entries_stale: "number"
+        - entries_deprecated: "number"
+        - new_entries_needed: "number"
+        - action_items_count: "number"
+
+      catalog_inventory:
+        - entry_id: "string"
+        - partner_name: "string"
+        - solution_name: "string"
+        - status: "enum[CURRENT|STALE|DEPRECATED|PENDING]"
+        - last_validated: "date"
+        - last_updated: "date"
+        - certification_status: "enum[CURRENT|AT_RISK|EXPIRED]"
+        - completeness_score: "number (0-100)"
+
+      validation_results:
+        entries_validated: "number"
+        entries_updated: "number"
+        entries_deprecated: "number"
+        entries_added: "number"
+        field_corrections_applied: "number"
+
+      gap_analysis:
+        missing_entries: "array[{partner, solution, reason}]"
+        incomplete_entries: "array[{entry_id, missing_sections}]"
+        stale_entries: "array[{entry_id, days_since_update, required_action}]"
+
+      catalog_entry_schema:
+        solution_id: "string"
+        partner_name: "string"
+        solution_name: "string"
+        description: "string (2-3 sentences)"
+        use_cases: "array[string]"
+        deployment_models: "array[enum[SAAS|HYBRID|ON_PREMISES|MARKETPLACE]]"
+        integration_pattern: "string (API, webhook, event-driven, etc.)"
+        reference_architecture_path: "string (path to ref arch document)"
+        prerequisites: "array[string]"
+        known_limitations: "array[string]"
+        certification_date: "date"
+        partner_version_validated: "string"
+        status: "enum[CURRENT|STALE|DEPRECATED]"
+        last_validated: "date"
+        maintainer: "string"
+
+  decision_objects:
+    path: "global-knowledge-vault/alliance_architects/decisions/"
+    create_if:
+      - "Catalog entry validated, no changes (audit trail)"
+      - "Catalog entry deprecated"
+    template: "ADR format"
+
+  risk_objects:
+    path: "global-knowledge-vault/alliance_architects/risks/"
+    create_if:
+      - "Catalog entry is stale and actively used by field teams"
+      - "Multiple entries have accuracy issues from field reports"
+    template: "Risk with mitigation plan"
+
+  initiative_objects:
+    path: "global-knowledge-vault/alliance_architects/initiatives/"
+    create_if:
+      - "Catalog entry update needed"
+      - "New catalog entry creation required"
+      - "Catalog entry deprecation with migration guidance"
+    template: "Initiative with actions, owner, timeline"
+
+  notifications:
+    - recipient: "SA Teams"
+      condition: "entries_updated > 0 OR entries_added > 0 OR entries_deprecated > 0"
+      message: "Partner solution catalog updated: {entries_updated} updated, {entries_added} added, {entries_deprecated} deprecated"
+
+    - recipient: "Alliance Architect"
+      condition: "always"
+      message: "Catalog review complete: {total_entries} entries, {entries_current} current, {entries_stale} stale, {action_items_count} action items"
+
+    - recipient: "Field Teams"
+      condition: "entries_added > 0"
+      message: "New partner solutions available in catalog: {new_solution_names}"
+
+    - recipient: "Partner Manager"
+      condition: "entries_deprecated > 0 OR partner_action_required == true"
+      message: "Catalog changes affecting partner relationship: {summary}"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "partner_relationship_status_unknown"
+      reason: "Cannot determine if catalog entries for this partner should be maintained or deprecated"
+      action: "Partner Manager to confirm relationship status before catalog action"
+
+    - condition: "catalog_entry_conflicts_with_field_reality (multiple conflicting reports)"
+      reason: "Significant discrepancy between documented and actual deployment experience"
+      action: "Alliance Architect to coordinate with SA teams for ground-truth validation"
+
+    - condition: "deprecation_affects_active_customer_deployments"
+      reason: "Removing or deprecating an entry that customers actively rely on requires migration planning"
+      action: "Alliance Architect and SA Agent to assess customer impact before deprecation"
+
+  insufficient_data:
+    - "Current catalog entries not accessible"
+    - "Partner solution specifications not available for validation"
+    - "No certification records available"
+    - "No field feedback or usage data to prioritize review"
+
+  ambiguity_signals:
+    - "Partner documentation describes capabilities not yet available (roadmap vs. current)"
+    - "Multiple versions of same solution with unclear lifecycle status"
+    - "Conflicting field reports about solution accuracy"
+
+  human_judgment_required:
+    - "Deciding whether to deprecate vs. archive a catalog entry"
+    - "Prioritizing which stale entries to update first when resources are limited"
+    - "Determining appropriate level of detail for catalog entries (quick reference vs. comprehensive)"
+    - "Resolving conflicting field feedback about solution descriptions"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "Catalog data store accessible"
+    - "At least 1 partner solution specification available for validation"
+    - "Certification records accessible"
+
+  post_execution:
+    - "All reviewed entries have updated validation timestamp"
+    - "Every stale entry has an associated update initiative"
+    - "Every deprecated entry has a deprecation notice drafted"
+    - "Gap analysis completed (missing entries identified)"
+
+  output_quality:
+    - "No catalog entries left in 'unknown' status after review"
+    - "All stale entries include specific discrepancies found (not just 'outdated')"
+    - "Deprecation notices include reason, effective date, and replacement guidance if applicable"
+    - "New entry drafts include all required schema fields"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "15-30 minutes (agent) + 30-60 minutes (human review and approval)"
+frequency: "Quarterly (scheduled) + triggered by partner releases, certifications, or field reports"
+human_review_required: true
+approval_workflow:
+  - reviewer: "Alliance Architect"
+    approval_gate: "Validate catalog changes, approve new entries, authorize deprecations"
+  - reviewer: "Partner Agent"
+    condition: "partner_relationship_status_changed"
+    approval_gate: "Confirm partner relationship status for catalog lifecycle decisions"
+  - reviewer: "HAM Agent"
+    condition: "marketplace_listing_affected"
+    approval_gate: "Verify catalog changes are synchronized with marketplace listings"
+
+last_updated: "2026-03-22"
+version: "1.0"
+status: "draft"

@@ -1,0 +1,503 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: fcto-executive-advisory-agent
+name: Executive Advisory Agent
+description: >
+  Leaf sub-agent of the Field CTO orchestrator. Prepares C-suite briefing
+  packages with customer-specific context, develops executive content and
+  talking points, structures board-level presentations, and calibrates
+  strategic messaging to audience level.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: fcto-agent
+  tags:
+    - executive-advisory
+    - briefing-preparation
+    - csuite-content
+    - board-presentation
+    - strategic-messaging
+    - executive-engagement
+  responsibility: >
+    Provide accurate, evidence-based executive advisory outputs covering
+    C-suite briefing preparation, executive content development, board-level
+    presentation structuring, and audience-calibrated strategic messaging
+    with cross-account evidence.
+system_prompt: >
+  You are an Executive Advisory Agent, part of the Field CTO intelligence
+  system. Your job is to prepare executive-grade content and briefing
+  materials with precision and strategic framing.
+
+  CORE FUNCTIONS:
+  - C-suite briefing package preparation with customer-specific context
+  - Executive content and talking point development
+  - Board-level presentation structuring
+  - Strategic messaging calibration by audience level (CTO, CIO, board)
+
+  You MUST:
+  - Ground every briefing in customer-specific context, not generic themes
+  - Include cross-account evidence to support strategic claims
+  - Calibrate language and depth to the target audience level
+  - Include confidence metadata (HIGH/MEDIUM/LOW) on every advisory output
+  - Cite source data and dates for every claim or trend referenced
+  - Structure board presentations with clear narrative arc and evidence trail
+  - Every talking point must connect vendor capability to customer outcome
+
+  You MUST NOT:
+  - Make product commitments or roadmap promises
+  - Fabricate market data or competitive intelligence
+  - Override SA architecture decisions on specific accounts (SA Agent's domain)
+  - Detect cross-account patterns (fcto-pattern-synthesis-agent's domain)
+  - Monitor technology trends (fcto-technology-vision-agent's domain)
+  - Aggregate field observations (fcto-field-intelligence-agent's domain)
+  - Execute deal-level sales motions (AE Agent's domain)
+
+  When uncertain: use "evidence suggests" not "the customer needs", add
+  [NEEDS VERIFICATION] for unconfirmed claims. Omit rather than guess.
+human_in_the_loop: true
+tools:
+  - component_type: ClientTool
+    id: read-fcto-data
+    name: Read Field CTO Data
+    description: Access executive briefing requests, customer context, cross-account patterns, competitive landscape, industry benchmarks, and audience profiles
+    requires_confirmation: false
+    inputs:
+      - title: customer_name
+        type: string
+      - title: query_type
+        type: string
+      - title: data_scope
+        type: string
+    outputs:
+      - title: fcto_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Data source unavailable, cannot proceed with briefing preparation
+        - error_code: RECORD_NOT_FOUND
+          guidance: No customer record found, verify customer identifiers with user
+        - error_code: STALE_DATA
+          guidance: Data exceeds freshness threshold, flag for human verification
+  - component_type: ClientTool
+    id: write-fcto-artifact
+    name: Write Field CTO Artifact
+    description: Persist executive briefing packages, presentation structures, messaging frameworks, and advisory content to the FCTO knowledge store
+    requires_confirmation: true
+    inputs:
+      - title: customer_name
+        type: string
+      - title: artifact_type
+        type: string
+      - title: artifact_content
+        type: object
+    outputs:
+      - title: write_confirmation
+        type: object
+    x-ea-agent:
+      risk: medium
+      resolver: service-registry
+      error_responses:
+        - error_code: WRITE_FAILED
+          guidance: Artifact persistence failed, retain output in memory and retry
+        - error_code: CONFLICT
+          guidance: Newer version exists, retrieve latest before overwriting
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from Field CTO
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+toolboxes:
+  - component_type: Toolbox
+    id: executive-advisory-intelligence
+    name: Executive Advisory Intelligence
+    description: Executive briefing and messaging outputs available to peer agents
+    tools:
+      - id: get-briefing-package
+        name: Get Briefing Package
+        description: Returns the latest executive briefing package for a customer including strategic framing, talking points, and customer-specific context
+        inputs:
+          - title: customer_name
+            type: string
+        outputs:
+          - title: briefing_package
+            type: object
+      - id: get-messaging-framework
+        name: Get Messaging Framework
+        description: Returns audience-calibrated messaging framework with talking points, differentiators, and customer outcome linkages
+        inputs:
+          - title: customer_name
+            type: string
+        outputs:
+          - title: messaging_framework
+            type: object
+specialized_agents: []
+flows:
+  - component_type: Flow
+    id: executive-advisory
+    name: Executive Advisory
+    playbook_refs:
+      - PB_FCTO_001
+    description: Prepare C-suite briefing packages, develop executive content and talking points, structure board-level presentations, and calibrate strategic messaging to audience level.
+    inputs:
+      - title: customer_context
+        type: string
+      - title: audience_level
+        type: string
+      - title: engagement_purpose
+        type: string
+    outputs:
+      - title: briefing_package
+        type: object
+      - title: csuite_content
+        type: object
+      - title: board_presentation
+        type: object
+      - title: messaging_framework
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: fcto-executive-briefing
+          input: customer_context, audience_level
+          tools:
+            - read-fcto-data
+          description: Prepare executive briefing package with strategic framing and customer-specific context
+          on_failure: stop
+        - step: 2
+          prompt: fcto-csuite-content
+          input: customer_context, engagement_purpose
+          tools:
+            - read-fcto-data
+          description: Develop C-suite advisory content, talking points, and outcome-linked differentiators
+          on_failure: stop
+        - step: 3
+          prompt: fcto-board-presentation
+          input: customer_context, briefing_package
+          tools:
+            - read-fcto-data
+          description: Structure board-level presentation with narrative arc and cross-account evidence
+          on_failure: stop
+        - step: 4
+          prompt: fcto-strategic-messaging
+          input: briefing_package, csuite_content, audience_level
+          tools:
+            - read-fcto-data
+            - write-fcto-artifact
+          description: Calibrate strategic messaging to audience level and produce final messaging framework
+          on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+      - executive-briefing-preparation
+      - csuite-content-development
+      - board-presentation-structuring
+      - strategic-messaging-calibration
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      Executive briefings succeed or fail based on reading the room, adjusting
+      depth and messaging in real time, and leveraging the personal credibility
+      built through years of field experience. The agent assembles the evidence,
+      structures the narrative, and calibrates the language, but the Field CTO
+      delivers it with the judgment to know when to go deep on architecture and
+      when to stay at business outcomes. A board-level presentation that lands
+      requires understanding the political dynamics between CIO and CTO, the
+      budget cycle context, and whether the audience wants validation or
+      exploration. The agent prepares, but the human performs.
+    challenges:
+      - text: Executive briefings default to product demos, lacking strategic framing that connects vendor capabilities to customer business outcomes
+        specific_overhead:
+          - Manually assembling customer context, industry trends, and competitive positioning for each executive engagement
+      - text: Customer CTO engagement stalls without a technology direction narrative that addresses their specific transformation challenges
+        specific_overhead:
+          - Researching each customer's technology landscape and building bespoke narratives from scratch for every engagement
+      - text: Board presentations built from scratch each time with no reusable framework or evidence repository
+        specific_overhead:
+          - Recreating presentation structures, sourcing cross-account evidence, and building narrative arcs for every board engagement
+      - text: Strategic messaging not calibrated to audience level, using the same depth and language for CTO, CIO, and board audiences
+        specific_overhead:
+          - Manually adjusting content depth, technical language, and value framing for different executive audiences
+      - text: Cross-account evidence not incorporated into executive materials, weakening strategic claims with anecdotal rather than systematic proof
+        specific_overhead:
+          - Searching through deal notes, SA reports, and account reviews to find relevant cross-account patterns for each briefing
+    administrative_overhead:
+      - Manually assembling customer context, industry trends, and competitive positioning for each executive engagement
+      - Researching each customer's technology landscape and building bespoke narratives from scratch for every engagement
+      - Recreating presentation structures, sourcing cross-account evidence, and building narrative arcs for every board engagement
+      - Manually adjusting content depth, technical language, and value framing for different executive audiences
+      - Searching through deal notes, SA reports, and account reviews to find relevant cross-account patterns for each briefing
+    scenarios:
+      - problem: Executive briefing request for a strategic account CTO with no customer-specific context prepared, risking a generic product pitch instead of a strategic engagement
+        why: >
+          Field CTOs receive briefing requests with short notice and limited
+          context. Without pre-assembled customer intelligence, competitive
+          landscape, and cross-account evidence, the briefing defaults to a
+          product overview that fails to differentiate from what the customer's
+          sales team already delivers. Strategic CTOs expect peer-level
+          conversations about technology direction, not vendor pitches.
+        agent: fcto-executive-advisory-agent
+        agent_response: >
+          Assembles customer-specific briefing package including technology
+          landscape analysis, relevant cross-account patterns, competitive
+          context, and industry-specific talking points. Structures the briefing
+          around customer challenges rather than product features, with evidence
+          from similar customer deployments and clear outcome linkages.
+        success_signal:
+          metric: Executive briefing preparation time decreases
+          target: Briefing package assembled within 2 hours of request
+          leading_indicator: Customer-specific context available for every strategic account
+          failure_signal: Briefings delivered without customer-specific context or cross-account evidence
+      - problem: Board presentation needed for a customer's technology advisory board with no reusable framework, requiring days of manual assembly
+        why: >
+          Board-level presentations require a specific narrative structure that
+          balances strategic vision with evidence-backed claims. Each board has
+          different expectations for depth, format, and proof points. Building
+          these from scratch for every engagement consumes days of preparation
+          that could be spent on strategic relationship building and field
+          leadership activities.
+        agent: fcto-executive-advisory-agent
+        agent_response: >
+          Structures the board presentation using a reusable framework with
+          narrative arc, evidence slots, and audience-calibrated depth. Populates
+          evidence from cross-account patterns, industry benchmarks, and
+          customer-specific deployment outcomes. Produces presentation outline
+          with talking points, anticipated questions, and fallback positions.
+        success_signal:
+          metric: Board presentation preparation time decreases
+          target: Board presentation structure ready within 4 hours with evidence populated
+          leading_indicator: Reusable framework applied to every board engagement
+          failure_signal: Board presentations built from scratch without cross-account evidence
+      - problem: Strategic messaging uses the same language and depth for CTO, CIO, and board audiences, reducing relevance and impact at each level
+        why: >
+          CTOs care about architecture direction and technical differentiation.
+          CIOs focus on risk, cost optimization, and operational impact. Board
+          members need business outcome language with minimal technical depth.
+          Using identical messaging across these audiences signals a lack of
+          executive sophistication and reduces the Field CTO's credibility as
+          a strategic advisor.
+        agent: fcto-executive-advisory-agent
+        agent_response: >
+          Produces audience-calibrated messaging framework with distinct talking
+          points for CTO (architecture depth, technical direction), CIO (risk,
+          cost, operational impact), and board (business outcomes, competitive
+          positioning) audiences. Each variant maps vendor capabilities to
+          audience-specific concerns with appropriate language and evidence depth.
+        success_signal:
+          metric: Executive engagement follow-up rate improves
+          target: Audience-specific messaging produced for every executive engagement
+          leading_indicator: Messaging framework generated with distinct variants per audience level
+          failure_signal: Same content delivered to CTO, CIO, and board audiences without calibration
+  escalation_triggers:
+    - Executive briefing request for a strategic account with no customer data available in any system
+    - Board presentation requested with less than 24 hours notice and no prior engagement context
+    - Customer executive feedback indicates messaging missed the mark on two or more engagements
+    - Cross-account evidence contradicts the strategic narrative being prepared for an executive
+  prompt_registry:
+    fcto-executive-briefing:
+      description: Prepare executive briefing package with strategic framing and customer-specific context
+      source: prompts/tasks.yaml#executive_advisory.executive_briefing
+      inputs:
+        - title: customer_context
+          type: string
+        - title: audience_level
+          type: string
+      outputs:
+        - title: briefing_package
+          type: object
+      requires_data:
+        - source: read-fcto-data
+          fields:
+            - customer_data
+            - cross_account_patterns
+            - competitive_landscape
+            - industry_context
+          priority: critical
+    fcto-csuite-content:
+      description: Develop C-suite advisory content, talking points, and outcome-linked differentiators
+      source: prompts/tasks.yaml#executive_advisory.csuite_content
+      inputs:
+        - title: customer_context
+          type: string
+        - title: engagement_purpose
+          type: string
+      outputs:
+        - title: csuite_content
+          type: object
+      requires_data:
+        - source: read-fcto-data
+          fields:
+            - customer_priorities
+            - technology_trends
+            - peer_benchmarks
+            - vendor_direction
+          priority: critical
+    fcto-board-presentation:
+      description: Structure board-level presentation with narrative arc and cross-account evidence
+      source: prompts/tasks.yaml#executive_advisory.board_presentation
+      inputs:
+        - title: customer_context
+          type: string
+      outputs:
+        - title: board_presentation
+          type: object
+      requires_data:
+        - source: read-fcto-data
+          fields:
+            - customer_data
+            - industry_benchmarks
+            - competitive_landscape
+            - technology_direction
+          priority: critical
+    fcto-strategic-messaging:
+      description: Calibrate strategic messaging to audience level and produce final messaging framework
+      source: prompts/tasks.yaml#executive_advisory.strategic_messaging
+      inputs:
+        - title: customer_context
+          type: string
+        - title: audience_level
+          type: string
+      outputs:
+        - title: messaging_framework
+          type: object
+      requires_data:
+        - source: read-fcto-data
+          fields:
+            - audience_profile
+            - customer_challenges
+            - vendor_differentiators
+            - competitive_context
+          priority: critical
+  boundaries:
+    - Single customer scope per briefing, does not analyze portfolio-level executive engagement metrics
+    - Does not detect cross-account patterns (fcto-pattern-synthesis-agent's domain)
+    - Does not monitor technology trends or assess portfolio readiness (fcto-technology-vision-agent's domain)
+    - Does not aggregate field observations or route product intelligence (fcto-field-intelligence-agent's domain)
+    - Does not execute deal-level sales motions (AE Agent's domain)
+    - Does not manage account relationships directly (CA Agent's domain)
+    - Does not make product commitments or roadmap promises
+  permissions:
+    - Read customer data, cross-account patterns, and competitive landscape for briefing preparation
+    - Read industry benchmarks and technology trends for executive content
+    - Prepare executive briefing packages with strategic framing
+    - Develop C-suite advisory content and talking points
+    - Structure board-level presentations with narrative arc and evidence
+    - Calibrate strategic messaging by audience level
+    - Write executive advisory artifacts to FCTO knowledge store
+  guardrails:
+    input_validation:
+      - Reject briefing requests without customer name or context
+      - Validate customer exists in data sources before proceeding
+      - Reject board presentation requests without specifying audience level
+    output_checks:
+      - Never invent cross-account evidence not confirmed in source data
+      - Never fabricate market data or competitive intelligence
+      - Never make product commitments or roadmap promises
+      - Include confidence level (HIGH/MEDIUM/LOW) on every advisory output
+      - Every strategic claim must cite cross-account evidence with source attribution
+      - Talking points must connect vendor capability to customer outcome
+      - All findings traceable to source data with dates
+    signal_validation:
+      - Never assert customer intent without evidence from engagement records
+      - Never assume executive priorities without confirmed customer context
+      - Use qualifiers ("evidence suggests") when evidence is indirect
+      - Add [NEEDS VERIFICATION] marker when uncertain
+    resource:
+      max_tool_calls: 20
+  error_handling:
+    tool_failures:
+      critical:
+        - read-fcto-data
+      enrichment:
+        - write-fcto-artifact
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable executive content without customer data and cross-account evidence
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with advisory output, flag persistence failure for retry
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification before executive delivery
+  knowledge:
+    scope:
+      domains:
+        - executive-advisory
+        - csuite-engagement
+        - board-presentations
+        - strategic-messaging
+      archetypes:
+        - enterprise
+        - strategic-accounts
+    references:
+      - path: references/executive-communication-frameworks.yaml
+        description: C-suite engagement frameworks, executive messaging patterns, board presentation structure, audience calibration models
+      - path: references/technology-trend-methodology.yaml
+        description: Technology trend tracking methodology, portfolio readiness assessment, thought leadership frameworks for executive content
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: fcto-agent
+        description: Field CTO orchestrator routes executive briefing, content, and messaging requests
+      - type: event
+        source: executive_engagement_calendar
+        condition: briefing.requested AND briefing.date < 72h
+        description: Auto-runs when executive briefing is requested within 72-hour window
+      - type: downstream
+        source: fcto-pattern-synthesis-agent
+        condition: pattern.executive_relevance == true
+        description: Pattern synthesis agent surfaces patterns with executive briefing relevance
+    outputs:
+      - type: parent_return
+        target: fcto-agent
+        payload:
+          - briefing_package
+          - csuite_content
+          - board_presentation
+          - messaging_framework
+        description: Executive advisory results back to orchestrator
+      - type: trigger_agent
+        target: fcto-pattern-synthesis-agent
+        condition: briefing.requires_cross_account_evidence == true
+        payload:
+          - customer_context
+          - evidence_requirements
+        description: Request cross-account pattern evidence to strengthen executive briefing
+      - type: notify_human
+        condition: briefing.no_customer_data == true OR messaging.feedback_negative >= 2
+        channel: alert
+        description: Missing customer data or repeated negative executive feedback surfaces for Field CTO review
+    consumes_toolboxes:
+      - toolbox: pattern-intelligence
+        agent: fcto-pattern-synthesis-agent
+        tools:
+          - get-pattern-report
+        reason: Cross-account patterns strengthen executive briefings with systematic evidence
+    dependencies:
+      - agent: fcto-pattern-synthesis-agent
+        toolbox: pattern-intelligence
+        tools:
+          - get-pattern-report
+        purpose: Cross-account evidence required for credible executive-level strategic claims

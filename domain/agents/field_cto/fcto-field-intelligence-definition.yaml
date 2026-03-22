@@ -1,0 +1,512 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: fcto-field-intelligence-agent
+name: Field Intelligence Agent
+description: >
+  Leaf sub-agent of the Field CTO orchestrator. Aggregates field observations
+  from SA/CA teams, structures intelligence for product strategy consumption
+  with frequency and revenue weighting, prepares evidence-backed advisory board
+  input, and provides cross-account evidence for strategic deal positioning.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: fcto-agent
+  tags:
+    - field-intelligence
+    - observation-aggregation
+    - product-strategy
+    - advisory-board
+    - strategic-deal-support
+    - demand-signals
+  responsibility: >
+    Provide structured, evidence-backed field intelligence covering SA/CA
+    observation aggregation, product strategy routing with frequency and
+    revenue weighting, advisory board preparation, and cross-account
+    strategic deal positioning support.
+system_prompt: >
+  You are a Field Intelligence Agent, part of the Field CTO intelligence
+  system. Your job is to aggregate, structure, and route field observations
+  into actionable intelligence with precision.
+
+  CORE FUNCTIONS:
+  - SA/CA observation aggregation and structuring
+  - Product strategy intelligence routing with frequency and revenue weighting
+  - Advisory board preparation with evidence-backed input
+  - Cross-account evidence assembly for strategic deal positioning
+
+  You MUST:
+  - Weight every demand signal by frequency (how many accounts report it),
+    revenue impact (pipeline and ARR at stake), and urgency (deal stage proximity)
+  - Include confidence metadata (HIGH/MEDIUM/LOW) on every intelligence output
+  - Cite source accounts and observation dates for every finding
+  - Quantify demand signals with specific counts, not qualitative summaries
+  - Cross-reference observations across accounts before declaring a pattern
+  - Every advisory board input must include supporting deal evidence and metrics
+  - Structure product strategy inputs in PM-consumable format with clear asks
+
+  You MUST NOT:
+  - Make product roadmap commitments or promises on behalf of engineering
+  - Assume a single account observation represents a market trend
+  - Fabricate or extrapolate demand signals beyond what field data supports
+  - Override SA architecture decisions on specific accounts
+  - Manage deal execution directly (SA Agent's domain)
+  - Perform cross-account pattern synthesis (fcto-pattern-synthesis-agent's domain)
+  - Create technology vision narratives (fcto-technology-vision-agent's domain)
+  - Prepare executive briefings (fcto-executive-advisory-agent's domain)
+
+  When uncertain: use "field observations indicate" not "the market demands",
+  add [NEEDS VERIFICATION] for signals with fewer than three confirming
+  sources. Omit rather than guess.
+human_in_the_loop: true
+tools:
+  - component_type: ClientTool
+    id: read-fcto-data
+    name: Read FCTO Data
+    description: Access field observation data from SA/CA teams, deal notes, product feedback logs, and advisory board records
+    requires_confirmation: false
+    inputs:
+      - title: query_scope
+        type: string
+      - title: query_type
+        type: string
+      - title: data_scope
+        type: string
+    outputs:
+      - title: fcto_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Field data source unavailable, cannot proceed with observation aggregation
+        - error_code: RECORD_NOT_FOUND
+          guidance: No matching field observations found, verify query parameters with user
+        - error_code: STALE_DATA
+          guidance: Data exceeds freshness threshold, flag for human verification
+  - component_type: ClientTool
+    id: write-fcto-artifact
+    name: Write FCTO Artifact
+    description: Persist field intelligence reports, demand signal analyses, and advisory board briefs to the FCTO knowledge store
+    requires_confirmation: true
+    inputs:
+      - title: artifact_type
+        type: string
+      - title: artifact_content
+        type: object
+      - title: artifact_scope
+        type: string
+    outputs:
+      - title: write_confirmation
+        type: object
+    x-ea-agent:
+      risk: medium
+      resolver: service-registry
+      error_responses:
+        - error_code: WRITE_FAILED
+          guidance: Artifact persistence failed, retain output in memory and retry
+        - error_code: CONFLICT
+          guidance: Newer version exists, retrieve latest before overwriting
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from Field CTO
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+toolboxes:
+  - component_type: Toolbox
+    id: field-intelligence
+    name: Field Intelligence
+    description: Field observation intelligence and demand signal data available to peer agents
+    tools:
+      - id: get-demand-signals
+        name: Get Demand Signals
+        description: Returns structured demand signals with frequency count, revenue weighting, urgency classification, and source account references
+        inputs:
+          - title: signal_category
+            type: string
+        outputs:
+          - title: demand_signals
+            type: object
+      - id: get-field-evidence
+        name: Get Field Evidence
+        description: Returns cross-account deployment evidence and field observations for a given technology or capability area
+        inputs:
+          - title: capability_area
+            type: string
+        outputs:
+          - title: field_evidence
+            type: object
+specialized_agents: []
+flows:
+  - component_type: Flow
+    id: field-intelligence
+    name: Field Intelligence Assessment
+    playbook_refs:
+      - PB_FCTO_001
+    description: Aggregate SA/CA field observations, structure demand signals with frequency and revenue weighting, prepare advisory board input, and assemble cross-account evidence for strategic deal support.
+    inputs:
+      - title: intelligence_scope
+        type: string
+      - title: account_context
+        type: object
+      - title: assessment_trigger
+        type: string
+    outputs:
+      - title: observation_aggregation
+        type: object
+      - title: product_strategy_input
+        type: object
+      - title: advisory_board_brief
+        type: object
+      - title: strategic_deal_evidence
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: fcto-observation-aggregation
+          input: intelligence_scope, account_context
+          tools:
+            - read-fcto-data
+          description: Aggregate SA/CA field observations, deduplicate, and structure by theme
+          on_failure: stop
+        - step: 2
+          prompt: fcto-product-strategy-routing
+          input: observation_aggregation
+          tools:
+            - read-fcto-data
+          description: Structure demand signals with frequency, revenue weighting, and urgency for PM consumption
+          on_failure: stop
+        - step: 3
+          prompt: fcto-advisory-board-prep
+          input: observation_aggregation, product_strategy_input
+          tools:
+            - read-fcto-data
+          description: Prepare evidence-backed advisory board input with supporting deal metrics
+          on_failure: stop
+        - step: 4
+          prompt: fcto-strategic-deal-support
+          input: observation_aggregation, product_strategy_input, advisory_board_brief
+          tools:
+            - read-fcto-data
+            - write-fcto-artifact
+          description: Assemble cross-account deployment evidence for strategic deal positioning
+          on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+      - observation-aggregation
+      - product-strategy-routing
+      - advisory-board-preparation
+      - strategic-deal-evidence
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      Field data captures what SA/CA teams observe across accounts, but the
+      Field CTO reads the strategic story behind the signals. Understanding
+      whether a cluster of feature requests reflects a genuine market shift or
+      a single large account's specific needs, whether competitive displacement
+      patterns indicate a structural weakness or a positioning gap, and whether
+      advisory board input should drive roadmap changes or field enablement
+      requires human judgment and cross-organizational context that no
+      aggregation engine captures. The agent structures and quantifies, but
+      the Field CTO decides what reaches product leadership and how it is
+      framed.
+    challenges:
+      - text: Field intelligence stays in Slack and deal notes, never reaching PM in a structured format
+        specific_overhead:
+          - Manually searching Slack channels and CRM notes to compile field observations for product meetings
+      - text: Product advisory board input is anecdotal rather than evidence-backed with deal metrics
+        specific_overhead:
+          - Scrambling before advisory board sessions to find supporting data for field-sourced recommendations
+      - text: Strategic deal support lacks cross-account deployment evidence to strengthen positioning
+        specific_overhead:
+          - Manually surveying SA teams to find comparable deployments for reference in strategic deals
+      - text: Demand signals not structured with frequency, revenue weighting, and urgency classification
+        specific_overhead:
+          - Product teams receiving unweighted feature request lists with no business context for prioritization
+      - text: SA/CA observations aggregated reactively rather than systematically across the portfolio
+        specific_overhead:
+          - Pattern recognition happening only when a Field CTO manually reviews multiple account notes
+    administrative_overhead:
+      - Manually searching Slack channels and CRM notes to compile field observations for product meetings
+      - Scrambling before advisory board sessions to find supporting data for field-sourced recommendations
+      - Manually surveying SA teams to find comparable deployments for reference in strategic deals
+      - Product teams receiving unweighted feature request lists with no business context for prioritization
+      - Pattern recognition happening only when a Field CTO manually reviews multiple account notes
+    scenarios:
+      - problem: Product team requests field validation for a roadmap initiative, but observations are scattered across SA deal notes and Slack threads
+        why: >
+          SA and CA teams capture valuable technical observations during customer
+          engagements, but these observations live in disconnected systems: Slack
+          channels, CRM notes, deal review decks, and informal conversations.
+          When product management needs field validation for a roadmap decision,
+          the Field CTO must manually search and compile observations, often
+          under time pressure, resulting in incomplete or biased input that
+          misrepresents the actual field signal.
+        agent: fcto-field-intelligence-agent
+        agent_response: >
+          Aggregates SA/CA observations across accounts by theme, deduplicates
+          related signals, quantifies frequency (number of accounts reporting),
+          tags with revenue context (pipeline and ARR at stake), and produces
+          a structured field validation report with confidence levels and
+          source traceability for each observation cluster.
+        success_signal:
+          metric: Field validation turnaround time decreases
+          target: Structured field validation delivered within 24 hours of PM request
+          leading_indicator: Observation aggregation generated for every PM validation request
+          failure_signal: PM roadmap decisions made without structured field input
+      - problem: Advisory board session approaching with no structured evidence to support field-sourced product recommendations
+        why: >
+          Product advisory boards expect data-backed input from the field, not
+          anecdotal feedback. Preparing this input requires cross-referencing
+          deal outcomes, deployment patterns, competitive encounters, and
+          customer feedback across the portfolio. Without systematic aggregation,
+          advisory board contributions rely on the Field CTO's recall and recent
+          experience, missing significant signals from accounts not top-of-mind.
+        agent: fcto-field-intelligence-agent
+        agent_response: >
+          Compiles evidence-backed advisory board brief covering top demand
+          signals with frequency and revenue weighting, supporting deal
+          references for each recommendation, competitive context where
+          relevant, and specific product asks structured in PM-consumable
+          format with clear priority rationale.
+        success_signal:
+          metric: Advisory board input quality score from PM increases
+          target: Every advisory board contribution includes quantified evidence from 5+ accounts
+          leading_indicator: Advisory board brief generated 7 days before each session
+          failure_signal: Advisory board input rejected as anecdotal by product leadership
+      - problem: Strategic deal requires cross-account deployment evidence to strengthen positioning against a competitor, but no systematic way to find comparable deployments
+        why: >
+          Large strategic deals often hinge on the vendor's ability to
+          demonstrate proven deployment patterns across similar accounts.
+          Prospects and their evaluation teams ask for reference architectures,
+          deployment success metrics, and comparable use cases. Without
+          systematic cross-account evidence, the field team relies on personal
+          networks and memory to find references, often missing relevant
+          deployments in other regions or verticals.
+        agent: fcto-field-intelligence-agent
+        agent_response: >
+          Searches field observations across the portfolio for deployments
+          matching the strategic deal's technology stack, use case, and
+          vertical. Produces a cross-account evidence package with deployment
+          summaries, success metrics, architecture patterns, and relevant
+          competitive displacement examples, each with source account
+          reference and confidence level.
+        success_signal:
+          metric: Strategic deal win rate with cross-account evidence improves
+          target: Evidence package assembled within 48 hours for every strategic deal request
+          leading_indicator: Cross-account evidence query executed for deals above threshold ACV
+          failure_signal: Strategic deals lost citing lack of comparable deployment evidence
+  escalation_triggers:
+    - Demand signal reported by 5+ accounts with no PM response within 30 days
+    - Advisory board session within 14 days with no structured brief prepared
+    - Strategic deal above threshold ACV with no cross-account evidence available
+    - Field observation contradicts current product positioning or messaging
+  prompt_registry:
+    fcto-observation-aggregation:
+      description: Aggregate SA/CA field observations across accounts, deduplicate related signals, and structure by theme with frequency and source traceability
+      source: prompts/tasks.yaml#field_intelligence.observation_aggregation
+      inputs:
+        - title: intelligence_scope
+          type: string
+        - title: account_context
+          type: object
+      outputs:
+        - title: observation_aggregation
+          type: object
+      requires_data:
+        - source: read-fcto-data
+          fields:
+            - sa_deal_notes
+            - ca_engagement_logs
+            - slack_observations
+            - crm_technical_notes
+          priority: critical
+    fcto-product-strategy-routing:
+      description: Structure demand signals with frequency count, revenue weighting, and urgency classification for product management consumption
+      source: prompts/tasks.yaml#field_intelligence.product_strategy_routing
+      inputs:
+        - title: observation_aggregation
+          type: object
+      outputs:
+        - title: product_strategy_input
+          type: object
+      requires_data:
+        - source: read-fcto-data
+          fields:
+            - pipeline_data
+            - arr_by_account
+            - deal_stages
+            - product_backlog
+          priority: critical
+    fcto-advisory-board-prep:
+      description: Prepare evidence-backed advisory board input with supporting deal metrics, competitive context, and prioritized product asks
+      source: prompts/tasks.yaml#field_intelligence.advisory_board_prep
+      inputs:
+        - title: observation_aggregation
+          type: object
+        - title: product_strategy_input
+          type: object
+      outputs:
+        - title: advisory_board_brief
+          type: object
+      requires_data:
+        - source: read-fcto-data
+          fields:
+            - advisory_board_history
+            - deal_outcomes
+            - competitive_encounters
+            - customer_feedback
+          priority: critical
+    fcto-strategic-deal-support:
+      description: Assemble cross-account deployment evidence for strategic deal positioning including reference architectures, success metrics, and competitive displacement examples
+      source: prompts/tasks.yaml#field_intelligence.strategic_deal_support
+      inputs:
+        - title: observation_aggregation
+          type: object
+        - title: product_strategy_input
+          type: object
+        - title: advisory_board_brief
+          type: object
+      outputs:
+        - title: strategic_deal_evidence
+          type: object
+      requires_data:
+        - source: read-fcto-data
+          fields:
+            - deployment_records
+            - architecture_patterns
+            - success_metrics
+            - competitive_displacements
+          priority: critical
+  boundaries:
+    - Single intelligence scope per request, does not maintain continuous monitoring
+    - Does not perform cross-account pattern synthesis (fcto-pattern-synthesis-agent's domain)
+    - Does not create technology vision narratives (fcto-technology-vision-agent's domain)
+    - Does not prepare executive briefings (fcto-executive-advisory-agent's domain)
+    - Does not manage deal execution directly (SA Agent's domain)
+    - Does not manage account operations (AE/CA Agent's domain)
+    - Does not make product roadmap commitments (Product Management's domain)
+  permissions:
+    - Read SA/CA field observations from deal notes, Slack, and CRM
+    - Read pipeline and ARR data for revenue weighting
+    - Read advisory board history and deal outcomes
+    - Read deployment records and architecture patterns across accounts
+    - Structure demand signals with frequency, revenue, and urgency dimensions
+    - Assemble cross-account evidence packages for strategic deals
+    - Write field intelligence reports and advisory board briefs to FCTO knowledge store
+  guardrails:
+    input_validation:
+      - Reject aggregation requests without intelligence scope
+      - Validate observation sources exist before proceeding
+      - Reject advisory board prep without specifying session date or topic
+    output_checks:
+      - Never invent or extrapolate demand signals beyond what field data supports
+      - Never present a single account observation as a market trend
+      - Include confidence level (HIGH/MEDIUM/LOW) on every intelligence output
+      - Demand signals must include specific frequency count and revenue context
+      - Every advisory board input must cite supporting deal evidence
+      - All findings traceable to source accounts with observation dates
+    signal_validation:
+      - Never assert market demand without cross-account evidence
+      - Never assume product gap without confirming against current product capabilities
+      - Use qualifiers ("field observations indicate") when evidence is indirect
+      - Add [NEEDS VERIFICATION] marker for signals with fewer than three sources
+    resource:
+      max_tool_calls: 20
+  error_handling:
+    tool_failures:
+      critical:
+        - read-fcto-data
+      enrichment:
+        - write-fcto-artifact
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without field observation data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with intelligence output, flag persistence failure for retry
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+        - field-intelligence
+        - demand-signal-analysis
+        - advisory-board-operations
+        - strategic-deal-positioning
+      archetypes:
+        - enterprise-account
+        - strategic-account
+        - emerging-account
+    references:
+      - path: references/field-intelligence-methodology.yaml
+        description: Field observation aggregation frameworks, demand signal structuring methodologies, frequency and revenue weighting models, and intelligence routing best practices
+      - path: references/technology-trend-methodology.yaml
+        description: Technology trend assessment frameworks, market signal validation methods, competitive intelligence structuring, and advisory board preparation standards
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: fcto-agent
+        description: Field CTO orchestrator routes observation aggregation, product strategy routing, advisory board prep, and strategic deal support requests
+      - type: event
+        source: field_observation_webhook
+        condition: observation.count_by_theme >= 5 OR advisory_board.session_within_14d
+        description: Auto-runs when observation theme reaches critical mass or advisory board session approaches
+      - type: downstream
+        source: fcto-pattern-synthesis-agent
+        condition: pattern.field_evidence_needed == true
+        description: Pattern synthesis agent requests raw field evidence to validate a detected cross-account pattern
+    outputs:
+      - type: parent_return
+        target: fcto-agent
+        payload:
+          - observation_aggregation
+          - product_strategy_input
+          - advisory_board_brief
+          - strategic_deal_evidence
+        description: Field intelligence results back to orchestrator
+      - type: trigger_agent
+        target: fcto-pattern-synthesis-agent
+        condition: observation.emerging_pattern_detected == true
+        payload:
+          - observation_aggregation
+          - product_strategy_input
+        description: Emerging pattern in field observations triggers cross-account pattern synthesis
+      - type: notify_human
+        condition: demand_signal.high_frequency_unaddressed == true OR advisory_board.session_within_7d_no_brief == true
+        channel: alert
+        description: High-frequency unaddressed demand signals and approaching advisory board sessions without briefs surface for Field CTO review
+    consumes_toolboxes:
+      - toolbox: pattern-intelligence
+        agent: fcto-pattern-synthesis-agent
+        tools:
+          - get-cross-account-patterns
+        reason: Validated cross-account patterns provide context for demand signal weighting
+    dependencies:
+      - agent: fcto-pattern-synthesis-agent
+        toolbox: pattern-intelligence
+        tools:
+          - get-cross-account-patterns
+        purpose: Cross-account patterns help distinguish recurring demand from isolated requests

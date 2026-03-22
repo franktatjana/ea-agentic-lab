@@ -1,0 +1,507 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: fcto-technology-vision-agent
+name: Technology Vision Agent
+description: >
+  Leaf sub-agent of the Field CTO orchestrator. Monitors technology trends from
+  analyst reports, open-source activity, and field signals. Assesses portfolio
+  readiness for emerging patterns. Develops thought leadership content grounded
+  in field observations. Builds forward-looking technology direction narratives.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: fcto-agent
+  tags:
+    - technology-vision
+    - trend-monitoring
+    - portfolio-readiness
+    - thought-leadership
+    - technology-narrative
+    - emerging-patterns
+  responsibility: >
+    Provide accurate, evidence-based technology vision outputs covering trend
+    monitoring from analyst and open-source sources, portfolio readiness
+    assessment for emerging patterns, thought leadership content development,
+    and forward-looking technology direction narratives grounded in field data.
+system_prompt: >
+  You are a Technology Vision Agent, part of the Field CTO intelligence
+  system. Your job is to monitor technology trends, assess portfolio readiness,
+  and produce thought leadership content with precision.
+
+  CORE FUNCTIONS:
+  - Technology trend monitoring across analyst reports, open-source activity, and conference signals
+  - Portfolio readiness assessment for emerging patterns (AI, edge, multi-cloud)
+  - Thought leadership content development grounded in field observations
+  - Technology direction narrative construction connecting roadmap to customer priorities
+
+  You MUST:
+  - Cite specific analyst reports, publications, or open-source repositories for every trend claim
+  - Include confidence metadata (HIGH/MEDIUM/LOW) on every assessment output
+  - Flag trends where vendor portfolio has no response within 12 months
+  - Score portfolio readiness on a 1-5 scale per emerging pattern with specific evidence
+  - Connect every technology narrative to documented customer priorities and field signals
+  - Every thought leadership piece must reference at least three independent field observations
+
+  You MUST NOT:
+  - Make product roadmap commitments or promises on behalf of engineering
+  - Invent analyst findings or fabricate trend data not confirmed in source material
+  - Assess deal-level technical architecture (Solution Architect Agent's domain)
+  - Manage account-level strategy execution (AE/CA Agent's domain)
+  - Aggregate raw field observations from SA/CA teams (fcto-field-intelligence-agent's domain)
+  - Synthesize cross-account win/loss patterns (fcto-pattern-synthesis-agent's domain)
+
+  When uncertain: use "sources indicate" not "the market confirms", add
+  [NEEDS VERIFICATION] for unclear situations. Omit rather than guess.
+human_in_the_loop: true
+tools:
+  - component_type: ClientTool
+    id: read-fcto-data
+    name: Read FCTO Data
+    description: Access analyst reports, open-source activity feeds, field signal repositories, portfolio data, and conference intelligence for trend monitoring and readiness assessment
+    requires_confirmation: false
+    inputs:
+      - title: query_topic
+        type: string
+      - title: query_type
+        type: string
+      - title: data_scope
+        type: string
+    outputs:
+      - title: fcto_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Analyst or field data source unavailable, cannot proceed with trend validation
+        - error_code: RECORD_NOT_FOUND
+          guidance: No matching data found for query topic, verify search parameters with user
+        - error_code: STALE_DATA
+          guidance: Data exceeds freshness threshold, flag for human verification
+  - component_type: ClientTool
+    id: write-fcto-artifact
+    name: Write FCTO Artifact
+    description: Persist trend assessments, readiness scores, thought leadership drafts, and technology narratives to the FCTO knowledge store
+    requires_confirmation: true
+    inputs:
+      - title: artifact_type
+        type: string
+      - title: artifact_topic
+        type: string
+      - title: artifact_content
+        type: object
+    outputs:
+      - title: write_confirmation
+        type: object
+    x-ea-agent:
+      risk: medium
+      resolver: service-registry
+      error_responses:
+        - error_code: WRITE_FAILED
+          guidance: Artifact persistence failed, retain output in memory and retry
+        - error_code: CONFLICT
+          guidance: Newer version exists, retrieve latest before overwriting
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from Field CTO
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+toolboxes:
+  - component_type: Toolbox
+    id: technology-vision-intelligence
+    name: Technology Vision Intelligence
+    description: Technology trend assessments and portfolio readiness scores available to peer agents
+    tools:
+      - id: get-trend-assessment
+        name: Get Trend Assessment
+        description: Returns current technology trend assessment for a specified domain including analyst consensus, open-source momentum, and field signal strength
+        inputs:
+          - title: trend_domain
+            type: string
+        outputs:
+          - title: trend_assessment
+            type: object
+      - id: get-portfolio-readiness
+        name: Get Portfolio Readiness
+        description: Returns portfolio readiness score (1-5 per emerging pattern) with gap summary and timeline estimate for coverage
+        inputs:
+          - title: pattern_domain
+            type: string
+        outputs:
+          - title: readiness_score
+            type: object
+specialized_agents: []
+flows:
+  - component_type: Flow
+    id: technology-vision
+    name: Technology Vision Assessment
+    playbook_refs:
+      - PB_FCTO_003
+    description: Monitor technology trends, assess portfolio readiness for emerging patterns, develop thought leadership content, and build technology direction narratives grounded in field data.
+    inputs:
+      - title: trend_domain
+        type: string
+      - title: portfolio_context
+        type: object
+      - title: assessment_trigger
+        type: string
+    outputs:
+      - title: trend_monitoring
+        type: object
+      - title: portfolio_readiness
+        type: object
+      - title: thought_leadership
+        type: object
+      - title: technology_narrative
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: fcto-trend-monitoring
+          input: trend_domain, portfolio_context
+          tools:
+            - read-fcto-data
+          description: Monitor and assess technology trends from analyst reports, open-source activity, and field signals
+          on_failure: stop
+        - step: 2
+          prompt: fcto-portfolio-readiness
+          input: trend_domain, trend_monitoring
+          tools:
+            - read-fcto-data
+          description: Assess portfolio readiness against identified emerging patterns, score gaps and timeline to coverage
+          on_failure: stop
+        - step: 3
+          prompt: fcto-thought-leadership
+          input: trend_monitoring, portfolio_readiness
+          tools:
+            - read-fcto-data
+          description: Develop thought leadership content connecting trend analysis to field observations and vendor differentiation
+          on_failure: stop
+        - step: 4
+          prompt: fcto-technology-narrative
+          input: trend_monitoring, portfolio_readiness, thought_leadership
+          tools:
+            - read-fcto-data
+            - write-fcto-artifact
+          description: Build forward-looking technology direction narrative connecting product roadmap to customer priorities
+          on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+      - technology-trend-monitoring
+      - portfolio-readiness-assessment
+      - thought-leadership-development
+      - technology-narrative-construction
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      Analyst reports and open-source metrics show trend trajectories and
+      adoption curves, but the Field CTO reads the real technology direction
+      story. Understanding whether a trend is genuinely reshaping customer
+      buying behavior, whether portfolio gaps represent strategic risk or
+      tolerable lag, and whether thought leadership content resonates with
+      executive audiences requires human judgment, customer relationship
+      context, and product strategy instinct that no data feed captures. The
+      agent monitors, scores, and drafts, but the Field CTO decides which
+      trends warrant organizational response and how to position the vendor
+      narrative.
+    challenges:
+      - text: Technology trends appear in analyst reports before the field can articulate a coherent vendor response
+        specific_overhead:
+          - Manually scanning multiple analyst publications to detect emerging trends and assess relevance
+      - text: Portfolio readiness for AI, edge, and multi-cloud patterns never assessed proactively against customer demand signals
+        specific_overhead:
+          - Reactive discovery of portfolio gaps only when customers or competitors surface them in active deals
+      - text: Thought leadership content disconnected from actual field patterns and customer conversations
+        specific_overhead:
+          - Marketing-driven content that does not reflect what SAs and CAs observe in customer environments
+      - text: Technology narratives fail to connect product roadmap to documented customer priorities
+        specific_overhead:
+          - Separate tracking of product direction and customer needs with no structured synthesis
+      - text: No structured trend monitoring methodology across analyst, open-source, and conference sources
+        specific_overhead:
+          - Ad hoc trend tracking scattered across bookmarks, email, and individual notes with no aggregation
+    administrative_overhead:
+      - Manually scanning multiple analyst publications to detect emerging trends and assess relevance
+      - Reactive discovery of portfolio gaps only when customers or competitors surface them in active deals
+      - Marketing-driven content that does not reflect what SAs and CAs observe in customer environments
+      - Separate tracking of product direction and customer needs with no structured synthesis
+      - Ad hoc trend tracking scattered across bookmarks, email, and individual notes with no aggregation
+    scenarios:
+      - problem: Emerging technology trend gaining analyst consensus and open-source momentum, but vendor has no field positioning or portfolio response
+        why: >
+          Technology trends gain momentum through analyst publications, open-source
+          adoption, and conference visibility before most vendor field teams can
+          articulate a response. Without proactive trend monitoring, the Field CTO
+          learns about critical shifts from customers or competitors, creating a
+          reactive positioning gap that erodes technical credibility and advisory
+          authority.
+        agent: fcto-technology-vision-agent
+        agent_response: >
+          Scans analyst reports, open-source activity metrics, and conference
+          signals for the specified trend domain. Produces a trend assessment with
+          analyst consensus level, open-source momentum score, field signal strength,
+          and a timeline estimate for mainstream adoption. Flags portfolio gaps where
+          vendor has no response within 12 months.
+        success_signal:
+          metric: Trend identification lead time before first customer inquiry
+          target: Trends identified and assessed at least 6 months before customer inquiries
+          leading_indicator: Trend assessments generated within 30 days of first analyst publication
+          failure_signal: Trends surface first through customer or competitor conversations
+      - problem: Portfolio readiness for an emerging pattern unknown, leading to inconsistent field positioning across accounts
+        why: >
+          When portfolio readiness against an emerging pattern (AI inference at
+          edge, multi-cloud governance, sovereign cloud) is not assessed centrally,
+          individual SAs and field teams improvise their own readiness narratives.
+          This produces inconsistent customer messaging, misaligned expectations,
+          and situations where deals are positioned on capabilities that do not
+          exist or are not yet production-ready.
+        agent: fcto-technology-vision-agent
+        agent_response: >
+          Runs a portfolio readiness assessment against the specified emerging
+          pattern, scoring readiness on a 1-5 scale across product coverage,
+          integration maturity, reference architectures, field enablement, and
+          competitive parity. Identifies specific gaps with estimated timeline
+          to coverage and recommends interim positioning guidance.
+        success_signal:
+          metric: Field positioning consistency across accounts for emerging patterns
+          target: Portfolio readiness assessments available for all top-5 emerging patterns
+          leading_indicator: Readiness scores updated quarterly with field validation
+          failure_signal: SAs position capabilities inconsistently due to lack of central readiness guidance
+      - problem: Thought leadership content needed for executive audience but existing material does not reflect field reality
+        why: >
+          Executive audiences expect thought leadership that connects technology
+          trends to business outcomes with credible field evidence. When content is
+          produced from marketing briefs or product datasheets alone, it lacks the
+          specificity and credibility that comes from documented field observations,
+          customer conversations, and deployment patterns. The Field CTO needs
+          content that demonstrates practitioner-level insight grounded in real
+          engagement data.
+        agent: fcto-technology-vision-agent
+        agent_response: >
+          Develops thought leadership content for the specified technology domain
+          by synthesizing trend analysis with at least three independent field
+          observations, portfolio readiness data, and customer priority alignment.
+          Produces an executive-ready narrative with supporting evidence, a
+          differentiation framework, and recommended talking points for C-suite
+          engagement.
+        success_signal:
+          metric: Executive content reuse rate and audience engagement
+          target: Thought leadership pieces reference field observations from at least three accounts
+          leading_indicator: Content drafts completed within 5 business days of request
+          failure_signal: Executive content rejected or rewritten due to lack of field grounding
+  escalation_triggers:
+    - Emerging trend with analyst consensus HIGH and vendor portfolio readiness below 2
+    - Portfolio gap identified with no product roadmap coverage within 18 months
+    - Thought leadership request on a domain where field signal data is insufficient (fewer than 3 observations)
+    - Technology narrative contradicts known product roadmap direction
+  prompt_registry:
+    fcto-trend-monitoring:
+      description: Monitor and assess technology trends from analyst reports, open-source activity, and field signals for a specified domain
+      source: prompts/tasks.yaml#technology_vision.trend_monitoring
+      inputs:
+        - title: trend_domain
+          type: string
+        - title: portfolio_context
+          type: object
+      outputs:
+        - title: trend_monitoring
+          type: object
+      requires_data:
+        - source: read-fcto-data
+          fields:
+            - analyst_reports
+            - open_source_metrics
+            - conference_signals
+            - field_observations
+          priority: critical
+    fcto-portfolio-readiness:
+      description: Assess portfolio readiness against identified emerging patterns, scoring gaps and timeline to coverage
+      source: prompts/tasks.yaml#technology_vision.portfolio_readiness
+      inputs:
+        - title: trend_domain
+          type: string
+        - title: trend_monitoring
+          type: object
+      outputs:
+        - title: portfolio_readiness
+          type: object
+      requires_data:
+        - source: read-fcto-data
+          fields:
+            - product_capabilities
+            - integration_maturity
+            - reference_architectures
+            - competitive_coverage
+          priority: critical
+    fcto-thought-leadership:
+      description: Develop thought leadership content connecting trend analysis to field observations and vendor differentiation
+      source: prompts/tasks.yaml#technology_vision.thought_leadership
+      inputs:
+        - title: trend_monitoring
+          type: object
+        - title: portfolio_readiness
+          type: object
+      outputs:
+        - title: thought_leadership
+          type: object
+      requires_data:
+        - source: read-fcto-data
+          fields:
+            - field_observations
+            - customer_priorities
+            - competitive_positioning
+            - deployment_patterns
+          priority: critical
+    fcto-technology-narrative:
+      description: Build forward-looking technology direction narrative connecting product roadmap to customer priorities
+      source: prompts/tasks.yaml#technology_vision.technology_narrative
+      inputs:
+        - title: trend_monitoring
+          type: object
+        - title: portfolio_readiness
+          type: object
+        - title: thought_leadership
+          type: object
+      outputs:
+        - title: technology_narrative
+          type: object
+      requires_data:
+        - source: read-fcto-data
+          fields:
+            - product_roadmap
+            - customer_priorities
+            - market_positioning
+            - field_signal_trends
+          priority: critical
+  boundaries:
+    - Single technology domain scope per assessment, does not run cross-domain portfolio reviews
+    - Does not aggregate raw field observations from SA/CA teams (fcto-field-intelligence-agent's domain)
+    - Does not synthesize cross-account win/loss patterns (fcto-pattern-synthesis-agent's domain)
+    - Does not prepare executive briefings or C-suite advisory content (fcto-executive-advisory-agent's domain)
+    - Does not make product roadmap commitments (Engineering/PM domain)
+    - Does not handle deal-level technical architecture (Solution Architect Agent's domain)
+  permissions:
+    - Read analyst reports, open-source activity feeds, and conference intelligence
+    - Read portfolio capability data and product roadmap context
+    - Read field signal repositories and customer priority data
+    - Score portfolio readiness across emerging patterns with 1-5 classification
+    - Develop thought leadership content grounded in field observations
+    - Write trend assessments, readiness scores, and technology narratives to FCTO knowledge store
+  guardrails:
+    input_validation:
+      - Reject trend monitoring requests without specifying a technology domain
+      - Validate trend domain maps to a recognized technology category before proceeding
+      - Reject thought leadership requests without at least portfolio context or trend domain
+    output_checks:
+      - Never invent or assume analyst findings not confirmed in source material
+      - Never fabricate open-source metrics or adoption data
+      - Include confidence level (HIGH/MEDIUM/LOW) on every assessment output
+      - Portfolio readiness scores must cite specific evidence for each dimension rating
+      - Every thought leadership piece must reference at least three independent field observations
+      - All trend claims traceable to source data with publication dates
+    signal_validation:
+      - Never assert analyst consensus without citing specific publications
+      - Never assume portfolio readiness without product capability validation
+      - Use qualifiers ("sources indicate") when evidence is indirect
+      - Add [NEEDS VERIFICATION] marker when uncertain
+    resource:
+      max_tool_calls: 20
+  error_handling:
+    tool_failures:
+      critical:
+        - read-fcto-data
+      enrichment:
+        - write-fcto-artifact
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without analyst and field data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with assessment, flag persistence failure for retry
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+        - technology-trends
+        - portfolio-readiness
+        - thought-leadership
+        - technology-narratives
+      archetypes:
+        - ai-ml-platforms
+        - edge-computing
+        - multi-cloud
+        - sovereign-cloud
+        - platform-engineering
+    references:
+      - path: references/technology-trend-methodology.yaml
+        description: Technology trend monitoring frameworks, analyst consensus scoring models, open-source momentum indicators, and conference signal assessment methodology
+      - path: references/executive-communication-frameworks.yaml
+        description: Executive communication structures, thought leadership content frameworks, technology narrative construction patterns, and C-suite messaging guidelines
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: fcto-agent
+        description: Field CTO orchestrator routes technology vision, trend monitoring, and thought leadership requests
+      - type: event
+        source: analyst_publication_feed
+        condition: analyst.new_publication AND trend.relevance_score > 0.7
+        description: Auto-runs when a high-relevance analyst publication is detected
+      - type: downstream
+        source: fcto-executive-advisory-agent
+        condition: advisory.requires_trend_context == true
+        description: Executive advisory agent requests trend context for an upcoming executive briefing
+    outputs:
+      - type: parent_return
+        target: fcto-agent
+        payload:
+          - trend_monitoring
+          - portfolio_readiness
+          - thought_leadership
+          - technology_narrative
+        description: Technology vision assessment results back to orchestrator
+      - type: trigger_agent
+        target: fcto-field-intelligence-agent
+        condition: trend.field_signal_gap == true
+        payload:
+          - trend_monitoring
+        description: Insufficient field signals for a trend triggers field intelligence collection
+      - type: notify_human
+        condition: portfolio.readiness_score < 2 AND trend.analyst_consensus == HIGH
+        channel: alert
+        description: Critical portfolio gap on a high-consensus trend surfaces for Field CTO review
+    consumes_toolboxes:
+      - toolbox: field-intelligence
+        agent: fcto-field-intelligence-agent
+        tools:
+          - get-field-signal-summary
+        reason: Field signals validate whether analyst trends match customer reality
+    dependencies:
+      - agent: fcto-field-intelligence-agent
+        toolbox: field-intelligence
+        tools:
+          - get-field-signal-summary
+        purpose: Field observation data grounds trend assessments in customer reality

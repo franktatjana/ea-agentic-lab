@@ -3,7 +3,7 @@ title: "Blueprint Catalog"
 description: "Reference catalog of all archetypes, engagement tracks, domains, and blueprint composition"
 category: "reference"
 keywords: ["blueprint", "archetype", "track", "domain", "catalog", "engagement"]
-last_updated: "2026-02-10"
+last_updated: "2026-03-22"
 ---
 
 # Blueprint Catalog
@@ -57,7 +57,7 @@ Replacing an incumbent vendor. These engagements require strong competitive posi
 | ID | Name | Description | Playbooks |
 |----|------|-------------|-----------|
 | A01_basic | Standard Displacement | Single vendor replacement | PB_SA_002, PB_STR_004, PB_VE_001 |
-| A02_competitive | Competitive Displacement | Multi-vendor consolidation with competitive analysis | PB_SA_002, PB_STR_004, PB_CI_001, PB_VE_001 |
+| A02_competitive | Competitive Displacement | Multi-vendor consolidation with competitive analysis | PB_SA_002, PB_STR_004, PB_CI_001, PB_VE_001, PB_FCTO_002°, PB_AA_002°, PB_HAM_001° |
 
 **Reference blueprint available:** [A02_competitive.yaml](../../domain/blueprints/reference/competitive_displacement/A02_competitive.yaml)
 
@@ -98,7 +98,7 @@ Merging multiple tools into a unified platform. The most complex archetype, requ
 
 | ID | Name | Description | Playbooks |
 |----|------|-------------|-----------|
-| A01_unified | Unified Platform | Single platform for multiple use cases | PB_SA_002, PB_STR_004, PB_CI_001, PB_VE_001, PB_STR_001, PB_CA_007 |
+| A01_unified | Unified Platform | Single platform for multiple use cases | PB_SA_002, PB_STR_004, PB_CI_001, PB_VE_001, PB_STR_001, PB_CA_007, PB_FCTO_001°, PB_FCTO_002°, PB_FCTO_003°, PB_HAM_003° |
 
 ---
 
@@ -138,7 +138,7 @@ POC or validation with a decision pending. Fast-moving, technically focused enga
 | ID | Name | Description | Playbooks |
 |----|------|-------------|-----------|
 | A01_technical | Technical POC | Feature and capability validation | PB_SA_001 |
-| A02_comparative | Comparative POC | Side-by-side evaluation vs competitor | PB_SA_001, PB_CI_001 |
+| A02_comparative | Comparative POC | Side-by-side evaluation vs competitor | PB_SA_001, PB_CI_001, PB_AA_001° |
 
 **Reference blueprint available:** [A02_comparative.yaml](../../domain/blueprints/reference/technical_evaluation/A02_comparative.yaml)
 
@@ -201,7 +201,7 @@ Enterprise-wide, multi-initiative, executive-level engagement. An ongoing govern
 
 | ID | Name | Description | Playbooks |
 |----|------|-------------|-----------|
-| A01_strategic | Strategic Account Governance | Full governance for strategic accounts | PB_SA_002, PB_STR_004, PB_CI_001, PB_VE_001, PB_STR_001, PB_CA_007 |
+| A01_strategic | Strategic Account Governance | Full governance for strategic accounts | PB_SA_002, PB_STR_004, PB_CI_001, PB_VE_001, PB_STR_001, PB_CA_007, PB_FCTO_001, PB_FCTO_002, PB_FCTO_003, PB_FCTO_004, PB_HAM_001°, PB_HAM_003° |
 
 ---
 
@@ -304,6 +304,30 @@ The following playbooks are referenced across archetypes and tracks. For the com
 | PB_VE_001 | Value Engineering | AE Agent | Premium track, competitive/compliance/expansion archetypes |
 | PB_CA_007 | Customer Health Score | CA Agent | Premium track, retention, expansion, strategic account |
 | PB_CI_001 | Competitive Analysis (Five Forces) | CI Agent | Competitive Displacement A02, Technical Evaluation A02, Platform Consolidation, Strategic Account |
+| PB_FCTO_001 | Cross-Account Pattern Synthesis | FCTO Agent | Strategic Account, Platform Consolidation° |
+| PB_FCTO_002 | Executive Advisory | FCTO Agent | Strategic Account, Platform Consolidation°, Competitive Displacement° |
+| PB_FCTO_003 | Technology Vision | FCTO Agent | Strategic Account, Platform Consolidation° |
+| PB_FCTO_004 | Field Intelligence | FCTO Agent | Strategic Account (standalone periodic) |
+| PB_AA_001 | Integration Validation | AA Agent | Technical Evaluation° (when partner technology detected) |
+| PB_AA_002 | Co-sell Technical Readiness | AA Agent | Competitive Displacement°, Platform Consolidation° (when co-sell) |
+| PB_AA_003 | Partner Due Diligence | AA Agent | Standalone (new partnership evaluation) |
+| PB_AA_004 | Partner Solution Catalog | AA Agent | Standalone operational (scheduled maintenance) |
+| PB_HAM_001 | Co-sell Opportunity Qualification | HAM Agent | Competitive Displacement°, Strategic Account° (when hyperscaler co-sell) |
+| PB_HAM_002 | Marketplace Transaction | HAM Agent | Any archetype (when marketplace route-to-market) |
+| PB_HAM_003 | Hyperscaler Field Alignment | HAM Agent | Strategic Account°, Platform Consolidation° |
+| PB_HAM_004 | Co-sell Program Health | HAM Agent | Standalone periodic (monthly review) |
+
+° = optional, triggered by signal (not required by default)
+
+## Cross-Role Overlay Playbooks
+
+In addition to the core playbooks listed per archetype, three cross-role playbook sets can overlay any engagement when specific signals are present. These playbooks are not tied to a single archetype but activate based on engagement characteristics.
+
+**Field CTO playbooks** (PB_FCTO) activate for premium-track engagements requiring strategic intelligence: cross-account evidence, executive engagement, or technology direction framing. Required for Strategic Account governance, optional for Platform Consolidation and Competitive Displacement.
+
+**Alliance Architect playbooks** (PB_AA) activate when partner technology is part of the engagement: integration validation for partner APIs, co-sell readiness for joint go-to-market, due diligence for new partnerships, and solution catalog maintenance. Triggered by `partner_technology_detected` or `cosell_engagement_scheduled` signals.
+
+**Hyperscaler Account Manager playbooks** (PB_HAM) activate when a hyperscaler co-sell or marketplace transaction is involved: opportunity qualification for ACE/Partner Center programs, marketplace transaction lifecycle, field rep alignment, and program health monitoring. Triggered by `hyperscaler_cosell` or `marketplace_transaction` signals.
 
 ## Signal Patterns
 
@@ -318,6 +342,13 @@ Signals drive automatic archetype classification. Each signal has indicators (co
 | `no_incumbent` | No incumbent vendor, manual or no current tooling | 0.9 |
 | `adoption_success` | Health score >= 80, growing usage trend | 0.7 |
 | `tier_1_account` | Tier 1 account classification, ARR >= strategic threshold | 0.9 |
+| `executive_sponsor` | C-level sponsor identified, executive briefing requested | 0.7 |
+| `partner_technology_detected` | Partner API/SDK in customer stack, ISV integration required | 0.8 |
+| `cosell_engagement_scheduled` | Joint session with partner scheduled, co-sell qualification needed | 0.85 |
+| `hyperscaler_cosell` | Hyperscaler co-sell program applicable, committed spend available | 0.8 |
+| `marketplace_transaction` | Marketplace route-to-market selected, private offer needed | 0.9 |
+| `cross_account_evidence_needed` | Strategic deal requiring cross-account patterns or evidence | 0.7 |
+| `technology_direction_driver` | Customer decision influenced by technology direction or vision | 0.6 |
 
 ## Related Documentation
 

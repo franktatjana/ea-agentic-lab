@@ -1,0 +1,415 @@
+# disclaimer
+# This playbook is part of a reference architecture
+# framework. It defines agent behavior specifications,
+# not production-ready operational procedures.
+# Framework references (AWS Marketplace, Azure Marketplace,
+# GCP Marketplace, etc.) are industry-standard programs
+# cited for educational context.
+
+# PLAYBOOK: Marketplace Transaction Management
+# Framework operationalization for AI agents
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+playbook_id: "PB_HAM_002"
+framework_name: "Marketplace Transaction Management"
+framework_source: "AWS Marketplace / Azure Marketplace / GCP Marketplace Transaction Frameworks"
+intended_agent_role: "ham-agent"
+intended_sub_agent: "ham-marketplace-agent"
+secondary_agents:
+  - "AE Agent provides deal terms and pricing"
+  - "AA Agent validates marketplace listing technical requirements"
+  - "Partner Agent provides channel conflict assessment"
+playbook_mode: "OPERATIONAL"
+playbook_category: "cosell_operations"
+
+primary_objective: "Manage marketplace transaction lifecycle from listing validation through private offer creation, procurement routing, consumption tracking, and CPPO (Channel Partner Private Offer) coordination"
+
+vault_routing:
+  primary_vault: "Internal Account Hub"
+  rationale: "Transaction data includes pricing, private offer terms, procurement routing, and consumption details that are deal-specific and commercially sensitive."
+
+when_not_to_use:
+  - "Marketplace listing not approved or not yet submitted for the relevant hyperscaler"
+  - "Customer procurement explicitly excludes cloud marketplace as a buying channel"
+  - "Deal terms and pricing not finalized by AE and Deal Desk"
+  - "Transaction is a standard direct sale with no marketplace component"
+  - "CPPO partner is not marketplace-authorized for the relevant hyperscaler"
+
+raci:
+  responsible:
+    role: "HAM Agent"
+    agent: "ham-marketplace-agent"
+    description: "Manages marketplace transaction lifecycle including listing validation, private offer creation, procurement routing, and consumption tracking"
+
+  accountable:
+    role: "VP Alliances"
+    human_required: true
+    description: "Approves marketplace transaction strategy, validates private offer terms, and authorizes CPPO routing"
+    approval_actions:
+      - "approve"
+      - "request_revision"
+      - "escalate"
+
+  consulted:
+    - role: "AE Agent"
+      on_steps: ["deal_terms", "pricing", "payment_schedule", "customer_procurement_contact"]
+    - role: "AA Agent"
+      on_steps: ["listing_validation", "sku_configuration", "technical_requirements"]
+    - role: "Partner Agent"
+      on_steps: ["cppo_authorization", "channel_routing", "partner_margin"]
+
+  informed:
+    - role: "Finance"
+      notify_on: ["transaction_completed", "consumption_milestone", "revenue_recognition"]
+    - role: "Sales Operations"
+      notify_on: ["booking_confirmation", "private_offer_accepted"]
+    - role: "AE Agent"
+      notify_on: ["procurement_status_change", "offer_expiration_warning"]
+
+# ==============================================================================
+# BLUEPRINT INTEGRATION
+# ==============================================================================
+blueprint_integration:
+  required_when: "Marketplace is the route-to-market for any engagement archetype"
+  trigger_signal: "marketplace_transaction"
+  applicable_archetypes: "Any archetype where cloud procurement or committed spend draw-down applies"
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - "Marketplace route-to-market selected in CRM opportunity"
+    - "Private offer expiration approaching (7 days, 3 days, 1 day warnings)"
+    - "Listing update required (SKU change, pricing update, new product addition)"
+    - "Consumption tracking alert (usage threshold crossed, anomaly detected)"
+    - "Procurement status change in marketplace portal"
+
+  manual:
+    - "AE requests private offer creation for a specific deal"
+    - "CPPO coordination needed for channel partner transaction"
+    - "Customer procurement team requests marketplace buying guide"
+    - "Listing validation requested before go-live"
+
+  conditional:
+    - "IF opportunity.route_to_market == marketplace THEN trigger"
+    - "IF private_offer.days_until_expiry <= 7 THEN trigger"
+    - "IF listing.status == pending_update OR listing.sku_mismatch == true THEN trigger"
+    - "IF cppo_partner_identified == true AND cppo_authorized == false THEN trigger"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "{realm}/{node}/internal-infohub/cosell/opportunity_context.md"
+    - artifact: "Deal terms (pricing, duration, payment schedule) from AE/Deal Desk"
+    - artifact: "Marketplace listing specifications (SKU, product name, pricing model)"
+    - artifact: "Customer procurement requirements (purchase order process, approval chain)"
+
+  optional:
+    - artifact: "Private offer parameters (custom pricing, terms, duration, buyer account ID)"
+      use: "Private offer creation and configuration"
+    - artifact: "CPPO partner details (partner account, margin, authorization status)"
+      use: "Channel Partner Private Offer routing"
+    - artifact: "{realm}/{node}/internal-infohub/cosell/committed_spend_status.md"
+      use: "Consumption tracking against committed spend baseline"
+    - artifact: "Previous transaction history"
+      use: "Renewal and expansion offer configuration"
+
+  minimum_data_threshold:
+    - "Confirmed deal terms with pricing approved by Deal Desk"
+    - "Active marketplace listing for the relevant hyperscaler"
+    - "Customer buyer account ID for private offer targeting"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  listing_readiness:
+    - "Is the marketplace listing live and validated for the relevant hyperscaler (AWS, Azure, GCP)?"
+    - "Does the listing SKU match the product and pricing approved for this deal?"
+    - "Are all required listing fields complete (description, EULA, support info, refund policy)?"
+    - "Is the listing co-sell ready (required for Azure IP Co-sell MACC eligibility)?"
+    - "Does the listing need updates before the private offer can reference it?"
+
+  private_offer_configuration:
+    - "What is the offer type: direct private offer or CPPO (Channel Partner Private Offer)?"
+    - "What are the pricing terms (flat fee, usage-based, tiered, custom dimensions)?"
+    - "What is the contract duration (1 year, 2 year, 3 year, custom)?"
+    - "What is the payment schedule (upfront, monthly, quarterly, annual)?"
+    - "What is the offer expiration window (standard 14 days or custom)?"
+
+  procurement_routing:
+    - "Does the customer procure through a cloud marketplace portal or a procurement tool (Coupa, Ariba)?"
+    - "Is there a customer procurement contact who needs the marketplace buying guide?"
+    - "Does the customer require a PO reference attached to the marketplace transaction?"
+    - "Is there a CPPO partner in the chain who needs to create or accept the offer?"
+
+  consumption_tracking:
+    - "What is the expected consumption pattern (steady, seasonal, ramp-up)?"
+    - "Is this transaction drawing down committed spend (EDP/MACC/CUD)?"
+    - "What consumption thresholds should trigger alerts (80% consumed, overage risk)?"
+    - "Is there a consumption SLA or minimum commitment in the offer terms?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    # Listing validated, ready for private offer
+    - condition: "listing_status == live AND sku_validated == true AND pricing_approved == true"
+      output_type: "Decision + Initiative"
+      decision: |
+        CREATE Decision:
+          title: "Marketplace transaction ready for {node} via {hyperscaler} Marketplace"
+          context: "Listing validated, SKU confirmed, pricing approved by Deal Desk"
+          decision: "Proceed with private offer creation"
+          actions:
+            - "Create private offer with approved terms in {hyperscaler} Marketplace"
+            - "Send buyer acceptance link to customer procurement contact"
+            - "Notify AE of private offer creation and expiration date"
+          stakeholders: ["AE", "Customer Procurement", "HAM"]
+
+        CREATE Initiative:
+          title: "Private offer execution for {node}"
+          owner: "HAM Agent"
+          timeline: "Private offer created within 2 business days, acceptance tracked daily"
+
+    # Listing issues blocking transaction
+    - condition: "listing_status != live OR sku_mismatch == true"
+      severity: "HIGH"
+      output_type: "Risk + Initiative"
+      decision: |
+        CREATE Risk:
+          title: "Marketplace listing blockers for {node}"
+          severity: "HIGH"
+          category: "cosell_operations"
+          description: "Listing issues preventing private offer creation: {blocker_list}"
+
+        CREATE Initiative:
+          title: "Resolve marketplace listing blockers for {node}"
+          actions:
+            - "Identify specific listing gaps (SKU, pricing, EULA, product description)"
+            - "Engage Product team for listing update submission"
+            - "Track listing review timeline (AWS: 3-5 days, Azure: 5-10 days, GCP: 3-7 days)"
+            - "Notify AE of expected delay and alternative procurement options"
+
+    # CPPO routing required
+    - condition: "cppo_partner_identified == true"
+      output_type: "Decision + Initiative"
+      decision: |
+        CREATE Decision:
+          title: "CPPO routing for {node} via {partner_name}"
+          context: "Channel partner identified for marketplace transaction, CPPO flow required"
+          decision: "Route through CPPO with partner margin and authorization validation"
+          actions:
+            - "Validate CPPO partner authorization for {hyperscaler} Marketplace"
+            - "Configure wholesale pricing and partner margin"
+            - "Create CPPO with partner as reseller of record"
+            - "Coordinate acceptance sequence: vendor creates → partner accepts → customer accepts"
+          stakeholders: ["Partner Agent", "AE", "CPPO Partner"]
+
+        CREATE Initiative:
+          title: "CPPO coordination for {node}"
+          owner: "HAM Agent + Partner Agent"
+          timeline: "CPPO created within 3 business days, partner acceptance within 5 days"
+
+    # Private offer expiration risk
+    - condition: "private_offer_active == true AND days_until_expiry <= 3"
+      severity: "HIGH"
+      output_type: "Risk"
+      decision: |
+        CREATE Risk:
+          title: "Private offer expiring for {node}"
+          severity: "HIGH"
+          category: "cosell_operations"
+          description: "Private offer expires in {days_until_expiry} days, customer has not accepted"
+          mitigation:
+            - "Contact customer procurement to confirm acceptance timeline"
+            - "Extend offer expiration if permitted by marketplace rules"
+            - "Prepare replacement offer if extension not possible"
+            - "Escalate to AE for customer procurement engagement"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/{node}/internal-infohub/cosell/marketplace_transaction_{YYYY-MM-DD}.md"
+    format: "markdown"
+    sections:
+      - executive_summary
+      - listing_validation
+      - private_offer_details
+      - procurement_routing
+      - consumption_tracking
+      - transaction_status
+
+    schema:
+      executive_summary:
+        - transaction_status: "enum[LISTING_VALIDATION|OFFER_CREATED|OFFER_PENDING|OFFER_ACCEPTED|ACTIVE|EXPIRED|CANCELLED]"
+        - hyperscaler: "enum[AWS|AZURE|GCP]"
+        - deal_value: "number (USD)"
+        - offer_type: "enum[DIRECT|CPPO]"
+        - key_blockers: "array[string]"
+
+      listing_validation:
+        - listing_id: "string"
+        - listing_status: "enum[LIVE|PENDING_REVIEW|UPDATE_REQUIRED|NOT_LISTED]"
+        - sku_match: "boolean"
+        - pricing_model: "string (flat fee, usage-based, tiered)"
+        - last_validated: "string (YYYY-MM-DD)"
+        - gaps: "array[string]"
+
+      private_offer_details:
+        - offer_id: "string|null"
+        - offer_type: "enum[DIRECT|CPPO]"
+        - pricing: "number (USD)"
+        - duration_months: "number"
+        - payment_schedule: "enum[UPFRONT|MONTHLY|QUARTERLY|ANNUAL]"
+        - offer_created_date: "string (YYYY-MM-DD)|null"
+        - offer_expiry_date: "string (YYYY-MM-DD)|null"
+        - buyer_account_id: "string"
+        - acceptance_status: "enum[PENDING|ACCEPTED|EXPIRED|CANCELLED]"
+
+      procurement_routing:
+        - route: "enum[DIRECT_MARKETPLACE|CPPO|PROCUREMENT_PORTAL]"
+        - customer_procurement_contact: "string|null"
+        - po_required: "boolean"
+        - cppo_partner: "string|null"
+        - cppo_authorized: "boolean|null"
+
+      consumption_tracking:
+        - consumption_to_date: "number (USD)|null"
+        - committed_spend_draw_down: "boolean"
+        - burn_rate_percentage: "number|null"
+        - alert_thresholds: "array[number]"
+        - next_review_date: "string (YYYY-MM-DD)"
+
+  decision_objects:
+    path: "{realm}/{node}/internal-infohub/cosell/decisions/"
+    create_if:
+      - "Transaction ready for private offer creation"
+      - "CPPO routing decision required"
+      - "Offer extension or replacement needed"
+    template: "ADR format"
+
+  risk_objects:
+    path: "{realm}/{node}/internal-infohub/cosell/risks/"
+    create_if:
+      - "Listing blockers preventing transaction"
+      - "Private offer expiration approaching"
+      - "CPPO authorization gap"
+      - "Consumption anomaly detected"
+    template: "Risk with mitigation plan"
+
+  initiative_objects:
+    path: "{realm}/{node}/internal-infohub/cosell/initiatives/"
+    create_if:
+      - "Private offer execution required"
+      - "Listing remediation needed"
+      - "CPPO coordination needed"
+    template: "Initiative with actions, owner, timeline"
+
+  notifications:
+    - recipient: "AE Agent"
+      condition: "always"
+      message: "Marketplace transaction update for {node}: status {transaction_status} via {hyperscaler}"
+
+    - recipient: "AE Agent"
+      condition: "private_offer_expiry_days <= 3"
+      message: "URGENT: Private offer for {node} expires in {days} days, customer acceptance pending"
+
+    - recipient: "Finance"
+      condition: "transaction_status == OFFER_ACCEPTED"
+      message: "Marketplace transaction accepted for {node}: {deal_value} via {hyperscaler} Marketplace"
+
+    - recipient: "Sales Operations"
+      condition: "transaction_status == OFFER_ACCEPTED"
+      message: "Booking confirmation: {node} marketplace transaction {deal_value} via {hyperscaler}"
+
+    - recipient: "Partner Agent"
+      condition: "cppo_authorization_gap == true"
+      message: "CPPO authorization needed for {partner_name} on {hyperscaler} Marketplace for {node}"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "marketplace_listing_not_approved"
+      reason: "Cannot create private offer without an approved marketplace listing"
+      action: "Product team to submit or update listing, HAM tracks review timeline"
+
+    - condition: "pricing_not_finalized"
+      reason: "Private offer requires finalized pricing from Deal Desk"
+      action: "AE to finalize pricing with Deal Desk before marketplace transaction proceeds"
+
+    - condition: "customer_procurement_unresponsive (no acceptance after 2 follow-ups)"
+      reason: "Private offer acceptance stalled, requires direct customer engagement"
+      action: "AE to engage customer procurement contact directly"
+
+    - condition: "cppo_partner_not_authorized"
+      reason: "CPPO partner lacks marketplace authorization for the relevant hyperscaler"
+      action: "Partner Agent to coordinate partner authorization or identify alternative channel"
+
+  insufficient_data:
+    - "No approved pricing or deal terms from Deal Desk"
+    - "No customer buyer account ID for private offer targeting"
+    - "No marketplace listing exists for the relevant hyperscaler"
+    - "No CPPO partner details when channel routing is required"
+
+  ambiguity_signals:
+    - "Customer procurement path unclear (marketplace vs. direct vs. reseller)"
+    - "Multiple buyer accounts and unclear which to target"
+    - "CPPO vs. direct offer decision not finalized"
+
+  human_judgment_required:
+    - "Selecting offer expiration window (balance urgency vs. customer procurement cycle)"
+    - "Determining payment schedule when customer has no preference"
+    - "Deciding whether to extend or replace an expiring offer"
+    - "Resolving channel conflict between marketplace and existing reseller relationship"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "client_id exists in InfoHub"
+    - "Marketplace listing exists and is accessible for the relevant hyperscaler"
+    - "Deal terms finalized with pricing approved by Deal Desk"
+
+  post_execution:
+    - "Transaction status recorded with all required fields"
+    - "Private offer details captured (offer ID, terms, expiry, acceptance status)"
+    - "Procurement routing documented with customer contact"
+    - "Consumption tracking configured with alert thresholds"
+
+  output_quality:
+    - "No placeholder values in private offer fields (pricing, duration, buyer ID must be actual values)"
+    - "All dates in ISO format (YYYY-MM-DD)"
+    - "Listing validation includes specific gap descriptions, not generic 'needs update'"
+    - "CPPO details include partner authorization status with verification source"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "5-8 minutes (agent) + 20-30 minutes (human review and offer creation)"
+frequency: "Per-transaction + daily monitoring for active offers + weekly consumption review"
+human_review_required: true
+approval_workflow:
+  - reviewer: "AE Agent"
+    approval_gate: "Confirm deal terms, pricing, and customer procurement contact"
+  - reviewer: "VP Alliances"
+    condition: "cppo_routing == true OR deal_value > 500000"
+    approval_gate: "Approve CPPO routing and partner margin or high-value transaction strategy"
+  - reviewer: "Product Team"
+    condition: "listing_update_required == true"
+    approval_gate: "Approve listing changes (SKU, pricing, product description)"
+
+last_updated: "2026-03-22"
+version: "1.0"
+status: "draft"

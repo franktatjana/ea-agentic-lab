@@ -376,6 +376,51 @@ Intelligence playbooks drive the research and analysis cycle that feeds account 
 
 ---
 
+## Strategic Leadership Playbooks
+
+Strategic leadership playbooks drive cross-account intelligence synthesis, executive engagement preparation, and technology vision. These playbooks are owned by the Field CTO agent and produce artifacts stored in the global knowledge vault or account-level internal hubs.
+
+### Field CTO
+
+| Playbook | Path | Purpose | Trigger |
+|----------|------|---------|---------|
+| **PB_FCTO_001** Cross-Account Pattern Synthesis | `playbooks/field_cto/` | Synthesize technical patterns across customer portfolio with revenue weighting | Quarterly schedule, 3+ account pattern detected |
+| **PB_FCTO_002** Executive Advisory | `playbooks/field_cto/` | Prepare executive briefing packages with audience-calibrated messaging | Executive briefing requested, C-suite meeting scheduled |
+| **PB_FCTO_003** Technology Vision | `playbooks/field_cto/` | Monitor technology trends and assess portfolio readiness | Quarterly schedule, major analyst report published |
+| **PB_FCTO_004** Field Intelligence | `playbooks/field_cto/` | Aggregate field observations and structure for product strategy consumption | Monthly schedule, advisory board approaching, strategic deal support |
+
+**Outputs:** Pattern reports, executive briefing packages, trend assessments, intelligence reports stored at `global-knowledge-vault/field_cto/` or `{realm}/{node}/internal-infohub/field_cto/`
+
+---
+
+## Partner Ecosystem Playbooks
+
+Partner ecosystem playbooks manage the technical dimensions of partner and hyperscaler relationships: integration validation, co-sell readiness, marketplace transactions, and program health. These playbooks are owned by the Alliance Architect and Hyperscaler Account Manager agents.
+
+### Alliance Architect
+
+| Playbook | Path | Purpose | Trigger |
+|----------|------|---------|---------|
+| **PB_AA_001** Integration Validation | `playbooks/alliance_architects/` | Validate partner API/SDK compatibility and certification status | Partner platform update, API deprecation, quarterly review |
+| **PB_AA_002** Co-sell Technical Readiness | `playbooks/alliance_architects/` | Prepare validated technical readiness packages for joint engagements | Co-sell engagement scheduled, marketplace listing validation |
+| **PB_AA_003** Partner Due Diligence | `playbooks/alliance_architects/` | Technical due diligence for prospective partnerships with API maturity scoring | New partnership proposed, partner renewal evaluation |
+| **PB_AA_004** Partner Solution Catalog | `playbooks/alliance_architects/` | Maintain and validate partner solution catalog entries | Quarterly review, new solution certified, field feedback |
+
+**Outputs:** Compatibility assessments, readiness packages, due diligence reports, catalog entries stored at `global-knowledge-vault/alliance_architects/` or `{realm}/{node}/internal-infohub/alliance_architects/`
+
+### Hyperscaler Account Manager
+
+| Playbook | Path | Purpose | Trigger |
+|----------|------|---------|---------|
+| **PB_HAM_001** Co-sell Opportunity Qualification | `playbooks/hyperscaler_account_managers/` | Qualify opportunities for AWS ACE, Azure Partner Center, GCP Partner Advantage | New opportunity with hyperscaler, deal stage advance |
+| **PB_HAM_002** Marketplace Transaction | `playbooks/hyperscaler_account_managers/` | Manage marketplace transaction lifecycle from listing to consumption | Marketplace route-to-market selected, private offer request |
+| **PB_HAM_003** Hyperscaler Field Alignment | `playbooks/hyperscaler_account_managers/` | Coordinate joint sessions, opportunity registration, field rep cadence | Joint session scheduled, opportunity registration due |
+| **PB_HAM_004** Co-sell Program Health | `playbooks/hyperscaler_account_managers/` | Monitor registered pipeline, committed spend burn, incentive utilization | Monthly schedule, burn rate alert, tier review approaching |
+
+**Outputs:** Qualification scorecards, transaction reports, session briefs, program health dashboards stored at `{realm}/{node}/internal-infohub/cosell/` or `global-knowledge-vault/cosell/`
+
+---
+
 ## Playbook Integration
 
 ### With Signals
