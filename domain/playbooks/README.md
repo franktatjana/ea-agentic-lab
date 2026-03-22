@@ -815,7 +815,7 @@ All agent roles now have dedicated playbooks. No remaining gaps.
 ## Related Documentation
 
 - [Playbook Personalization Spec](../docs/architecture/system/playbook-personalization-spec.md) - Customization system
-- [Playbook Framework](../docs/architecture/playbooks/playbook-framework.md) - Design principles
+- [Playbook System](../docs/architecture/playbooks/playbook-system.md) - Design principles
 - [Playbook Execution Specification](../docs/architecture/playbooks/playbook-execution-specification.md) - Execution details
 - [Operational Playbook Spec](../docs/architecture/playbooks/operational-playbook-spec.md) - Micro-playbook format
 

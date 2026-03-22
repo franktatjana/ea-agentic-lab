@@ -663,7 +663,7 @@ function PlaybookViewerContent() {
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <h1 className="text-2xl font-bold truncate min-w-0 flex-1">{displayName}</h1>
-        <Link href={`/docs?path=architecture/playbooks/playbook-framework`}>
+        <Link href={`/docs?path=architecture/playbooks/playbook-system`}>
           <Button variant="outline" size="sm" className="text-xs gap-1.5">
             <ExternalLink className="h-3 w-3" />
             Docs
