@@ -1,0 +1,559 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ham-cosell-qualification-agent
+name: HAM Co-sell Qualification Agent
+description: 'Assess inbound opportunities for co-sell eligibility across AWS (ACE), Azure (Partner Center),
+  and GCP (Partner Advantage). Score readiness, validate committed spend applicability, and produce
+  recommended next steps for the AE and Partner Manager.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ham-agent
+  tags:
+  - cosell
+  - qualification
+  - readiness
+  - ace
+  - partner-center
+  - eligibility
+  responsibility: 'Provide accurate, evidence-based co-sell readiness assessments with specific eligibility
+    gate validation, committed spend applicability checks, and actionable next steps per hyperscaler.
+
+    '
+system_prompt: 'You are a Co-sell Qualification Agent, part of the Hyperscaler Account Manager intelligence
+
+  system. Your job is to assess co-sell eligibility and readiness with precision across AWS, Azure, and GCP.
+
+
+  You MUST:
+
+  - Score co-sell readiness as HIGH/MEDIUM/LOW with specific evidence
+
+  - Validate hyperscaler involvement and relationship tier
+
+  - Assess committed spend (EDP/MACC/CUD) draw-down eligibility
+
+  - Evaluate ACE/Partner Center eligibility gates
+
+  - Quantify with deal values, committed spend amounts, and percentages
+
+  - Every gap must suggest a remediation action
+
+
+  You MUST NOT:
+
+  - Track marketplace transactions (ham-marketplace-agent''s domain)
+
+  - Prepare field session materials (ham-field-alignment-agent''s domain)
+
+  - Run program health reviews (ham-program-health-agent''s domain)
+
+  - Make pricing decisions
+
+  - Own direct customer sales cycles (AE Agent''s domain)
+
+
+  When uncertain: use "appears eligible" not "is eligible", add
+
+  [NEEDS VERIFICATION] for unclear situations. Omit rather than guess.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-partner-portal
+  name: Read Partner Portal
+  description: Access ACE, Partner Center, or Partner Advantage data for co-sell status, registration details, and program eligibility
+  requires_confirmation: false
+  inputs:
+  - title: hyperscaler
+    type: string
+  - title: account_name
+    type: string
+  - title: query_type
+    type: string
+  outputs:
+  - title: portal_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Partner portal unavailable, cannot proceed with eligibility validation
+    - error_code: RECORD_NOT_FOUND
+      guidance: No co-sell record found in partner portal, verify account identifiers with user
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM opportunity and account data for deal value, stage, and hyperscaler relationship details
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with opportunity data
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from hyperscaler account manager
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: cosell-readiness
+  name: Co-sell Readiness
+  description: Co-sell readiness scores and committed spend status available to peer agents
+  tools:
+  - id: get-cosell-readiness-score
+    name: Get Co-sell Readiness Score
+    description: Returns HIGH/MEDIUM/LOW readiness with dimension scores across hyperscaler relationship, committed spend, marketplace readiness, deal value, and solution alignment
+    inputs:
+    - title: opportunity_name
+      type: string
+    - title: hyperscaler
+      type: string
+    outputs:
+    - title: cosell_readiness
+      type: object
+  - id: get-committed-spend-status
+    name: Get Committed Spend Status
+    description: Returns EDP/MACC/CUD status for an account including uncommitted balance, draw-down eligibility, and burn rate
+    inputs:
+    - title: account_name
+      type: string
+    - title: hyperscaler
+      type: string
+    outputs:
+    - title: committed_spend_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: cosell-qualification
+  name: Co-sell Qualification
+  playbook_refs:
+  - PB_HAM_001
+  description: Assess co-sell eligibility, validate committed spend applicability, evaluate portal eligibility gates, and produce readiness score with next steps.
+  inputs:
+  - title: account_context
+    type: object
+  - title: opportunity_name
+    type: string
+  - title: hyperscaler
+    type: string
+  - title: deal_value
+    type: number
+  outputs:
+  - title: hyperscaler_involvement
+    type: object
+  - title: committed_spend_assessment
+    type: object
+  - title: eligibility_gate_status
+    type: object
+  - title: cosell_readiness_score
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ham-hyperscaler-involvement-check
+      input: account_context, opportunity_name, hyperscaler
+      tools:
+      - read-partner-portal
+      - read-crm-data
+      description: Confirm which hyperscaler(s) are active and their relationship tier
+      on_failure: stop
+    - step: 2
+      prompt: ham-committed-spend-applicability
+      input: account_context, hyperscaler
+      tools:
+      - read-partner-portal
+      - read-crm-data
+      description: Assess uncommitted cloud spend eligible for draw-down
+      on_failure: stop
+    - step: 3
+      prompt: ham-ace-marketplace-fit
+      input: opportunity_name, hyperscaler, deal_value
+      tools:
+      - read-partner-portal
+      description: Evaluate ACE/Partner Center eligibility gates
+      on_failure: stop
+    - step: 4
+      prompt: ham-cosell-readiness-score
+      input: hyperscaler_involvement, committed_spend_assessment, eligibility_gate_status
+      tools:
+      - read-infohub
+      description: Produce readiness score with next steps
+      on_failure: stop
+    - step: 5
+      action: persist
+      tools:
+      - read-infohub
+      condition: write risk alert when cosell_readiness == LOW
+      description: Save to InfoHub, write risk alert for LOW readiness
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - cosell-readiness-scoring
+    - committed-spend-validation
+    - eligibility-gate-assessment
+    - hyperscaler-involvement-check
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Data shows eligibility gates and committed spend numbers, but the HAM reads
+      the real co-sell story. Understanding whether a hyperscaler field rep will actually champion the deal,
+      whether committed spend draw-down is politically viable within the customer org, and whether the
+      timing aligns with the hyperscaler''s quarterly priorities requires human judgment and relationship
+      context that no portal data captures. The agent scores and validates, but the HAM decides whether
+      to pursue the co-sell motion.
+
+      '
+    challenges:
+    - text: Co-sell opportunities stall at registration because eligibility criteria are not validated upfront
+      specific_overhead:
+      - Submitting opportunities that get rejected for missing fields or unmet criteria
+    - text: Program complexity across three hyperscalers with different qualification gates, incentive structures, and portal workflows
+      specific_overhead:
+      - Manually checking ACE, Partner Center, and Partner Advantage portals for program requirements
+    administrative_overhead:
+    - Submitting opportunities that get rejected for missing fields or unmet criteria
+    - Manually checking ACE, Partner Center, and Partner Advantage portals for program requirements
+    scenarios:
+    - problem: AE submits a deal for co-sell registration but it gets rejected because committed spend eligibility was never checked
+      why: 'ACE and Partner Center have specific eligibility gates around committed spend programs, marketplace
+        listing status, and deal value thresholds. When these gates are not validated before submission,
+        opportunities bounce back, wasting the hyperscaler field team''s time and eroding trust in the
+        partner relationship.
+
+        '
+      agent: ham-cosell-qualification-agent
+      agent_response: 'Runs the full qualification flow: validates hyperscaler involvement and tier, checks
+        committed spend (EDP/MACC/CUD) draw-down eligibility, evaluates portal-specific eligibility gates,
+        and produces a scored readiness assessment with remediation steps for any gaps found.
+
+        '
+      success_signal:
+        metric: Co-sell registration acceptance rate improves
+        target: Eligibility gaps identified before submission, reducing rejection rate
+        leading_indicator: Readiness score generated before every co-sell registration attempt
+        failure_signal: Opportunities still submitted without eligibility validation and rejected by hyperscaler
+    - problem: Customer has an active MACC commitment but no one checks whether the ISV solution qualifies for draw-down
+      why: 'MACC draw-down requires Azure IP Co-sell Eligible status, a published marketplace offer, and
+        minimum deal value thresholds. When these are not checked, the customer misses the chance to use
+        pre-committed budget, adding procurement friction that slows the deal or kills it entirely.
+
+        '
+      agent: ham-cosell-qualification-agent
+      agent_response: 'Checks committed spend program status across all relevant hyperscalers for the account,
+        validates solution eligibility for draw-down, quantifies the uncommitted balance, and flags specific
+        gaps preventing draw-down with remediation actions.
+
+        '
+      success_signal:
+        metric: Committed spend draw-down opportunities surfaced for eligible deals
+        target: Every deal with active EDP/MACC/CUD has draw-down eligibility assessed
+        leading_indicator: Committed spend check completed within 24h of opportunity creation
+        failure_signal: Eligible deals close without leveraging available committed spend
+    - problem: HAM cannot quickly determine which of three hyperscaler programs a deal qualifies for
+      why: 'Each hyperscaler has different qualification gates, minimum deal values, and required fields.
+        Checking all three manually takes hours and the criteria change quarterly, meaning the HAM often
+        works from outdated knowledge.
+
+        '
+      agent: ham-cosell-qualification-agent
+      agent_response: 'Evaluates the opportunity against all three hyperscaler programs simultaneously,
+        produces a side-by-side eligibility comparison, and recommends which program(s) to register with
+        based on the strongest fit and highest incentive potential.
+
+        '
+      success_signal:
+        metric: Time to determine co-sell program fit drops from hours to minutes
+        target: Cross-hyperscaler eligibility comparison available in a single assessment
+        leading_indicator: Multi-hyperscaler assessment generated for accounts with presence on 2+ clouds
+        failure_signal: HAM manually checks each portal separately for every new opportunity
+  escalation_triggers:
+  - Co-sell readiness scored LOW with no viable remediation path
+  - Committed spend burn rate below 60% at quarter midpoint
+  - Eligibility gate failure on a deal already committed to hyperscaler field team
+  - Co-sell program tier at risk of downgrade due to insufficient qualified pipeline
+  prompt_registry:
+    ham-hyperscaler-involvement-check:
+      description: Confirm which hyperscaler(s) are active at the account and their current relationship tier
+      source: prompts/tasks.yaml#cosell_qualification.hyperscaler_involvement_check
+      inputs:
+      - title: account_name
+        type: string
+      - title: opportunity_name
+        type: string
+      - title: hyperscaler
+        type: string
+      outputs:
+      - title: hyperscaler_involvement
+        type: object
+      requires_data:
+      - source: read-partner-portal
+        fields:
+        - partner_status
+        - tier_level
+        - engagement_history
+        priority: critical
+      - source: read-crm-data
+        fields:
+        - account_details
+        - hyperscaler_relationship
+        - cloud_spend_data
+        priority: critical
+      - source: read-infohub
+        fields:
+        - account_context
+        - stakeholder_map
+        priority: enrichment
+    ham-committed-spend-applicability:
+      description: Assess uncommitted cloud spend eligible for draw-down across EDP, MACC, and CUD programs
+      source: prompts/tasks.yaml#cosell_qualification.committed_spend_applicability
+      inputs:
+      - title: account_name
+        type: string
+      - title: hyperscaler
+        type: string
+      outputs:
+      - title: committed_spend_assessment
+        type: object
+      requires_data:
+      - source: read-partner-portal
+        fields:
+        - committed_spend_balance
+        - contract_term
+        - draw_down_history
+        priority: critical
+      - source: read-crm-data
+        fields:
+        - deal_value
+        - cloud_consumption_data
+        priority: critical
+      - source: read-infohub
+        fields:
+        - prior_spend_assessments
+        - account_context
+        priority: enrichment
+    ham-ace-marketplace-fit:
+      description: Evaluate ACE, Partner Center, or Partner Advantage eligibility gates for a specific opportunity
+      source: prompts/tasks.yaml#cosell_qualification.ace_marketplace_fit
+      inputs:
+      - title: opportunity_name
+        type: string
+      - title: hyperscaler
+        type: string
+      - title: deal_value
+        type: number
+      outputs:
+      - title: eligibility_gate_status
+        type: object
+      requires_data:
+      - source: read-partner-portal
+        fields:
+        - program_enrollment_status
+        - required_fields_status
+        - listing_status
+        priority: critical
+      - source: read-crm-data
+        fields:
+        - opportunity_details
+        - deal_value
+        - close_date
+        priority: critical
+    ham-cosell-readiness-score:
+      description: Produce weighted readiness score (HIGH/MEDIUM/LOW) with dimension breakdown and next steps
+      source: prompts/tasks.yaml#cosell_qualification.cosell_readiness_score
+      inputs:
+      - title: hyperscaler_involvement
+        type: object
+      - title: committed_spend_assessment
+        type: object
+      - title: eligibility_gate_status
+        type: object
+      outputs:
+      - title: cosell_readiness_score
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - prior_readiness_scores
+        - account_history
+        priority: enrichment
+  boundaries:
+  - Single opportunity scope, does not analyze portfolio-level co-sell metrics
+  - Does not track marketplace transactions or listing health
+  - Does not prepare field session materials or joint selling decks
+  - Does not run program health reviews or incentive utilization reports
+  - Does not make pricing decisions or negotiate terms
+  - Does not own direct customer sales cycles
+  permissions:
+  - Read partner portal data for ACE, Partner Center, and Partner Advantage
+  - Read CRM data for opportunity and account details
+  - Score co-sell readiness with HIGH/MEDIUM/LOW classification
+  - Validate committed spend draw-down eligibility
+  - Assess eligibility gates per hyperscaler program
+  - Write co-sell readiness assessments to InfoHub
+  guardrails:
+    input_validation:
+    - Reject readiness assessment requests without opportunity name or account context
+    - Reject committed spend checks without confirmed hyperscaler relationship
+    output_checks:
+    - Readiness score must cite specific evidence for HIGH/MEDIUM/LOW classification
+    - Every eligibility gap must include remediation action and owner
+    - Committed spend assessment must include amounts, percentages, and contract dates
+    - All assessments traceable to source data with dates and values
+    signal_validation:
+    - Never assume committed spend amounts not confirmed in partner portal data
+    - Never assert eligibility without validating against program-specific gate criteria
+    - Use qualifiers ("appears eligible") when evidence is indirect
+    - Add [NEEDS VERIFICATION] marker when uncertain
+  error_handling:
+    tool_failures:
+      critical:
+      - read-partner-portal
+      - read-crm-data
+      enrichment:
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - cosell-qualification
+      - committed-spend
+      - eligibility-assessment
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/hyperscaler-program-mechanics.yaml
+      description: AWS ISV Accelerate, Azure IP Co-sell, GCP Partner Advantage program rules, tiers, and incentive structures
+    - path: references/cosell-qualification-criteria.yaml
+      description: ACE and Partner Center eligibility gates, committed spend thresholds, co-sell scoring rubric
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ham-agent
+      description: HAM orchestrator routes co-sell qualification and readiness requests
+    - type: event
+      source: crm_webhook
+      condition: opportunity.created OR opportunity.hyperscaler_field_change
+      description: Auto-runs when new opportunity is created or hyperscaler relationship changes
+    - type: downstream
+      source: ae-agent
+      condition: cosell_request.submitted == true
+      description: AE requests co-sell assessment for a deal entering hyperscaler engagement
+    outputs:
+    - type: parent_return
+      target: ham-agent
+      payload:
+      - hyperscaler_involvement
+      - committed_spend_assessment
+      - eligibility_gate_status
+      - cosell_readiness_score
+      description: Co-sell qualification results back to orchestrator
+    - type: trigger_agent
+      target: ham-field-alignment-agent
+      condition: cosell_readiness.classification == HIGH
+      payload:
+      - cosell_readiness_score
+      - hyperscaler_involvement
+      description: HIGH readiness triggers field alignment preparation
+    - type: trigger_agent
+      target: ham-marketplace-agent
+      condition: eligibility_gate.marketplace_readiness == LOW
+      payload:
+      - eligibility_gate_status
+      - affected_opportunity
+      description: Marketplace readiness gap triggers listing validation
+    - type: notify_human
+      condition: cosell_readiness.classification == LOW OR committed_spend.burn_rate < 60
+      channel: alert
+      description: LOW readiness and critical spend burn surface for HAM review
+    consumes_toolboxes:
+    - toolbox: deal-intelligence
+      agent: ae-deal-diagnosis-agent
+      tools:
+      - get-deal-health
+      reason: Deal health affects co-sell readiness assessment
+    dependencies:
+    - agent: ham-marketplace-agent
+      toolbox: marketplace-intelligence
+      tools:
+      - get-listing-status
+      purpose: Marketplace listing status required for eligibility gate validation
+    - agent: ham-program-health-agent
+      toolbox: program-metrics
+      tools:
+      - get-program-tier-status
+      purpose: Current program tier affects eligibility and incentive access

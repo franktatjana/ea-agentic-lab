@@ -1,0 +1,524 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: partner-risk-agent
+name: Partner Risk Agent
+description: >
+  Leaf sub-agent of the Partner Manager orchestrator. Identifies and classifies
+  partner risks by severity, plans issue resolution with timeline and owners,
+  prepares escalation packages for leadership, and detects channel conflict
+  scenarios before they impact deal timelines.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: partner-agent
+  tags:
+    - partner-risk
+    - risk-classification
+    - escalation
+    - channel-conflict
+    - issue-resolution
+  responsibility: >
+    Provide evidence-based partner risk identification, severity classification,
+    resolution planning with owners and timelines, escalation package preparation,
+    and channel conflict detection with territory data.
+system_prompt: >
+  You are a Partner Risk Agent, part of the Partner Manager intelligence system.
+  Your job is to identify, classify, and track partner-related risks before they
+  impact deal timelines or partner relationships.
+
+  CORE FUNCTIONS:
+  - Risk identification and severity classification (HIGH / MEDIUM / LOW)
+  - Issue resolution planning with timeline, owners, and action items
+  - Escalation package preparation for leadership review
+  - Channel conflict detection using territory and account mapping data
+
+  RISK LEVELS:
+
+  HIGH = partner delay blocking deal, partner conflict, relationship breakdown
+
+  MEDIUM = partner scope unclear, dependency unresolved, misalignment detected
+
+  LOW = partner question, coordination needed, minor timeline adjustment
+
+  You MUST:
+  - Evidence every risk with specific signals from partner data, CRM, or
+    communication records
+  - Classify severity with impact assessment covering deal value, timeline,
+    and relationship health
+  - Include resolution timeline and owners for every identified risk
+  - Flag channel conflicts with territory data, account ownership, and
+    overlap evidence
+  - Track risk trajectory (escalating, stable, de-escalating) with
+    supporting data points
+  - Quantify impact in business terms: revenue at risk, days of delay,
+    number of affected deals
+
+  You MUST NOT:
+  - Resolve partner conflicts directly (Partner Manager human's domain)
+  - Make escalation decisions (recommend only, human decides)
+  - Assume partner intent without evidence
+  - Downgrade risk severity without new evidence justifying the change
+  - Track co-sell pipeline or deal registration (partner-cosell-agent's domain)
+  - Assess partner enablement or certification gaps (partner-enablement-agent's domain)
+  - Generate program health scorecards (partner-program-health-agent's domain)
+
+  When uncertain: use "risk indicators suggest" not "risk confirmed", add
+  [NEEDS VERIFICATION] for unclear situations. Omit rather than guess.
+human_in_the_loop: true
+tools:
+  - component_type: ClientTool
+    id: read-partner-data
+    name: Read Partner Data
+    description: >
+      Access partner records, account plans, communication threads,
+      deliverables, certifications, and territory assignments for risk
+      signal extraction
+    requires_confirmation: false
+    inputs:
+      - title: query
+        type: string
+      - title: partner_name
+        type: string
+      - title: data_type
+        type: string
+    outputs:
+      - title: partner_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Partner data unavailable, cannot proceed with risk assessment
+        - error_code: RECORD_NOT_FOUND
+          guidance: No partner record found, verify partner name and identifiers with user
+  - component_type: ClientTool
+    id: write-partner-artifact
+    name: Write Partner Artifact
+    description: >
+      Save risk assessments, escalation packages, resolution plans,
+      and channel conflict reports as structured artifacts
+    requires_confirmation: true
+    inputs:
+      - title: artifact
+        type: object
+      - title: destination_path
+        type: string
+      - title: artifact_type
+        type: string
+    outputs:
+      - title: status
+        type: string
+    x-ea-agent:
+      risk: medium
+      resolver: service-registry
+      error_responses:
+        - error_code: WRITE_FAILED
+          guidance: Could not persist artifact, retry or escalate to user
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from partner manager
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+toolboxes:
+  - component_type: Toolbox
+    id: partner-risk-intelligence
+    name: Partner Risk Intelligence
+    description: Risk classification and channel conflict data available to peer agents
+    tools:
+      - id: get-partner-risk-summary
+        name: Get Partner Risk Summary
+        description: >
+          Returns current risk posture for a partner including active risks
+          by severity, trajectory, and resolution status
+        inputs:
+          - title: partner_name
+            type: string
+        outputs:
+          - title: risk_summary
+            type: object
+      - id: get-channel-conflict-status
+        name: Get Channel Conflict Status
+        description: >
+          Returns active and potential channel conflicts for an account
+          including territory overlap, competing registrations, and
+          coordination gaps
+        inputs:
+          - title: account_name
+            type: string
+        outputs:
+          - title: channel_conflict_status
+            type: object
+specialized_agents: []
+flows:
+  - component_type: Flow
+    id: risk
+    name: Partner Risk
+    playbook_refs:
+      - PB_PM_004
+    description: >
+      Identify and classify partner risks, plan issue resolution with
+      owners and timelines, prepare escalation packages, and detect
+      channel conflict scenarios.
+    inputs:
+      - title: partner_name
+        type: string
+      - title: account_context
+        type: object
+      - title: risk_trigger
+        type: string
+    outputs:
+      - title: risk_register
+        type: object
+      - title: resolution_plan
+        type: object
+      - title: escalation_package
+        type: object
+      - title: channel_conflict_report
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          id: risk-identification
+          prompt: partner-risk-identification
+          input: partner_name, account_context, risk_trigger
+          tools:
+            - read-partner-data
+          description: Scan partner data for risk signals and classify by severity
+          on_failure: stop
+        - step: 2
+          id: issue-resolution
+          prompt: partner-issue-resolution
+          input: risk_register
+          tools:
+            - read-partner-data
+          description: Build resolution plan with timeline, owners, and action items
+          on_failure: stop
+        - step: 3
+          id: escalation-prep
+          prompt: partner-escalation-prep
+          input: risk_register, resolution_plan
+          tools:
+            - read-partner-data
+            - write-partner-artifact
+          description: Prepare escalation package for leadership with evidence and recommended actions
+          on_failure: stop
+        - step: 4
+          id: channel-conflict
+          prompt: partner-channel-conflict
+          input: partner_name, account_context
+          tools:
+            - read-partner-data
+          description: Detect channel conflicts using territory data, account mapping, and deal registration overlap
+          on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+      - risk-identification-and-classification
+      - issue-resolution-planning
+      - escalation-package-preparation
+      - channel-conflict-detection
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      Data reveals risk signals and conflict patterns, but the Partner Manager
+      reads the relationship dynamics behind them. Whether a delivery slippage
+      is a one-time resource issue or a systemic capability gap, whether a
+      channel conflict is an honest overlap or deliberate territory violation,
+      and whether an escalation will strengthen or damage the partnership long
+      term requires human judgment and relationship context that no data source
+      captures. The agent identifies, classifies, and packages, but the Partner
+      Manager decides how to act.
+    challenges:
+      - text: Partner delivery delays surface too late, after customer commitments are already at risk
+        specific_overhead:
+          - Manually tracking partner milestones across multiple deals and checking status in weekly calls
+      - text: Channel conflicts discovered after both direct and partner teams have invested significant effort
+        specific_overhead:
+          - Cross-referencing territory assignments, deal registrations, and account ownership across CRM and partner portals
+      - text: Escalation packages assembled manually under time pressure with incomplete evidence
+        specific_overhead:
+          - Gathering risk history, communication trail, and impact data from scattered sources for leadership review
+      - text: Risk severity assessed inconsistently across different partners and deal contexts
+        specific_overhead:
+          - No standardized classification framework applied consistently to partner risk signals
+      - text: Resolution plans created without clear owners or timelines, leading to stalled remediation
+        specific_overhead:
+          - Tracking action items across email threads, meeting notes, and chat messages without a single view
+    administrative_overhead:
+      - Manually tracking partner milestones across multiple deals and checking status in weekly calls
+      - Cross-referencing territory assignments, deal registrations, and account ownership across CRM and partner portals
+      - Gathering risk history, communication trail, and impact data from scattered sources for leadership review
+      - No standardized classification framework applied consistently to partner risk signals
+      - Tracking action items across email threads, meeting notes, and chat messages without a single view
+    scenarios:
+      - problem: Partner delivery slippage threatens customer go-live timeline
+        why: >
+          A partner responsible for implementation milestones falls behind
+          schedule, but the delay is not detected until the customer flags
+          it during a status call. By then, the go-live date is at risk,
+          the customer's confidence erodes, and the account team scrambles
+          to find alternatives or renegotiate timelines under pressure.
+        agent: partner-risk-agent
+        agent_response: >
+          Scans partner delivery data for slippage signals, classifies the
+          risk as HIGH with deal-blocking impact assessment, builds a
+          resolution plan with remediation timeline and owners, and prepares
+          an escalation package with evidence trail for leadership review
+          if the resolution plan requires executive intervention.
+        success_signal:
+          metric: Partner delivery risks detected before customer impact
+          target: Delivery slippage identified and escalated before customer-facing deadline pressure
+          leading_indicator: Risk alert generated within 48h of first slippage signal in partner data
+          failure_signal: Customer discovers partner delay before internal teams, requiring reactive crisis management
+      - problem: Direct and partner sales teams targeting same account without coordination
+        why: >
+          When direct sales and a channel partner pursue the same account
+          independently, the customer receives conflicting proposals and
+          pricing. This damages the vendor's credibility, creates internal
+          friction, and often results in one team's pipeline being written
+          off after weeks of effort, wasting capacity and eroding partner
+          trust.
+        agent: partner-risk-agent
+        agent_response: >
+          Cross-references territory assignments, deal registrations, and
+          active opportunity data to detect account overlap. Flags the
+          conflict with territory evidence, quantifies the pipeline at risk,
+          and recommends a coordination path with clear account ownership
+          resolution options for the Partner Manager.
+        success_signal:
+          metric: Channel conflicts detected before customer-facing impact
+          target: Overlap identified and flagged before conflicting proposals reach the customer
+          leading_indicator: Conflict alert generated when duplicate account activity detected in CRM and partner portal
+          failure_signal: Customer receives competing proposals from direct and partner teams
+      - problem: Partner executive sponsor relationship deteriorating with no resolution path
+        why: >
+          When communication cadence drops, meeting cancellations increase,
+          and response times lengthen from a partner executive sponsor, the
+          relationship is degrading. Without early detection, this
+          deterioration reaches a point where re-engagement requires
+          executive intervention, and active deals depending on that
+          sponsor's support stall or lose momentum.
+        agent: partner-risk-agent
+        agent_response: >
+          Identifies relationship deterioration signals from communication
+          patterns and engagement data. Classifies the risk with trajectory
+          analysis (stable vs. escalating), maps affected deals and their
+          dependency on the sponsor relationship, and prepares an escalation
+          package with recommended re-engagement actions and timeline for
+          leadership review.
+        success_signal:
+          metric: Relationship deterioration detected during recoverable window
+          target: Engagement decline flagged while re-engagement is still possible without executive escalation
+          leading_indicator: Relationship health alert triggered by communication pattern change within 2 weeks
+          failure_signal: Relationship deterioration discovered only when deals stall or partner disengages
+  escalation_triggers:
+    - Risk classified HIGH with no viable resolution path within agreed timeline
+    - Channel conflict affecting deal value above territory threshold
+    - Partner executive sponsor unresponsive for 2+ scheduled engagement cycles
+    - Multiple MEDIUM risks escalating simultaneously for the same partner
+    - Resolution plan owner unresponsive or action items stalled beyond deadline
+  prompt_registry:
+    partner-risk-identification:
+      description: Scan partner data for risk signals and classify each by severity with evidence
+      source: prompts/tasks.yaml#risk.risk_identification
+      inputs:
+        - title: partner_name
+          type: string
+        - title: account_context
+          type: object
+        - title: risk_trigger
+          type: string
+      outputs:
+        - title: risk_register
+          type: object
+      requires_data:
+        - source: read-partner-data
+          fields:
+            - partner_delivery_status
+            - communication_history
+            - milestone_tracking
+            - engagement_cadence
+          priority: critical
+    partner-issue-resolution:
+      description: Build resolution plan with timeline, owners, and specific action items for each identified risk
+      source: prompts/tasks.yaml#risk.issue_resolution
+      inputs:
+        - title: risk_register
+          type: object
+      outputs:
+        - title: resolution_plan
+          type: object
+      requires_data:
+        - source: read-partner-data
+          fields:
+            - partner_contacts
+            - escalation_paths
+            - historical_resolutions
+          priority: critical
+    partner-escalation-prep:
+      description: Prepare escalation package with evidence trail, impact assessment, and recommended actions for leadership
+      source: prompts/tasks.yaml#risk.escalation_prep
+      inputs:
+        - title: risk_register
+          type: object
+        - title: resolution_plan
+          type: object
+      outputs:
+        - title: escalation_package
+          type: object
+      requires_data:
+        - source: read-partner-data
+          fields:
+            - risk_history
+            - communication_trail
+            - deal_impact_data
+          priority: critical
+    partner-channel-conflict:
+      description: Detect channel conflicts using territory data, deal registrations, and account mapping overlap
+      source: prompts/tasks.yaml#risk.channel_conflict
+      inputs:
+        - title: partner_name
+          type: string
+        - title: account_context
+          type: object
+      outputs:
+        - title: channel_conflict_report
+          type: object
+      requires_data:
+        - source: read-partner-data
+          fields:
+            - territory_assignments
+            - deal_registrations
+            - account_ownership_map
+            - active_opportunities
+          priority: critical
+  boundaries:
+    - Single partner scope per assessment, does not aggregate cross-partner portfolio risk
+    - Does not resolve conflicts or make relationship decisions (Partner Manager human's domain)
+    - Does not make escalation decisions, only recommends with evidence
+    - Does not track co-sell pipeline or deal registration status (partner-cosell-agent's domain)
+    - Does not assess partner enablement or certification compliance (partner-enablement-agent's domain)
+    - Does not generate program health scorecards (partner-program-health-agent's domain)
+  permissions:
+    - Read partner records, account plans, and communication data for risk signal extraction
+    - Read territory assignments and deal registrations for channel conflict detection
+    - Classify risks with HIGH/MEDIUM/LOW severity
+    - Write risk assessments, resolution plans, and escalation packages as artifacts
+    - Recommend escalation actions (human approves)
+  guardrails:
+    input_validation:
+      - Reject risk assessment requests without partner name and context
+      - Reject channel conflict checks without account identifier or territory data
+    output_checks:
+      - Never downgrade risk severity without new evidence justifying the change
+      - Never assume partner intent without supporting data
+      - Include confidence level (HIGH/MEDIUM/LOW) on every risk classification
+      - Every risk must cite specific signals from partner data
+      - Resolution plans must include owner, timeline, and success criteria
+      - Escalation packages must include evidence trail and impact quantification
+    signal_validation:
+      - Never classify risk severity based on single data point
+      - Use qualifiers ("risk indicators suggest") when evidence is indirect
+      - Add [NEEDS VERIFICATION] marker when uncertain
+      - Cross-reference multiple data sources before HIGH classification
+    resource_limits:
+      max_tool_calls: 20
+  error_handling:
+    tool_failures:
+      critical:
+        - read-partner-data
+      enrichment: []
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable risk assessment without partner data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+        - partner-risk-management
+        - channel-conflict-resolution
+        - escalation-management
+      archetypes:
+        - enterprise
+        - mid-market
+    references:
+      - path: references/partner-ecosystem-frameworks.yaml
+        description: >
+          Partner risk classification frameworks, channel conflict resolution
+          methodologies, escalation best practices, and territory management
+          guidelines
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: partner-agent
+        description: Partner Manager orchestrator routes risk identification, escalation, and conflict requests
+      - type: event
+        source: partner_data_webhook
+        condition: partner.milestone_missed OR partner.engagement_cadence_drop
+        description: Auto-runs when partner milestone is missed or engagement cadence drops below threshold
+      - type: downstream
+        source: partner-cosell-agent
+        condition: deal.partner_dependency_at_risk == true
+        description: Co-sell agent flags a deal where partner dependency creates risk
+      - type: downstream
+        source: partner-program-health-agent
+        condition: health_score.trajectory == declining
+        description: Program health agent detects declining partner health trajectory
+    outputs:
+      - type: parent_return
+        target: partner-agent
+        payload:
+          - risk_register
+          - resolution_plan
+          - escalation_package
+          - channel_conflict_report
+        description: Risk assessment results back to orchestrator
+      - type: trigger_agent
+        target: partner-cosell-agent
+        condition: channel_conflict.deal_registration_overlap == true
+        payload:
+          - channel_conflict_report
+          - affected_deals
+        description: Channel conflict with deal registration overlap triggers co-sell coordination
+      - type: notify_human
+        condition: risk.severity == HIGH OR escalation_package.prepared == true
+        channel: alert
+        description: HIGH severity risks and prepared escalation packages surface for Partner Manager review
+    consumes_toolboxes:
+      - toolbox: partner-health-metrics
+        agent: partner-program-health-agent
+        tools:
+          - get-partner-health-score
+        reason: Partner health trajectory informs risk severity assessment
+    dependencies:
+      - agent: partner-cosell-agent
+        toolbox: cosell-pipeline
+        tools:
+          - get-deal-registration-status
+        purpose: Deal registration data required for channel conflict detection

@@ -20,10 +20,15 @@ function stripAgentSuffix(name: string) {
   return name.replace(/ Agent$/, "");
 }
 
-function firstSentence(text: string): string {
+function firstSentence(text: string, minLength = 120): string {
   if (!text) return "";
-  const match = text.match(/^[^.!?]+[.!?]/);
-  return match ? match[0].trim() : text.trim();
+  const sentences = text.match(/[^.!?]+[.!?]+/g);
+  if (!sentences) return text.trim();
+  let result = sentences[0].trim();
+  for (let i = 1; i < sentences.length && result.length < minLength; i++) {
+    result += " " + sentences[i].trim();
+  }
+  return result;
 }
 
 function buildMeta(agent: AgentDefinitionSummary): string {

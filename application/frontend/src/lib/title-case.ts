@@ -4,6 +4,8 @@ const ABBREVIATIONS = new Set([
   // Deal / sales
   "MEDDPICC", "RFP", "POC", "POV", "QBR", "EBR", "ARR", "MRR", "ACV",
   "ROI", "TCO", "SLA", "NPS", "CSAT",
+  // Hyperscaler / marketplace
+  "ACE", "CPPO", "MACC", "EDP", "CUD", "GCP", "SKU",
   // Technical
   "ADR", "API", "UI", "UX", "CSP", "DR", "BC",
   // Other

@@ -1,116 +1,75 @@
 # Partner Manager Agent
 
-> Digital twin of the Partner Manager role. Owns the commercial side of partner relationships: alignment tracking, dependency visibility, co-sell coordination, certification compliance, and partner performance. Coordinates with the Alliance Architect Agent for technical integration and joint solution architecture.
+Digital twin of the Partner Manager role. Orchestrates partner ecosystem management across enablement, co-sell execution, program health, and risk governance through 4 specialized sub-agents.
 
-**Layer:** Strategic
-**Team:** `partners`
-**Agent ID:** `partner-agent`
+## Architecture
 
----
+**Orchestrator** (partner-agent) routes requests to leaf sub-agents:
 
-## Purpose
-
-The Partner Manager Agent tracks partner involvement in accounts, flags partner-related commercial risks (misalignment, delays, conflicts), and monitors partner deliverables against commitments. It links partner work to account plans, coordinates co-sell pipeline, tracks certifications, and provides visibility on dependencies that could affect deal execution or delivery timelines. Technical integration design and joint solution architecture sit with the Alliance Architect Agent, the Partner Manager's technical counterpart.
-
----
-
-## Core Functions
-
-- Track partner activities and involvement in accounts
-- Flag partner-related commercial risks (delays blocking deals, misalignment, scope conflicts)
-- Monitor partner deliverables against commitments
-- Link partner work to account plans
-- Coordinate co-sell pipeline and deal registration
-- Track partner certifications and competency tiers
-- Generate partner performance scorecards
-- Coordinate handoffs between vendor and partner teams
-
----
+| Sub-agent | Domain | Key Functions |
+|-----------|--------|---------------|
+| partner-enablement-agent | Enablement & Certification | Onboarding readiness, certification compliance, training gaps, maturity assessment |
+| partner-cosell-agent | Co-sell Pipeline & Planning | Pipeline overlap, deal registration, JBP preparation, joint positioning |
+| partner-program-health-agent | Program Health & Reporting | Engagement health (GREEN/YELLOW/RED), dependency tracking, scorecards, QBR reviews |
+| partner-risk-agent | Risk Governance | Risk classification, issue resolution, escalation prep, channel conflict detection |
 
 ## Boundaries
 
-### What this agent does
+**Owns**: Commercial partner alignment, enablement tracking, co-sell coordination, program health, risk governance
 
-- Scans joint communication threads and documents for partner signals
-- Compares partner plans vs. account plans for alignment gaps
-- Tracks partner dependencies and their status (on-track, at-risk, blocked)
-- Generates partner engagement health scorecards (GREEN/YELLOW/RED)
-- Prepares partner performance reviews and escalation briefs
-- Supports joint account planning sessions
+**Does not own**:
+- Technical integration design (Alliance Architect Agent)
+- Partner relationship management (Partner Manager human)
+- Partner commitments or promises
+- Hyperscaler co-sell mechanics (HAM Agent)
 
-### What this agent does not do
+## Key Responsibilities
 
-- Design joint solution architectures (Alliance Architect Agent's domain)
-- Validate technical integration patterns (Alliance Architect Agent's domain)
-- Manage partner relationships directly (Partner Manager human's domain)
-- Make partner commitments or promises
-- Invent partner scope or deliverables not documented
-
----
-
-## Skills
-
-No dedicated skills. Uses personality-defined prompts and 12+ task templates across 4 categories: partner health, partner coordination, partner risk, and partner reporting.
-
----
+1. Partner enablement: onboarding, certification, training, maturity
+2. Co-sell execution: pipeline overlap, deal registration, JBP, positioning
+3. Program health: engagement scoring, dependencies, scorecards, QBR
+4. Risk governance: risk classification, issue resolution, escalation, channel conflict
+5. Certification compliance: expiry tracking, lapse alerting, active deal impact
+6. Deal registration coordination: attribution reconciliation, conflict resolution
+7. Joint business planning: mutual objectives, shared metrics, commitment tracking
+8. Partner performance reporting: benchmarked scorecards, trend analysis
+9. Account-level partner coordination: alignment with account plans, handoffs
+10. Ecosystem strategy support: capability data and co-sell metrics for leadership
 
 ## Integration
 
-### Receives from
+**Receives from**: CRM, partner portals, certification databases, account plans, communication threads
 
-| Agent | What |
-|-------|------|
-| Account plan | Partner section content |
-| Joint communication threads | Partner activity signals |
-| Delivery Agent | Delivery context for partner dependencies |
-| Alliance Architect Agent | Technical readiness status, integration validation results |
+**Provides to**:
+- AE Agent: partner involvement status, co-sell support, deal registration
+- Delivery Agent: partner delivery dependencies, handoff coordination
+- HAM Agent: partner CPPO eligibility, ISV program context
 
-### Provides to
+**Defers to**:
+- Alliance Architect: technical integration, joint solution architecture
+- HAM Agent: hyperscaler co-sell mechanics, marketplace transactions
+- Senior Manager: partner investment decisions, executive escalations
 
-| Agent | What |
-|-------|------|
-| AE Agent | Partner alignment status for account context |
-| Alliance Architect Agent | Partner commercial context, certification status, engagement terms |
-| Delivery Agent | Partner readiness and dependency context |
-| Account team | Partner risk alerts and dependency tracking |
+**Escalates to**: Partner Manager (human)
 
-### Escalates to
+## Knowledge Base
 
-- **Partner Manager (human)** when partner delays are blocking deals, partner conflicts emerge, or relationship issues require management-level intervention
-- **Alliance Architect Agent** when technical integration questions arise during commercial partner discussions
+- Partner ecosystem frameworks (maturity models, JBP methodology, PRM)
+- Co-sell methodology (pipeline overlap, deal registration, account mapping)
+- Partner enablement benchmarks (certification ROI, revenue impact, deal metrics)
 
----
+## Files
 
-## Guardrails
-
-- NEVER invent partner names not in source content
-- NEVER assume partner scope without explicit mention
-- NEVER create partner commitments or deliverables
-- Quote exact partner-related statements from source
-
-When uncertain: flag for Partner Manager review, state "partner status unclear" rather than inferring, add [NEEDS VERIFICATION] marker.
-
----
-
-## Quality Criteria
-
-- All partner names mentioned in source content
-- All partner risks evidenced with specific signals
-- No assumed partner capabilities
-- Engagement health scores justified by documented evidence
-
----
-
-## References
-
-No extracted reference files. Personality file is compact and self-contained.
-
----
-
-## Related
-
-- **Config:** `agents/partner_agent.yaml`
-- **Personality:** `personalities/partner_personality.yaml`
-- **Tasks:** `prompts/tasks.yaml` (12+ task templates across 4 categories)
-- **Playbooks owned:** PB_PTR_001 (Partner Engagement Health), PB_PTR_002 (Partner Dependency Tracking), PB_PTR_003 (Joint Account Planning)
-- **Playbooks contributes to:** PB_AE_002 (Account Planning), PB_DEL_001 (Implementation Kickoff)
+| File | Purpose |
+|------|---------|
+| partner-agent-definition.yaml | Golden standard orchestrator definition |
+| partner-enablement-definition.yaml | Enablement sub-agent definition |
+| partner-cosell-definition.yaml | Co-sell sub-agent definition |
+| partner-program-health-definition.yaml | Program health sub-agent definition |
+| partner-risk-definition.yaml | Risk sub-agent definition |
+| agents/partner_agent.yaml | Runtime configuration |
+| personalities/partner_personality.yaml | Orchestrator personality |
+| personalities/partner_*_personality.yaml | Sub-agent personalities (4 files) |
+| prompts/tasks.yaml | 16 runbook prompts across 4 domains |
+| skills/SK_PTR_001-004.yaml | Skill definitions (4 files) |
+| references/*.yaml | Knowledge reference files (3 files) |

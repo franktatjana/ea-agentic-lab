@@ -1,0 +1,193 @@
+# Marketplace Transaction Playbook - Domain Knowledge
+# Referenced by: ham-marketplace-definition.yaml
+# Sources: AWS Marketplace seller guide, Azure Marketplace publisher docs, GCP Marketplace docs
+# Last verified: 2026-03
+
+transaction_types:
+  public_offer:
+    description: "Standard listing available to all marketplace customers"
+    use_case: "Self-service purchases, standard pricing, broad availability"
+    flow:
+      - "ISV publishes listing with pricing and terms"
+      - "Customer finds listing in marketplace catalog"
+      - "Customer subscribes and accepts standard terms"
+      - "Billing handled through marketplace"
+
+  private_offer:
+    description: "Custom pricing and terms for a specific customer"
+    use_case: "Enterprise deals with negotiated pricing, custom terms, or volume discounts"
+    flow:
+      - "ISV creates private offer with custom pricing and terms"
+      - "Private offer sent to specific customer AWS/Azure/GCP account"
+      - "Customer reviews and accepts the private offer"
+      - "Billing at negotiated rate through marketplace"
+    parameters:
+      required:
+        - "Customer account ID"
+        - "Pricing (flat, usage-based, or contract)"
+        - "Contract duration"
+        - "Payment schedule (upfront, monthly, annual)"
+        - "End User License Agreement (EULA) or custom terms"
+      optional:
+        - "Volume discounts or tiered pricing"
+        - "Auto-renewal terms"
+        - "Custom dimensions or usage meters"
+
+  cppo:
+    full_name: "Channel Partner Private Offer"
+    description: "Three-party transaction: ISV → Channel Partner → Customer"
+    availability: "AWS Marketplace (primary), Azure (via CSP), GCP (limited)"
+    flow:
+      aws:
+        - "ISV creates wholesale private offer to channel partner"
+        - "Channel partner accepts wholesale terms"
+        - "Channel partner creates customer-facing private offer (with margin)"
+        - "Customer accepts channel partner's offer"
+        - "AWS bills customer, remits to channel partner, channel partner remits to ISV"
+      azure:
+        - "ISV lists solution in commercial marketplace"
+        - "CSP partner transacts on behalf of customer via Partner Center"
+        - "Microsoft handles billing through CSP program"
+      gcp:
+        - "ISV works with authorized reseller"
+        - "Reseller manages customer procurement"
+        - "Google bills through reseller channel"
+    wholesale_mechanics:
+      margin_structure: "ISV sets wholesale price, channel partner adds margin for customer offer"
+      authorization: "ISV must authorize specific channel partners for CPPO"
+      visibility: "ISV sees wholesale transaction, channel partner controls customer relationship"
+
+marketplace_specific:
+  aws_marketplace:
+    listing_types:
+      - "AMI (Amazon Machine Image)"
+      - "SaaS"
+      - "Container"
+      - "Data Exchange"
+      - "Professional Services"
+    pricing_models:
+      - "Free"
+      - "BYOL (Bring Your Own License)"
+      - "Hourly/Annual"
+      - "Usage-based (metered)"
+      - "Contract (fixed commitment)"
+    procurement_paths:
+      direct: "Customer purchases directly from marketplace listing"
+      private_offer: "Custom terms for specific customer account"
+      cppo: "Channel partner intermediates the transaction"
+      resale: "Consulting partner resells via marketplace"
+    edp_eligibility:
+      rule: "Marketplace purchases from ISV Accelerate members count toward customer EDP"
+      verification: "Confirm ISV Accelerate membership and customer EDP enrollment"
+
+  azure_marketplace:
+    listing_types:
+      - "SaaS"
+      - "Azure Application (managed app or solution template)"
+      - "Virtual Machine"
+      - "Container"
+      - "Consulting Service"
+    pricing_models:
+      - "Free"
+      - "BYOL"
+      - "Per-user/per-month"
+      - "Usage-based (metered)"
+      - "Flat rate"
+    procurement_paths:
+      direct: "Customer purchases from Azure Marketplace"
+      private_offer: "Custom pricing for specific Azure tenant"
+      csp: "Cloud Solution Provider partner transacts on customer behalf"
+      multiparty_private_offer: "Three-party deals via Partner Center"
+    macc_eligibility:
+      rule: "Azure IP Co-sell Eligible marketplace purchases count toward MACC"
+      verification: "Confirm Azure IP Co-sell Eligible status in Partner Center"
+
+  gcp_marketplace:
+    listing_types:
+      - "SaaS"
+      - "Virtual Machine"
+      - "Kubernetes App"
+      - "Data & AI"
+    pricing_models:
+      - "Free"
+      - "BYOL"
+      - "Usage-based"
+      - "Subscription"
+    procurement_paths:
+      direct: "Customer purchases from GCP Marketplace"
+      private_offer: "Custom pricing for specific GCP billing account"
+      reseller: "Authorized reseller manages transaction"
+
+transaction_lifecycle:
+  stages:
+    - id: listing_prep
+      name: "Listing Preparation"
+      actions:
+        - "Verify SKU and pricing are live in marketplace"
+        - "Confirm EULA and terms are current"
+        - "Validate technical integration (metering, provisioning)"
+      blockers:
+        - "SKU not published or pending review"
+        - "Pricing inconsistency between CRM quote and marketplace listing"
+        - "Technical integration test failures"
+
+    - id: offer_creation
+      name: "Offer Creation"
+      actions:
+        - "Determine offer type (public, private, CPPO)"
+        - "Set pricing, duration, and payment terms"
+        - "Generate offer and send to customer/partner"
+      blockers:
+        - "Customer account ID not provided"
+        - "Pricing not approved by deal desk"
+        - "Channel partner not authorized for CPPO"
+
+    - id: customer_acceptance
+      name: "Customer Acceptance"
+      actions:
+        - "Customer reviews offer in marketplace console"
+        - "Customer procurement approves terms"
+        - "Customer accepts and transaction is recorded"
+      blockers:
+        - "Offer expired before acceptance"
+        - "Customer procurement requires terms modification"
+        - "Customer account billing not configured"
+
+    - id: provisioning
+      name: "Provisioning & Activation"
+      actions:
+        - "SaaS: customer redirected to ISV for account setup"
+        - "AMI/VM: instance launched in customer environment"
+        - "Metering: usage tracking begins"
+      blockers:
+        - "SaaS redirect URL misconfigured"
+        - "Customer IAM permissions insufficient"
+        - "Metering endpoint not responding"
+
+    - id: consumption_tracking
+      name: "Consumption & Billing"
+      actions:
+        - "Monitor usage against contract or commitment"
+        - "Track consumption against EDP/MACC draw-down"
+        - "Generate consumption reports for customer and internal review"
+      blockers:
+        - "Metering data gaps"
+        - "Consumption below committed threshold (shortfall risk)"
+        - "Billing discrepancy between ISV and marketplace reports"
+
+common_failure_modes:
+  - name: "SKU mismatch"
+    description: "Customer quotes a SKU that differs from the live marketplace listing"
+    prevention: "Validate SKU alignment before creating private offer"
+  - name: "Expired private offer"
+    description: "Private offer expires before customer procurement completes"
+    prevention: "Set offer duration 30+ days, track acceptance proactively"
+  - name: "CPPO authorization gap"
+    description: "Channel partner not authorized, blocking three-party transaction"
+    prevention: "Pre-authorize partners in marketplace seller console"
+  - name: "MACC/EDP ineligibility"
+    description: "Solution does not qualify for committed spend draw-down"
+    prevention: "Verify co-sell eligibility status before positioning committed spend benefit"
+  - name: "Procurement routing confusion"
+    description: "Customer unsure whether to buy direct, via partner, or via marketplace"
+    prevention: "Map procurement path early in deal cycle, confirm with customer procurement"

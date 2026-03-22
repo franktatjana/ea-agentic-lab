@@ -1,0 +1,495 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: aa-integration-validation-agent
+name: Integration Validation Agent
+description: >
+  Leaf sub-agent of the Alliance Architect orchestrator. Assesses API/SDK
+  compatibility across platform versions, validates integration patterns,
+  certifies partner integrations, and monitors partner platform changes
+  for breaking changes.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: aa-agent
+  tags:
+    - integration-validation
+    - api-compatibility
+    - version-tracking
+    - change-impact
+    - integration-testing
+    - partner-certification
+  responsibility: >
+    Provide accurate, evidence-based integration validation assessments covering
+    API/SDK compatibility across platform versions, integration pattern testing,
+    version deprecation tracking, and partner platform change impact analysis.
+system_prompt: >
+  You are an Integration Validation Agent, part of the Alliance Architect
+  intelligence system. Your job is to assess partner integration health and
+  compatibility with precision.
+
+  CORE FUNCTIONS:
+  - API/SDK compatibility assessment across platform versions
+  - Integration pattern testing and certification
+  - Version tracking and deprecation timeline monitoring
+  - Partner platform change impact analysis
+
+  You MUST:
+  - Validate all compatibility claims against version-specific test evidence before reporting status
+  - Include confidence metadata (HIGH/MEDIUM/LOW) on every assessment output
+  - Flag breaking API changes on active customer deployments immediately
+  - Score compatibility against specific version combinations with documented evidence
+  - Cite source data including API versions, test dates, and platform builds for every finding
+  - Every incompatibility must suggest a remediation path with effort estimate and timeline
+
+  You MUST NOT:
+  - Certify integrations without evidence-based validation from actual test results
+  - Assume API compatibility without version-specific testing confirmation
+  - Design joint solution architectures (aa-solution-architecture-agent's domain)
+  - Prepare co-sell readiness packages or maintain solution catalogs (aa-technical-enablement-agent's domain)
+  - Conduct new partnership technical assessments (aa-due-diligence-agent's domain)
+  - Make commercial partner commitments (Partner Manager's domain)
+
+  When uncertain: use "test results indicate" not "integration is compatible", add
+  [NEEDS VERIFICATION] for unclear situations. Omit rather than guess.
+human_in_the_loop: true
+tools:
+  - component_type: ClientTool
+    id: read-aa-data
+    name: Read Alliance Data
+    description: Access partner API documentation, SDK changelogs, integration test results, version matrices, and platform change notifications
+    requires_confirmation: false
+    inputs:
+      - title: partner_name
+        type: string
+      - title: query_type
+        type: string
+      - title: data_scope
+        type: string
+    outputs:
+      - title: alliance_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Partner API documentation or test environment unavailable, cannot proceed with compatibility validation
+        - error_code: RECORD_NOT_FOUND
+          guidance: No integration record found for partner, verify partner identifiers with user
+        - error_code: STALE_DATA
+          guidance: Data exceeds freshness threshold, flag for human verification
+  - component_type: ClientTool
+    id: write-aa-artifact
+    name: Write Alliance Artifact
+    description: Persist compatibility assessments, certification results, version tracking reports, and change impact analyses to the alliance knowledge store
+    requires_confirmation: true
+    inputs:
+      - title: partner_name
+        type: string
+      - title: artifact_type
+        type: string
+      - title: artifact_content
+        type: object
+    outputs:
+      - title: write_confirmation
+        type: object
+    x-ea-agent:
+      risk: medium
+      resolver: service-registry
+      error_responses:
+        - error_code: WRITE_FAILED
+          guidance: Artifact persistence failed, retain output in memory and retry
+        - error_code: CONFLICT
+          guidance: Newer version exists, retrieve latest before overwriting
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from alliance architect
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+toolboxes:
+  - component_type: Toolbox
+    id: integration-intelligence
+    name: Integration Intelligence
+    description: Integration compatibility status and version tracking available to peer agents
+    tools:
+      - id: get-compatibility-status
+        name: Get Compatibility Status
+        description: Returns current API/SDK compatibility status for a partner integration including validated version combinations, known incompatibilities, and remediation paths
+        inputs:
+          - title: partner_name
+            type: string
+        outputs:
+          - title: compatibility_status
+            type: object
+      - id: get-version-tracking
+        name: Get Version Tracking
+        description: Returns API version tracking summary including deprecation timelines, upcoming breaking changes, and migration urgency classification
+        inputs:
+          - title: partner_name
+            type: string
+        outputs:
+          - title: version_tracking
+            type: object
+specialized_agents: []
+flows:
+  - component_type: Flow
+    id: integration-validation
+    name: Integration Validation Assessment
+    playbook_refs:
+      - PB_AA_001
+    description: Assess API/SDK compatibility across platform versions, validate integration patterns, track version deprecations, and analyze partner platform change impact.
+    inputs:
+      - title: partner_name
+        type: string
+      - title: api_version
+        type: string
+      - title: integration_scope
+        type: string
+      - title: test_results
+        type: string
+    outputs:
+      - title: compatibility_result
+        type: object
+      - title: testing_result
+        type: object
+      - title: version_tracking_result
+        type: object
+      - title: change_impact_result
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: aa-api-compatibility
+          input: partner_name, api_version
+          tools:
+            - read-aa-data
+          description: Assess API/SDK compatibility across platform versions
+          on_failure: stop
+        - step: 2
+          prompt: aa-integration-testing
+          input: partner_name, integration_scope, test_results
+          tools:
+            - read-aa-data
+          description: Validate integration patterns and certify results
+          on_failure: stop
+        - step: 3
+          prompt: aa-version-tracking
+          input: partner_name
+          tools:
+            - read-aa-data
+          description: Track API versions and deprecation timelines
+          on_failure: stop
+        - step: 4
+          prompt: aa-change-impact
+          input: partner_name, api_version
+          tools:
+            - read-aa-data
+            - write-aa-artifact
+          description: Assess impact of partner platform changes on integrations and persist findings
+          on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+      - api-compatibility-assessment
+      - integration-testing-certification
+      - version-deprecation-tracking
+      - change-impact-analysis
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      Test results and version matrices show compatibility data, but the Alliance
+      Architect reads the integration health story underneath. Understanding whether
+      a partner's engineering team is genuinely investing in API quality, whether a
+      deprecation timeline is realistic given the partner's track record, and whether
+      an integration breakage stems from carelessness or a strategic platform pivot
+      requires human judgment and relationship context that no test data captures.
+      The agent validates and tracks, but the Alliance Architect decides whether to
+      escalate, renegotiate integration terms, or accept calculated risk.
+    challenges:
+      - text: API breaking changes go undetected until customer production environments are affected because partner release notes are not systematically monitored
+        specific_overhead:
+          - Scanning partner developer portals, changelog feeds, and email notifications across 10-20 partners for breaking changes
+      - text: Version deprecation timelines are not tracked across partner portfolios, leading to last-minute migration scrambles when APIs reach end-of-life
+        specific_overhead:
+          - Maintaining spreadsheets of deprecation dates across multiple partner APIs and mapping against customer deployment versions
+      - text: Integration certification results are not systematically recorded or searchable, forcing re-validation of previously tested version combinations
+        specific_overhead:
+          - Searching email threads, shared drives, and chat history to find whether a specific version combination was previously tested
+      - text: Partner platform changes are assessed reactively after customer impact instead of proactively when changes are announced
+        specific_overhead:
+          - Responding to customer escalations about broken integrations rather than catching changes during partner release cycles
+      - text: Compatibility matrices are maintained manually in spreadsheets that drift out of sync with actual tested version combinations
+        specific_overhead:
+          - Manually updating spreadsheet cells after each test cycle and reconciling discrepancies between documented and actual compatibility
+    administrative_overhead:
+      - Scanning partner developer portals, changelog feeds, and email notifications across 10-20 partners for breaking changes
+      - Maintaining spreadsheets of deprecation dates across multiple partner APIs and mapping against customer deployment versions
+      - Searching email threads, shared drives, and chat history to find whether a specific version combination was previously tested
+      - Responding to customer escalations about broken integrations rather than catching changes during partner release cycles
+      - Manually updating spreadsheet cells after each test cycle and reconciling discrepancies between documented and actual compatibility
+    scenarios:
+      - problem: Partner releases a major API version update and existing customer integrations start failing silently in production
+        why: >
+          Partners release platform updates on their own cadence, often with
+          incomplete migration guides. Without proactive compatibility monitoring
+          against the current integration touchpoints, the first sign of breakage
+          is a customer support ticket. By then, customer data flows are disrupted
+          and both vendors' credibility is damaged.
+        agent: aa-integration-validation-agent
+        agent_response: >
+          Monitors partner API changelogs and release notes, maps announced changes
+          against current integration touchpoints, runs compatibility assessment
+          against the new version, identifies breaking changes with specific
+          affected endpoints, and produces a remediation plan with migration effort
+          estimate and customer impact classification.
+        success_signal:
+          metric: Breaking changes detected before customer production impact
+          target: Compatibility assessment completed within 48 hours of partner release announcement
+          leading_indicator: Partner release notes ingested and mapped within 24 hours
+          failure_signal: Customer reports integration breakage before internal detection
+      - problem: Partner API deprecation deadline passes without migration, disabling integration for customers still on the old version
+        why: >
+          Deprecation notices arrive months in advance but get lost in email
+          backlogs and developer portal notifications. Without consolidated
+          tracking across all partner APIs, deadlines pass without migration
+          action, and customers on deprecated versions lose functionality with
+          no fallback.
+        agent: aa-integration-validation-agent
+        agent_response: >
+          Tracks all partner API deprecation timelines in a consolidated view,
+          cross-references deprecated versions against active customer deployments,
+          generates migration urgency classifications (critical/high/medium/low),
+          and produces a deprecation calendar with escalation triggers at 90, 60,
+          and 30 days before end-of-life.
+        success_signal:
+          metric: Zero customer-impacting deprecation deadline misses
+          target: Migration plans initiated at least 90 days before deprecation date
+          leading_indicator: Deprecation tracking entries created within one week of partner announcement
+          failure_signal: Customers lose API access due to untracked deprecation deadlines
+      - problem: Integration previously certified as compatible breaks after a minor vendor platform patch because certification was point-in-time and never re-validated
+        why: >
+          Integration certifications are typically performed once during initial
+          partner onboarding or a major release. Minor patches on either side can
+          introduce subtle incompatibilities that were never tested. Without
+          continuous re-validation against the current version matrix, certified
+          integrations silently drift from the tested baseline.
+        agent: aa-integration-validation-agent
+        agent_response: >
+          Maintains a version matrix of all certified combinations, flags when
+          either vendor or partner releases a patch that invalidates a previous
+          certification, triggers re-validation assessments for affected
+          combinations, and updates certification status with specific version
+          pins and test evidence.
+        success_signal:
+          metric: Certification records reflect current tested version combinations
+          target: Re-validation triggered within 72 hours of any platform patch affecting certified integrations
+          leading_indicator: Version matrix updated with every vendor and partner release
+          failure_signal: Certified integrations fail in customer environments due to untested version combinations
+  escalation_triggers:
+    - Breaking API change detected on a partner with 3+ active customer deployments
+    - Integration certification failure on a previously certified version combination
+    - Partner API deprecation deadline within 30 days with no migration plan in progress
+    - Compatibility test failure rate exceeding 20% across a partner's API surface
+  prompt_registry:
+    aa-api-compatibility:
+      description: Assess API/SDK compatibility across platform versions
+      source: prompts/tasks.yaml#integration_validation.api_compatibility
+      inputs:
+        - title: partner_name
+          type: string
+        - title: api_version
+          type: string
+      outputs:
+        - title: compatibility_result
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - partner_api_docs
+            - version_matrix
+            - sdk_changelog
+          priority: critical
+    aa-integration-testing:
+      description: Validate integration patterns and certify results
+      source: prompts/tasks.yaml#integration_validation.integration_testing
+      inputs:
+        - title: partner_name
+          type: string
+        - title: integration_scope
+          type: string
+        - title: test_results
+          type: string
+      outputs:
+        - title: testing_result
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - test_results
+            - integration_spec
+            - validation_criteria
+          priority: critical
+    aa-version-tracking:
+      description: Track API versions and deprecation timelines
+      source: prompts/tasks.yaml#integration_validation.version_tracking
+      inputs:
+        - title: partner_name
+          type: string
+      outputs:
+        - title: version_tracking_result
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - partner_changelogs
+            - deprecation_notices
+            - release_notes
+          priority: critical
+    aa-change-impact:
+      description: Assess impact of partner platform changes on integrations
+      source: prompts/tasks.yaml#integration_validation.change_impact
+      inputs:
+        - title: partner_name
+          type: string
+        - title: api_version
+          type: string
+      outputs:
+        - title: change_impact_result
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - partner_release_notes
+            - integration_touchpoints
+            - customer_deployments
+          priority: critical
+  boundaries:
+    - Single partner integration scope, does not analyze portfolio-level integration trends
+    - Does not design joint solution architectures (aa-solution-architecture-agent's domain)
+    - Does not prepare co-sell readiness packages or maintain solution catalogs (aa-technical-enablement-agent's domain)
+    - Does not conduct new partnership technical assessments (aa-due-diligence-agent's domain)
+    - Does not make commercial partner commitments (Partner Manager's domain)
+    - Does not design customer-specific architectures (SA Agent's domain)
+  permissions:
+    - Read partner API documentation, changelogs, and release notes
+    - Read integration test results and validation criteria
+    - Assess API/SDK compatibility across specific version combinations
+    - Validate integration patterns against documented specifications
+    - Track version deprecation timelines and migration urgency
+    - Certify partner integrations with version-specific evidence
+    - Write compatibility assessments, certification results, and change impact analyses to alliance knowledge store
+  guardrails:
+    input_validation:
+      - Reject assessment requests without partner name
+      - Validate partner exists in integration registry before proceeding
+      - Reject compatibility assessment requests without specifying API version or version range
+    output_checks:
+      - Never certify integrations without evidence from actual test results
+      - Never assume API compatibility without version-specific testing confirmation
+      - Include confidence level (HIGH/MEDIUM/LOW) on every assessment output
+      - Compatibility claims must cite specific version combinations and test dates
+      - Every incompatibility must include remediation path with effort estimate
+      - All findings traceable to source data with API versions and dates
+    signal_validation:
+      - Never assert compatibility without test evidence from specific version combinations
+      - Never assume deprecation timelines without partner documentation confirmation
+      - Use qualifiers ("test results indicate") when evidence is indirect
+      - Add [NEEDS VERIFICATION] marker when uncertain
+    resource:
+      max_tool_calls: 20
+  error_handling:
+    tool_failures:
+      critical:
+        - read-aa-data
+      enrichment:
+        - write-aa-artifact
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without partner API documentation and test data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with assessment, flag persistence failure for retry
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+        - integration-validation
+        - api-compatibility
+        - version-tracking
+        - change-impact-analysis
+      archetypes:
+        - isv-partner
+        - technology-partner
+        - platform-partner
+    references:
+      - path: references/integration-architecture-patterns.yaml
+        description: Integration patterns, API design principles, data mapping standards, authentication flows, and error handling conventions
+      - path: references/api-maturity-frameworks.yaml
+        description: Richardson Maturity Model, API lifecycle management, versioning strategies, OpenAPI standards, and SDK design quality benchmarks
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: aa-agent
+        description: Alliance Architect orchestrator routes API compatibility, integration testing, version tracking, and change impact requests
+      - type: event
+        source: partner_platform_webhook
+        condition: api.breaking_change_announced OR api.deprecation_notice OR platform.major_release
+        description: Auto-runs when partner announces breaking changes, deprecation notices, or major platform releases
+      - type: downstream
+        source: aa-solution-architecture-agent
+        condition: reference_architecture.version_validation_needed == true
+        description: Solution architecture agent requests compatibility validation for a reference architecture version update
+    outputs:
+      - type: parent_return
+        target: aa-agent
+        payload:
+          - compatibility_result
+          - testing_result
+          - version_tracking_result
+          - change_impact_result
+        description: Integration validation results back to orchestrator
+      - type: trigger_agent
+        target: aa-technical-enablement-agent
+        condition: certification.status_changed == true OR compatibility.new_version_validated == true
+        payload:
+          - compatibility_result
+          - testing_result
+        description: Updated certification or compatibility status triggers catalog and enablement material refresh
+      - type: notify_human
+        condition: api.breaking_change_active_deployments == true OR deprecation.deadline_within_30d == true
+        channel: alert
+        description: Breaking changes on active customer deployments and imminent deprecation deadlines surface for Alliance Architect review
+    consumes_toolboxes:
+      - toolbox: solution-intelligence
+        agent: aa-solution-architecture-agent
+        tools:
+          - get-reference-architecture
+        reason: Reference architecture details needed to map integration touchpoints for change impact analysis
+    dependencies:
+      - agent: aa-solution-architecture-agent
+        toolbox: solution-intelligence
+        tools:
+          - get-reference-architecture
+        purpose: Reference architectures define which integration touchpoints are active and need compatibility monitoring

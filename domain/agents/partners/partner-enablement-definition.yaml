@@ -1,0 +1,500 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: partner-enablement-agent
+name: Partner Enablement Agent
+description: >
+  Leaf sub-agent of the Partner Manager orchestrator. Assesses partner onboarding
+  readiness, tracks certification compliance, identifies training gaps, and
+  evaluates partner maturity across six dimensions against program tier
+  requirements.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: partner-agent
+  tags:
+    - enablement
+    - onboarding
+    - certification
+    - training
+    - maturity-assessment
+    - partner-readiness
+  responsibility: >
+    Provide accurate, evidence-based partner enablement assessments covering
+    onboarding readiness, certification compliance, training gap identification,
+    and six-dimension maturity scoring against program tier requirements.
+system_prompt: >
+  You are a Partner Enablement Agent, part of the Partner Manager intelligence
+  system. Your job is to assess partner readiness and enablement status with
+  precision.
+
+  CORE FUNCTIONS:
+  - Onboarding readiness assessment
+  - Certification compliance tracking
+  - Training gap analysis
+  - Partner maturity assessment across six dimensions: onboarding, enablement,
+    collaboration, performance, governance, KPIs
+
+  You MUST:
+  - Validate all certification data against portal records before reporting status
+  - Include confidence metadata (HIGH/MEDIUM/LOW) on every assessment output
+  - Flag expired certifications on active deals immediately
+  - Score maturity on a 1-5 scale per dimension with specific evidence
+  - Cite source data and dates for every compliance finding
+  - Every gap must suggest a remediation action with owner and timeline
+
+  You MUST NOT:
+  - Make certification promises or guarantees on behalf of the program
+  - Assume training completion without records confirming it
+  - Assess technical capabilities beyond certification status (Alliance
+    Architect's domain)
+  - Manage partner relationships directly (Partner Manager human's domain)
+  - Track marketplace transactions or listing health (partner-cosell-agent's
+    domain)
+  - Run program health reviews (partner-program-health-agent's domain)
+
+  When uncertain: use "records indicate" not "partner is certified", add
+  [NEEDS VERIFICATION] for unclear situations. Omit rather than guess.
+human_in_the_loop: true
+tools:
+  - component_type: ClientTool
+    id: read-partner-data
+    name: Read Partner Data
+    description: Access partner portal data for certification status, onboarding progress, training records, and program tier information
+    requires_confirmation: false
+    inputs:
+      - title: partner_name
+        type: string
+      - title: query_type
+        type: string
+      - title: data_scope
+        type: string
+    outputs:
+      - title: partner_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Partner portal unavailable, cannot proceed with certification validation
+        - error_code: RECORD_NOT_FOUND
+          guidance: No partner record found in portal, verify partner identifiers with user
+        - error_code: STALE_DATA
+          guidance: Data exceeds freshness threshold, flag for human verification
+  - component_type: ClientTool
+    id: write-partner-artifact
+    name: Write Partner Artifact
+    description: Persist enablement assessments, maturity scores, and gap analyses to the partner knowledge store
+    requires_confirmation: true
+    inputs:
+      - title: partner_name
+        type: string
+      - title: artifact_type
+        type: string
+      - title: artifact_content
+        type: object
+    outputs:
+      - title: write_confirmation
+        type: object
+    x-ea-agent:
+      risk: medium
+      resolver: service-registry
+      error_responses:
+        - error_code: WRITE_FAILED
+          guidance: Artifact persistence failed, retain output in memory and retry
+        - error_code: CONFLICT
+          guidance: Newer version exists, retrieve latest before overwriting
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from partner manager
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+toolboxes:
+  - component_type: Toolbox
+    id: enablement-intelligence
+    name: Enablement Intelligence
+    description: Partner enablement status and maturity scores available to peer agents
+    tools:
+      - id: get-certification-status
+        name: Get Certification Status
+        description: Returns current certification compliance status for a partner including valid, expiring, and expired certifications with remediation actions
+        inputs:
+          - title: partner_name
+            type: string
+        outputs:
+          - title: certification_status
+            type: object
+      - id: get-maturity-score
+        name: Get Maturity Score
+        description: Returns six-dimension maturity score (1-5 per dimension) with overall classification and gap summary
+        inputs:
+          - title: partner_name
+            type: string
+        outputs:
+          - title: maturity_score
+            type: object
+specialized_agents: []
+flows:
+  - component_type: Flow
+    id: enablement
+    name: Partner Enablement Assessment
+    playbook_refs:
+      - PB_PM_001
+    description: Assess partner onboarding readiness, validate certification compliance, identify training gaps, and produce six-dimension maturity score with remediation plan.
+    inputs:
+      - title: partner_name
+        type: string
+      - title: account_context
+        type: object
+      - title: assessment_trigger
+        type: string
+    outputs:
+      - title: onboarding_readiness
+        type: object
+      - title: certification_compliance
+        type: object
+      - title: training_gaps
+        type: object
+      - title: maturity_assessment
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: partner-onboarding-readiness
+          input: partner_name, account_context
+          tools:
+            - read-partner-data
+          description: Evaluate onboarding checklist completion and identify blockers
+          on_failure: stop
+        - step: 2
+          prompt: partner-certification-compliance
+          input: partner_name, onboarding_readiness
+          tools:
+            - read-partner-data
+          description: Validate all certifications against portal records, flag expired or expiring
+          on_failure: stop
+        - step: 3
+          prompt: partner-training-gap-analysis
+          input: partner_name, certification_compliance
+          tools:
+            - read-partner-data
+          description: Identify training gaps relative to program tier requirements and role coverage
+          on_failure: stop
+        - step: 4
+          prompt: partner-maturity-assessment
+          input: onboarding_readiness, certification_compliance, training_gaps
+          tools:
+            - read-partner-data
+            - write-partner-artifact
+          description: Score six maturity dimensions (1-5), produce overall classification and remediation plan
+          on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+      - onboarding-readiness-assessment
+      - certification-compliance-tracking
+      - training-gap-analysis
+      - partner-maturity-scoring
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      Portal data shows certification records, training completions, and
+      onboarding checklists, but the Partner Manager reads the real enablement
+      story. Understanding whether a partner team is genuinely investing in
+      the relationship, whether certification holders are actually working on
+      relevant deals, and whether onboarding delays stem from strategic
+      hesitation or operational friction requires human judgment and
+      relationship context that no portal data captures. The agent scores and
+      validates, but the Partner Manager decides whether to invest further
+      enablement resources.
+    challenges:
+      - text: Certification expirations on active deals create compliance gaps that block deal progression
+        specific_overhead:
+          - Manually cross-referencing certification dates against active opportunity timelines
+      - text: Onboarding checklists spread across multiple portals with no unified completion view
+        specific_overhead:
+          - Logging into separate systems to piece together a partner's actual readiness state
+      - text: Training gaps surface only when deals stall, not proactively
+        specific_overhead:
+          - Reactive gap discovery after a partner fails to execute on a positioned deal
+      - text: Maturity assessments rely on subjective judgment without structured scoring criteria
+        specific_overhead:
+          - Inconsistent tier advancement decisions across different partner managers
+      - text: Partners request tier advancement without visibility into which requirements they actually meet
+        specific_overhead:
+          - Manually compiling tier requirement checklists and checking each criterion against records
+    administrative_overhead:
+      - Manually cross-referencing certification dates against active opportunity timelines
+      - Logging into separate systems to piece together a partner's actual readiness state
+      - Reactive gap discovery after a partner fails to execute on a positioned deal
+      - Inconsistent tier advancement decisions across different partner managers
+      - Manually compiling tier requirement checklists and checking each criterion against records
+    scenarios:
+      - problem: Partner certification approaching expiry on an active deal, risking co-sell eligibility and deal closure
+        why: >
+          Certifications have expiry dates that are easy to overlook when managing
+          a large partner portfolio. When a certification lapses while a deal is
+          in-flight, the partner may lose co-sell eligibility, ISV benefits, or
+          marketplace listing status, causing deal delays or disqualification at
+          a critical stage.
+        agent: partner-enablement-agent
+        agent_response: >
+          Validates all certification records against the partner portal, flags
+          certifications expiring within 90 days on active deals, cross-references
+          against program tier requirements, and produces a remediation plan with
+          renewal deadlines and required training hours.
+        success_signal:
+          metric: Certification lapse incidents on active deals drop
+          target: Zero expired certifications on deals in stages 3+
+          leading_indicator: Expiry alerts generated 90 days before lapse
+          failure_signal: Certifications expire on active deals without advance warning
+      - problem: New partner onboarding stalls because readiness checklist items are incomplete across multiple portals
+        why: >
+          Partner onboarding requires completing items across different systems,
+          including legal agreements, technical training, portal registrations,
+          and solution validations. Without a unified readiness view, items fall
+          through the cracks, delaying the partner's ability to transact and
+          co-sell.
+        agent: partner-enablement-agent
+        agent_response: >
+          Runs the full onboarding readiness assessment against the master checklist,
+          identifies incomplete items with specific portal references, calculates
+          overall readiness percentage, and produces a prioritized action plan
+          with owners and deadlines for each open item.
+        success_signal:
+          metric: Average onboarding completion time decreases
+          target: Onboarding blockers identified within 48 hours of partner registration
+          leading_indicator: Readiness assessment generated for every new partner within one week
+          failure_signal: Partners remain in incomplete onboarding state beyond 60 days
+      - problem: Partner requests tier advancement but does not meet all program requirements, creating friction and misaligned expectations
+        why: >
+          Tier advancement requires meeting thresholds across certifications,
+          revenue contribution, customer references, and solution maturity.
+          Partners often track their progress informally and believe they qualify
+          when specific requirements remain unmet, leading to rejected requests
+          and damaged partner satisfaction.
+        agent: partner-enablement-agent
+        agent_response: >
+          Runs a six-dimension maturity assessment against the target tier
+          requirements, produces a scored comparison (current vs. required) for
+          each dimension, identifies specific gaps preventing advancement, and
+          generates a remediation roadmap with estimated effort and timeline to
+          reach the target tier.
+        success_signal:
+          metric: Tier advancement request acceptance rate improves
+          target: Partners receive gap analysis before submitting advancement requests
+          leading_indicator: Maturity assessment generated for every partner requesting tier change
+          failure_signal: Partners submit advancement requests that get rejected due to unmet requirements
+  escalation_triggers:
+    - Certification expired on a deal in stages 3+ with no renewal in progress
+    - Partner onboarding incomplete beyond 60 days with no activity in 30 days
+    - Maturity score below 2.0 on any dimension for a partner with active pipeline
+    - Training completion rate below 40% against program tier requirements
+  prompt_registry:
+    partner-onboarding-readiness:
+      description: Evaluate partner onboarding checklist completion and identify blockers preventing transact-ready status
+      source: prompts/tasks.yaml#enablement.onboarding_readiness
+      inputs:
+        - title: partner_name
+          type: string
+        - title: account_context
+          type: object
+      outputs:
+        - title: onboarding_readiness
+          type: object
+      requires_data:
+        - source: read-partner-data
+          fields:
+            - onboarding_checklist
+            - legal_agreements
+            - portal_registrations
+            - solution_validations
+          priority: critical
+    partner-certification-compliance:
+      description: Validate all certifications against portal records, flag expired or expiring within 90 days, cross-reference with active deals
+      source: prompts/tasks.yaml#enablement.certification_compliance
+      inputs:
+        - title: partner_name
+          type: string
+        - title: onboarding_readiness
+          type: object
+      outputs:
+        - title: certification_compliance
+          type: object
+      requires_data:
+        - source: read-partner-data
+          fields:
+            - certification_records
+            - expiry_dates
+            - active_deals
+            - program_requirements
+          priority: critical
+    partner-training-gap-analysis:
+      description: Identify training gaps relative to program tier requirements and role coverage needs
+      source: prompts/tasks.yaml#enablement.training_gap
+      inputs:
+        - title: partner_name
+          type: string
+        - title: certification_compliance
+          type: object
+      outputs:
+        - title: training_gaps
+          type: object
+      requires_data:
+        - source: read-partner-data
+          fields:
+            - training_completions
+            - required_training
+            - role_coverage
+            - tier_requirements
+          priority: critical
+    partner-maturity-assessment:
+      description: Score partner maturity across six dimensions (1-5 scale) and produce overall classification with remediation roadmap
+      source: prompts/tasks.yaml#enablement.maturity_assessment
+      inputs:
+        - title: onboarding_readiness
+          type: object
+        - title: certification_compliance
+          type: object
+        - title: training_gaps
+          type: object
+      outputs:
+        - title: maturity_assessment
+          type: object
+      requires_data:
+        - source: read-partner-data
+          fields:
+            - performance_metrics
+            - collaboration_history
+            - governance_records
+            - kpi_actuals
+          priority: critical
+  boundaries:
+    - Single partner scope, does not analyze portfolio-level enablement metrics
+    - Does not track marketplace transactions or co-sell pipeline (partner-cosell-agent's domain)
+    - Does not run program health reviews or engagement scoring (partner-program-health-agent's domain)
+    - Does not assess technical integration capabilities (Alliance Architect's domain)
+    - Does not manage partner relationships directly (Partner Manager human's domain)
+    - Does not identify or classify partner risks (partner-risk-agent's domain)
+  permissions:
+    - Read partner portal data for certifications, training, and onboarding status
+    - Read program tier requirements and advancement criteria
+    - Score partner maturity across six dimensions with 1-5 classification
+    - Validate certification compliance against portal records
+    - Identify training gaps with remediation recommendations
+    - Write enablement assessments and maturity scores to partner knowledge store
+  guardrails:
+    input_validation:
+      - Reject assessment requests without partner name
+      - Validate partner exists in registry before proceeding
+      - Reject maturity assessment requests without specifying target tier for comparison
+    output_checks:
+      - Never invent or assume certifications not confirmed in portal records
+      - Never assume training completion without records confirming it
+      - Include confidence level (HIGH/MEDIUM/LOW) on every assessment output
+      - Maturity scores must cite specific evidence for each dimension rating
+      - Every gap must include remediation action with owner and timeline
+      - All findings traceable to source data with dates
+    signal_validation:
+      - Never assert certification status without portal record validation
+      - Never assume onboarding completion without checklist confirmation
+      - Use qualifiers ("records indicate") when evidence is indirect
+      - Add [NEEDS VERIFICATION] marker when uncertain
+    resource:
+      max_tool_calls: 20
+  error_handling:
+    tool_failures:
+      critical:
+        - read-partner-data
+      enrichment:
+        - write-partner-artifact
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without partner portal data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with assessment, flag persistence failure for retry
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+        - partner-enablement
+        - certification-compliance
+        - onboarding-readiness
+        - maturity-assessment
+      archetypes:
+        - technology-partner
+        - services-partner
+        - reseller
+    references:
+      - path: references/partner-enablement-benchmarks.yaml
+        description: Partner enablement maturity models, onboarding best practices, certification compliance benchmarks, and training effectiveness metrics
+      - path: references/partner-ecosystem-frameworks.yaml
+        description: Partner program tier structures, advancement criteria, competency frameworks, and ecosystem governance models
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: partner-agent
+        description: Partner Manager orchestrator routes enablement, certification, and maturity requests
+      - type: event
+        source: partner_portal_webhook
+        condition: certification.expiring_90d OR onboarding.stalled_30d
+        description: Auto-runs when certification nears expiry or onboarding stalls
+      - type: downstream
+        source: partner-cosell-agent
+        condition: cosell.certification_dependency == true
+        description: Co-sell agent requests certification validation for a deal requiring partner competency
+    outputs:
+      - type: parent_return
+        target: partner-agent
+        payload:
+          - onboarding_readiness
+          - certification_compliance
+          - training_gaps
+          - maturity_assessment
+        description: Enablement assessment results back to orchestrator
+      - type: trigger_agent
+        target: partner-risk-agent
+        condition: certification.expired_on_active_deal == true OR maturity.any_dimension < 2
+        payload:
+          - certification_compliance
+          - maturity_assessment
+        description: Expired certifications or critically low maturity triggers risk assessment
+      - type: notify_human
+        condition: certification.expired_on_active_deal == true OR onboarding.stalled_60d == true
+        channel: alert
+        description: Expired certifications on active deals and stalled onboarding surface for Partner Manager review
+    consumes_toolboxes:
+      - toolbox: program-metrics
+        agent: partner-program-health-agent
+        tools:
+          - get-program-tier-status
+        reason: Current program tier affects certification requirements and maturity benchmarks
+    dependencies:
+      - agent: partner-program-health-agent
+        toolbox: program-metrics
+        tools:
+          - get-program-tier-status
+        purpose: Program tier determines which certifications and training are required

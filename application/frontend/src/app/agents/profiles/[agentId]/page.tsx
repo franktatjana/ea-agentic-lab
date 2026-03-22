@@ -277,6 +277,7 @@ export default function AgentProfileDetailPage({
   const challengeGroupFraming = profile?.challenge_group_framing ?? {};
   const adminOverhead = profile?.administrative_overhead ?? [];
   const capabilities = profile?.capabilities ?? [];
+  const keyResponsibilities = profile?.key_responsibilities ?? [];
   const withThisAgent = profile?.with_this_agent ?? [];
   const activityMap = profile?.activity_map;
   const qualFramework = profile?.qualification_framework;
@@ -580,6 +581,30 @@ export default function AgentProfileDetailPage({
               )}
 
               {/* Row 3: Key Responsibilities (full-width horizontal grid) */}
+              {keyResponsibilities.length > 0 && !(activityMap && activityMap.domains.length > 0) && (
+                <Card>
+                  <CardContent className="p-7">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-5">
+                      Key Responsibilities
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {keyResponsibilities.map((resp, i) => {
+                        const colonIdx = resp.indexOf(":");
+                        const label = colonIdx > 0 ? resp.slice(0, colonIdx) : undefined;
+                        const detail = colonIdx > 0 ? resp.slice(colonIdx + 1).trim() : resp;
+                        return (
+                          <div key={i} className="rounded-lg border border-border/50 p-4 h-full">
+                            {label && (
+                              <span className="text-sm font-medium text-foreground block mb-1">{label}</span>
+                            )}
+                            <p className="text-xs leading-relaxed text-muted-foreground">{detail}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               {activityMap && activityMap.domains.length > 0 && (
                 <Card>
                   <CardContent className="p-7">

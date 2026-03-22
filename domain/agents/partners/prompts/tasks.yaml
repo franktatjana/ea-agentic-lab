@@ -1,1636 +1,1655 @@
-# Partner Agent Task Prompts
+# Partner Agent - Task Prompts (Runbook Format)
 # Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
 # Reference: Personality defined in personalities/partner_personality.yaml
 # Standard: docs/architecture/playbooks/runbook-design-principles.md
+# 16 prompts across 4 runbook domains
 
 # ============================================================================
-# PARTNER HEALTH PROMPTS
+# ENABLEMENT PROMPTS
 # ============================================================================
-partner_health:
+enablement:
 
-  engagement_health:
-    name: "Partner Engagement Health Check"
-    description: "Assess health of partner engagement in account across commitment delivery, communication quality, and alignment to produce a scored health status with action plan"
+  onboarding_readiness:
+    id: partner-onboarding-readiness
+    name: "Partner Onboarding Readiness Assessment"
+    description: "Assess partner readiness for onboarding or tier advancement by inventorying current state, analyzing gaps against program requirements, and producing a scored readiness plan"
+    domain: enablement
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: target_program
+        required: true
+        description: Target partner program or tier (e.g., Silver to Gold, new onboarding)
+      - name: current_partner_profile
+        required: true
+        description: Current partner profile including certifications, competencies, and program enrollments
+      - name: program_requirements
+        required: true
+        description: Requirements for the target program or tier
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
     prompt: |
-      Context: Partner {partner_name} engaged with {account_name}.
-      Engagement type: {engagement_type}
-      Duration: {engagement_duration}
+      Context: Assessing onboarding or tier advancement readiness for {partner_name}.
+      Target program: {target_program}
+      Current partner profile: {current_partner_profile}
+      Program requirements: {program_requirements}
       Account state: {account_state}
       Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      You are assessing whether this partner engagement is healthy, at risk, or
-      in trouble. The output drives escalation decisions and account team actions.
-      Every assessment must be evidence-based. Follow these steps in order.
+      You are determining whether this partner is ready to onboard into a new program or advance to a higher tier. The output drives onboarding decisions and identifies gaps that must be closed before the partner can qualify.
 
       STEP 0: INPUT GATE
-      Validate all inputs before proceeding. For each required input listed in the
-      context block, classify as:
-      - PRESENT: data received and parseable
-      - PARTIAL: data received but incomplete (specify what's missing)
-      - ABSENT: no data received
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode selection:
+      - FULL: all required inputs PRESENT
+      - DEGRADED: 1+ inputs PARTIAL, flag gaps in every affected deliverable
+      - DEFER: 2+ required inputs ABSENT, STOP and produce: (a) missing inputs with specific ask, (b) who can provide each, (c) re-run deadline
+      If program_requirements is ABSENT, DEFER: cannot assess readiness without defined target criteria.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Run Mode declaration.
 
-      Based on input status, select run mode:
-      - FULL: all required inputs PRESENT, proceed with all steps
-      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
-        that depends on partial data, mark affected outputs as "estimated" or
-        "based on incomplete data"
-      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
-        (a) list of missing inputs with specific ask per input
-        (b) who can provide each input (role, system, or data source)
-        (c) suggested deadline for re-running this runbook with complete inputs
-
-      Data Availability Map, for each scoring dimension assess data richness:
-      - HIGH: documented evidence, meeting notes, 5+ data points
-      - MEDIUM: partial evidence, 2-4 data points
-      - LOW: no direct evidence, anecdotal only
-      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
-      Dimensions to assess: Commitment Delivery, Communication Quality, Strategic
-      Alignment, Risk Indicators, Engagement Trajectory.
-      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
-      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode
-      declaration.
-
-      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
-      Switch to SIGNAL ACQUISITION MODE and produce instead:
-      - Questions to ask in next 2-3 interactions (targeted at highest-leverage data gaps)
-      - Data sources to request access to (partner status reports, meeting cadence logs)
-      - Observation checklist for implicit signals in upcoming interactions
-      - Re-assessment gate with minimum data threshold and target date
-      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
-      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
-      Do not proceed to remaining steps.
-
-      STEP 1: COMMITMENT SCORECARD
-      For each commitment made by the partner, assess delivery status.
-      If {engagement_type} or commitment data is empty: state that no commitments
-      are documented, note the implication (cannot assess delivery performance),
-      proceed without fabrication.
-      For each commitment:
-      - Commitment description
-      - Agreed deadline
-      - Actual delivery date or current status
-      - Variance (on time, delayed by N days, not started)
-      - Impact of delay (if applicable)
-      Deliverable: Commitment table (Commitment | Agreed Date | Actual/Status |
-      Variance | Delay Impact) with delivery rate percentage.
-
-      STEP 2: COMMUNICATION ASSESSMENT
-      Evaluate communication quality between partner and account team.
-      If communication records are empty: state that no communication history is
-      available, note the implication (cannot assess responsiveness), proceed
-      without fabrication.
+      STEP 1: CURRENT STATE INVENTORY
+      Document the partner's current standing across all relevant dimensions.
       For each dimension:
-      - Responsiveness (typical response time, escalation response time)
-      - Proactiveness (does partner raise issues before they become problems)
-      - Transparency (does partner share risks and challenges openly)
-      - Cadence adherence (are regular syncs happening as scheduled)
-      Each dimension: score 1-5, confidence (HIGH/MEDIUM/LOW), evidence basis.
-      Deliverable: Communication table (Dimension | Score 1-5 | Confidence |
-      Evidence) with overall communication score.
+      - Dimension name (certifications, revenue, customer references, technical capabilities, support capacity)
+      - Current value or status
+      - Evidence basis (portal data, CRM record, partner self-report)
+      - Confidence: VERIFIED (portal/contract data) / ESTIMATED (CRM fields) / ASSUMED (verbal)
+      If current_partner_profile is sparse, state what is missing rather than inferring status.
+      Deliverable: Current State table (Dimension | Current Value | Evidence | Confidence).
 
-      STEP 3: ALIGNMENT ASSESSMENT
-      Evaluate strategic alignment between partner activities and account objectives.
-      Assign one primary classification for routing. Add secondary flags where the
-      signal spans multiple dimensions.
-      Alignment dimensions:
-      - Goal alignment (partner actions support account strategy)
-      - Technical alignment (partner approach compatible with architecture direction)
-      - Timeline alignment (partner timeline matches deal/project milestones)
-      - Resource alignment (partner staffing adequate for scope)
-      Each dimension: classification ALIGNED/PARTIALLY ALIGNED/MISALIGNED (primary),
-      confidence (HIGH/MEDIUM/LOW), evidence basis. Add secondary flags if a
-      dimension shows mixed signals.
-      Deliverable: Alignment table (Dimension | Primary Classification | Secondary
-      Flags | Confidence | Evidence) with overall alignment status.
+      STEP 2: GAP ANALYSIS AGAINST PROGRAM REQUIREMENTS
+      Compare current state to target program requirements.
+      For each requirement:
+      - Requirement description
+      - Required value or threshold
+      - Current value (from Step 1)
+      - Gap: MET / PARTIAL / NOT MET
+      - Gap magnitude (how far from requirement)
+      - Effort to close: LOW (< 30 days) / MEDIUM (30-90 days) / HIGH (> 90 days)
+      - Dependencies (what must happen before this gap can be closed)
+      Deliverable: Gap matrix (Requirement | Required | Current | Status | Gap Size | Effort | Dependencies).
 
-      STEP 4: HEALTH STATUS DETERMINATION
-      Synthesize Steps 1-3 into an overall engagement health status.
-      Assign one primary classification for routing. Add secondary flags where the
-      signal spans multiple dimensions.
-      - GREEN: commitments on track, communication strong, aligned. Confidence: HIGH/MEDIUM/LOW with basis.
-      - YELLOW: minor gaps in commitments or communication, partial alignment. Confidence: HIGH/MEDIUM/LOW with basis.
-      - RED: significant delivery failures, communication breakdown, or misalignment. Confidence: HIGH/MEDIUM/LOW with basis.
-      State the weakest dimension driving the health score.
-      Deliverable: Health Status (Status | Confidence | Basis | Weakest Dimension |
-      Escalation Needed YES/NO).
+      STEP 3: READINESS SCORE
+      Calculate an overall readiness score:
+      - Percentage of requirements MET
+      - Percentage PARTIAL
+      - Percentage NOT MET
+      - Overall readiness: READY (90%+ MET) / CONDITIONAL (70-89% MET) / NOT READY (< 70% MET)
+      - Confidence: aggregate of individual confidence levels
+      - Blocking gaps: list any NOT MET requirements that are hard prerequisites (cannot be waived)
+      Deliverable: Readiness score card (Score | Classification | Confidence | Blocking Gaps).
 
-      STEP 5: ACTION PLAN
-      Define actions to maintain or improve engagement health.
-      Deliverable: Action table (Priority | Action | Owner | Timeline |
-      Prerequisites | Expected Impact).
-
-      STEP 6: ACCOUNT STATE DELTA
-      Specify what this runbook's findings change in account state:
-      - Fields updated (field path | old value | new value | evidence)
-      - New risks added or existing risks resolved
-      - Signals to append to recent history
-      - Next actions to add or complete
-      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
-      Runbook Source).
-
-      QUALITY CHECKS BEFORE OUTPUT:
-      - Input Gate completed, Data Availability Map present, Signal Acquisition Mode check performed
-      - Every commitment status has evidence (not assumed)
-      - Communication scores include confidence levels and evidence basis
-      - Alignment classifications include primary and secondary flags
-      - Health status includes confidence level with basis
-      - Action table includes prerequisites and expected impact for every action
-      - Escalation recommendation is justified by evidence
-      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
-
-      RUN MODE EXECUTION:
-      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
-      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
-      - If run_mode is FULL or not specified: produce all deliverables as described above.
-
-      Lead with a 3-sentence executive summary stating: (1) the health status and
-      confidence, (2) the weakest dimension or lowest-confidence area, and (3) the
-      single most urgent action.
-
-  dependency_status:
-    name: "Partner Dependency Status"
-    description: "Track and assess status of partner dependencies to surface risks, blockers, and required mitigations with ownership and timelines"
-    prompt: |
-      Context: {account_name} has dependencies on {partner_name}.
-      Dependencies: {dependency_list}
-      Account state: {account_state}
-      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
-
-      You are tracking whether partner dependencies are on track, at risk, or
-      blocked. The output drives risk mitigation and account team coordination.
-      Every status must be evidence-based. Follow these steps in order.
-
-      STEP 0: INPUT GATE
-      Validate all inputs before proceeding. For each required input listed in the
-      context block, classify as:
-      - PRESENT: data received and parseable
-      - PARTIAL: data received but incomplete (specify what's missing)
-      - ABSENT: no data received
-
-      Based on input status, select run mode:
-      - FULL: all required inputs PRESENT, proceed with all steps
-      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
-        that depends on partial data, mark affected outputs as "estimated" or
-        "based on incomplete data"
-      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
-        (a) list of missing inputs with specific ask per input
-        (b) who can provide each input (role, system, or data source)
-        (c) suggested deadline for re-running this runbook with complete inputs
-
-      Data Availability Map, for each scoring dimension assess data richness:
-      - HIGH: documented status, tracking artifacts, 5+ data points
-      - MEDIUM: partial tracking, 2-4 data points
-      - LOW: no tracking data, verbal updates only
-      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
-      Dimensions to assess: Dependency Clarity, Delivery Status, Risk Exposure,
-      Ownership Clarity, Timeline Accuracy.
-      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
-      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode
-      declaration.
-
-      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
-      Switch to SIGNAL ACQUISITION MODE and produce instead:
-      - Questions to ask in next 2-3 interactions (targeted at dependency visibility gaps)
-      - Data sources to request access to (project trackers, partner delivery reports)
-      - Observation checklist for implicit signals in upcoming interactions
-      - Re-assessment gate with minimum data threshold and target date
-      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
-      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
-      Do not proceed to remaining steps.
-
-      STEP 1: DEPENDENCY STATUS ASSESSMENT
-      For each dependency in the list, assess current status.
-      If {dependency_list} is empty: state that no dependencies are documented,
-      note the implication (cannot track partner delivery risk), proceed without
-      fabrication.
-      For each dependency:
-      - Dependency description
-      - Status: ON TRACK / AT RISK / BLOCKED / UNKNOWN
-      - Confidence: HIGH/MEDIUM/LOW with basis
-      - Evidence supporting status determination
-      - Owner (who is responsible on each side)
-      - Expected completion date
-      - Downstream impact if delayed (what breaks, what slips)
-      Deliverable: Dependency table (Dependency | Status | Confidence | Evidence |
-      Partner Owner | Internal Owner | Expected Date | Downstream Impact).
-
-      STEP 2: AT-RISK ITEM DETAIL
-      For each dependency classified as AT RISK or BLOCKED, provide deeper analysis.
-      If no items are at risk: state "No at-risk dependencies identified" and
-      proceed to Step 3.
-      For each at-risk item:
-      - What is causing the risk or block
-      - How long it has been in this state
-      - What has been tried to resolve it
-      - What is the impact on the account if unresolved
-      Deliverable: At-Risk Detail (Dependency | Root Cause | Duration | Resolution
-      Attempts | Account Impact).
-
-      STEP 3: MITIGATION ACTIONS
-      Define mitigation actions for all at-risk or blocked dependencies.
-      Deliverable: Action table (Priority | Action | Owner | Timeline |
-      Prerequisites | Expected Impact).
-
-      STEP 4: ACCOUNT TEAM COMMUNICATION
-      Draft the communication to the account team summarizing dependency status.
-      Include: overall dependency health, items requiring attention, specific asks
-      from the account team, and timeline for next status update.
-      Deliverable: Account team communication brief (3-5 sentences summary +
-      action items for account team).
+      STEP 4: ACTION PLAN
+      For each gap identified in Step 2, define the closure action.
+      Prioritize by: blocking gaps first, then by effort (LOW first for quick wins).
+      Deliverable: Action table (Priority | Gap | Action | Owner | Timeline | Prerequisites | Expected Impact).
 
       STEP 5: ACCOUNT STATE DELTA
-      Specify what this runbook's findings change in account state:
-      - Fields updated (field path | old value | new value | evidence)
-      - New risks added or existing risks resolved
-      - Signals to append to recent history
-      - Next actions to add or complete
-      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
-      Runbook Source).
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
 
-      QUALITY CHECKS BEFORE OUTPUT:
-      - Input Gate completed, Data Availability Map present, Signal Acquisition Mode check performed
-      - Every dependency has a status with confidence level and evidence
-      - At-risk items include root cause, not just status label
-      - Mitigation actions include prerequisites and expected impact
-      - Downstream impacts are specific (named deliverables or milestones), not generic
-      - Account team communication is actionable, not informational only
-      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+      QUALITY CHECKS:
+      - Every program requirement explicitly assessed (no silent skips)
+      - Gap magnitude quantified, not just flagged
+      - Blocking gaps distinguished from nice-to-have gaps
+      - Effort estimates include dependencies
+      - Confidence attached to every current state value
+      - Action plan prioritizes blocking gaps before optional improvements
+      - Executive summary is self-sufficient: reader can act without reading details
 
       RUN MODE EXECUTION:
-      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
-      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
-      - If run_mode is FULL or not specified: produce all deliverables as described above.
+      - QUICK: executive summary + readiness score + top blocking gap action + state delta
+      - DISCOVERY: signal acquisition plan (what partner data to collect, from whom, by when)
+      - FULL: all deliverables
 
-      Lead with a 3-sentence executive summary stating: (1) the overall dependency
-      health and count of at-risk items, (2) the highest-risk dependency or
-      lowest-confidence area, and (3) the single most urgent mitigation action.
+      EXECUTIVE SUMMARY: State (1) readiness classification with score and confidence, (2) count of blocking gaps and the most critical one, (3) single most urgent action with owner and timeline.
 
-  partner_performance:
-    name: "Partner Performance Review"
-    description: "Review partner performance over a defined period comparing commitments against delivery with trend analysis and improvement actions"
+  certification_compliance:
+    id: partner-certification-compliance
+    name: "Partner Certification Compliance Check"
+    description: "Track certification status across the partner organization, flag expirations and lapses, and assess impact on active deals and program tier standing"
+    domain: enablement
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: certification_records
+        required: true
+        description: Current certification inventory with dates, holders, and status
+      - name: program_tier_requirements
+        required: true
+        description: Certification requirements for current and target program tier
+      - name: active_deals
+        required: false
+        description: Active deals requiring certified partner resources
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
     prompt: |
-      Context: Review {partner_name} performance in {account_name}.
-      Period: {review_period}
-      Deliverables: {committed_deliverables}
+      Context: Checking certification compliance for {partner_name}.
+      Certification records: {certification_records}
+      Program tier requirements: {program_tier_requirements}
+      Active deals: {active_deals}
       Account state: {account_state}
       Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      You are comparing what the partner committed to deliver against what was
-      actually delivered. The output drives performance conversations and
-      continuation decisions. Every gap must have evidence. Follow these steps
-      in order.
+      You are auditing whether the partner's certifications are current, sufficient for their program tier, and adequate for active deal requirements. Certification lapses can trigger tier demotion or disqualify the partner from deal participation.
 
       STEP 0: INPUT GATE
-      Validate all inputs before proceeding. For each required input listed in the
-      context block, classify as:
-      - PRESENT: data received and parseable
-      - PARTIAL: data received but incomplete (specify what's missing)
-      - ABSENT: no data received
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If certification_records is ABSENT, DEFER: cannot audit compliance without certification data.
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Based on input status, select run mode:
-      - FULL: all required inputs PRESENT, proceed with all steps
-      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
-        that depends on partial data, mark affected outputs as "estimated" or
-        "based on incomplete data"
-      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
-        (a) list of missing inputs with specific ask per input
-        (b) who can provide each input (role, system, or data source)
-        (c) suggested deadline for re-running this runbook with complete inputs
+      STEP 1: CERTIFICATION INVENTORY
+      List every certification held by the partner organization.
+      For each certification:
+      - Certification name and issuing body
+      - Holder (individual name and role)
+      - Issue date
+      - Expiry date
+      - Status: ACTIVE / EXPIRING (within 90 days) / EXPIRED / SUSPENDED
+      - Renewal pathway (exam, continuing education, re-certification)
+      - Confidence: VERIFIED (portal lookup) / ESTIMATED (partner-reported) / ASSUMED (inferred)
+      If certification_records is sparse, state what is missing.
+      Deliverable: Certification inventory table (Certification | Holder | Issued | Expires | Status | Renewal Path | Confidence).
 
-      Data Availability Map, for each scoring dimension assess data richness:
-      - HIGH: documented deliverables, tracked milestones, 5+ data points
-      - MEDIUM: partial records, 2-4 data points
-      - LOW: no delivery records, verbal confirmations only
-      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
-      Dimensions to assess: Commitment Records, Delivery Evidence, Quality Metrics,
-      Timeline Adherence, Trend Data.
-      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
-      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode
-      declaration.
+      STEP 2: EXPIRY ANALYSIS
+      Identify certifications at risk of lapsing.
+      For each EXPIRING or EXPIRED certification:
+      - Days until expiry (or days since expiry)
+      - Renewal cost and effort estimate
+      - Single-point-of-failure risk: is this the only holder of this certification? YES / NO
+      - Backup holder available? YES / NO (name if yes)
+      Sort by urgency (expired first, then nearest expiry).
+      Deliverable: Expiry risk table (Certification | Holder | Days to Expiry | SPOF Risk | Backup Available | Renewal Effort).
 
-      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
-      Switch to SIGNAL ACQUISITION MODE and produce instead:
-      - Questions to ask in next 2-3 interactions (targeted at performance visibility gaps)
-      - Data sources to request access to (delivery reports, quality metrics, milestone trackers)
-      - Observation checklist for implicit signals in upcoming interactions
-      - Re-assessment gate with minimum data threshold and target date
-      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
-      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
-      Do not proceed to remaining steps.
+      STEP 3: ACTIVE DEAL IMPACT
+      If active_deals data is available, cross-reference certification requirements against deals.
+      For each deal requiring certified resources:
+      - Deal name and value
+      - Required certifications
+      - Coverage: COVERED (certified resource assigned) / AT RISK (certification expiring before deal close) / GAP (no certified resource)
+      - Impact if gap materializes (deal delay, disqualification, customer escalation)
+      If active_deals is ABSENT, state "Active deal impact not assessed, deal data not provided."
+      Deliverable: Deal impact table (Deal | Value | Required Cert | Coverage | Impact if Gap).
 
-      STEP 1: COMMITTED VS DELIVERED
-      For each committed deliverable, compare against actual delivery.
-      If {committed_deliverables} is empty: state that no commitments are
-      documented, note the implication (cannot measure performance), proceed
-      without fabrication.
-      For each deliverable:
-      - Deliverable description
-      - Committed date
-      - Actual delivery date or status
-      - Quality assessment: MEETS EXPECTATIONS / BELOW EXPECTATIONS / EXCEEDS EXPECTATIONS
-      - Confidence: HIGH/MEDIUM/LOW with basis
-      - Variance notes (what was different from commitment)
-      Deliverable: Committed vs Delivered table (Deliverable | Committed Date |
-      Actual Date | Quality | Confidence | Variance Notes).
+      STEP 4: COMPLIANCE REPORT
+      Summarize compliance against program tier requirements.
+      For each tier requirement:
+      - Requirement (e.g., "minimum 3 certified architects")
+      - Current count vs. required count
+      - Compliance: COMPLIANT / NON-COMPLIANT / AT RISK (will become non-compliant within 90 days)
+      - Tier demotion risk: if non-compliant, what is the grace period and consequence?
+      Deliverable: Compliance report table (Requirement | Required | Current | Status | Demotion Risk).
 
-      STEP 2: PERFORMANCE SCORE
-      Calculate overall performance score as percentage of commitments met.
-      Include score breakdown:
-      - On-time delivery rate (percentage, confidence: HIGH/MEDIUM/LOW with basis)
-      - Quality delivery rate (percentage, confidence: HIGH/MEDIUM/LOW with basis)
-      - Combined performance score (percentage, confidence: HIGH/MEDIUM/LOW with basis)
-      Deliverable: Performance Score (Metric | Value | Confidence | Basis).
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
 
-      STEP 3: TREND ANALYSIS
-      Assess whether performance is improving, stable, or declining.
-      Trend requires comparison of at least two time-separated observations. If
-      only one observation exists, trend is INSUFFICIENT DATA.
-      If prior period data is available:
-      - Compare current period score to prior period(s)
-      - Identify which dimensions are improving or declining
-      - Confidence: HIGH/MEDIUM/LOW with basis
-      Trend classification: IMPROVING / STABLE / DECLINING / INSUFFICIENT DATA.
-      Deliverable: Trend Assessment (Period | Score | Delta | Trend Classification |
-      Confidence | Basis).
-
-      STEP 4: ISSUES AND ROOT CAUSES
-      For each performance gap identified in Steps 1-2, analyze root cause.
-      If no gaps: state "No performance gaps identified" and proceed to Step 5.
-      For each gap:
-      - Gap description
-      - Root cause (partner capacity, skill gap, scope change, external factor)
-      - Assign one primary classification for routing. Add secondary flags where
-        the signal spans multiple dimensions.
-      - Whether this is a recurring pattern or one-time issue
-      Deliverable: Issues table (Gap | Primary Root Cause | Secondary Flags |
-      Recurring YES/NO | Severity HIGH/MEDIUM/LOW).
-
-      STEP 5: ACTIONS FOR NEXT PERIOD
-      Define actions to improve or maintain performance.
-      Deliverable: Action table (Priority | Action | Owner | Timeline |
-      Prerequisites | Expected Impact).
-
-      STEP 6: ACCOUNT STATE DELTA
-      Specify what this runbook's findings change in account state:
-      - Fields updated (field path | old value | new value | evidence)
-      - New risks added or existing risks resolved
-      - Signals to append to recent history
-      - Next actions to add or complete
-      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
-      Runbook Source).
-
-      QUALITY CHECKS BEFORE OUTPUT:
-      - Input Gate completed, Data Availability Map present, Signal Acquisition Mode check performed
-      - Every deliverable has quality assessment with confidence level
-      - Performance score has confidence level with basis
-      - Trend analysis uses at least two time-separated observations or declares INSUFFICIENT DATA
-      - Root causes are specific (not "partner underperformed"), with primary/secondary classification
-      - Actions include prerequisites and expected impact
-      - Escalation recommendations are evidence-based, not opinion-based
-      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+      QUALITY CHECKS:
+      - Every certification has explicit status with expiry date (no assumptions about "probably current")
+      - SPOF risk assessed for every EXPIRING/EXPIRED certification
+      - Deal impact quantified where deal data is available
+      - Tier compliance assessed against specific numeric thresholds
+      - Confidence attached to every certification status
+      - Executive summary actionable without reading full inventory
 
       RUN MODE EXECUTION:
-      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
-      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
-      - If run_mode is FULL or not specified: produce all deliverables as described above.
+      - QUICK: executive summary + expiring/expired list + top action + state delta
+      - DISCOVERY: signal plan (certification portal access, partner HR contact for holder list, renewal deadlines)
+      - FULL: all deliverables
 
-      Lead with a 3-sentence executive summary stating: (1) the overall performance
-      score and confidence, (2) the weakest area or lowest-confidence metric, and
-      (3) the single most urgent action for the next period.
+      EXECUTIVE SUMMARY: State (1) overall compliance status with count of active/expiring/expired certifications, (2) most urgent certification risk and its deal or tier impact, (3) single most urgent action with owner and deadline.
+
+  training_gap:
+    id: partner-training-gap
+    name: "Partner Training Gap Analysis"
+    description: "Identify training gaps against tier requirements by mapping completed training to requirements, highlighting shortfalls, and producing a prioritized training plan"
+    domain: enablement
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: training_records
+        required: true
+        description: Completed training courses, dates, and participants
+      - name: tier_requirements
+        required: true
+        description: Training requirements for current and target tier
+      - name: partner_headcount
+        required: false
+        description: Partner team size and role breakdown for coverage analysis
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Analyzing training gaps for {partner_name}.
+      Training records: {training_records}
+      Tier requirements: {tier_requirements}
+      Partner headcount: {partner_headcount}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are identifying where the partner's training completion falls short of tier requirements. Training gaps directly affect certification eligibility, deal qualification, and tier maintenance.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If training_records is ABSENT, DEFER: cannot identify gaps without completion data.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: TRAINING COMPLETION INVENTORY
+      List all completed training by the partner organization.
+      For each completed course:
+      - Course name and provider
+      - Completion date
+      - Participant name and role
+      - Validity period (if applicable)
+      - Status: CURRENT / EXPIRED (completion outside validity window)
+      - Confidence: VERIFIED (LMS record) / ESTIMATED (partner-reported) / ASSUMED (inferred)
+      Deliverable: Training inventory table (Course | Provider | Completed | Participant | Valid Until | Status | Confidence).
+
+      STEP 2: TIER REQUIREMENT MAPPING
+      Map tier requirements to completed training.
+      For each required training area:
+      - Requirement description (e.g., "2 staff complete Advanced Sales Methodology")
+      - Required count of completions
+      - Actual count of valid completions
+      - Coverage: COVERED / PARTIAL / GAP
+      - Prerequisite chains: does this training require prior courses? Are prerequisites met?
+      Deliverable: Requirement mapping table (Requirement | Required Count | Actual Count | Coverage | Prerequisites Met).
+
+      STEP 3: GAP IDENTIFICATION
+      For each GAP or PARTIAL requirement, detail the shortfall.
+      - Gap description
+      - Shortfall magnitude (e.g., "need 2 more completions")
+      - Blocking: does this gap prevent tier qualification? YES / NO
+      - Available training dates (if known)
+      - Estimated time to close (calendar days from enrollment to completion)
+      - Cost estimate per participant (if known)
+      Deliverable: Gap detail table (Requirement | Shortfall | Blocking | Next Available | Time to Close | Cost).
+
+      STEP 4: TRAINING PLAN
+      Produce a prioritized training plan to close all gaps.
+      Prioritize: blocking gaps first, then by time-to-close (shortest first for quick wins).
+      For each training action:
+      - Course to complete
+      - Recommended participant(s) and role
+      - Enrollment deadline (to meet tier timeline)
+      - Prerequisites that must be completed first
+      - Owner responsible for enrollment
+      Deliverable: Training plan table (Priority | Course | Participant | Enroll By | Prerequisites | Owner | Expected Completion).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every tier requirement explicitly mapped to training completions (no gaps silently ignored)
+      - Expired completions not counted toward current requirements
+      - Prerequisite chains validated (no plan recommends an advanced course before prerequisites are met)
+      - Blocking gaps distinguished from optional improvements
+      - Confidence attached to every completion status
+      - Executive summary actionable without reading the full mapping
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + blocking gaps + top action + state delta
+      - DISCOVERY: signal plan (LMS access, partner training coordinator contact, course catalog)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) overall training coverage percentage with count of gaps, (2) most critical blocking gap and its tier impact, (3) single most urgent training enrollment with deadline.
+
+  maturity_assessment:
+    id: partner-maturity-assessment
+    name: "Partner Maturity Assessment"
+    description: "Assess partner maturity across six dimensions with 1-5 scoring, trend analysis, benchmark comparison, and a maturity advancement roadmap"
+    domain: enablement
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: engagement_data
+        required: true
+        description: Partner engagement history, delivery records, and collaboration metrics
+      - name: prior_assessment
+        required: false
+        description: Previous maturity assessment results for trend analysis
+      - name: benchmark_data
+        required: false
+        description: Peer partner maturity benchmarks for comparison
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Assessing maturity for {partner_name}.
+      Engagement data: {engagement_data}
+      Prior assessment: {prior_assessment}
+      Benchmark data: {benchmark_data}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are scoring partner maturity across six dimensions to determine where the partner stands today and what advancement looks like. The output drives enablement investment decisions and partner tiering conversations.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If engagement_data is ABSENT, DEFER: cannot score maturity without engagement evidence.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: DIMENSION SCORING
+      Score each of six dimensions on a 1-5 scale:
+      1. Onboarding: program enrollment completion, initial training, portal access, first engagement
+      2. Enablement: certification depth, training breadth, self-service capability, knowledge currency
+      3. Collaboration: communication quality, joint planning maturity, responsiveness, proactiveness
+      4. Performance: delivery reliability, quality consistency, SLA adherence, customer satisfaction
+      5. Governance: reporting compliance, process adherence, escalation handling, contract compliance
+      6. KPIs: revenue contribution, pipeline generation, deal velocity impact, reference-ability
+
+      For each dimension:
+      - Score (1-5): 1=Ad Hoc, 2=Developing, 3=Defined, 4=Managed, 5=Optimizing
+      - Evidence basis (specific data points supporting the score)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Limiting factor (what prevents a higher score)
+      Deliverable: Maturity score table (Dimension | Score | Evidence | Confidence | Limiting Factor).
+
+      STEP 2: TREND ANALYSIS
+      If prior_assessment is available, compare current scores to previous scores.
+      For each dimension:
+      - Previous score and date
+      - Current score
+      - Delta
+      - Trend: IMPROVING / STABLE / DECLINING
+      - Driver of change (what caused movement)
+      If prior_assessment is ABSENT, state "Trend analysis not available, baseline assessment only."
+      Deliverable: Trend table (Dimension | Previous Score | Current Score | Delta | Trend | Driver).
+
+      STEP 3: BENCHMARK COMPARISON
+      If benchmark_data is available, compare partner scores to peer benchmarks.
+      For each dimension:
+      - Partner score
+      - Peer average
+      - Peer top quartile
+      - Position: ABOVE AVERAGE / AVERAGE / BELOW AVERAGE
+      If benchmark_data is ABSENT, state "Benchmark comparison not available, peer data not provided."
+      Deliverable: Benchmark table (Dimension | Partner Score | Peer Average | Top Quartile | Position).
+
+      STEP 4: MATURITY ROADMAP
+      For each dimension scoring below 4 (Managed), define advancement actions.
+      Prioritize by: dimensions with the largest gap to 4, then by business impact.
+      For each action:
+      - Dimension and current score
+      - Target score and timeline
+      - Actions to reach target
+      - Owner (partner-side, our-side, or joint)
+      - Dependencies
+      - Investment required (time, budget, resources)
+      Deliverable: Roadmap table (Dimension | Current | Target | Actions | Owner | Timeline | Dependencies | Investment).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - All six dimensions scored independently (no averaged single number without breakdown)
+      - Evidence cited for every score (not subjective impressions)
+      - Confidence attached to every dimension score
+      - Trend analysis uses time-separated observations or declares "baseline only"
+      - Roadmap actions include dependencies and investment estimates
+      - Limiting factors are specific and actionable
+      - Executive summary is self-sufficient: reader can act without reading dimension details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + dimension scores + top advancement action + state delta
+      - DISCOVERY: signal acquisition plan (data to collect per dimension, sources, contacts, timeline)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) overall maturity level with average score and confidence, (2) lowest-scoring dimension and its limiting factor, (3) single highest-impact advancement action with owner and timeline.
 
 # ============================================================================
-# PARTNER COORDINATION PROMPTS
+# CO-SELL PROMPTS
 # ============================================================================
-coordination:
+cosell:
+
+  cosell_opportunity:
+    id: partner-cosell-opportunity
+    name: "Co-Sell Opportunity Identification"
+    description: "Identify co-sell opportunities from pipeline overlap analysis, score each opportunity, and recommend co-sell motions with engagement sequencing"
+    domain: cosell
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: partner_pipeline
+        required: true
+        description: Partner pipeline data including accounts, stages, and values
+      - name: internal_pipeline
+        required: true
+        description: Internal pipeline data for overlap analysis
+      - name: partner_capabilities
+        required: false
+        description: Partner solution capabilities and vertical expertise
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Identifying co-sell opportunities with {partner_name}.
+      Partner pipeline: {partner_pipeline}
+      Internal pipeline: {internal_pipeline}
+      Partner capabilities: {partner_capabilities}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are finding opportunities where joint selling with this partner creates more value than selling independently. The output drives co-sell activation decisions and pipeline coordination.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If partner_pipeline or internal_pipeline is ABSENT, DEFER: overlap analysis requires both pipelines.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: PIPELINE DATA COLLECTION
+      Normalize and summarize both pipelines for comparison.
+      For each pipeline (partner and internal):
+      - Total deal count and aggregate value
+      - Stage distribution (early, mid, late)
+      - Vertical and solution area breakdown
+      - Top 10 accounts by deal value
+      - Data freshness (date of last update)
+      - Confidence: VERIFIED (CRM export) / ESTIMATED (partner-shared) / ASSUMED (indirect)
+      Deliverable: Pipeline summary (Source | Deal Count | Total Value | Stage Mix | Top Accounts | Data Date | Confidence).
+
+      STEP 2: OVERLAP ANALYSIS
+      Identify accounts and opportunities that appear in both pipelines.
+      For each overlap:
+      - Account name
+      - Internal deal stage, value, and expected close
+      - Partner deal stage, value, and expected close
+      - Overlap type: SAME OPPORTUNITY / SAME ACCOUNT DIFFERENT OPPORTUNITY / COMPLEMENTARY WORKLOAD
+      - Conflict risk: does overlap create competition or collaboration potential?
+      If no overlaps found, state "No pipeline overlap detected" and recommend account mapping session.
+      Deliverable: Overlap table (Account | Internal Deal | Partner Deal | Overlap Type | Conflict Risk).
+
+      STEP 3: OPPORTUNITY SCORING
+      Score each overlap opportunity for co-sell potential (0-10):
+      - Solution complementarity (0-10): do solutions combine to create more customer value?
+      - Stage alignment (0-10): are deals at compatible stages for joint motion?
+      - Revenue uplift potential (0-10): does co-selling increase deal size or win probability?
+      - Relationship leverage (0-10): does partner have access or influence we lack?
+      - Weighted total with confidence
+      Classify: HIGH (7-10) / MEDIUM (4-6.9) / LOW (0-3.9)
+      Deliverable: Scoring table (Account | Complementarity | Stage | Uplift | Leverage | Total | Classification | Confidence).
+
+      STEP 4: CO-SELL MOTION RECOMMENDATION
+      For each HIGH and MEDIUM scored opportunity, recommend a co-sell motion:
+      - Motion type: JOINT PITCH / REFERRAL / RESELL / TECHNOLOGY PARTNERSHIP / SERVICES ATTACH
+      - Engagement sequence: who reaches out first, what the ask is, timeline
+      - Internal preparation needed before activation
+      - Partner preparation needed
+      - Success metric for this motion
+      Deliverable: Recommendation table (Account | Motion | Sequence | Our Prep | Partner Prep | Success Metric).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Both pipelines normalized to comparable format before overlap analysis
+      - Overlap type classified (same opp vs. same account vs. complementary), not just flagged
+      - Conflict risk assessed for every overlap
+      - Opportunity scores use four dimensions, not a single subjective rating
+      - Motion recommendations include preparation steps for both sides
+      - Executive summary actionable without reading scoring details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + top 3 scored opportunities + state delta
+      - DISCOVERY: signal plan (pipeline data requests, account mapping session agenda, CRM access)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) count of overlap opportunities with HIGH/MEDIUM/LOW breakdown, (2) highest-scored opportunity and recommended motion, (3) single most urgent activation step with owner and timeline.
+
+  deal_registration:
+    id: partner-deal-registration
+    name: "Deal Registration Coordination"
+    description: "Coordinate deal registration and attribution between internal pipeline and partner registrations, reconcile CRM records, and identify conflicts"
+    domain: cosell
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: registration_data
+        required: true
+        description: Deal registrations submitted by or involving the partner
+      - name: crm_pipeline
+        required: true
+        description: Internal CRM pipeline for reconciliation
+      - name: attribution_rules
+        required: false
+        description: Partner program attribution and compensation rules
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Coordinating deal registration with {partner_name}.
+      Registration data: {registration_data}
+      CRM pipeline: {crm_pipeline}
+      Attribution rules: {attribution_rules}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are ensuring deal registrations are accurate, matched to CRM records, and attributed correctly. Mismatched registrations cause compensation disputes, partner dissatisfaction, and program compliance issues.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If registration_data is ABSENT, DEFER: cannot coordinate without registration records.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: REGISTRATION INVENTORY
+      List all deal registrations involving this partner.
+      For each registration:
+      - Registration ID and date
+      - Deal name and customer account
+      - Registered deal value
+      - Registration status: APPROVED / PENDING / EXPIRED / REJECTED
+      - Registering party (partner, internal, or joint)
+      - Expiry date (if applicable)
+      - Confidence: VERIFIED (portal record) / ESTIMATED (partner-reported) / ASSUMED (inferred)
+      Deliverable: Registration inventory table (Reg ID | Date | Deal | Value | Status | Registrant | Expires | Confidence).
+
+      STEP 2: CRM RECONCILIATION
+      Match registrations to CRM pipeline records.
+      For each registration:
+      - Matching CRM opportunity (ID, name, value)
+      - Match status: MATCHED / PARTIAL MATCH / NO MATCH / MULTIPLE MATCHES
+      - Value discrepancy: registration value vs. CRM value (delta and percentage)
+      - Stage discrepancy: registration stage vs. CRM stage
+      - Owner discrepancy: registered owner vs. CRM owner
+      If no CRM match found, flag as "Unmatched registration, requires investigation."
+      Deliverable: Reconciliation table (Reg ID | CRM Opp | Match Status | Value Delta | Stage Delta | Owner Delta | Action).
+
+      STEP 3: ATTRIBUTION ANALYSIS
+      Assess whether attribution is correct per program rules.
+      For each matched registration:
+      - Current attribution (who gets credit)
+      - Correct attribution per rules (if attribution_rules available)
+      - Attribution status: CORRECT / INCORRECT / DISPUTED / UNCLEAR
+      - Revenue impact of incorrect attribution (partner compensation affected)
+      If attribution_rules is ABSENT, state "Attribution accuracy not validated, program rules not provided."
+      Deliverable: Attribution table (Reg ID | Current Attribution | Correct Attribution | Status | Revenue Impact).
+
+      STEP 4: CONFLICT IDENTIFICATION
+      Identify registration conflicts requiring resolution.
+      For each conflict:
+      - Conflict type: DUPLICATE REGISTRATION / TERRITORY OVERLAP / ATTRIBUTION DISPUTE / EXPIRED REGISTRATION ON ACTIVE DEAL
+      - Parties involved
+      - Business impact (compensation, relationship, program compliance)
+      - Recommended resolution
+      - Resolution owner and timeline
+      If no conflicts found, state "No registration conflicts identified."
+      Deliverable: Conflict table (Type | Parties | Impact | Resolution | Owner | Timeline).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every registration matched against CRM (no registrations left unreconciled)
+      - Value discrepancies quantified with exact delta, not just flagged
+      - Attribution assessed against specific program rules where available
+      - Conflicts classified by type with resolution path
+      - Expired registrations on active deals flagged as urgent
+      - Executive summary actionable without reading reconciliation details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + conflict list + top action + state delta
+      - DISCOVERY: signal plan (portal access, CRM export, attribution rules documentation)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) registration count with match/mismatch breakdown, (2) most critical conflict or discrepancy and its revenue impact, (3) single most urgent resolution action with owner and deadline.
 
   joint_planning:
-    name: "Joint Planning Session Prep"
-    description: "Prepare for joint planning with partner by structuring objectives, mutual asks and offers, risk areas, and success metrics into a session-ready brief"
+    id: partner-joint-planning
+    name: "Joint Business Planning Session Prep"
+    description: "Prepare for joint business planning by tracking current JBP status, commitment delivery, mutual objective alignment, and producing a session-ready agenda"
+    domain: cosell
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: current_jbp
+        required: true
+        description: Current Joint Business Plan including objectives, commitments, and metrics
+      - name: commitment_tracking
+        required: true
+        description: Status of commitments made in prior JBP sessions
+      - name: planning_horizon
+        required: false
+        description: Planning period for the upcoming session (e.g., next quarter, next year)
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
     prompt: |
-      Context: Joint planning with {partner_name} for {account_name}.
-      Objective: {planning_objective}
-      Current status: {current_status}
+      Context: Preparing joint business planning session with {partner_name}.
+      Current JBP: {current_jbp}
+      Commitment tracking: {commitment_tracking}
+      Planning horizon: {planning_horizon}
       Account state: {account_state}
       Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      You are preparing a structured brief for a joint planning session with a
-      partner. The output ensures the session is productive, objectives are clear,
-      and both parties leave with aligned commitments. Follow these steps in order.
+      You are preparing a structured brief for a joint business planning session. The output ensures the session builds on prior commitments, addresses gaps, and produces aligned objectives for the next period.
 
       STEP 0: INPUT GATE
-      Validate all inputs before proceeding. For each required input listed in the
-      context block, classify as:
-      - PRESENT: data received and parseable
-      - PARTIAL: data received but incomplete (specify what's missing)
-      - ABSENT: no data received
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If current_jbp and commitment_tracking are both ABSENT, DEFER: cannot prepare without baseline context.
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Based on input status, select run mode:
-      - FULL: all required inputs PRESENT, proceed with all steps
-      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
-        that depends on partial data, mark affected outputs as "estimated" or
-        "based on incomplete data"
-      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
-        (a) list of missing inputs with specific ask per input
-        (b) who can provide each input (role, system, or data source)
-        (c) suggested deadline for re-running this runbook with complete inputs
+      STEP 1: CURRENT JBP STATUS
+      Summarize the current state of the joint business plan.
+      - JBP period and creation date
+      - Number of objectives (total, on track, at risk, missed)
+      - Revenue targets: committed vs. actual
+      - Key milestones: completed vs. pending
+      - Overall JBP health: ON TRACK / AT RISK / OFF TRACK
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: JBP status summary (Period | Objectives Status | Revenue Status | Milestone Status | Health | Confidence).
 
-      Data Availability Map, for each scoring dimension assess data richness:
-      - HIGH: documented objectives, prior meeting notes, 5+ data points
-      - MEDIUM: partial context, 2-4 data points
-      - LOW: no documented context, assumptions only
-      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
-      Dimensions to assess: Planning Objectives, Current Engagement Status, Partner
-      Capabilities, Account Requirements, Historical Collaboration.
-      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
-      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode
-      declaration.
+      STEP 2: COMMITMENT TRACKING
+      Review delivery against commitments from prior sessions.
+      For each commitment:
+      - Commitment description
+      - Owner (our side or partner side)
+      - Agreed timeline
+      - Current status: DELIVERED / IN PROGRESS / DELAYED / NOT STARTED / ABANDONED
+      - Evidence of delivery or delay reason
+      - Impact of non-delivery on JBP objectives
+      Calculate: our delivery rate, partner delivery rate, joint delivery rate.
+      Deliverable: Commitment table (Commitment | Owner | Timeline | Status | Evidence | Impact) + delivery rate summary.
 
-      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
-      Switch to SIGNAL ACQUISITION MODE and produce instead:
-      - Questions to ask in next 2-3 interactions (targeted at planning preparation gaps)
-      - Data sources to request access to (partner capability docs, prior engagement records)
-      - Observation checklist for implicit signals in upcoming interactions
-      - Re-assessment gate with minimum data threshold and target date
-      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
-      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
-      Do not proceed to remaining steps.
-
-      STEP 1: MUTUAL OBJECTIVES
-      Define what both parties should aim to achieve from the planning session.
-      If {planning_objective} is empty: state that no planning objective is
-      documented, note the implication (session risks being unfocused), proceed
-      without fabrication.
-      For each objective:
+      STEP 3: MUTUAL OBJECTIVE ALIGNMENT
+      Assess whether objectives remain aligned and propose new objectives for the next period.
+      For each existing objective:
+      - Still relevant? YES / NO / MODIFIED (state modification)
+      - Progress toward objective
+      - Carry forward to next period? YES / NO with rationale
+      For proposed new objectives:
       - Objective description
       - Owner (our side, partner side, or joint)
-      - Priority: HIGH/MEDIUM/LOW, confidence: HIGH/MEDIUM/LOW with basis
-      - Success criteria (how we know this objective is met)
-      Deliverable: Objectives table (Objective | Owner | Priority | Confidence |
-      Success Criteria).
+      - Success criteria
+      - Resource requirements
+      Deliverable: Alignment table (Objective | Still Relevant | Progress | Carry Forward) + new objectives table (Objective | Owner | Success Criteria | Resources).
 
-      STEP 2: ASKS AND OFFERS
-      Structure what we need from the partner and what we can offer.
-      For each ask:
-      - What we need
-      - Why it matters (business justification)
-      - Timeline required
-      - Fallback if partner cannot deliver
-      For each offer:
-      - What we can provide
-      - Value to partner (why they should care)
-      - Conditions or dependencies
-      Deliverable: Asks table (Ask | Business Justification | Timeline | Fallback)
-      + Offers table (Offer | Value to Partner | Conditions).
-
-      STEP 3: RISK AREAS
-      Identify risks that should be discussed during the planning session.
-      For each risk:
-      - Risk description
-      - Likelihood: HIGH/MEDIUM/LOW, confidence: HIGH/MEDIUM/LOW with basis
-      - Impact if unaddressed
-      - Proposed discussion approach (how to raise it constructively)
-      Deliverable: Risk table (Risk | Likelihood | Confidence | Impact |
-      Discussion Approach).
-
-      STEP 4: SUCCESS METRICS
-      Define metrics both parties should agree to track post-session.
-      For each metric:
-      - Metric name
-      - Measurement method
-      - Target value
-      - Review cadence
-      - Owner
-      Deliverable: Metrics table (Metric | Measurement | Target | Review Cadence |
-      Owner).
-
-      STEP 5: SESSION AGENDA
-      Synthesize Steps 1-4 into a structured agenda for the planning session.
-      Include time allocation recommendations for each topic.
-      Deliverable: Agenda (Topic | Time Allocation | Lead | Expected Outcome).
-
-      STEP 6: ACCOUNT STATE DELTA
-      Specify what this runbook's findings change in account state:
-      - Fields updated (field path | old value | new value | evidence)
-      - New risks added or existing risks resolved
-      - Signals to append to recent history
-      - Next actions to add or complete
-      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
-      Runbook Source).
-
-      QUALITY CHECKS BEFORE OUTPUT:
-      - Input Gate completed, Data Availability Map present, Signal Acquisition Mode check performed
-      - Objectives are mutual (not one-sided), with confidence levels
-      - Asks include business justification and fallback options
-      - Offers include value to partner (not just what we want to give)
-      - Risk discussion approaches are constructive, not confrontational
-      - Success metrics are measurable with clear owners
-      - Agenda has time allocation that sums to a realistic session duration
-      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
-
-      RUN MODE EXECUTION:
-      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
-      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
-      - If run_mode is FULL or not specified: produce all deliverables as described above.
-
-      Lead with a 3-sentence executive summary stating: (1) the primary planning
-      objective and session readiness, (2) the highest-risk area or biggest
-      open question, and (3) the single most important topic to resolve in the
-      session.
-
-  handoff_coordination:
-    name: "Partner Handoff Coordination"
-    description: "Coordinate handoff to or from partner with structured scope definition, context transfer checklist, risk mitigation, and success criteria"
-    prompt: |
-      Context: Handoff between {vendor} and {partner_name}.
-      Direction: {handoff_direction}
-      Scope: {handoff_scope}
-      Account state: {account_state}
-      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
-
-      You are coordinating a handoff between our team and a partner. The output
-      ensures nothing is lost in transition, risks are mitigated, and success
-      criteria are defined before the handoff occurs. Follow these steps in order.
-
-      STEP 0: INPUT GATE
-      Validate all inputs before proceeding. For each required input listed in the
-      context block, classify as:
-      - PRESENT: data received and parseable
-      - PARTIAL: data received but incomplete (specify what's missing)
-      - ABSENT: no data received
-
-      Based on input status, select run mode:
-      - FULL: all required inputs PRESENT, proceed with all steps
-      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
-        that depends on partial data, mark affected outputs as "estimated" or
-        "based on incomplete data"
-      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
-        (a) list of missing inputs with specific ask per input
-        (b) who can provide each input (role, system, or data source)
-        (c) suggested deadline for re-running this runbook with complete inputs
-
-      Data Availability Map, for each scoring dimension assess data richness:
-      - HIGH: documented scope, clear ownership, 5+ data points
-      - MEDIUM: partial documentation, 2-4 data points
-      - LOW: no documentation, verbal agreements only
-      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
-      Dimensions to assess: Handoff Scope, Context Documentation, Open Items,
-      Risk Inventory, Success Criteria.
-      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
-      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode
-      declaration.
-
-      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
-      Switch to SIGNAL ACQUISITION MODE and produce instead:
-      - Questions to ask in next 2-3 interactions (targeted at handoff clarity gaps)
-      - Data sources to request access to (project docs, architecture diagrams, contact lists)
-      - Observation checklist for implicit signals in upcoming interactions
-      - Re-assessment gate with minimum data threshold and target date
-      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
-      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
-      Do not proceed to remaining steps.
-
-      STEP 1: HANDOFF SCOPE DEFINITION
-      Define precisely what is being handed off.
-      If {handoff_scope} is empty: state that no scope is documented, note the
-      implication (handoff cannot proceed safely without scope agreement), proceed
-      without fabrication.
-      For each scope element:
-      - Component or workstream being transferred
-      - Current state (in progress, completed, not started)
-      - Transferring party responsibilities that end
-      - Receiving party responsibilities that begin
-      - Gray areas requiring clarification
-      Deliverable: Scope table (Component | Current State | Transferring Party
-      Exits | Receiving Party Assumes | Clarification Needed YES/NO).
-
-      STEP 2: CONTEXT TRANSFER CHECKLIST
-      List all context that must be transferred for the receiving party to succeed.
-      For each context item:
-      - Information or artifact
-      - Format (document, meeting, system access, code repository)
-      - Status: TRANSFERRED / PENDING / NOT AVAILABLE
-      - Confidence: HIGH/MEDIUM/LOW with basis
-      - Owner responsible for transfer
-      - Deadline
-      Deliverable: Context Transfer table (Item | Format | Status | Confidence |
-      Owner | Deadline).
-
-      STEP 3: OPEN ITEMS RESOLUTION
-      List items that must be resolved before or during the handoff.
-      If no open items exist: state "No open items identified" and proceed to
-      Step 4.
-      For each open item:
-      - Description
-      - Blocking or non-blocking for handoff
-      - Owner
-      - Resolution deadline
-      - Fallback if not resolved in time
-      Deliverable: Open Items table (Item | Blocking YES/NO | Owner | Deadline |
-      Fallback).
-
-      STEP 4: RISK MITIGATION
-      Identify risks specific to this handoff and define mitigations.
-      For each risk:
-      - Risk description
-      - Likelihood: HIGH/MEDIUM/LOW, confidence: HIGH/MEDIUM/LOW with basis
-      - Impact if realized
-      - Mitigation action
-      - Owner
-      Deliverable: Risk table (Risk | Likelihood | Confidence | Impact |
-      Mitigation | Owner).
-
-      STEP 5: SUCCESS CRITERIA AND ESCALATION PATH
-      Define how both parties will know the handoff succeeded.
-      For each criterion:
-      - Criterion description
-      - Measurement method
-      - Timeline for validation
-      - Responsible party
-      Define escalation path: who to contact, in what order, for what types of
-      issues post-handoff.
-      Deliverable: Success Criteria table (Criterion | Measurement | Timeline |
-      Owner) + Escalation Path (Issue Type | First Contact | Escalation To |
-      Timeline).
-
-      STEP 6: ACCOUNT STATE DELTA
-      Specify what this runbook's findings change in account state:
-      - Fields updated (field path | old value | new value | evidence)
-      - New risks added or existing risks resolved
-      - Signals to append to recent history
-      - Next actions to add or complete
-      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
-      Runbook Source).
-
-      QUALITY CHECKS BEFORE OUTPUT:
-      - Input Gate completed, Data Availability Map present, Signal Acquisition Mode check performed
-      - Scope definition covers all components with no ambiguous ownership
-      - Context transfer items have owners and deadlines
-      - Open items distinguish blocking from non-blocking
-      - Risk mitigations include confidence levels
-      - Success criteria are measurable, not subjective
-      - Escalation path is defined with specific contacts and timelines
-      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
-
-      RUN MODE EXECUTION:
-      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
-      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
-      - If run_mode is FULL or not specified: produce all deliverables as described above.
-
-      Lead with a 3-sentence executive summary stating: (1) the handoff readiness
-      status and scope clarity, (2) the highest-risk element or biggest open item,
-      and (3) the single most urgent action before the handoff can proceed.
-
-  communication_sync:
-    name: "Partner Communication Sync"
-    description: "Prepare for partner communication sync with structured agenda, decision items, updates, and action tracking"
-    prompt: |
-      Context: Sync with {partner_name} regarding {account_name}.
-      Open items: {open_items}
-      Account state: {account_state}
-      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
-
-      You are preparing a structured sync meeting with a partner. The output
-      ensures the meeting has clear agenda items, decisions are identified in
-      advance, and action items are tracked. Follow these steps in order.
-
-      STEP 0: INPUT GATE
-      Validate all inputs before proceeding. For each required input listed in the
-      context block, classify as:
-      - PRESENT: data received and parseable
-      - PARTIAL: data received but incomplete (specify what's missing)
-      - ABSENT: no data received
-
-      Based on input status, select run mode:
-      - FULL: all required inputs PRESENT, proceed with all steps
-      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
-        that depends on partial data, mark affected outputs as "estimated" or
-        "based on incomplete data"
-      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
-        (a) list of missing inputs with specific ask per input
-        (b) who can provide each input (role, system, or data source)
-        (c) suggested deadline for re-running this runbook with complete inputs
-
-      Data Availability Map, for each scoring dimension assess data richness:
-      - HIGH: documented open items, prior sync notes, 5+ data points
-      - MEDIUM: partial records, 2-4 data points
-      - LOW: no records, memory-based only
-      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
-      Dimensions to assess: Open Item Status, Decision Backlog, Update Readiness,
-      Partner Questions, Action Item History.
-      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
-      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode
-      declaration.
-
-      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
-      Switch to SIGNAL ACQUISITION MODE and produce instead:
-      - Questions to ask in next 2-3 interactions (targeted at sync preparation gaps)
-      - Data sources to request access to (prior meeting notes, action item trackers)
-      - Observation checklist for implicit signals in upcoming interactions
-      - Re-assessment gate with minimum data threshold and target date
-      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
-      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
-      Do not proceed to remaining steps.
-
-      STEP 1: AGENDA ITEMS
-      Structure the sync agenda by priority.
-      If {open_items} is empty: state that no open items are documented, note the
-      implication (sync may lack focus), proceed without fabrication.
-      For each agenda item:
-      - Topic
-      - Type: DECISION / UPDATE / DISCUSSION / ESCALATION
-      - Priority: HIGH/MEDIUM/LOW
-      - Time allocation (minutes)
-      - Lead (who drives this topic)
-      - Expected outcome
-      Deliverable: Agenda table (Topic | Type | Priority | Time | Lead |
-      Expected Outcome).
-
-      STEP 2: DECISIONS NEEDED
-      List decisions that should be made during the sync.
-      For each decision:
-      - Decision description
-      - Options available (if known)
-      - Recommended option, confidence: HIGH/MEDIUM/LOW with basis
-      - Decision maker (who has authority)
-      - Deadline (what happens if not decided in this sync)
-      Deliverable: Decisions table (Decision | Options | Recommendation |
-      Confidence | Decision Maker | Deadline).
-
-      STEP 3: UPDATES TO SHARE
-      Prepare updates from our side to share with the partner.
-      For each update:
-      - Topic
-      - Key message (1-2 sentences)
-      - Supporting data or evidence
-      - Action required from partner (if any)
-      Deliverable: Updates table (Topic | Key Message | Evidence | Partner Action
-      Required YES/NO).
-
-      STEP 4: QUESTIONS FOR PARTNER
-      Prepare questions to ask the partner during the sync.
-      For each question:
-      - Question
-      - Why we need this information
-      - How the answer will be used
-      - Fallback if partner cannot answer
-      Deliverable: Questions table (Question | Purpose | Usage | Fallback).
-
-      STEP 5: ACTION ITEM TRACKING
-      Compile action items from prior syncs and new items to confirm.
-      For each action item:
-      - Description
-      - Source (prior sync date or new)
-      - Owner
-      - Status: COMPLETE / IN PROGRESS / NOT STARTED / BLOCKED
-      - Confidence: HIGH/MEDIUM/LOW with basis
-      Deliverable: Action Items table (Action | Source | Owner | Status |
-      Confidence | Notes).
-
-      STEP 6: ACCOUNT STATE DELTA
-      Specify what this runbook's findings change in account state:
-      - Fields updated (field path | old value | new value | evidence)
-      - New risks added or existing risks resolved
-      - Signals to append to recent history
-      - Next actions to add or complete
-      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
-      Runbook Source).
-
-      QUALITY CHECKS BEFORE OUTPUT:
-      - Input Gate completed, Data Availability Map present, Signal Acquisition Mode check performed
-      - Agenda items have time allocations that sum to a realistic meeting duration
-      - Decisions include recommended options with confidence levels
-      - Updates are factual with supporting evidence
-      - Questions include purpose and fallback options
-      - Prior action items have status updates, not carried forward unchanged
-      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
-
-      RUN MODE EXECUTION:
-      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
-      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
-      - If run_mode is FULL or not specified: produce all deliverables as described above.
-
-      Lead with a 3-sentence executive summary stating: (1) the sync readiness and
-      number of agenda items, (2) the most critical decision or open question, and
-      (3) the single most important outcome to secure from this sync.
-
-# ============================================================================
-# PARTNER RISK PROMPTS
-# ============================================================================
-partner_risk:
-
-  risk_identification:
-    name: "Partner Risk Identification"
-    description: "Identify and assess partner-related risks across likelihood, impact, and mitigation readiness with confidence levels and evidence basis"
-    prompt: |
-      Context: Assess partner risks for {account_name}.
-      Partner: {partner_name}
-      Current status: {engagement_status}
-      Account state: {account_state}
-      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
-
-      You are identifying risks that the partner relationship introduces to the
-      account. The output drives mitigation planning and escalation decisions.
-      Every risk must be evidence-based. Follow these steps in order.
-
-      STEP 0: INPUT GATE
-      Validate all inputs before proceeding. For each required input listed in the
-      context block, classify as:
-      - PRESENT: data received and parseable
-      - PARTIAL: data received but incomplete (specify what's missing)
-      - ABSENT: no data received
-
-      Based on input status, select run mode:
-      - FULL: all required inputs PRESENT, proceed with all steps
-      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
-        that depends on partial data, mark affected outputs as "estimated" or
-        "based on incomplete data"
-      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
-        (a) list of missing inputs with specific ask per input
-        (b) who can provide each input (role, system, or data source)
-        (c) suggested deadline for re-running this runbook with complete inputs
-
-      Data Availability Map, for each scoring dimension assess data richness:
-      - HIGH: documented engagement history, incident records, 5+ data points
-      - MEDIUM: partial records, 2-4 data points
-      - LOW: no records, assumptions only
-      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
-      Dimensions to assess: Engagement History, Delivery Track Record, Relationship
-      Health, Competitive Dynamics, Dependency Depth.
-      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
-      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode
-      declaration.
-
-      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
-      Switch to SIGNAL ACQUISITION MODE and produce instead:
-      - Questions to ask in next 2-3 interactions (targeted at risk visibility gaps)
-      - Data sources to request access to (partner reviews, engagement records, incident logs)
-      - Observation checklist for implicit signals in upcoming interactions
-      - Re-assessment gate with minimum data threshold and target date
-      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
-      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
-      Do not proceed to remaining steps.
-
-      STEP 1: RISK INVENTORY
-      Identify all partner-related risks to the account.
-      If {engagement_status} is empty: state that no engagement status is
-      available, note the implication (risk assessment will be incomplete),
-      proceed without fabrication.
-      For each risk:
-      - Risk description (specific scenario, not generic)
-      - Risk category: DELIVERY / RELATIONSHIP / COMPETITIVE / FINANCIAL / TECHNICAL / STRATEGIC
-      - Assign one primary category for routing. Add secondary flags where the
-        risk spans multiple categories.
-      - Likelihood: HIGH/MEDIUM/LOW, confidence: HIGH/MEDIUM/LOW with basis
-      - Impact if realized (specific consequences to the account)
-      - Current mitigation (what is being done today, if anything)
-      - Residual risk (what remains after current mitigation)
-      Deliverable: Risk table (Risk | Primary Category | Secondary Flags |
-      Likelihood | Confidence | Impact | Current Mitigation | Residual Risk).
-
-      STEP 2: TOP RISKS REQUIRING ATTENTION
-      From the risk inventory, identify the top 3-5 risks by combined likelihood
-      and impact.
-      For each top risk:
-      - Why this risk is prioritized
-      - Time horizon (when it could materialize)
-      - Early warning signals to monitor
-      - Escalation trigger (what condition triggers escalation)
-      Deliverable: Top Risks detail (Risk | Rationale | Time Horizon | Warning
-      Signals | Escalation Trigger).
-
-      STEP 3: MITIGATION PLAN
-      Define mitigation actions for all identified risks, prioritized by
-      risk severity.
-      Deliverable: Action table (Priority | Action | Owner | Timeline |
-      Prerequisites | Expected Impact).
-
-      STEP 4: ESCALATION TRIGGERS
-      Define conditions that require escalation beyond the partner team.
-      For each trigger:
-      - Condition that triggers escalation
-      - Who to escalate to
-      - Expected response timeline
-      - Information to include in escalation
-      Deliverable: Escalation table (Trigger Condition | Escalate To | Response
-      Timeline | Information Required).
+      STEP 4: SESSION AGENDA
+      Synthesize Steps 1-3 into a structured agenda for the planning session.
+      - Opening: JBP status review (time allocation)
+      - Commitment accountability review (time allocation)
+      - Objective alignment and new objectives (time allocation)
+      - Risk and blocker discussion (time allocation)
+      - Next-period commitments and close (time allocation)
+      Deliverable: Agenda table (Topic | Time | Lead | Expected Outcome | Pre-read Required).
 
       STEP 5: ACCOUNT STATE DELTA
-      Specify what this runbook's findings change in account state:
-      - Fields updated (field path | old value | new value | evidence)
-      - New risks added or existing risks resolved
-      - Signals to append to recent history
-      - Next actions to add or complete
-      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
-      Runbook Source).
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
 
-      QUALITY CHECKS BEFORE OUTPUT:
-      - Input Gate completed, Data Availability Map present, Signal Acquisition Mode check performed
-      - Every risk has a specific scenario description (not "partner risk")
-      - Likelihood and impact include confidence levels with evidence basis
-      - Risk categories include primary and secondary flags
-      - Mitigation actions include prerequisites and expected impact
-      - Escalation triggers are specific conditions, not vague thresholds
-      - No risks are fabricated: all have evidence basis
-      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+      QUALITY CHECKS:
+      - Every prior commitment tracked with status and evidence
+      - Delivery rates calculated for both sides (not just partner)
+      - Objectives assessed for continued relevance, not blindly carried forward
+      - Agenda time allocations sum to a realistic session duration
+      - Pre-read materials identified for each topic
+      - Executive summary is self-sufficient: reader can act without reading details
 
       RUN MODE EXECUTION:
-      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
-      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
-      - If run_mode is FULL or not specified: produce all deliverables as described above.
+      - QUICK: executive summary + JBP health + delivery rates + top agenda item + state delta
+      - DISCOVERY: signal plan (prior JBP docs, commitment tracker, partner contact for pre-session alignment)
+      - FULL: all deliverables
 
-      Lead with a 3-sentence executive summary stating: (1) the total number of
-      risks identified and overall risk posture, (2) the highest-severity risk
-      or lowest-confidence assessment, and (3) the single most urgent mitigation
-      action.
+      EXECUTIVE SUMMARY: State (1) current JBP health with delivery rate for both sides, (2) the most critical unmet commitment or misaligned objective, (3) single most important topic to resolve in the session.
 
-  issue_resolution:
-    name: "Partner Issue Resolution"
-    description: "Plan resolution for a specific partner issue with root cause analysis, resolution options with pros and cons, and an owned action plan"
+  joint_positioning:
+    id: partner-joint-positioning
+    name: "Joint Positioning and Success Story"
+    description: "Develop joint positioning by aligning value propositions, reviewing reference architectures, collecting proof points, and producing a positioning brief"
+    domain: cosell
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: our_value_proposition
+        required: true
+        description: Our solution value proposition and messaging
+      - name: partner_value_proposition
+        required: true
+        description: Partner's solution value proposition and capabilities
+      - name: reference_architectures
+        required: false
+        description: Joint reference architectures or validated designs
+      - name: customer_wins
+        required: false
+        description: Joint customer wins and proof points
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
     prompt: |
-      Context: Issue with {partner_name}: {issue_description}
-      Impact: {current_impact}
+      Context: Developing joint positioning with {partner_name}.
+      Our value proposition: {our_value_proposition}
+      Partner value proposition: {partner_value_proposition}
+      Reference architectures: {reference_architectures}
+      Customer wins: {customer_wins}
       Account state: {account_state}
       Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      You are planning resolution for a specific partner issue. The output drives
-      the resolution process with clear options, ownership, and timeline. Every
-      assessment must be evidence-based. Follow these steps in order.
+      You are creating a joint positioning brief that shows how the combined solution delivers more value than either solution alone. The output is used in customer-facing presentations, partner marketing, and co-sell motions.
 
       STEP 0: INPUT GATE
-      Validate all inputs before proceeding. For each required input listed in the
-      context block, classify as:
-      - PRESENT: data received and parseable
-      - PARTIAL: data received but incomplete (specify what's missing)
-      - ABSENT: no data received
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If our_value_proposition or partner_value_proposition is ABSENT, DEFER: cannot build joint positioning without both value propositions.
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Based on input status, select run mode:
-      - FULL: all required inputs PRESENT, proceed with all steps
-      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
-        that depends on partial data, mark affected outputs as "estimated" or
-        "based on incomplete data"
-      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
-        (a) list of missing inputs with specific ask per input
-        (b) who can provide each input (role, system, or data source)
-        (c) suggested deadline for re-running this runbook with complete inputs
+      STEP 1: VALUE PROPOSITION ALIGNMENT
+      Map where both value propositions complement, overlap, or conflict.
+      For each alignment area:
+      - Domain or capability area
+      - Our positioning
+      - Partner positioning
+      - Alignment: COMPLEMENTARY (1+1=3) / OVERLAPPING (same claim) / CONFLICTING (contradictory)
+      - Joint message: how to position the combined offering in this area
+      Deliverable: Alignment table (Domain | Our Position | Partner Position | Alignment Type | Joint Message).
 
-      Data Availability Map, for each scoring dimension assess data richness:
-      - HIGH: documented issue history, impact metrics, 5+ data points
-      - MEDIUM: partial records, 2-4 data points
-      - LOW: no records, reported verbally only
-      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
-      Dimensions to assess: Issue Description Clarity, Impact Quantification,
-      Root Cause Visibility, Resolution History, Stakeholder Alignment.
-      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
-      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode
-      declaration.
+      STEP 2: REFERENCE ARCHITECTURE REVIEW
+      If reference_architectures is available, validate joint technical positioning.
+      For each reference architecture:
+      - Architecture name and use case
+      - Our components and partner components
+      - Integration points and validation status: VALIDATED / DRAFT / CONCEPTUAL
+      - Customer applicability (which segments benefit)
+      If reference_architectures is ABSENT, state "No joint reference architectures available, recommend creation as co-sell enablement priority."
+      Deliverable: Architecture table (Name | Use Case | Our Components | Partner Components | Integration Status | Applicability).
 
-      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
-      Switch to SIGNAL ACQUISITION MODE and produce instead:
-      - Questions to ask in next 2-3 interactions (targeted at issue understanding gaps)
-      - Data sources to request access to (incident logs, communication records, impact reports)
-      - Observation checklist for implicit signals in upcoming interactions
-      - Re-assessment gate with minimum data threshold and target date
-      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
-      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
-      Do not proceed to remaining steps.
+      STEP 3: PROOF POINT COLLECTION
+      Gather evidence supporting joint value claims.
+      For each proof point:
+      - Type: CUSTOMER WIN / CASE STUDY / BENCHMARK / ANALYST VALIDATION / CERTIFICATION
+      - Description
+      - Quantified result (metric, before/after, percentage improvement)
+      - Customer-referenceable: YES / NO / PENDING APPROVAL
+      - Confidence: VERIFIED / ESTIMATED / ASSUMED
+      If customer_wins is ABSENT, state "No proof points available, recommend customer reference development."
+      Deliverable: Proof point table (Type | Description | Result | Referenceable | Confidence).
 
-      STEP 1: ISSUE SUMMARY
+      STEP 4: POSITIONING BRIEF
+      Synthesize Steps 1-3 into a customer-ready positioning brief.
+      Structure:
+      - Joint value headline (one sentence)
+      - Combined capability summary (3-5 bullet points)
+      - Differentiation from standalone alternatives
+      - Proof points (top 3, quantified)
+      - Target customer profile (who benefits most)
+      - Call to action (next step for interested customers)
+      Deliverable: Positioning brief (structured narrative, customer-facing tone).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Alignment analysis covers all major capability areas, not just areas of agreement
+      - Conflicting positions identified and resolution proposed (not hidden)
+      - Reference architectures validated, not assumed to work because both logos appear
+      - Proof points include confidence levels and reference-ability status
+      - Positioning brief is factual, not promotional (no unsubstantiated superlatives)
+      - Executive summary actionable without reading full alignment analysis
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + positioning brief + state delta
+      - DISCOVERY: signal plan (partner marketing contact, reference architecture needs, customer reference candidates)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) joint positioning strength with count of complementary vs. conflicting areas, (2) strongest proof point and biggest positioning gap, (3) single most impactful action to strengthen joint positioning with owner.
+
+# ============================================================================
+# PROGRAM HEALTH PROMPTS
+# ============================================================================
+program_health:
+
+  engagement_health:
+    id: partner-engagement-health
+    name: "Partner Engagement Health Check"
+    description: "Assess partner engagement health with GREEN/YELLOW/RED scoring across commitment delivery, communication quality, and strategic alignment"
+    domain: program_health
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: account_name
+        required: true
+        description: Customer account name
+      - name: engagement_data
+        required: true
+        description: Engagement signals including meeting cadence, responsiveness, delivery status
+      - name: prior_health_check
+        required: false
+        description: Previous health check results for trend analysis
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Assessing engagement health for {partner_name} on {account_name}.
+      Engagement data: {engagement_data}
+      Prior health check: {prior_health_check}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are determining whether this partner engagement is healthy, at risk, or in trouble. The health classification drives escalation decisions and resource allocation.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If engagement_data is ABSENT, DEFER: cannot assess health without engagement signals.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: SIGNAL COLLECTION
+      Gather and categorize engagement signals across five dimensions.
+      For each dimension, collect available data points:
+      1. Commitment Delivery: commitments made vs. delivered, on-time rate, quality
+      2. Communication Quality: responsiveness, proactiveness, transparency, cadence adherence
+      3. Strategic Alignment: goal alignment, technical alignment, timeline alignment
+      4. Resource Investment: staffing levels, skill match, continuity (turnover rate)
+      5. Engagement Trajectory: direction of change over last 2-3 interactions
+      For each signal:
+      - Signal description
+      - Positive / Neutral / Negative
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      If a dimension has no signals, state "No data available for [dimension]."
+      Deliverable: Signal inventory table (Dimension | Signal | Polarity | Confidence | Source).
+
+      STEP 2: DIMENSION SCORING
+      Score each dimension: GREEN (healthy) / YELLOW (at risk) / RED (in trouble).
+      For each dimension:
+      - Score with rationale
+      - Key signal driving the score
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - If no signals available, score as GRAY (insufficient data) rather than guessing
+      Deliverable: Dimension score table (Dimension | Score | Key Signal | Confidence | Basis).
+
+      STEP 3: TREND ANALYSIS
+      If prior_health_check is available, compare current to previous scores.
+      For each dimension:
+      - Previous score and date
+      - Current score
+      - Direction: IMPROVING / STABLE / DECLINING
+      - Driver of change
+      If no prior check, state "Trend analysis not available, baseline assessment."
+      Deliverable: Trend table (Dimension | Previous | Current | Direction | Driver).
+
+      STEP 4: HEALTH CLASSIFICATION
+      Synthesize dimension scores into overall engagement health.
+      - Overall health: GREEN / YELLOW / RED
+      - Classification rule: overall = worst dimension score if any RED; YELLOW if 2+ YELLOW and no RED; GREEN otherwise
+      - Confidence: lowest confidence across all scored dimensions
+      - Weakest dimension and its escalation implication
+      - Escalation needed: YES / NO with threshold basis
+      Deliverable: Health classification (Overall | Confidence | Weakest Dimension | Escalation Needed | Action Required).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - All five dimensions assessed or explicitly marked GRAY (no silent omissions)
+      - Overall classification follows the stated rule (worst-score-drives-overall)
+      - Confidence is the minimum across dimensions, not an average
+      - Trend analysis uses time-separated observations or declares "baseline only"
+      - GRAY dimensions trigger a signal acquisition note in the action plan
+      - Executive summary is self-sufficient: reader can act without reading dimension details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + health classification + top action + state delta
+      - DISCOVERY: signal acquisition plan (per-dimension data gaps, collection sources, contacts, timeline)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) overall engagement health with confidence and weakest dimension, (2) trend direction or "baseline assessment," (3) single most urgent action (escalation, intervention, or monitoring continuation).
+
+  dependency_status:
+    id: partner-dependency-status
+    name: "Partner Dependency Status Tracker"
+    description: "Track status of partner dependencies, identify at-risk items, assess downstream impact, and produce mitigation actions with ownership"
+    domain: program_health
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: dependency_registry
+        required: true
+        description: List of dependencies on the partner with expected delivery dates
+      - name: project_timeline
+        required: false
+        description: Project timeline for downstream impact analysis
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Tracking dependency status for {partner_name}.
+      Dependency registry: {dependency_registry}
+      Project timeline: {project_timeline}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are tracking whether partner dependencies are on track, at risk, or blocked. The output drives risk mitigation and account team coordination. Every status must be evidence-based.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If dependency_registry is ABSENT, DEFER: cannot track dependencies without a registry.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: DEPENDENCY INVENTORY
+      Document every dependency on the partner.
+      For each dependency:
+      - Dependency description
+      - Category: DELIVERABLE / ACCESS / DECISION / RESOURCE / INFORMATION
+      - Expected delivery date
+      - Status: ON TRACK / AT RISK / BLOCKED / DELIVERED / UNKNOWN
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      - Evidence supporting status
+      - Partner owner and internal owner
+      If dependency_registry is sparse, state what is missing.
+      Deliverable: Dependency table (Dependency | Category | Expected Date | Status | Confidence | Evidence | Partner Owner | Internal Owner).
+
+      STEP 2: STATUS ASSESSMENT
+      Classify overall dependency health.
+      - Total dependencies and status distribution (on track / at risk / blocked / delivered / unknown)
+      - Overall health: GREEN (90%+ on track or delivered) / YELLOW (70-89%) / RED (< 70%)
+      - Confidence: aggregate of individual dependency confidence levels
+      Deliverable: Status summary (Total | On Track | At Risk | Blocked | Delivered | Unknown | Health | Confidence).
+
+      STEP 3: AT-RISK IDENTIFICATION
+      For each AT RISK or BLOCKED dependency, provide detailed analysis.
+      - Root cause of risk or block
+      - Duration in current state
+      - Escalation history (previous attempts to unblock)
+      - Workaround available: YES / NO (describe if yes)
+      If no dependencies are at risk, state "No at-risk dependencies identified."
+      Deliverable: At-risk detail table (Dependency | Root Cause | Duration | Escalation History | Workaround).
+
+      STEP 4: IMPACT ANALYSIS
+      For each AT RISK or BLOCKED dependency, assess downstream impact.
+      If project_timeline is available:
+      - Affected milestone(s)
+      - Delay estimate (days/weeks)
+      - Cascade effect (what else slips if this dependency is late)
+      - Revenue or deal impact (if applicable)
+      If project_timeline is ABSENT, state "Downstream impact estimated without project timeline data."
+      Deliverable: Impact table (Dependency | Affected Milestone | Delay Estimate | Cascade Effect | Revenue Impact).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every dependency has explicit status with confidence (no silent assumptions)
+      - AT RISK vs. BLOCKED clearly distinguished (at risk = may slip; blocked = cannot proceed)
+      - Root causes are specific, not generic ("partner resource constraint" vs. "partner issue")
+      - Impact analysis includes cascade effects, not just immediate delay
+      - UNKNOWN status triggers investigation action in the plan
+      - Executive summary actionable without reading dependency details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + at-risk/blocked list + top action + state delta
+      - DISCOVERY: signal plan (dependency tracking tool access, partner PM contact, status meeting schedule)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) dependency health with count distribution, (2) highest-impact at-risk or blocked dependency and its downstream effect, (3) single most urgent mitigation action with owner and timeline.
+
+  performance_scorecard:
+    id: partner-performance-scorecard
+    name: "Partner Performance Scorecard"
+    description: "Generate partner performance scorecard with metric collection, benchmark comparison, trend analysis, and improvement actions"
+    domain: program_health
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: scorecard_metrics
+        required: true
+        description: Defined scorecard metrics with targets and current values
+      - name: benchmark_data
+        required: false
+        description: Peer partner benchmarks for comparison
+      - name: prior_scorecard
+        required: false
+        description: Previous scorecard for trend analysis
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Generating performance scorecard for {partner_name}.
+      Scorecard metrics: {scorecard_metrics}
+      Benchmark data: {benchmark_data}
+      Prior scorecard: {prior_scorecard}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are producing a performance scorecard that measures partner contribution and effectiveness. The scorecard drives performance conversations, tier decisions, and investment allocation.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If scorecard_metrics is ABSENT, DEFER: cannot generate scorecard without defined metrics.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: METRIC COLLECTION
+      Document current performance for each defined metric.
+      For each metric:
+      - Metric name and category (Revenue, Pipeline, Delivery, Engagement, Enablement)
+      - Target value
+      - Actual value
+      - Variance (actual vs. target, percentage and absolute)
+      - Status: EXCEEDS (>110% of target) / MEETS (90-110%) / BELOW (70-89%) / CRITICAL (<70%)
+      - Measurement source and date
+      - Confidence: VERIFIED (system data) / ESTIMATED (calculated) / ASSUMED (self-reported)
+      If a metric has no actual value available, state "DATA NOT AVAILABLE" rather than estimating.
+      Deliverable: Scorecard table (Metric | Category | Target | Actual | Variance | Status | Source | Confidence).
+
+      STEP 2: BENCHMARK COMPARISON
+      If benchmark_data is available, compare partner performance to peers.
+      For each metric:
+      - Partner value
+      - Peer median
+      - Peer top quartile
+      - Percentile rank
+      - Position: LEADER / ABOVE AVERAGE / AVERAGE / BELOW AVERAGE / LAGGING
+      If benchmark_data is ABSENT, state "Benchmark comparison not available, peer data not provided."
+      Deliverable: Benchmark table (Metric | Partner | Peer Median | Top Quartile | Percentile | Position).
+
+      STEP 3: TREND ANALYSIS
+      If prior_scorecard is available, compare current to previous period.
+      For each metric:
+      - Previous value and period
+      - Current value
+      - Delta (absolute and percentage)
+      - Trend: IMPROVING / STABLE / DECLINING
+      - Driver of change
+      If prior_scorecard is ABSENT, state "Trend analysis not available, first scorecard period."
+      Deliverable: Trend table (Metric | Previous | Current | Delta | Trend | Driver).
+
+      STEP 4: SCORECARD GENERATION
+      Produce the composite scorecard.
+      - Overall score: weighted average across all metrics (state weights and methodology)
+      - Overall status: EXCEEDS / MEETS / BELOW / CRITICAL
+      - Confidence: minimum confidence across all metrics
+      - Top 3 strengths (highest-performing metrics)
+      - Top 3 improvement areas (lowest-performing metrics)
+      - Trend summary: IMPROVING / STABLE / DECLINING / INSUFFICIENT DATA
+      Deliverable: Composite scorecard (Overall Score | Status | Confidence | Strengths | Improvement Areas | Trend).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every defined metric has an explicit value or "DATA NOT AVAILABLE" (no silent omissions)
+      - Variance calculated in both absolute and percentage terms
+      - Weights stated and justified for composite scoring
+      - Confidence is the minimum across all metrics, not an average
+      - Trend analysis uses time-separated data or declares "first period"
+      - Improvement areas include root cause, not just "metric X is below target"
+      - Executive summary actionable without reading metric details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + composite scorecard + top improvement action + state delta
+      - DISCOVERY: signal plan (metric data sources, measurement methodology, benchmark sources)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) overall scorecard status and score with confidence, (2) weakest metric and its root cause, (3) single most impactful improvement action with owner and expected score impact.
+
+  program_review:
+    id: partner-program-review
+    name: "Comprehensive Partner Program Review"
+    description: "Cross-dimension program health review for QBR or leadership, covering pipeline contribution, certification status, engagement trends, and program ROI"
+    domain: program_health
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: review_period
+        required: true
+        description: Period under review (e.g., Q1 2026, H1 2026)
+      - name: pipeline_data
+        required: true
+        description: Partner-influenced and partner-sourced pipeline data
+      - name: certification_status
+        required: false
+        description: Current certification and compliance status
+      - name: engagement_history
+        required: false
+        description: Engagement signals and health check history for the period
+      - name: financial_data
+        required: false
+        description: Partner program costs, revenue attribution, and ROI inputs
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Comprehensive program review for {partner_name}.
+      Review period: {review_period}
+      Pipeline data: {pipeline_data}
+      Certification status: {certification_status}
+      Engagement history: {engagement_history}
+      Financial data: {financial_data}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are producing a comprehensive partner program review suitable for QBR presentation or leadership briefing. The review synthesizes data across multiple dimensions to assess program health and inform investment decisions.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If pipeline_data is ABSENT, DEFER: pipeline contribution is the core measure of program value.
+      Note which optional inputs are absent and what dimensions will be incomplete.
+      Deliverable: Input Gate table + Run Mode declaration + data coverage note.
+
+      STEP 1: CROSS-DIMENSION ANALYSIS
+      Assess program health across five dimensions.
+      For each dimension, provide a status (GREEN / YELLOW / RED / GRAY) and summary:
+      1. Pipeline Contribution: partner-sourced and partner-influenced pipeline vs. targets
+      2. Revenue Impact: closed revenue through partner motions, attribution accuracy
+      3. Enablement Status: certification coverage, training completion, maturity level
+      4. Engagement Quality: communication, responsiveness, strategic alignment
+      5. Program Compliance: contract adherence, reporting, governance
+      Each dimension: status, key metric, confidence, supporting evidence.
+      If data is ABSENT for a dimension, score as GRAY with note on what data is needed.
+      Deliverable: Cross-dimension summary table (Dimension | Status | Key Metric | Confidence | Evidence).
+
+      STEP 2: PIPELINE CONTRIBUTION
+      Detail the partner's pipeline contribution.
+      - Partner-sourced pipeline: count, value, win rate
+      - Partner-influenced pipeline: count, value, win rate
+      - Pipeline velocity: average days in each stage for partner deals vs. non-partner deals
+      - Contribution to overall pipeline: percentage of total
+      - Target vs. actual: variance and status
+      Deliverable: Pipeline contribution table (Metric | Target | Actual | Variance | Status | Confidence).
+
+      STEP 3: CERTIFICATION STATUS
+      If certification_status is available, summarize certification health.
+      - Total certifications: active, expiring, expired
+      - Compliance with tier requirements
+      - Certification depth vs. breadth
+      If ABSENT, state "Certification status not included, data not provided."
+      Deliverable: Certification summary (Total | Active | Expiring | Expired | Tier Compliance).
+
+      STEP 4: ENGAGEMENT TRENDS
+      If engagement_history is available, show engagement trajectory.
+      - Health score trend over the review period
+      - Communication frequency and quality trend
+      - Issue count and resolution time trend
+      - Escalation frequency
+      If ABSENT, state "Engagement trend data not available for this period."
+      Deliverable: Engagement trend table (Period | Health Score | Communication Quality | Issues | Escalations).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - All five dimensions assessed with explicit status (GREEN/YELLOW/RED/GRAY)
+      - GRAY dimensions documented with specific data requests
+      - Pipeline contribution split between partner-sourced and partner-influenced
+      - Win rates compared to non-partner baseline where available
+      - Trends use multi-period data or state "single period, no trend"
+      - Review is balanced (strengths and gaps), not advocacy or criticism
+      - Executive summary suitable for leadership consumption (no jargon, quantified claims)
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + cross-dimension summary + top action + state delta
+      - DISCOVERY: signal plan (per-dimension data sources, reporting contacts, system access needed)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) overall program health with dimension status distribution, (2) pipeline contribution vs. target with win rate, (3) single highest-priority recommendation for the next period with owner.
+
+# ============================================================================
+# RISK PROMPTS
+# ============================================================================
+risk:
+
+  risk_identification:
+    id: partner-risk-identification
+    name: "Partner Risk Identification"
+    description: "Identify and classify partner risks through signal scanning, risk classification at high/medium/low, impact assessment, and mitigation options"
+    domain: risk
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: engagement_status
+        required: true
+        description: Current engagement status and recent signals
+      - name: market_signals
+        required: false
+        description: External market signals (partner financials, M&A activity, leadership changes)
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Identifying risks for partner {partner_name}.
+      Engagement status: {engagement_status}
+      Market signals: {market_signals}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are scanning for risks that the partner relationship introduces to the business. The output drives mitigation planning and escalation decisions. Every risk must have evidence, not assumption.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If engagement_status is ABSENT, DEFER: cannot assess risk without baseline engagement data.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: SIGNAL SCANNING
+      Scan for risk signals across six categories.
+      For each category, identify available signals:
+      1. Delivery Risk: missed deadlines, quality issues, scope creep, resource gaps
+      2. Relationship Risk: communication breakdown, strategic misalignment, champion loss
+      3. Financial Risk: partner financial instability, pricing disputes, payment issues
+      4. Competitive Risk: partner engaging with competitors, channel conflict, divided loyalty
+      5. Compliance Risk: certification lapses, contract violations, regulatory exposure
+      6. Strategic Risk: M&A activity, leadership changes, market position shifts
+      For each signal:
+      - Signal description
+      - Category assignment (primary + secondary if applicable)
+      - Polarity: NEGATIVE / NEUTRAL / EARLY WARNING
+      - Confidence: VERIFIED / ESTIMATED / ASSUMED with source
+      If no signals in a category, state "No risk signals detected in [category]."
+      Deliverable: Signal table (Signal | Primary Category | Secondary | Polarity | Confidence | Source).
+
+      STEP 2: RISK CLASSIFICATION
+      For each identified risk signal, classify severity.
+      - Risk description (specific scenario, not generic label)
+      - Likelihood: HIGH / MEDIUM / LOW with rationale
+      - Impact: HIGH / MEDIUM / LOW with specific consequences
+      - Combined severity: HIGH (any H+H or H+M) / MEDIUM (M+M or M+L) / LOW (L+L)
+      - Time horizon: IMMEDIATE (< 30 days) / NEAR-TERM (30-90 days) / LONG-TERM (> 90 days)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Risk classification table (Risk | Likelihood | Impact | Severity | Time Horizon | Confidence).
+
+      STEP 3: IMPACT ASSESSMENT
+      For each HIGH and MEDIUM severity risk, assess business impact.
+      - Revenue at risk (quantified where possible)
+      - Deal impact (specific deals affected)
+      - Relationship damage (escalation required, trust erosion)
+      - Operational impact (resource reallocation, timeline changes)
+      - Reputational exposure
+      Deliverable: Impact detail table (Risk | Revenue at Risk | Deals Affected | Relationship Impact | Operational Impact | Reputational Exposure).
+
+      STEP 4: MITIGATION OPTIONS
+      For each HIGH and MEDIUM severity risk, propose mitigation strategies.
+      For each option:
+      - Mitigation action
+      - Risk reduction: what severity level this brings the risk to
+      - Owner
+      - Timeline
+      - Prerequisites
+      - Cost or resource requirement
+      Deliverable: Mitigation table (Risk | Action | Target Severity | Owner | Timeline | Prerequisites | Cost).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - All six risk categories scanned (even if no signals found, explicitly stated)
+      - Risks are specific scenarios, not generic labels ("partner may lose AWS certification by Q2" not "certification risk")
+      - Likelihood and impact scored independently, combined severity follows stated rules
+      - Impact quantified where data allows (revenue, deal count), estimated where not
+      - Mitigation options include target severity level (what risk becomes after mitigation)
+      - No risks fabricated: every risk has a signal source
+      - Executive summary actionable without reading classification details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + HIGH severity risks + top mitigation action + state delta
+      - DISCOVERY: signal plan (per-category monitoring sources, market intelligence contacts, review cadence)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) total risk count with severity distribution and confidence, (2) highest-severity risk and its business impact, (3) single most urgent mitigation action with owner and timeline.
+
+  issue_resolution:
+    id: partner-issue-resolution
+    name: "Partner Issue Resolution Plan"
+    description: "Plan resolution for a partner issue with documentation, root cause analysis, resolution options with tradeoffs, and an owned action plan"
+    domain: risk
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: issue_description
+        required: true
+        description: Description of the partner issue to resolve
+      - name: current_impact
+        required: true
+        description: Current business impact of the issue
+      - name: previous_attempts
+        required: false
+        description: Prior resolution attempts and their outcomes
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Resolving issue with {partner_name}: {issue_description}
+      Current impact: {current_impact}
+      Previous attempts: {previous_attempts}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are planning resolution for a specific partner issue. The output drives the resolution process with clear options, ownership, and timeline. Analysis must be fact-based and blame-free.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If issue_description is ABSENT, DEFER: cannot plan resolution without issue definition.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: ISSUE DOCUMENTATION
       Document the issue with precision.
-      If {issue_description} is empty: state that no issue description is
-      provided, note the implication (cannot analyze root cause), proceed
-      without fabrication.
-      - What is happening (observable symptoms)
-      - When it started or was first noticed
-      - Who is affected (internal teams, customer, partner)
-      - Current scope (single account, multiple accounts, systemic)
-      - Severity classification: CRITICAL / HIGH / MEDIUM / LOW,
-        confidence: HIGH/MEDIUM/LOW with basis
-      Deliverable: Issue Summary (Symptom | Start Date | Affected Parties |
-      Scope | Severity | Confidence).
+      - Observable symptoms (what is happening)
+      - First occurrence date or detection date
+      - Affected parties (internal teams, customer, partner)
+      - Scope: ISOLATED (single account) / LIMITED (few accounts) / SYSTEMIC (pattern across accounts)
+      - Severity: CRITICAL / HIGH / MEDIUM / LOW
+      - Severity rationale (quantified where possible)
+      - Confidence: HIGH / MEDIUM / LOW with basis
+      Deliverable: Issue summary (Symptom | First Seen | Affected | Scope | Severity | Confidence).
 
       STEP 2: ROOT CAUSE ANALYSIS
-      Identify the root cause of the issue.
-      If insufficient data to determine root cause: state what is missing, note
-      the implication, and list hypotheses ranked by probability.
+      Identify the root cause(s) of the issue.
       For each potential root cause:
       - Description
-      - Evidence supporting this as root cause
-      - Evidence against
-      - Probability: HIGH/MEDIUM/LOW, confidence: HIGH/MEDIUM/LOW with basis
-      - Whether this is a recurring pattern
-      Assign one primary root cause for routing. Add secondary flags where
-      multiple causes contribute.
-      Deliverable: Root Cause table (Cause | Supporting Evidence | Counter Evidence |
-      Probability | Confidence | Recurring YES/NO | Primary/Secondary).
+      - Supporting evidence
+      - Counter-evidence
+      - Probability: HIGH / MEDIUM / LOW
+      - Recurring: YES / NO (has this pattern occurred before?)
+      Assign one primary root cause for resolution targeting. Note secondary contributors.
+      If root cause cannot be determined, list hypotheses ranked by probability and define diagnostic steps.
+      Deliverable: Root cause table (Cause | Supporting Evidence | Counter Evidence | Probability | Recurring | Primary/Secondary).
 
       STEP 3: RESOLUTION OPTIONS
-      Present resolution options with analysis.
+      Present 2-4 resolution options with analysis.
       For each option:
       - Option description
       - Pros (specific benefits)
-      - Cons (specific drawbacks or risks)
+      - Cons (specific drawbacks)
       - Timeline to implement
       - Resource requirements
-      - Success probability: HIGH/MEDIUM/LOW, confidence: HIGH/MEDIUM/LOW with basis
+      - Success probability: HIGH / MEDIUM / LOW with confidence
       - Dependencies or prerequisites
-      Deliverable: Resolution Options table (Option | Pros | Cons | Timeline |
-      Resources | Success Probability | Confidence | Prerequisites).
+      - Relationship impact: POSITIVE / NEUTRAL / NEGATIVE
+      Recommend one option with justification and fallback if it fails.
+      Deliverable: Resolution options table (Option | Pros | Cons | Timeline | Resources | Success Probability | Prerequisites | Relationship Impact) + Recommendation.
 
-      STEP 4: RECOMMENDED APPROACH
-      State the recommended resolution approach with justification.
-      - Which option is recommended and why
-      - What conditions would change this recommendation
-      - Fallback if recommended approach fails
-      Deliverable: Recommendation (Approach | Justification | Change Conditions |
-      Fallback).
+      STEP 4: ACTION PLAN WITH OWNERS
+      Detail the execution plan for the recommended option.
+      For each action:
+      - Action description
+      - Owner (named role or individual)
+      - Timeline (start date, due date)
+      - Prerequisites (what must be true before this action starts)
+      - Success criterion (how to know this action worked)
+      - Escalation trigger (what happens if this action fails)
+      Deliverable: Action plan table (Priority | Action | Owner | Start | Due | Prerequisites | Success Criterion | Escalation Trigger).
 
-      STEP 5: ACTION PLAN
-      Define the execution plan for the recommended approach.
-      Deliverable: Action table (Priority | Action | Owner | Timeline |
-      Prerequisites | Expected Impact).
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
 
-      STEP 6: ACCOUNT STATE DELTA
-      Specify what this runbook's findings change in account state:
-      - Fields updated (field path | old value | new value | evidence)
-      - New risks added or existing risks resolved
-      - Signals to append to recent history
-      - Next actions to add or complete
-      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
-      Runbook Source).
-
-      QUALITY CHECKS BEFORE OUTPUT:
-      - Input Gate completed, Data Availability Map present, Signal Acquisition Mode check performed
-      - Issue summary distinguishes symptoms from root cause
-      - Root cause analysis includes evidence for and against each hypothesis
-      - Resolution options include success probability with confidence levels
-      - Recommended approach has justification and fallback plan
-      - Action plan includes prerequisites and expected impact for every action
-      - No blame language: analysis is factual, not accusatory
-      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+      QUALITY CHECKS:
+      - Issue symptoms distinguished from root cause (not conflated)
+      - Root cause analysis includes counter-evidence, not just confirmation bias
+      - Resolution options include relationship impact assessment
+      - Recommended option has justification and fallback plan
+      - Action plan includes escalation triggers, not just actions
+      - Tone is factual and blame-free throughout
+      - Executive summary actionable without reading full analysis
 
       RUN MODE EXECUTION:
-      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
-      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
-      - If run_mode is FULL or not specified: produce all deliverables as described above.
+      - QUICK: executive summary + recommendation + top action + state delta
+      - DISCOVERY: signal plan (diagnostic data to collect, stakeholders to interview, root cause investigation steps)
+      - FULL: all deliverables
 
-      Lead with a 3-sentence executive summary stating: (1) the issue severity and
-      root cause confidence, (2) the recommended resolution approach and its
-      success probability, and (3) the single most urgent first action.
+      EXECUTIVE SUMMARY: State (1) issue severity and root cause confidence, (2) recommended resolution option and its success probability, (3) single most urgent first action with owner and timeline.
 
   escalation_prep:
-    name: "Partner Escalation Preparation"
-    description: "Prepare a structured escalation package for a partner issue including issue history, resolution attempts, current impact, and specific ask"
+    id: partner-escalation-prep
+    name: "Partner Escalation Package"
+    description: "Prepare a structured escalation package with issue history, impact documentation, previous resolution attempts, and a specific escalation recommendation"
+    domain: risk
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: issue_description
+        required: true
+        description: Issue being escalated
+      - name: issue_history
+        required: true
+        description: Timeline of the issue from first occurrence to present
+      - name: previous_attempts
+        required: true
+        description: Prior resolution attempts and their outcomes
+      - name: current_impact
+        required: true
+        description: Current business impact of the unresolved issue
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
     prompt: |
-      Context: Escalating {issue} with {partner_name}.
-      Attempts to resolve: {previous_attempts}
+      Context: Preparing escalation package for issue with {partner_name}.
+      Issue: {issue_description}
+      Issue history: {issue_history}
+      Previous attempts: {previous_attempts}
+      Current impact: {current_impact}
       Account state: {account_state}
       Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      You are preparing an escalation package for a partner issue that has not
-      been resolved through normal channels. The output must be compelling,
-      evidence-based, and include a specific ask. Follow these steps in order.
+      You are preparing an escalation package for a partner issue that has not been resolved through normal channels. The package must be compelling, evidence-based, and include a specific ask that leadership can act on.
 
       STEP 0: INPUT GATE
-      Validate all inputs before proceeding. For each required input listed in the
-      context block, classify as:
-      - PRESENT: data received and parseable
-      - PARTIAL: data received but incomplete (specify what's missing)
-      - ABSENT: no data received
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If issue_description or current_impact is ABSENT, DEFER: escalation requires both issue definition and impact quantification.
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Based on input status, select run mode:
-      - FULL: all required inputs PRESENT, proceed with all steps
-      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
-        that depends on partial data, mark affected outputs as "estimated" or
-        "based on incomplete data"
-      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
-        (a) list of missing inputs with specific ask per input
-        (b) who can provide each input (role, system, or data source)
-        (c) suggested deadline for re-running this runbook with complete inputs
-
-      Data Availability Map, for each scoring dimension assess data richness:
-      - HIGH: documented communication, tracked resolution attempts, 5+ data points
-      - MEDIUM: partial records, 2-4 data points
-      - LOW: no records, recall-based only
-      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
-      Dimensions to assess: Issue Documentation, Resolution History, Impact
-      Quantification, Stakeholder Mapping, Desired Outcome Clarity.
-      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
-      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode
-      declaration.
-
-      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
-      Switch to SIGNAL ACQUISITION MODE and produce instead:
-      - Questions to ask in next 2-3 interactions (targeted at escalation preparation gaps)
-      - Data sources to request access to (email threads, ticket history, impact reports)
-      - Observation checklist for implicit signals in upcoming interactions
-      - Re-assessment gate with minimum data threshold and target date
-      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
-      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
-      Do not proceed to remaining steps.
-
-      STEP 1: ESCALATION SUMMARY
-      Write a concise summary suitable for executive consumption.
-      If {issue} is empty: state that no issue description is provided, note
-      the implication (escalation cannot proceed without clear issue statement),
-      proceed without fabrication.
-      - Issue in one sentence
-      - Duration of the issue
-      - Current business impact (quantified where possible)
-      - Why escalation is warranted (normal channels exhausted)
-      Deliverable: Escalation Summary (1 paragraph, 4-6 sentences).
-
-      STEP 2: ISSUE HISTORY
-      Document the timeline of the issue from first occurrence to present.
+      STEP 1: ISSUE HISTORY
+      Document the chronological timeline of the issue.
       For each event:
       - Date
-      - What happened
-      - Who was involved
-      - Outcome or result
-      - Evidence (meeting notes, emails, tickets)
-      Deliverable: Issue Timeline (Date | Event | Participants | Outcome |
-      Evidence Reference).
+      - Event description
+      - Participants
+      - Outcome
+      - Evidence reference (email, ticket, meeting notes)
+      Timeline must show that normal resolution channels were exhausted.
+      Deliverable: Issue timeline table (Date | Event | Participants | Outcome | Evidence).
 
-      STEP 3: PREVIOUS RESOLUTION ATTEMPTS
-      Document all attempts to resolve the issue before escalation.
-      If {previous_attempts} is empty: state that no prior resolution attempts
-      are documented, note the implication (escalation may be questioned without
-      evidence of good-faith resolution efforts), proceed without fabrication.
+      STEP 2: IMPACT DOCUMENTATION
+      Quantify the current business impact.
+      - Revenue impact: at risk, delayed, or lost (amount, confidence)
+      - Timeline impact: project delays, milestone slippage (days/weeks)
+      - Customer impact: satisfaction risk, relationship damage
+      - Resource cost: internal time spent managing the issue (hours or FTE equivalent)
+      - Reputational exposure: competitive risk, reference-ability impact
+      Each impact area: quantification with confidence (HIGH / MEDIUM / LOW) and basis.
+      Deliverable: Impact table (Impact Area | Description | Quantification | Confidence | Basis).
+
+      STEP 3: PREVIOUS ATTEMPTS
+      Document all resolution attempts before escalation.
       For each attempt:
-      - Date and approach taken
-      - Who was involved
-      - What was the partner's response
+      - Date and approach
+      - Who was involved (names and roles)
+      - Partner response
       - Why it did not resolve the issue
-      - Evidence of the attempt
-      Deliverable: Resolution Attempts table (Date | Approach | Participants |
-      Partner Response | Why Unsuccessful | Evidence).
+      - Evidence of good-faith effort
+      This section must demonstrate that escalation is warranted, not premature.
+      Deliverable: Attempts table (Date | Approach | Participants | Partner Response | Why Unsuccessful | Evidence).
 
-      STEP 4: CURRENT IMPACT ASSESSMENT
-      Quantify the current impact of the unresolved issue.
-      - Revenue impact (at risk, delayed, lost), confidence: HIGH/MEDIUM/LOW with basis
-      - Timeline impact (project delays, milestone slippage)
-      - Customer satisfaction impact
-      - Internal resource cost (time spent managing the issue)
-      - Reputational risk
-      Deliverable: Impact Assessment (Impact Area | Description | Quantification |
-      Confidence | Basis).
+      STEP 4: ESCALATION RECOMMENDATION
+      Define the escalation request.
+      - Specific ask: what action is needed from escalation recipients
+      - Desired outcome: what success looks like
+      - Escalation target: who should receive this (name, role, or level)
+      - Timeline required: by when must this be resolved
+      - Consequences of inaction: what happens if the issue persists
+      - Recommended tone and approach: collaborative, firm, or formal
+      Deliverable: Escalation recommendation (Ask | Outcome | Target | Timeline | Consequences | Approach).
 
-      STEP 5: ASK AND DESIRED OUTCOME
-      Define what the escalation is requesting.
-      - Specific ask (what action is needed from escalation recipients)
-      - Desired outcome (what success looks like)
-      - Timeline required (by when must this be resolved)
-      - Consequences of inaction (what happens if this is not resolved)
-      Deliverable: Escalation Ask (Ask | Desired Outcome | Timeline | Consequences
-      of Inaction).
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
 
-      STEP 6: STAKEHOLDERS TO INVOLVE
-      Identify who should be part of the escalation.
-      For each stakeholder:
-      - Name and role
-      - Why they need to be involved
-      - What authority or influence they bring
-      - Recommended engagement approach
-      Deliverable: Stakeholder table (Name | Role | Rationale | Authority |
-      Engagement Approach).
-
-      STEP 7: ACCOUNT STATE DELTA
-      Specify what this runbook's findings change in account state:
-      - Fields updated (field path | old value | new value | evidence)
-      - New risks added or existing risks resolved
-      - Signals to append to recent history
-      - Next actions to add or complete
-      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
-      Runbook Source).
-
-      QUALITY CHECKS BEFORE OUTPUT:
-      - Input Gate completed, Data Availability Map present, Signal Acquisition Mode check performed
-      - Escalation summary is executive-ready (no jargon, quantified impact)
-      - Issue history is chronological with evidence references
-      - Previous resolution attempts are documented with evidence (not just "we tried")
-      - Impact assessment includes confidence levels with basis
-      - Ask is specific and actionable, not "please help"
-      - Consequences of inaction are factual, not threatening
-      - Tone is professional and fact-based throughout
-      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+      QUALITY CHECKS:
+      - Issue timeline is chronological with evidence references at every step
+      - Impact quantified where data exists, estimated with confidence where not
+      - Previous attempts documented with enough detail to demonstrate good faith
+      - Escalation ask is specific and actionable, not "please help"
+      - Consequences of inaction are factual, not threatening or emotional
+      - Package is executive-ready: professional tone, no jargon, quantified claims
+      - Executive summary is self-sufficient: reader can decide whether to escalate from summary alone
 
       RUN MODE EXECUTION:
-      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
-      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
-      - If run_mode is FULL or not specified: produce all deliverables as described above.
+      - QUICK: executive summary + impact summary + escalation ask + state delta
+      - DISCOVERY: signal plan (evidence collection, impact quantification, stakeholder mapping for escalation path)
+      - FULL: all deliverables
 
-      Lead with a 3-sentence executive summary stating: (1) the issue and its
-      duration, (2) the quantified business impact and confidence level, and
-      (3) the specific ask with timeline.
+      EXECUTIVE SUMMARY: State (1) the issue, its duration, and why escalation is warranted, (2) quantified business impact with confidence, (3) the specific ask with timeline and escalation target.
 
-# ============================================================================
-# PARTNER REPORTING PROMPTS
-# ============================================================================
-reporting:
-
-  account_team_update:
-    name: "Partner Update for Account Team"
-    description: "Prepare a structured partner status update for the account team covering health, risks, dependencies, and required actions"
+  channel_conflict:
+    id: partner-channel-conflict
+    name: "Channel Conflict Detection and Assessment"
+    description: "Detect and assess channel conflict through territory overlap analysis, deal registration conflict check, impact assessment, and resolution recommendation"
+    domain: risk
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name (or names if conflict is between partners)
+      - name: territory_data
+        required: true
+        description: Territory assignments, account ownership, and coverage maps
+      - name: deal_registrations
+        required: true
+        description: Deal registrations from all involved parties
+      - name: channel_policies
+        required: false
+        description: Channel conflict resolution policies and rules of engagement
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
     prompt: |
-      Context: Update account team on {partner_name} status.
-      Account: {account_name}
+      Context: Detecting channel conflict involving {partner_name}.
+      Territory data: {territory_data}
+      Deal registrations: {deal_registrations}
+      Channel policies: {channel_policies}
       Account state: {account_state}
       Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
 
-      You are preparing a partner status update for the internal account team.
-      The output must be concise, actionable, and highlight what the account team
-      needs to know and do. Follow these steps in order.
+      You are detecting and assessing channel conflict to prevent partner relationship damage, customer confusion, and revenue leakage. The output drives conflict resolution and policy enforcement.
 
       STEP 0: INPUT GATE
-      Validate all inputs before proceeding. For each required input listed in the
-      context block, classify as:
-      - PRESENT: data received and parseable
-      - PARTIAL: data received but incomplete (specify what's missing)
-      - ABSENT: no data received
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If territory_data and deal_registrations are both ABSENT, DEFER: conflict detection requires at least one data source.
+      Deliverable: Input Gate table + Run Mode declaration.
 
-      Based on input status, select run mode:
-      - FULL: all required inputs PRESENT, proceed with all steps
-      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
-        that depends on partial data, mark affected outputs as "estimated" or
-        "based on incomplete data"
-      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
-        (a) list of missing inputs with specific ask per input
-        (b) who can provide each input (role, system, or data source)
-        (c) suggested deadline for re-running this runbook with complete inputs
+      STEP 1: TERRITORY OVERLAP ANALYSIS
+      Identify accounts or regions where multiple parties have overlapping coverage.
+      For each overlap:
+      - Account or territory name
+      - Party A coverage claim (partner, direct sales, or another partner)
+      - Party B coverage claim
+      - Overlap type: GEOGRAPHIC / ACCOUNT / VERTICAL / PRODUCT LINE
+      - Documented assignment: which party has documented rights (if any)
+      - Conflict severity: HIGH (active deal contention) / MEDIUM (potential future contention) / LOW (theoretical overlap, no active deals)
+      If no overlaps found, state "No territory overlaps detected."
+      Deliverable: Overlap table (Account/Territory | Party A | Party B | Overlap Type | Documented Rights | Severity).
 
-      Data Availability Map, for each scoring dimension assess data richness:
-      - HIGH: documented partner status, recent sync notes, 5+ data points
-      - MEDIUM: partial records, 2-4 data points
-      - LOW: no recent data, last update stale
-      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
-      Dimensions to assess: Partner Engagement Status, Delivery Progress, Risk
-      Visibility, Dependency Tracking, Communication Cadence.
-      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
-      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode
-      declaration.
+      STEP 2: DEAL REGISTRATION CONFLICT CHECK
+      Cross-reference deal registrations for conflicts.
+      For each potential conflict:
+      - Account and deal name
+      - Registration by Party A: date, value, status
+      - Registration by Party B: date, value, status
+      - Conflict type: DUPLICATE REGISTRATION / FIRST-IN-TIME DISPUTE / SPLIT TERRITORY / PROGRAM RULE VIOLATION
+      - Policy resolution: what do channel_policies say about this case? (if policies available)
+      If no registration conflicts found, state "No deal registration conflicts detected."
+      Deliverable: Conflict table (Account | Deal | Party A Reg | Party B Reg | Conflict Type | Policy Resolution).
 
-      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
-      Switch to SIGNAL ACQUISITION MODE and produce instead:
-      - Questions to ask in next 2-3 interactions (targeted at partner visibility gaps)
-      - Data sources to request access to (partner reports, sync notes, delivery trackers)
-      - Observation checklist for implicit signals in upcoming interactions
-      - Re-assessment gate with minimum data threshold and target date
-      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
-      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
-      Do not proceed to remaining steps.
+      STEP 3: IMPACT ASSESSMENT
+      For each identified conflict, assess business impact.
+      - Revenue at risk (total deal value in dispute)
+      - Partner relationship damage: which relationship(s) are at risk and why
+      - Customer impact: is the customer aware of the conflict? How does it affect their experience?
+      - Precedent risk: does this conflict set a pattern that will repeat?
+      - Timeline urgency: when must this be resolved (deal close date, registration expiry)
+      Deliverable: Impact table (Conflict | Revenue at Risk | Relationship Impact | Customer Impact | Precedent Risk | Resolution Deadline).
 
-      STEP 1: PARTNER STATUS SUMMARY
-      Provide a concise status overview.
-      - Overall engagement health: GREEN/YELLOW/RED, confidence: HIGH/MEDIUM/LOW
-        with basis
-      - Assign one primary classification for routing. Add secondary flags where
-        the signal spans multiple dimensions.
-      - Key headline (one sentence capturing the most important thing to know)
-      - Status since last update: IMPROVED / STABLE / DEGRADED / INSUFFICIENT DATA
-      Trend requires comparison of at least two time-separated observations. If
-      only one observation exists, trend is INSUFFICIENT DATA.
-      Deliverable: Status Summary (Health | Confidence | Headline | Trend |
-      Trend Basis).
+      STEP 4: RESOLUTION RECOMMENDATION
+      For each conflict, recommend a resolution path.
+      - Recommended resolution (split, first-in-time, strategic assignment, joint pursuit)
+      - Rationale (based on policy, precedent, or strategic value)
+      - Communication plan: who needs to be informed and in what order
+      - Prevention measure: what should change to prevent recurrence
+      - Escalation path: who decides if parties cannot agree
+      Deliverable: Resolution table (Conflict | Resolution | Rationale | Communication Plan | Prevention | Escalation Path).
 
-      STEP 2: KEY UPDATES
-      List significant updates since the last account team communication.
-      If no updates are available: state "No new updates since last report" and
-      proceed to Step 3.
-      For each update:
-      - Update description
-      - Impact on account (positive, neutral, negative)
-      - Action required YES/NO
-      Deliverable: Updates table (Update | Impact | Action Required).
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
 
-      STEP 3: ACCOUNT TEAM ACTIONS NEEDED
-      Define specific actions the account team needs to take regarding the partner.
-      Deliverable: Action table (Priority | Action | Owner | Timeline |
-      Prerequisites | Expected Impact).
-
-      STEP 4: RISKS AND DEPENDENCIES
-      Summarize current partner-related risks and dependencies for the account
-      team's awareness.
-      For each item:
-      - Description
-      - Type: RISK / DEPENDENCY
-      - Severity: HIGH/MEDIUM/LOW, confidence: HIGH/MEDIUM/LOW with basis
-      - Status: NEW / ONGOING / RESOLVED
-      - Account team role (what they need to do, if anything)
-      Deliverable: Risks and Dependencies table (Item | Type | Severity |
-      Confidence | Status | Account Team Role).
-
-      STEP 5: NEXT MILESTONE
-      Identify the next significant milestone in the partner engagement.
-      - Milestone description
-      - Expected date
-      - Readiness assessment: ON TRACK / AT RISK / BLOCKED,
-        confidence: HIGH/MEDIUM/LOW with basis
-      - Account team preparation needed
-      Deliverable: Next Milestone (Milestone | Date | Readiness | Confidence |
-      Preparation Needed).
-
-      STEP 6: ACCOUNT STATE DELTA
-      Specify what this runbook's findings change in account state:
-      - Fields updated (field path | old value | new value | evidence)
-      - New risks added or existing risks resolved
-      - Signals to append to recent history
-      - Next actions to add or complete
-      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
-      Runbook Source).
-
-      QUALITY CHECKS BEFORE OUTPUT:
-      - Input Gate completed, Data Availability Map present, Signal Acquisition Mode check performed
-      - Status summary includes health classification with confidence and basis
-      - Trend assessment uses two observations or declares INSUFFICIENT DATA
-      - Health classification includes primary and secondary flags
-      - Account team actions include prerequisites and expected impact
-      - Risks distinguish NEW from ONGOING
-      - Next milestone has readiness assessment with confidence
-      - Update is concise enough to scan in 2 minutes
-      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
+      QUALITY CHECKS:
+      - Territory overlaps assessed using documented rights, not assumptions
+      - Deal registration conflicts checked against policy rules where available
+      - Impact includes customer perspective, not just internal revenue dispute
+      - Resolutions are fair and defensible (based on policy or precedent)
+      - Prevention measures address root cause, not just this instance
+      - Communication plan considers sequencing (talk to affected parties before announcing)
+      - Executive summary actionable without reading conflict details
 
       RUN MODE EXECUTION:
-      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
-      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
-      - If run_mode is FULL or not specified: produce all deliverables as described above.
+      - QUICK: executive summary + active conflicts + top resolution action + state delta
+      - DISCOVERY: signal plan (territory documentation, registration portal access, policy document location, stakeholder mapping)
+      - FULL: all deliverables
 
-      Lead with a 3-sentence executive summary stating: (1) the partner engagement
-      health and confidence, (2) the most significant risk or dependency, and
-      (3) the single most important action the account team should take.
-
-  partner_scorecard:
-    name: "Partner Scorecard Update"
-    description: "Update partner scorecard metrics with trend analysis, confidence levels, and improvement actions"
-    prompt: |
-      Context: Update scorecard for {partner_name} in {account_name}.
-      Metrics: {scorecard_metrics}
-      Account state: {account_state}
-      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
-
-      You are updating the partner scorecard with current metrics, trends, and
-      improvement actions. The output drives partner performance management and
-      continuation decisions. Every metric must have evidence. Follow these steps
-      in order.
-
-      STEP 0: INPUT GATE
-      Validate all inputs before proceeding. For each required input listed in the
-      context block, classify as:
-      - PRESENT: data received and parseable
-      - PARTIAL: data received but incomplete (specify what's missing)
-      - ABSENT: no data received
-
-      Based on input status, select run mode:
-      - FULL: all required inputs PRESENT, proceed with all steps
-      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
-        that depends on partial data, mark affected outputs as "estimated" or
-        "based on incomplete data"
-      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
-        (a) list of missing inputs with specific ask per input
-        (b) who can provide each input (role, system, or data source)
-        (c) suggested deadline for re-running this runbook with complete inputs
-
-      Data Availability Map, for each scoring dimension assess data richness:
-      - HIGH: tracked metrics with history, 5+ data points per metric
-      - MEDIUM: partial metric tracking, 2-4 data points
-      - LOW: no metric tracking, qualitative assessment only
-      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
-      Dimensions to assess: Metric Coverage, Data Freshness, Historical Trend
-      Data, Target Definitions, Benchmark Availability.
-      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
-      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode
-      declaration.
-
-      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
-      Switch to SIGNAL ACQUISITION MODE and produce instead:
-      - Questions to ask in next 2-3 interactions (targeted at metric visibility gaps)
-      - Data sources to request access to (partner dashboards, delivery reports, SLA trackers)
-      - Observation checklist for implicit signals in upcoming interactions
-      - Re-assessment gate with minimum data threshold and target date
-      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
-      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
-      Do not proceed to remaining steps.
-
-      STEP 1: SCORECARD TABLE
-      For each metric on the scorecard, provide current status.
-      If {scorecard_metrics} is empty: state that no metrics are defined, note
-      the implication (cannot produce a scorecard without defined metrics),
-      proceed without fabrication.
-      For each metric:
-      - Metric name
-      - Target value
-      - Actual value
-      - Variance (actual vs target, percentage)
-      - Status: EXCEEDS / MEETS / BELOW / CRITICAL
-      - Confidence: HIGH/MEDIUM/LOW with basis (measurement reliability)
-      - Trend: IMPROVING / STABLE / DECLINING / INSUFFICIENT DATA
-      Trend requires comparison of at least two time-separated observations. If
-      only one observation exists, trend is INSUFFICIENT DATA.
-      Deliverable: Scorecard table (Metric | Target | Actual | Variance | Status |
-      Confidence | Trend).
-
-      STEP 2: OVERALL SCORE
-      Calculate the overall partner score.
-      - Weighted or unweighted average (state which and why)
-      - Overall score as percentage
-      - Overall classification: EXCEEDS / MEETS / BELOW / CRITICAL
-      - Confidence: HIGH/MEDIUM/LOW with basis
-      - Overall trend: IMPROVING / STABLE / DECLINING / INSUFFICIENT DATA
-      Trend requires comparison of at least two time-separated observations. If
-      only one observation exists, trend is INSUFFICIENT DATA.
-      Deliverable: Overall Score (Score | Classification | Confidence | Trend |
-      Trend Basis | Methodology).
-
-      STEP 3: AREAS OF EXCELLENCE
-      Identify metrics where the partner exceeds expectations.
-      If no metrics exceed: state "No metrics currently exceeding targets" and
-      proceed to Step 4.
-      For each area:
-      - Metric and performance level
-      - What the partner is doing well
-      - How to sustain this performance
-      Deliverable: Excellence table (Metric | Performance | Success Factor |
-      Sustainability Action).
-
-      STEP 4: AREAS NEEDING IMPROVEMENT
-      Identify metrics where the partner is below target.
-      If no metrics are below target: state "All metrics meeting or exceeding
-      targets" and proceed to Step 5.
-      For each area:
-      - Metric and gap to target
-      - Root cause of underperformance
-      - Improvement action required
-      - Timeline for improvement
-      Deliverable: Improvement table (Metric | Gap | Root Cause | Improvement
-      Action | Timeline).
-
-      STEP 5: ACTIONS TO IMPROVE SCORE
-      Define actions to improve the overall partner score.
-      Deliverable: Action table (Priority | Action | Owner | Timeline |
-      Prerequisites | Expected Impact).
-
-      STEP 6: ACCOUNT STATE DELTA
-      Specify what this runbook's findings change in account state:
-      - Fields updated (field path | old value | new value | evidence)
-      - New risks added or existing risks resolved
-      - Signals to append to recent history
-      - Next actions to add or complete
-      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
-      Runbook Source).
-
-      QUALITY CHECKS BEFORE OUTPUT:
-      - Input Gate completed, Data Availability Map present, Signal Acquisition Mode check performed
-      - Every metric has actual value with confidence level and evidence
-      - Trends use at least two time-separated observations or declare INSUFFICIENT DATA
-      - Overall score methodology is stated (weighted vs unweighted)
-      - Areas of excellence are specific, not just "good performance"
-      - Improvement actions include root cause, not just "improve metric X"
-      - Action table includes prerequisites and expected impact
-      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
-
-      RUN MODE EXECUTION:
-      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
-      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
-      - If run_mode is FULL or not specified: produce all deliverables as described above.
-
-      Lead with a 3-sentence executive summary stating: (1) the overall partner
-      score and confidence, (2) the weakest metric or lowest-confidence area, and
-      (3) the single most impactful improvement action.
-
-  joint_success_story:
-    name: "Partner Joint Success Story"
-    description: "Develop a joint success story with the partner documenting challenge, solution, contributions, and quantified results"
-    prompt: |
-      Context: Joint success with {partner_name} at {account_name}.
-      Achievement: {achievement}
-      Account state: {account_state}
-      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
-
-      You are developing a joint success story that both parties can use for
-      internal and external communication. The output must be factual, balanced
-      in attribution, and include quantified results. Follow these steps in order.
-
-      STEP 0: INPUT GATE
-      Validate all inputs before proceeding. For each required input listed in the
-      context block, classify as:
-      - PRESENT: data received and parseable
-      - PARTIAL: data received but incomplete (specify what's missing)
-      - ABSENT: no data received
-
-      Based on input status, select run mode:
-      - FULL: all required inputs PRESENT, proceed with all steps
-      - DEGRADED: 1+ inputs PARTIAL, proceed but flag gaps in every deliverable
-        that depends on partial data, mark affected outputs as "estimated" or
-        "based on incomplete data"
-      - DEFER: 2+ required inputs ABSENT, STOP. Do not guess. Produce instead:
-        (a) list of missing inputs with specific ask per input
-        (b) who can provide each input (role, system, or data source)
-        (c) suggested deadline for re-running this runbook with complete inputs
-
-      Data Availability Map, for each scoring dimension assess data richness:
-      - HIGH: documented results, metrics, 5+ data points
-      - MEDIUM: partial documentation, 2-4 data points
-      - LOW: anecdotal only, no metrics
-      If 2+ dimensions score LOW, trigger ZERO-SIGNAL PIVOT (see below).
-      Dimensions to assess: Challenge Documentation, Solution Detail, Contribution
-      Attribution, Results Quantification, Customer Approval Status.
-      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) +
-      Data Availability Map (Dimension | Richness | Sources | Gap) + Run Mode
-      declaration.
-
-      ZERO-SIGNAL PIVOT: If 2+ dimensions score LOW richness, STOP the assessment.
-      Switch to SIGNAL ACQUISITION MODE and produce instead:
-      - Questions to ask in next 2-3 interactions (targeted at success story evidence gaps)
-      - Data sources to request access to (project reports, customer feedback, metrics dashboards)
-      - Observation checklist for implicit signals in upcoming interactions
-      - Re-assessment gate with minimum data threshold and target date
-      If in Signal Acquisition Mode, end with: "Assessment deferred due to insufficient
-      signal in {dimensions}. Signal acquisition plan targets re-assessment by {date}."
-      Do not proceed to remaining steps.
-
-      STEP 1: SUCCESS HEADLINE
-      Write a compelling, factual headline for the success story.
-      If {achievement} is empty: state that no achievement is documented, note
-      the implication (cannot develop a success story without defined achievement),
-      proceed without fabrication.
-      - Headline (one sentence, includes the quantified result)
-      - Sub-headline (one sentence, names both parties)
-      Deliverable: Headline + Sub-headline.
-
-      STEP 2: CHALLENGE ADDRESSED
-      Document the challenge that was solved.
-      - Business challenge the customer faced
-      - Technical or operational dimensions of the challenge
-      - Impact of the challenge on the customer's business (quantified where possible)
-      - Why the challenge required a joint approach
-      - Confidence: HIGH/MEDIUM/LOW with basis for impact quantification
-      Deliverable: Challenge narrative (3-5 sentences) + Impact Quantification
-      (Metric | Before Value | Confidence | Source).
-
-      STEP 3: JOINT SOLUTION
-      Describe the solution delivered jointly.
-      - Solution overview (what was built, implemented, or delivered)
-      - How the solution addressed the challenge
-      - What made this approach distinctive
-      - Timeline from start to value realization
-      Deliverable: Solution narrative (3-5 sentences) + Solution Components table
-      (Component | Description | Delivered By).
-
-      STEP 4: CONTRIBUTION ATTRIBUTION
-      Document what each party contributed, ensuring balanced attribution.
-      For {vendor} contribution:
-      - Specific contributions (technology, expertise, resources)
-      - Value added by each contribution
-      For partner contribution:
-      - Specific contributions (services, expertise, customer relationship)
-      - Value added by each contribution
-      Deliverable: Contribution table ({vendor} Contribution | Value Added) +
-      (Partner Contribution | Value Added).
-
-      STEP 5: RESULTS ACHIEVED
-      Document quantified results.
-      For each result:
-      - Result description
-      - Metric
-      - Before value (baseline)
-      - After value (current)
-      - Improvement (percentage or absolute)
-      - Confidence: HIGH/MEDIUM/LOW with basis
-      - Measurement method
-      Deliverable: Results table (Result | Metric | Before | After | Improvement |
-      Confidence | Measurement Method).
-
-      STEP 6: KEY QUOTE
-      Draft a potential customer quote for the success story.
-      - Draft quote (2-3 sentences, in customer voice)
-      - Suggested speaker (role, not name, unless confirmed)
-      - Note: quote is a draft requiring customer review and approval
-      Deliverable: Draft quote + Speaker suggestion + Approval status.
-
-      STEP 7: ACCOUNT STATE DELTA
-      Specify what this runbook's findings change in account state:
-      - Fields updated (field path | old value | new value | evidence)
-      - New risks added or existing risks resolved
-      - Signals to append to recent history
-      - Next actions to add or complete
-      Deliverable: Account State Delta (Field | Previous | Updated | Evidence |
-      Runbook Source).
-
-      QUALITY CHECKS BEFORE OUTPUT:
-      - Input Gate completed, Data Availability Map present, Signal Acquisition Mode check performed
-      - Headline includes a quantified result
-      - Challenge is documented from the customer's perspective, not ours
-      - Solution description is factual, not promotional
-      - Contributions are balanced between both parties
-      - Results include confidence levels and measurement methods
-      - No fabricated metrics: all numbers have sources
-      - Draft quote is clearly marked as draft requiring customer approval
-      - Executive summary is self-sufficient: a reader can act on it without reading the detailed deliverables
-
-      RUN MODE EXECUTION:
-      - If run_mode is QUICK: produce only the executive summary, account state delta, and the single highest-priority action with prerequisites. Skip detailed step deliverables.
-      - If run_mode is DISCOVERY: produce only the signal acquisition plan (data gaps, questions, sources, observation checklist, re-assessment date). Skip scoring and analysis steps.
-      - If run_mode is FULL or not specified: produce all deliverables as described above.
-
-      Lead with a 3-sentence executive summary stating: (1) the joint achievement
-      and its quantified impact, (2) the lowest-confidence result or biggest
-      evidence gap, and (3) the single most important next step (customer
-      approval, metric validation, or publication).
+      EXECUTIVE SUMMARY: State (1) count of conflicts detected with severity distribution, (2) highest-impact conflict and revenue at risk, (3) single most urgent resolution action with owner and deadline.

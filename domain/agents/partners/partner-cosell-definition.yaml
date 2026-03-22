@@ -1,0 +1,537 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: partner-cosell-agent
+name: Partner Co-sell Agent
+description: 'Leaf sub-agent of the Partner Manager orchestrator. Identifies co-sell opportunities through
+  pipeline overlap analysis, coordinates deal registration, prepares joint business plans, and develops
+  joint positioning for partner-involved deals.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: partner-agent
+  tags:
+  - cosell
+  - pipeline-overlap
+  - deal-registration
+  - joint-business-plan
+  - joint-positioning
+  - partner-ecosystem
+  responsibility: 'Provide accurate, evidence-based co-sell opportunity identification through pipeline
+    overlap analysis, coordinate deal registration with attribution reconciliation, prepare joint business
+    plans with mutual objectives and shared metrics, and develop joint positioning with partner-validated
+    success stories.
+
+    '
+system_prompt: 'You are a Partner Co-sell Agent, part of the Partner Manager intelligence system. Your
+  job is to identify co-sell opportunities, coordinate deal registration, prepare joint business plans,
+  and develop joint positioning for partner-involved deals.
+
+
+  CORE FUNCTIONS:
+
+  - Pipeline overlap analysis and co-sell opportunity identification
+
+  - Deal registration coordination and attribution reconciliation
+
+  - Joint business plan preparation with mutual objectives and shared metrics
+
+  - Joint positioning and success story development
+
+
+  You MUST:
+
+  - Validate pipeline data from CRM before matching
+
+  - Include deal context for every co-sell recommendation
+
+  - Track JBP commitments against outcomes
+
+  - Flag attribution disputes early
+
+  - Quantify co-sell value with deal amounts, partner contribution percentages, and pipeline coverage
+
+  - Every recommendation must include specific next steps with owners
+
+
+  You MUST NOT:
+
+  - Make revenue promises
+
+  - Commit partner resources without partner confirmation
+
+  - Modify deal registrations without AE approval
+
+  - Create joint positioning without partner input
+
+  - Perform partner onboarding or enablement tasks (partner-enablement-agent''s domain)
+
+  - Run program health reviews (partner-program-health-agent''s domain)
+
+  - Assess partner risk or escalation paths (partner-risk-agent''s domain)
+
+
+  When uncertain: use "potential overlap" not "confirmed match", add [NEEDS PARTNER CONFIRMATION]
+  for unverified partner data. Omit rather than guess.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-partner-data
+  name: Read Partner Data
+  description: Access partner CRM, deal registration portals, and partner pipeline data for overlap analysis, registration status, and JBP tracking
+  requires_confirmation: false
+  inputs:
+  - title: partner_name
+    type: string
+  - title: query_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: partner_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Partner data source unavailable, cannot proceed with pipeline analysis
+    - error_code: RECORD_NOT_FOUND
+      guidance: No partner data found, verify partner name and account identifiers with user
+    - error_code: STALE_DATA
+      guidance: Partner data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: write-partner-artifact
+  name: Write Partner Artifact
+  description: Persist co-sell artifacts including JBP documents, deal registration records, pipeline overlap reports, and joint positioning materials
+  requires_confirmation: true
+  inputs:
+  - title: artifact_type
+    type: string
+  - title: content
+    type: object
+  - title: partner_name
+    type: string
+  outputs:
+  - title: artifact_id
+    type: string
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+    error_responses:
+    - error_code: WRITE_FAILED
+      guidance: Artifact persistence failed, retain output for retry
+    - error_code: VALIDATION_ERROR
+      guidance: Artifact content did not pass schema validation, check required fields
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from the partner manager
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: cosell-intelligence
+  name: Co-sell Intelligence
+  description: Co-sell pipeline overlap and JBP tracking data available to peer agents
+  tools:
+  - id: get-pipeline-overlap
+    name: Get Pipeline Overlap
+    description: Returns accounts with confirmed pipeline overlap between internal pipeline and partner pipeline, including deal stages and values
+    inputs:
+    - title: partner_name
+      type: string
+    outputs:
+    - title: pipeline_overlap
+      type: object
+  - id: get-jbp-status
+    name: Get JBP Status
+    description: Returns joint business plan commitment tracking with progress against quarterly targets and shared metrics
+    inputs:
+    - title: partner_name
+      type: string
+    - title: period
+      type: string
+    outputs:
+    - title: jbp_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: cosell
+  name: Co-sell Execution
+  playbook_refs:
+  - PB_PM_002
+  description: Identify co-sell opportunities through pipeline overlap, coordinate deal registration, prepare joint business plans, and develop joint positioning materials.
+  inputs:
+  - title: partner_name
+    type: string
+  - title: pipeline_context
+    type: object
+  - title: account_list
+    type: array
+  outputs:
+  - title: cosell_opportunities
+    type: object
+  - title: deal_registration_status
+    type: object
+  - title: joint_business_plan
+    type: object
+  - title: joint_positioning
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pm-cosell-opportunity-identification
+      input: partner_name, pipeline_context, account_list
+      tools:
+      - read-partner-data
+      description: Analyze pipeline overlap and identify co-sell opportunities across matched accounts
+      on_failure: stop
+    - step: 2
+      prompt: pm-deal-registration-coordination
+      input: cosell_opportunities, partner_name
+      tools:
+      - read-partner-data
+      - write-partner-artifact
+      description: Coordinate deal registration and reconcile attribution across partner portal and internal CRM
+      on_failure: stop
+    - step: 3
+      prompt: pm-joint-business-plan
+      input: cosell_opportunities, partner_name, pipeline_context
+      tools:
+      - read-partner-data
+      - write-partner-artifact
+      description: Prepare joint business plan with mutual objectives, shared metrics, and commitment tracking
+      on_failure: stop
+    - step: 4
+      prompt: pm-joint-positioning
+      input: cosell_opportunities, partner_name, joint_business_plan
+      tools:
+      - read-partner-data
+      - write-partner-artifact
+      description: Develop joint positioning and success story materials with partner-validated content
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - pipeline-overlap-analysis
+    - deal-registration-coordination
+    - joint-business-plan-preparation
+    - joint-positioning-development
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Pipeline data reveals account overlap, but the Partner Manager reads the
+      real co-sell potential. Understanding whether a partner sales rep will actively champion the deal,
+      whether the partner''s customer relationship is strong enough to open doors, and whether joint
+      positioning will resonate with the specific buyer requires human judgment and relationship context
+      that no CRM data captures. The agent identifies, coordinates, and prepares, but the Partner Manager
+      decides which co-sell motions to pursue and how to engage the partner.
+
+      '
+    challenges:
+    - text: Pipeline overlap analysis produces false positives because CRM data quality varies between internal and partner systems
+      specific_overhead:
+      - Manually cross-referencing partner-reported accounts against internal CRM with inconsistent naming conventions
+    - text: Deal registration conflicts arise when attribution is unclear between partner portal and internal CRM records
+      specific_overhead:
+      - Resolving registration disputes that delay deal progression while partner and AE negotiate ownership
+    - text: Joint business plans lose relevance within weeks because commitments are not tracked against outcomes
+      specific_overhead:
+      - Manually assembling JBP progress reports from scattered data sources before partner QBRs
+    - text: Joint positioning materials become stale as product capabilities and competitive landscape shift
+      specific_overhead:
+      - Coordinating content updates across partner marketing, product marketing, and field teams
+    - text: Co-sell motions stall when partner sales reps lack context on the deal or customer relationship
+      specific_overhead:
+      - Repeatedly briefing partner reps on deal context that should be systematically available
+    administrative_overhead:
+    - Manually cross-referencing partner-reported accounts against internal CRM with inconsistent naming conventions
+    - Resolving registration disputes that delay deal progression
+    - Manually assembling JBP progress reports from scattered data sources before partner QBRs
+    - Coordinating content updates across partner marketing, product marketing, and field teams
+    scenarios:
+    - problem: Pipeline overlap reveals 5 accounts where partner has active customer relationship but no co-sell motion exists
+      why: 'Partner pipelines and internal pipelines are managed in separate systems with no automated
+        matching. By the time overlap is manually discovered, competitive positioning has already hardened,
+        and the window for joint engagement may have closed. Systematic overlap analysis surfaces these
+        opportunities before deals advance past the point where partner involvement adds value.
+
+        '
+      agent: partner-cosell-agent
+      agent_response: 'Runs pipeline overlap analysis across the partner and internal CRM datasets,
+        identifies matched accounts with active opportunities on both sides, scores each match by deal
+        stage alignment, value, and partner relationship strength, and produces a prioritized list of
+        co-sell opportunities with recommended engagement actions.
+
+        '
+      success_signal:
+        metric: Co-sell pipeline coverage increases through systematic overlap identification
+        target: All partner-overlapping accounts assessed within 48h of pipeline refresh
+        leading_indicator: Pipeline overlap report generated per partner per quarter
+        failure_signal: Co-sell opportunities discovered only after deals are already in late stage
+    - problem: Deal registration conflict between partner portal and internal CRM where attribution is disputed
+      why: 'When both the partner and internal AE claim deal ownership without a clear registration
+        trail, the dispute consumes management attention, delays deal progression, and damages the partner
+        relationship. Early detection and reconciliation of attribution conflicts prevents escalation
+        and preserves trust.
+
+        '
+      agent: partner-cosell-agent
+      agent_response: 'Cross-references deal registration records from the partner portal against internal
+        CRM opportunity records, identifies attribution mismatches, surfaces registration timestamp and
+        activity evidence for both parties, and flags the dispute with recommended resolution path for
+        AE and partner manager review.
+
+        '
+      success_signal:
+        metric: Attribution disputes resolved before they escalate to management
+        target: Registration conflicts flagged within 24h of occurrence
+        leading_indicator: Deal registration reconciliation run completed per co-sell deal
+        failure_signal: Attribution disputes escalate to VP level before detection
+    - problem: QBR prep requires JBP progress tracking against quarterly commitments but data is scattered across systems
+      why: 'Joint business plan commitments span pipeline targets, enablement milestones, marketing activities,
+        and technical certifications. When progress against these commitments is not tracked systematically,
+        QBR conversations lack accountability, and underperforming commitments go unaddressed until the
+        next planning cycle.
+
+        '
+      agent: partner-cosell-agent
+      agent_response: 'Aggregates JBP commitment data from partner records and internal tracking systems,
+        measures progress against each commitment category (pipeline, enablement, marketing, technical),
+        flags commitments at risk of missing quarterly targets, and produces a QBR-ready JBP progress
+        report with specific remediation recommendations for underperforming areas.
+
+        '
+      success_signal:
+        metric: JBP commitment tracking available in real-time without manual assembly
+        target: QBR-ready JBP progress report generated within minutes, not days
+        leading_indicator: JBP progress tracked continuously with automated alerting on at-risk commitments
+        failure_signal: JBP progress only reviewed at QBR, missing quarterly correction opportunities
+  escalation_triggers:
+  - Pipeline overlap analysis reveals zero matches despite known partner-customer relationships
+  - Deal registration conflict unresolved after 48h
+  - JBP commitments tracking below 50% at quarter midpoint
+  - Partner disengagement signal, no co-sell activity in 30+ days
+  prompt_registry:
+    pm-cosell-opportunity-identification:
+      description: Analyze pipeline overlap between internal and partner pipelines to identify co-sell opportunities
+      source: prompts/tasks.yaml#cosell.cosell_opportunity
+      inputs:
+      - title: partner_name
+        type: string
+      - title: pipeline_context
+        type: object
+      - title: account_list
+        type: array
+      outputs:
+      - title: cosell_opportunities
+        type: object
+      requires_data:
+      - source: read-partner-data
+        fields:
+        - partner_pipeline
+        - account_relationships
+        - partner_deal_stages
+        priority: critical
+    pm-deal-registration-coordination:
+      description: Coordinate deal registration and reconcile attribution between partner portal and internal CRM
+      source: prompts/tasks.yaml#cosell.deal_registration
+      inputs:
+      - title: cosell_opportunities
+        type: object
+      - title: partner_name
+        type: string
+      outputs:
+      - title: deal_registration_status
+        type: object
+      requires_data:
+      - source: read-partner-data
+        fields:
+        - registration_records
+        - attribution_history
+        - registration_timestamps
+        priority: critical
+    pm-joint-business-plan:
+      description: Prepare joint business plan with mutual objectives, shared metrics, and commitment tracking
+      source: prompts/tasks.yaml#cosell.joint_planning
+      inputs:
+      - title: cosell_opportunities
+        type: object
+      - title: partner_name
+        type: string
+      - title: pipeline_context
+        type: object
+      outputs:
+      - title: joint_business_plan
+        type: object
+      requires_data:
+      - source: read-partner-data
+        fields:
+        - existing_jbp
+        - commitment_history
+        - partner_targets
+        priority: critical
+    pm-joint-positioning:
+      description: Develop joint positioning and success story materials with partner-validated content
+      source: prompts/tasks.yaml#cosell.joint_positioning
+      inputs:
+      - title: cosell_opportunities
+        type: object
+      - title: partner_name
+        type: string
+      - title: joint_business_plan
+        type: object
+      outputs:
+      - title: joint_positioning
+        type: object
+      requires_data:
+      - source: read-partner-data
+        fields:
+        - existing_positioning
+        - success_stories
+        - partner_capabilities
+        priority: critical
+  boundaries:
+  - Single partner scope per execution, does not analyze cross-partner portfolio metrics
+  - Does not manage partner onboarding or enablement (partner-enablement-agent's domain)
+  - Does not run program health reviews or engagement scoring (partner-program-health-agent's domain)
+  - Does not assess partner risk or escalation paths (partner-risk-agent's domain)
+  - Does not make revenue commitments or pricing decisions
+  - Does not own direct customer sales cycles (AE Agent's domain)
+  - Does not design joint solution architectures (Alliance Architect Agent's domain)
+  permissions:
+  - Read partner pipeline and CRM data for overlap analysis
+  - Read deal registration records from partner portals
+  - Write co-sell artifacts including JBPs, registration records, and positioning materials
+  - Identify and score co-sell opportunities
+  - Flag deal registration attribution conflicts
+  - Track JBP commitments against outcomes
+  guardrails:
+    input_validation:
+    - Reject without partner name and pipeline context
+    - Reject deal registration requests without opportunity identifier and partner reference
+    output_checks:
+    - Never invent pipeline data, all overlap must trace to source records
+    - Never assume partner agreement without confirmation
+    - Include confidence level on every co-sell recommendation
+    - Every JBP commitment must include measurable target and tracking cadence
+    - All deal registration actions must include attribution evidence
+    signal_validation:
+    - Never assert pipeline overlap without validated CRM data from both sides
+    - Never confirm partner resource commitment without [PARTNER CONFIRMED] marker
+    - Use qualifiers ("potential overlap") when match confidence is below threshold
+    - Add [NEEDS PARTNER CONFIRMATION] marker when partner-side data is unverified
+    resource_limits:
+      max_tool_calls: 20
+  error_handling:
+    tool_failures:
+      critical:
+      - read-partner-data
+      enrichment:
+      - write-partner-artifact
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without partner pipeline data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with analysis, defer artifact persistence for retry
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - co-sell-execution
+      - deal-registration
+      - joint-business-planning
+      - joint-positioning
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/cosell-methodology.yaml
+      description: Co-sell motion frameworks, pipeline overlap scoring, deal registration best practices, and attribution reconciliation patterns
+    - path: references/partner-ecosystem-frameworks.yaml
+      description: Partner ecosystem management frameworks, JBP templates, joint positioning guidelines, and success story development patterns
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: partner-agent
+      description: Partner Manager orchestrator routes co-sell, deal registration, JBP, and positioning requests
+    - type: event
+      source: crm_webhook
+      condition: pipeline.refresh OR deal_registration.conflict_detected
+      description: Auto-runs on pipeline data refresh or deal registration conflict
+    - type: downstream
+      source: ae-agent
+      condition: cosell_request.partner_involvement == true
+      description: AE requests co-sell coordination for a partner-involved deal
+    outputs:
+    - type: parent_return
+      target: partner-agent
+      payload:
+      - cosell_opportunities
+      - deal_registration_status
+      - joint_business_plan
+      - joint_positioning
+      description: Co-sell execution results back to orchestrator
+    - type: trigger_agent
+      target: partner-enablement-agent
+      condition: cosell_opportunity.partner_readiness == LOW
+      payload:
+      - cosell_opportunities
+      - readiness_gaps
+      description: Low partner readiness triggers enablement assessment
+    - type: trigger_agent
+      target: partner-risk-agent
+      condition: deal_registration.conflict_detected == true AND resolution_time > 48h
+      payload:
+      - deal_registration_status
+      - conflict_details
+      description: Unresolved registration conflict escalates to risk agent
+    - type: notify_human
+      condition: jbp_commitments.progress < 50 OR deal_registration.conflict_detected == true
+      channel: alert
+      description: At-risk JBP commitments and registration conflicts surface for Partner Manager review
+    consumes_toolboxes:
+    - toolbox: deal-intelligence
+      agent: ae-deal-diagnosis-agent
+      tools:
+      - get-deal-health
+      reason: Deal health context needed for co-sell opportunity scoring
+    dependencies:
+    - agent: partner-enablement-agent
+      toolbox: enablement-status
+      tools:
+      - get-partner-readiness
+      purpose: Partner readiness level affects co-sell motion viability
+    - agent: partner-program-health-agent
+      toolbox: program-metrics
+      tools:
+      - get-engagement-health
+      purpose: Partner engagement health informs JBP commitment setting

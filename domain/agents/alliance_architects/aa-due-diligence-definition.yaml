@@ -1,0 +1,493 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: aa-due-diligence-agent
+name: Due Diligence Agent
+description: >
+  Leaf sub-agent of the Alliance Architect orchestrator. Conducts technical
+  assessment of prospective partners, scores API maturity using Richardson
+  Maturity Model, estimates integration effort and complexity, and analyzes
+  technical risks before commercial commitment.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: aa-agent
+  tags:
+    - due-diligence
+    - technical-assessment
+    - api-maturity
+    - integration-effort
+    - technical-risk
+    - partner-evaluation
+  responsibility: >
+    Provide accurate, evidence-based technical due diligence assessments covering
+    partner platform capability evaluation, API maturity scoring, integration
+    effort estimation, and technical risk analysis before commercial commitment.
+system_prompt: >
+  You are a Due Diligence Agent, part of the Alliance Architect intelligence
+  system. Your job is to assess prospective partner technical feasibility with
+  precision.
+
+  CORE FUNCTIONS:
+  - Partner platform technical capability assessment
+  - API maturity scoring using Richardson Maturity Model
+  - Integration effort and complexity estimation
+  - Technical risk analysis for prospective partnerships
+
+  You MUST:
+  - Validate all technical claims against partner platform documentation before reporting
+  - Include confidence metadata (HIGH/MEDIUM/LOW) on every assessment output
+  - Flag platform scalability or security concerns immediately
+  - Score API maturity on Richardson Model levels (0-3) with specific evidence
+  - Cite source documentation and dates for every technical finding
+  - Every risk must include severity, likelihood, and mitigation recommendation
+
+  You MUST NOT:
+  - Make commercial partnership commitments or recommendations (Partner Manager's domain)
+  - Assume API maturity without version-specific documentation review
+  - Assess partner certification or enablement status (Partner Manager's domain)
+  - Design customer-specific architectures (SA Agent's domain)
+  - Validate existing integrations (aa-integration-validation-agent's domain)
+  - Design joint solution architectures (aa-solution-architecture-agent's domain)
+
+  When uncertain: use "documentation indicates" not "partner platform supports",
+  add [NEEDS VERIFICATION] for unclear situations. Omit rather than guess.
+human_in_the_loop: true
+tools:
+  - component_type: ClientTool
+    id: read-aa-data
+    name: Read Alliance Data
+    description: Access partner platform documentation, API specifications, architecture overviews, and security posture data for due diligence assessment
+    requires_confirmation: false
+    inputs:
+      - title: partner_name
+        type: string
+      - title: query_type
+        type: string
+      - title: data_scope
+        type: string
+    outputs:
+      - title: partner_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Partner platform documentation unavailable, cannot proceed with technical assessment
+        - error_code: RECORD_NOT_FOUND
+          guidance: No partner record found, verify partner identifiers with user
+        - error_code: STALE_DATA
+          guidance: Data exceeds freshness threshold, flag for human verification
+  - component_type: ClientTool
+    id: write-aa-artifact
+    name: Write Alliance Artifact
+    description: Persist due diligence reports, API maturity scores, effort estimates, and risk analyses to the alliance knowledge store
+    requires_confirmation: true
+    inputs:
+      - title: partner_name
+        type: string
+      - title: artifact_type
+        type: string
+      - title: artifact_content
+        type: object
+    outputs:
+      - title: write_confirmation
+        type: object
+    x-ea-agent:
+      risk: medium
+      resolver: service-registry
+      error_responses:
+        - error_code: WRITE_FAILED
+          guidance: Artifact persistence failed, retain output in memory and retry
+        - error_code: CONFLICT
+          guidance: Newer version exists, retrieve latest before overwriting
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from alliance architect
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+toolboxes:
+  - component_type: Toolbox
+    id: due-diligence-intelligence
+    name: Due Diligence Intelligence
+    description: Partnership feasibility and risk assessments available to peer agents
+    tools:
+      - id: get-api-maturity-score
+        name: Get API Maturity Score
+        description: Returns API maturity score (Richardson Model levels 0-3) with design quality assessment and evidence for a prospective partner
+        inputs:
+          - title: partner_name
+            type: string
+        outputs:
+          - title: api_maturity_score
+            type: object
+      - id: get-feasibility-summary
+        name: Get Feasibility Summary
+        description: Returns technical feasibility summary including effort estimate, risk classification, and go/no-go recommendation with supporting evidence
+        inputs:
+          - title: partner_name
+            type: string
+        outputs:
+          - title: feasibility_summary
+            type: object
+specialized_agents: []
+flows:
+  - component_type: Flow
+    id: due-diligence
+    name: Partnership Due Diligence Assessment
+    playbook_refs:
+      - PB_AA_001
+    description: Assess partner platform technical capabilities, score API maturity, estimate integration effort, and analyze technical risks to produce a feasibility report before commercial commitment.
+    inputs:
+      - title: partner_name
+        type: string
+      - title: partner_platform
+        type: string
+      - title: integration_requirements
+        type: string
+    outputs:
+      - title: technical_assessment
+        type: object
+      - title: api_maturity
+        type: object
+      - title: integration_effort
+        type: object
+      - title: technical_risk
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: aa-technical-assessment
+          input: partner_name, partner_platform
+          tools:
+            - read-aa-data
+          description: Assess partner platform technical capabilities, architecture, scalability, and security posture
+          on_failure: stop
+        - step: 2
+          prompt: aa-api-maturity
+          input: partner_name, partner_platform
+          tools:
+            - read-aa-data
+          description: Score partner API maturity using Richardson Model, evaluate design quality, versioning, and documentation
+          on_failure: stop
+        - step: 3
+          prompt: aa-integration-effort
+          input: partner_name, integration_requirements
+          tools:
+            - read-aa-data
+          description: Estimate integration effort based on data model fit, authentication alignment, and deployment model compatibility
+          on_failure: stop
+        - step: 4
+          prompt: aa-technical-risk
+          input: partner_name, partner_platform
+          tools:
+            - read-aa-data
+            - write-aa-artifact
+          description: Analyze technical risks, produce feasibility report with go/no-go recommendation and mitigation plan
+          on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+      - partner-technical-assessment
+      - api-maturity-scoring
+      - integration-effort-estimation
+      - technical-risk-analysis
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      Platform documentation reveals API design, architecture patterns, and
+      published security posture, but the Alliance Architect reads the real
+      technical partnership story. Understanding whether a partner's engineering
+      team is genuinely committed to integration quality, whether their API
+      roadmap aligns with stated direction, and whether their platform
+      scalability claims hold under real customer workloads requires human
+      judgment and technical relationship context that no documentation review
+      captures. The agent scores and assesses, but the Alliance Architect
+      decides whether to recommend the partnership.
+    challenges:
+      - text: Partnership commitments made without technical feasibility assessment, leading to integration surprises after deals are signed
+        specific_overhead:
+          - Manually evaluating partner platform architecture and capabilities under commercial deadline pressure
+      - text: API maturity not scored systematically, leading to underestimated integration effort and missed design quality issues
+        specific_overhead:
+          - Reviewing partner API documentation ad-hoc without structured scoring criteria across partnerships
+      - text: Integration effort estimated informally based on verbal descriptions, causing budget and timeline overruns
+        specific_overhead:
+          - Building effort estimates without structured assessment of data model fit, auth model alignment, and deployment compatibility
+      - text: Technical risks not documented before commercial commitment, surfacing only during implementation
+        specific_overhead:
+          - Discovering platform limitations, scalability constraints, and security gaps after engineering resources are committed
+      - text: Partner platform scalability and security posture not validated upfront, creating production risk for joint customers
+        specific_overhead:
+          - Accepting partner claims about scalability and security without evidence-based validation against documented benchmarks
+    administrative_overhead:
+      - Manually evaluating partner platform architecture and capabilities under commercial deadline pressure
+      - Reviewing partner API documentation ad-hoc without structured scoring criteria across partnerships
+      - Building effort estimates without structured assessment of data model fit, auth model alignment, and deployment compatibility
+      - Discovering platform limitations, scalability constraints, and security gaps after engineering resources are committed
+      - Accepting partner claims about scalability and security without evidence-based validation against documented benchmarks
+    scenarios:
+      - problem: Prospective partnership is announced before anyone assessed whether the integration is technically feasible
+        why: >
+          Partnership decisions driven by commercial opportunity often skip technical
+          assessment. When integration proves harder than expected, engineering resources
+          are consumed by work that was never scoped and the partnership delivers less
+          value than projected.
+        agent: aa-due-diligence-agent
+        agent_response: >
+          Conducts structured technical due diligence covering platform architecture,
+          API maturity, data model compatibility, authentication alignment, deployment
+          model fit, and integration effort estimation. Produces a feasibility report
+          that informs the commercial decision with evidence-based go/no-go recommendation.
+        success_signal:
+          metric: Technical feasibility reports completed before commercial commitment
+          target: Every new partnership has a feasibility report before deal terms are finalized
+          leading_indicator: Due diligence initiated within 48 hours of partnership request
+          failure_signal: Partnerships committed without technical feasibility assessment
+      - problem: Partner API quality varies widely but is not scored, so integration effort surprises are discovered only during implementation
+        why: >
+          API maturity directly predicts integration effort. A Level 0 API (plain
+          HTTP tunneling) requires fundamentally different integration work than a
+          Level 3 API (hypermedia controls). Without structured scoring, every
+          partnership starts with optimistic effort estimates that do not account
+          for API design quality gaps.
+        agent: aa-due-diligence-agent
+        agent_response: >
+          Scores partner API maturity using Richardson Maturity Model (levels 0-3),
+          evaluates API documentation quality, versioning strategy, error handling
+          patterns, and SDK availability. Produces a maturity scorecard with specific
+          evidence for each rating and effort implications per maturity gap.
+        success_signal:
+          metric: API maturity scores completed for all prospective partnerships
+          target: Maturity scorecard delivered before integration effort estimation
+          leading_indicator: API documentation collected and reviewed within one week of partnership request
+          failure_signal: Integration effort estimated without API maturity assessment
+      - problem: Integration effort is underestimated because assessment relies on partner marketing materials instead of technical documentation review
+        why: >
+          Partner marketing positions capabilities as turnkey, but actual integration
+          requires data model mapping, authentication flow alignment, error handling
+          design, and deployment model coordination. Without structured effort
+          estimation against these dimensions, timelines and budgets are based on
+          optimistic assumptions rather than technical evidence.
+        agent: aa-due-diligence-agent
+        agent_response: >
+          Estimates integration effort across four dimensions: data model compatibility,
+          authentication model alignment, deployment model fit, and API contract
+          stability. Produces a structured effort estimate with complexity classification
+          (low/medium/high/very-high), resource requirements, and timeline ranges with
+          assumptions documented.
+        success_signal:
+          metric: Integration effort estimates within 20% of actual effort
+          target: Effort estimates based on structured technical assessment, not verbal descriptions
+          leading_indicator: All four estimation dimensions assessed with documented evidence
+          failure_signal: Effort estimates exceed actuals by more than 50%
+  escalation_triggers:
+    - Technical feasibility assessment reveals fundamental architecture incompatibility
+    - API maturity score below Level 1 on a partnership with committed timeline
+    - Integration effort estimate exceeds 6 months for a partnership positioned as quick-win
+    - Security posture assessment reveals unresolved vulnerabilities in partner platform
+  prompt_registry:
+    aa-technical-assessment:
+      description: Assess partner platform technical capabilities, architecture, scalability, and security posture
+      source: prompts/tasks.yaml#due_diligence.technical_assessment
+      inputs:
+        - title: partner_name
+          type: string
+        - title: partner_platform
+          type: string
+      outputs:
+        - title: technical_assessment_result
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - partner_platform_docs
+            - architecture_overview
+            - security_posture
+          priority: critical
+    aa-api-maturity:
+      description: Score partner API maturity using Richardson Maturity Model and evaluate design quality
+      source: prompts/tasks.yaml#due_diligence.api_maturity
+      inputs:
+        - title: partner_name
+          type: string
+        - title: partner_platform
+          type: string
+      outputs:
+        - title: api_maturity_result
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - api_documentation
+            - sdk_samples
+            - versioning_policy
+            - error_handling
+          priority: critical
+    aa-integration-effort:
+      description: Estimate integration effort and complexity based on data model, authentication, and deployment fit
+      source: prompts/tasks.yaml#due_diligence.integration_effort
+      inputs:
+        - title: partner_name
+          type: string
+        - title: integration_requirements
+          type: string
+      outputs:
+        - title: integration_effort_result
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - api_specs
+            - data_model
+            - auth_model
+            - deployment_model
+          priority: critical
+    aa-technical-risk:
+      description: Analyze technical risks for prospective partnership and produce feasibility report with mitigation plan
+      source: prompts/tasks.yaml#due_diligence.technical_risk
+      inputs:
+        - title: partner_name
+          type: string
+        - title: partner_platform
+          type: string
+      outputs:
+        - title: technical_risk_result
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - platform_architecture
+            - scalability_data
+            - security_audit
+            - release_cadence
+          priority: critical
+  boundaries:
+    - Single partner scope, does not analyze portfolio-level partnership metrics
+    - Does not validate existing integrations or certify compatibility (aa-integration-validation-agent's domain)
+    - Does not design joint solution architectures or reference patterns (aa-solution-architecture-agent's domain)
+    - Does not prepare co-sell readiness packages or field enablement materials (aa-technical-enablement-agent's domain)
+    - Does not make commercial partnership commitments (Partner Manager's domain)
+    - Does not design customer-specific architectures (SA Agent's domain)
+  permissions:
+    - Read partner platform documentation for architecture, API, and security assessment
+    - Read partner API specifications, SDK samples, and versioning policies
+    - Score partner API maturity using Richardson Maturity Model (levels 0-3)
+    - Estimate integration effort across data model, authentication, deployment, and API dimensions
+    - Analyze technical risks with severity, likelihood, and mitigation recommendations
+    - Write due diligence reports, maturity scores, and risk analyses to alliance knowledge store
+  guardrails:
+    input_validation:
+      - Reject assessment requests without partner name
+      - Validate partner platform documentation is available before proceeding
+      - Reject effort estimation requests without specifying integration requirements
+    output_checks:
+      - Never invent or assume API capabilities not confirmed in partner documentation
+      - Never assume platform scalability without documented benchmarks or architecture evidence
+      - Include confidence level (HIGH/MEDIUM/LOW) on every assessment output
+      - API maturity scores must cite specific evidence for each Richardson Model level rating
+      - Every risk must include severity, likelihood, and mitigation recommendation
+      - All findings traceable to source documentation with dates
+    signal_validation:
+      - Never assert API maturity without documentation-based evidence
+      - Never assume security posture without audit or architecture review
+      - Use qualifiers ("documentation indicates") when evidence is indirect
+      - Add [NEEDS VERIFICATION] marker when uncertain
+    resource:
+      max_tool_calls: 20
+  error_handling:
+    tool_failures:
+      critical:
+        - read-aa-data
+      enrichment:
+        - write-aa-artifact
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without partner platform documentation
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with assessment, flag persistence failure for retry
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+        - partner-due-diligence
+        - api-maturity-assessment
+        - integration-effort-estimation
+        - technical-risk-analysis
+      archetypes:
+        - isv-partner
+        - technology-partner
+        - platform-partner
+    references:
+      - path: references/api-maturity-frameworks.yaml
+        description: Richardson Maturity Model, API lifecycle management, versioning strategies, OpenAPI standards, and API design quality benchmarks
+      - path: references/partner-technical-validation.yaml
+        description: ISV program technical requirements, marketplace listing criteria, well-architected frameworks, and partner platform evaluation criteria
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: aa-agent
+        description: Alliance Architect orchestrator routes due diligence, API maturity, effort estimation, and risk analysis requests
+      - type: event
+        source: partnership_request_webhook
+        condition: partnership.status == "prospective" AND partnership.technical_assessment == null
+        description: Auto-runs when a new partnership request is created without technical assessment
+      - type: downstream
+        source: partner-agent
+        condition: partner.commercial_evaluation == true AND partner.technical_feasibility == null
+        description: Partner Manager requests technical feasibility input before commercial commitment
+    outputs:
+      - type: parent_return
+        target: aa-agent
+        payload:
+          - technical_assessment
+          - api_maturity
+          - integration_effort
+          - technical_risk
+        description: Due diligence assessment results back to orchestrator
+      - type: trigger_agent
+        target: aa-integration-validation-agent
+        condition: due_diligence.recommendation == "proceed" AND partnership.status == "approved"
+        payload:
+          - technical_assessment
+          - api_maturity
+        description: Approved partnership triggers integration validation setup with baseline technical context
+      - type: notify_human
+        condition: due_diligence.risk_level == "high" OR due_diligence.recommendation == "do_not_proceed"
+        channel: alert
+        description: High-risk findings or do-not-proceed recommendations surface for Alliance Architect review
+    consumes_toolboxes:
+      - toolbox: integration-intelligence
+        agent: aa-integration-validation-agent
+        tools:
+          - get-integration-complexity-patterns
+        reason: Integration complexity patterns from existing partnerships inform effort estimation baselines
+    dependencies:
+      - agent: aa-integration-validation-agent
+        toolbox: integration-intelligence
+        tools:
+          - get-integration-complexity-patterns
+        purpose: Historical integration complexity data provides calibration for effort estimates on new partnerships

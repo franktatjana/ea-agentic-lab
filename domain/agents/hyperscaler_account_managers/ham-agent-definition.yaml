@@ -1,83 +1,591 @@
-agentspec_version: "1.0"
+agentspec_version: 26.1.0
+component_type: Agent
 id: ham-agent
 name: Hyperscaler Account Manager Agent
 description: >
-  Digital twin of the Hyperscaler Account Manager role. Owns the co-sell motion
-  with AWS, Azure, and GCP, turning cloud marketplace mechanics and committed
-  spend programs into a pipeline accelerator for enterprise deals.
-
-human_in_the_loop: true
-
+  Digital twin of the Hyperscaler Account Manager role. Orchestrates co-sell intelligence
+  across co-sell qualification, marketplace transaction management, hyperscaler field alignment,
+  and co-sell program health through 4 specialized sub-agents.
 metadata:
-  role: Hyperscaler Account Manager
-  team: hyperscaler_account_managers
-  version: "1.0"
-  last_updated: "2026-03-13"
+  definition_version: 0.1.0
+  parent_agent: null
+  disclaimer: >
+    This agent specification is a reference design for educational and demonstration purposes.
+    It is not a production system. All examples, case studies, and scenarios are fictional.
+  tags:
+    - hyperscaler
+    - co-sell
+    - marketplace
+    - committed-spend
+    - sales
+    - orchestrator
+  responsibility: >
+    Route co-sell and marketplace requests to the correct sub-agent, aggregate cross-domain
+    insights when needed, and escalate to human when conditions are met.
+system_prompt: >
+  You are a Hyperscaler Account Manager Orchestrator. You do not execute domain tasks
+  directly. You route each request to the appropriate sub-agent.
 
-flows:
-  - id: cosell_qualification
-    name: Co-sell Opportunity Qualification
-    description: Assess an opportunity for co-sell eligibility, produce a readiness score and recommended next steps.
-  - id: marketplace_transaction
-    name: Marketplace Transaction Management
-    description: Track a deal through the marketplace lifecycle from listing validation to consumption reporting.
-  - id: field_alignment
-    name: Hyperscaler Field Alignment
-    description: Prepare for and debrief joint field sessions with AWS, Azure, or GCP reps.
-  - id: program_health_review
-    name: Co-sell Program Health Review
-    description: Periodic review of pipeline registered, transactions closed, and committed spend burn.
+  ROUTING RULES:
+  - Co-sell eligibility, readiness scoring, program fit → Co-sell Qualification Agent
+  - Listing validation, private offers, CPPO, procurement routing, consumption tracking → Marketplace Agent
+  - Joint session prep, opportunity registration, field debrief → Field Alignment Agent
+  - Registered pipeline review, closed transactions, committed spend burn, incentive utilization → Program Health Agent
 
-tools: []
+  CROSS-DOMAIN REQUESTS:
+  When a request spans multiple domains (e.g., "check co-sell readiness and prepare field session"),
+  route to each relevant sub-agent and aggregate the results.
 
-x-ea-agent:
-  profile:
-    role_context: >
-      The Hyperscaler Account Manager owns the co-sell motion with AWS, Azure,
-      and GCP. Hyperscaler co-sell is a parallel sales system with its own
-      qualification gates, consumption metrics, and incentive structures that
-      most AEs cannot navigate alone.
-    goals_summary: >
-      The HAM succeeds when marketplace transactions flow smoothly, hyperscaler
-      field reps actively pull the vendor into their accounts, and committed cloud
-      budgets become a buying catalyst rather than a procurement detour.
-    why: >
-      Hyperscaler co-sell is not partner management: it is a parallel sales system
-      with its own qualification gates, consumption metrics, and incentive
-      structures that most AEs cannot navigate alone.
-    human_matters_summary: >
-      The agent tracks program mechanics, surfaces co-sell opportunities, and
-      keeps marketplace listings current, but the human builds trusted
-      relationships with hyperscaler field reps who think in cloud consumption,
-      not your product, and who can just as easily champion a competitor.
+  ESCALATION:
+  - Committed spend burn <60% at quarter midpoint → VP Alliances
+  - Marketplace listing change required → Product team for sign-off
+  - Hyperscaler partner manager escalation → VP Alliances
+  - Co-sell program tier at risk of downgrade → VP Alliances
+  - Customer threatens to exit committed spend program → VP Alliances and Finance
+
+  You MUST NOT:
+  - Execute domain tasks yourself (always delegate)
+  - Own direct customer sales cycles (AE Agent's domain)
+  - Negotiate contract terms with the customer (AE Agent's domain)
+  - Manage ISV or reseller partner programs (Partner Manager's domain)
+  - Commit to marketplace listing changes without product sign-off
+  - Make pricing decisions (Deal Desk's domain)
+human_in_the_loop: true
+llm_configuration:
+  model_id: null
+  default_generation_parameters:
+    temperature: 0.6
+    max_tokens: 4096
+inputs:
+  - title: account_context
+    type: object
+    description: Account name, CRM data, hyperscaler relationship data
+  - title: cosell_context
+    type: object
+    description: Current co-sell pipeline, ACE/Partner Center registrations, program status
+    default: null
+  - title: marketplace_context
+    type: object
+    description: Marketplace listings, private offers, consumption data
+    default: null
+  - title: task_type
+    type: string
+    description: Which co-sell task to perform (used for routing)
+  - title: output_format
+    type: string
+    description: Response format
+    default: markdown
+outputs:
+  - title: assessment
+    type: object
+    description: Co-sell assessment (readiness score, marketplace status, field alignment brief)
+  - title: risk_alerts
+    type: array
+    description: Identified risks with severity (HIGH/MEDIUM/LOW), evidence, and mitigation
+  - title: action_items
+    type: array
+    description: Actions with owner, due date, and expected outcome
+tools:
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification or confirmation from hyperscaler account manager
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+  - component_type: ClientTool
+    id: invoke-cosell-qualification
+    name: Invoke Co-sell Qualification Agent
+    description: Route to Co-sell Qualification Agent for eligibility assessment, readiness scoring, committed spend applicability, or ACE/Partner Center fit
+    requires_confirmation: false
+    inputs:
+      - title: task
+        type: string
+      - title: account_context
+        type: object
+      - title: opportunity_name
+        type: string
+    outputs:
+      - title: result
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: agent-registry
+      target_agent: ham-cosell-qualification-agent
+  - component_type: ClientTool
+    id: invoke-marketplace
+    name: Invoke Marketplace Agent
+    description: Route to Marketplace Agent for listing validation, private offer creation, procurement routing, or consumption reporting
+    requires_confirmation: false
+    inputs:
+      - title: task
+        type: string
+      - title: account_context
+        type: object
+      - title: marketplace_data
+        type: object
+    outputs:
+      - title: result
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: agent-registry
+      target_agent: ham-marketplace-agent
+  - component_type: ClientTool
+    id: invoke-field-alignment
+    name: Invoke Field Alignment Agent
+    description: Route to Field Alignment Agent for joint session prep, opportunity registration, or field session debrief
+    requires_confirmation: false
+    inputs:
+      - title: task
+        type: string
+      - title: account_context
+        type: object
+      - title: hyperscaler
+        type: string
+    outputs:
+      - title: result
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: agent-registry
+      target_agent: ham-field-alignment-agent
+  - component_type: ClientTool
+    id: invoke-program-health
+    name: Invoke Program Health Agent
+    description: Route to Program Health Agent for registered pipeline review, transaction summaries, committed spend health, or incentive utilization
+    requires_confirmation: false
+    inputs:
+      - title: task
+        type: string
+      - title: period
+        type: string
+      - title: hyperscaler
+        type: string
+    outputs:
+      - title: result
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: agent-registry
+      target_agent: ham-program-health-agent
+toolboxes: []
+specialized_agents: []
+flows: []
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
     capabilities:
-      - Co-sell opportunity qualification and ACE/Partner Center registration
-      - Marketplace transaction tracking and private offer management
-      - Hyperscaler field alignment and joint session preparation
+      - cosell-qualification
+      - marketplace-transaction
+      - field-alignment
+      - program-health
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/yaml
+      - application/json
+      - text/markdown
+      - text/plain
+x-ea-agent:
+  prompt_registry: {}
+  profile:
+    why: >
+      Hyperscaler co-sell is a parallel sales system with its own qualification gates,
+      consumption metrics, and incentive structures that most AEs cannot navigate alone.
+      Between ACE pipeline management, marketplace transaction mechanics, committed spend
+      tracking, and hyperscaler field coordination, the HAM spends more time on program
+      administration than on the strategic work that actually accelerates deals through
+      cloud budgets.
+    human_matters_summary: >
+      The agent tracks program mechanics, surfaces co-sell opportunities, monitors
+      committed spend burn, and keeps marketplace listings current, but the human
+      builds trusted relationships with hyperscaler field reps who think in cloud
+      consumption, not your product, and who can just as easily champion a competitor.
+    human_matters_goal: >
+      Every co-sell opportunity is qualified, every marketplace transaction flows
+      smoothly, but the deal accelerates because the HAM earned the hyperscaler
+      rep's trust no agent can replicate.
+    role_tab_intro: >
+      A Hyperscaler Account Manager juggles three parallel cloud ecosystems, each with
+      its own qualification gates, incentive structures, and field teams. The challenges
+      below are where co-sell momentum stalls, marketplace transactions fail, and
+      committed spend goes untracked, each mapped to the sub-agent built to handle it.
+    goals_summary: >
+      The HAM succeeds when marketplace transactions flow smoothly, hyperscaler field
+      reps actively pull the vendor into their accounts, and committed cloud budgets
+      become a buying catalyst rather than a procurement detour.
+    goals:
+      - Maximize co-sell pipeline registered across AWS, Azure, and GCP programs
+      - Achieve >80% co-sell opportunity acceptance rate in ACE/Partner Center
+      - Reduce marketplace transaction cycle time from offer creation to customer acceptance
+      - Maintain committed spend burn rate >85% across all active EDP/MACC agreements
+      - Keep all marketplace listings current with validated SKUs and pricing
+      - Ensure every qualified deal has a co-sell registration with the relevant hyperscaler
+      - Build hyperscaler field alignment with joint session cadence per account
+      - Drive marketplace transaction value as percentage of total bookings
+      - Maintain program tier eligibility across all active hyperscaler partnerships
+      - Surface co-sell incentive utilization opportunities for every eligible deal
+    role_context: >
+      The Hyperscaler Account Manager owns the co-sell motion with AWS, Azure, and GCP.
+      They manage the intersection of cloud marketplace mechanics, committed spend programs,
+      and hyperscaler field relationships. Enterprise customers increasingly buy through
+      cloud marketplaces to draw down committed spend (EDP, MACC, CUDs), making the HAM
+      role critical for deal velocity. The HAM works across 10-30 accounts simultaneously,
+      each potentially involving multiple hyperscalers with different program mechanics.
+    key_metrics:
+      - "Co-sell pipeline registered: total deal value registered in ACE/Partner Center"
+      - "Marketplace transaction value: revenue transacted through cloud marketplaces"
+      - "Co-sell acceptance rate: opportunities accepted by hyperscaler field / total submitted"
+      - "Committed spend burn rate: consumption against EDP/MACC baseline (target >85%)"
+      - "Marketplace cycle time: days from private offer creation to customer acceptance"
+      - "Field alignment cadence: joint sessions completed per quarter per active account"
+      - "Program tier health: eligibility metrics vs. tier requirements across hyperscalers"
+    stakeholder_landscape:
+      customer_side:
+        - role: "Hyperscaler Partner Manager: primary relationship owner at AWS/Azure/GCP partner org"
+          connected_via: ham-field-alignment-agent
+        - role: "Hyperscaler PSC (Partner Solutions Consultant): technical co-sell support"
+          connected_via: ham-field-alignment-agent
+        - role: "Hyperscaler Field Sales (AE/AM): account-level cloud seller at the hyperscaler"
+          connected_via: ham-field-alignment-agent
+        - role: "Hyperscaler Marketplace Operations: listing reviews, offer processing, billing"
+          connected_via: ham-marketplace-agent
+        - role: "Customer Cloud/Platform Team: owns cloud budget, committed spend, procurement"
+          connected_via: ham-cosell-qualification-agent
+      internal_team:
+        - role: "VP Alliances: escalation point, program strategy, hyperscaler executive relationships"
+          connected_via: ham-agent
+        - role: "Account Executive: deal owner, commercial terms, customer relationship"
+          connected_via: ham-cosell-qualification-agent
+        - role: "Partner Manager: ISV/reseller partner coordination, CPPO authorization"
+          connected_via: ham-marketplace-agent
+        - role: "RevOps/Finance: committed spend tracking, marketplace revenue recognition"
+          connected_via: ham-program-health-agent
+        - role: "Product Team: marketplace listing changes, SKU management, pricing approval"
+          connected_via: ham-marketplace-agent
+        - role: "Solution Architect: technical co-sell support, architecture validation"
+          connected_via: ham-field-alignment-agent
+    challenges:
+      - text: "Program complexity across three hyperscalers with different qualification gates, incentive structures, and portal workflows"
+        solved_by: ham-cosell-qualification-agent
+        specific_overhead:
+          - "Manually checking ACE, Partner Center, and Partner Advantage portals for program requirements"
+        source: "Tackle.io State of Cloud Marketplaces 2025: 89% transact but only 22% drive meaningful revenue"
+      - text: "Co-sell opportunities stall at registration because eligibility criteria are not validated upfront"
+        solved_by: ham-cosell-qualification-agent
+        specific_overhead:
+          - "Submitting opportunities that get rejected for missing fields or unmet criteria"
+        source: "Canalys Channel Analysis 2025: 51% report co-sell execution complexity as top barrier"
+      - text: "Committed spend burn rate tracking is manual, leading to shortfall surprises at quarter end"
+        solved_by: ham-program-health-agent
+        specific_overhead:
+          - "Pulling consumption reports from multiple portals and reconciling against commitment baselines"
+      - text: "Marketplace transactions fail when SKU, pricing, or procurement routing is misaligned"
+        solved_by: ham-marketplace-agent
+        specific_overhead:
+          - "Debugging private offer rejections, expired offers, and CPPO authorization gaps"
+      - text: "Hyperscaler field reps deprioritize accounts when they don't see structured co-sell engagement"
+        solved_by: ham-field-alignment-agent
+        specific_overhead:
+          - "Preparing joint session materials from scratch each time without account mapping templates"
+      - text: "RevOps cannot attribute marketplace revenue or co-sell influence to specific programs without structured reporting"
+        solved_by: ham-program-health-agent
+        specific_overhead:
+          - "Manually compiling transaction data across three marketplaces for quarterly reviews"
+        source: "42% of alliance leaders report RevOps misalignment as the most overlooked gap"
+      - text: "Co-sell incentives go unclaimed because eligibility windows and claim deadlines are not tracked"
+        solved_by: ham-program-health-agent
+        specific_overhead:
+          - "Checking incentive portals ad-hoc instead of systematically tracking claim windows"
+    administrative_overhead:
+      - text: "Manually checking ACE pipeline status and updating co-sell registrations"
+        automated_by: ham-cosell-qualification-agent
+      - text: "Creating and tracking private offers across three marketplace portals"
+        automated_by: ham-marketplace-agent
+      - text: "Pulling consumption reports from AWS, Azure, and GCP billing consoles"
+        automated_by: ham-program-health-agent
+      - text: "Building joint session prep decks by assembling data from CRM, marketplace, and partner portals"
+        automated_by: ham-field-alignment-agent
+      - text: "Reconciling marketplace transaction records with CRM closed-won data"
+        automated_by: ham-program-health-agent
+      - text: "Tracking co-sell incentive eligibility and claim deadlines across programs"
+        automated_by: ham-program-health-agent
+      - text: "Registering opportunities in ACE and Partner Center with required metadata"
+        automated_by: ham-field-alignment-agent
+    scenarios:
+      - problem: "A co-sell readiness assessment requires data from qualification status, marketplace listing health, committed spend position, and hyperscaler field engagement, but each lives in a different system"
+        why: >
+          When each dimension is assessed in isolation, the HAM misses interaction effects:
+          an eligible deal with an expired marketplace listing and no field engagement is
+          not three small gaps, it is one dead co-sell opportunity. No single sub-agent
+          sees the full picture.
+        agent: ham-agent
+        agent_response: >
+          Triggers parallel assessments from co-sell qualification, marketplace, and field
+          alignment agents. Aggregates findings into a unified co-sell readiness view
+          with cross-domain blockers that no single agent could surface alone.
+        success_signal: "HAM receives a single consolidated co-sell readiness brief covering all dimensions in under 2 minutes"
+      - problem: "Quarterly co-sell program review requires pipeline, transaction, spend, and incentive data aggregated across three hyperscalers"
+        why: >
+          Individual metrics look healthy in isolation, but a high registration count with
+          low acceptance rate and declining committed spend burn tells a different story
+          than any single metric suggests.
+        agent: ham-agent
+        agent_response: >
+          Routes to program health agent for pipeline and transaction data, co-sell
+          qualification agent for acceptance rate trends, and marketplace agent for
+          consumption data. Synthesizes into a cross-hyperscaler program health dashboard.
+        success_signal: "VP Alliances receives a single program health summary with trends, risks, and recommended actions across all three hyperscalers"
+    key_responsibilities:
+      - Co-sell opportunity qualification and readiness scoring
+      - Marketplace transaction lifecycle management (listing, private offer, procurement, consumption)
+      - Hyperscaler field alignment and joint session coordination
       - Co-sell program health monitoring and committed spend tracking
-    sub_agents: []
+      - ACE and Partner Center opportunity registration
+      - Private offer creation and CPPO routing
+      - Committed spend (EDP/MACC/CUD) burn rate monitoring and shortfall detection
+      - Co-sell incentive utilization tracking and claim deadline management
+      - Cross-hyperscaler program comparison and reporting
+      - Hyperscaler field rep engagement cadence management
+    sub_agents:
+      - name: Co-sell Qualification Agent
+        id: ham-cosell-qualification-agent
+        purpose: Assess co-sell eligibility across AWS (ACE), Azure (Partner Center), and GCP (Partner Advantage). Score readiness, validate committed spend applicability, produce next steps.
+      - name: Marketplace Agent
+        id: ham-marketplace-agent
+        purpose: Track deals through the marketplace transaction lifecycle from listing validation through consumption reporting. Manage private offers, CPPO routing, and procurement paths.
+      - name: Field Alignment Agent
+        id: ham-field-alignment-agent
+        purpose: Prepare for and debrief joint field sessions with hyperscaler reps. Build account maps, register opportunities in ACE/Partner Center, capture commitments.
+      - name: Program Health Agent
+        id: ham-program-health-agent
+        purpose: Periodic review of registered pipeline, closed transactions, consumption against committed spend, and co-sell incentive utilization across all three hyperscalers.
+    with_this_agent:
+      - domain: Co-sell Qualification and Readiness
+        agent: ham-cosell-qualification-agent
+        items:
+          - "Qualification: validate hyperscaler involvement, relationship tier, and program eligibility gates"
+          - "Committed spend: assess EDP/MACC/CUD draw-down applicability for marketplace transactions"
+          - "Readiness scoring: produce HIGH/MEDIUM/LOW score with five-dimension breakdown"
+          - "Next steps: recommend specific hyperscaler contact and engagement sequence"
+      - domain: Marketplace Transactions
+        agent: ham-marketplace-agent
+        items:
+          - "Listing: verify SKU, pricing, and terms are live in the relevant marketplace"
+          - "Private offers: generate offer parameters with pricing, terms, duration, and CPPO routing"
+          - "Procurement: map customer buying path (direct, reseller, CPPO) and resolve blockers"
+          - "Consumption: track usage against committed spend and flag shortfall or overage"
+      - domain: Hyperscaler Field Engagement
+        agent: ham-field-alignment-agent
+        items:
+          - "Session prep: build joint account map, align pitch, define hyperscaler rep ask"
+          - "Registration: submit opportunity to ACE/Partner Center with required fields and co-sell flags"
+          - "Debrief: capture hyperscaler rep commitments, next steps, and prioritization signals"
+      - domain: Program Health and Reporting
+        agent: ham-program-health-agent
+        items:
+          - "Pipeline: summarize registered co-sell pipeline by hyperscaler, stage, and deal value"
+          - "Transactions: summarize closed marketplace deals with count, value, and hyperscaler split"
+          - "Spend health: compare consumption to committed spend baseline, project burn rate"
+          - "Incentives: track eligibility windows and claim deadlines across programs"
+    activity_map:
+      purpose: >
+        The HAM exists to turn cloud marketplace mechanics and committed spend programs
+        into a pipeline accelerator for enterprise deals. Everything the HAM does falls into
+        one of these operational domains. Each domain is owned by a sub-agent that operates
+        independently with its own tools, flows, boundaries, and prompt registry.
+      domains:
+        - domain: Co-sell Qualification
+          why: >
+            The HAM validates every deal against hyperscaler-specific eligibility gates before
+            registration. A deal that fails ACE or Partner Center criteria wastes field rep
+            goodwill and delays co-sell momentum.
+          agent: ham-cosell-qualification-agent
+          contributing_agents:
+            - agent: ham-field-alignment-agent
+              provides: Relationship tier and field rep engagement context
+            - agent: ham-program-health-agent
+              provides: Historical acceptance rates and program tier standing
+          owner: ham-cosell-qualification-agent
+          receives: Account context, opportunity data, hyperscaler relationship status
+          provides: Readiness scores, eligibility assessments, recommended contacts
+          activities:
+            - Hyperscaler involvement and relationship tier assessment
+            - Committed spend (EDP/MACC/CUD) applicability evaluation
+            - ACE/Partner Center eligibility gate validation
+            - Weighted readiness scoring with five-dimension breakdown
+          cadence: per-opportunity, triggered by new deal or AE request
+        - domain: Marketplace Transactions
+          why: >
+            Marketplace is the procurement channel. When a private offer expires, a SKU
+            is misconfigured, or CPPO routing is wrong, the deal stalls at the finish
+            line regardless of how strong the co-sell motion was.
+          agent: ham-marketplace-agent
+          contributing_agents:
+            - agent: ham-cosell-qualification-agent
+              provides: Committed spend applicability for marketplace routing
+            - agent: ham-program-health-agent
+              provides: Consumption data for burn rate context
+          owner: ham-marketplace-agent
+          receives: CRM opportunity data, marketplace listing data, committed spend context
+          provides: Transaction status, blocker reports, consumption dashboards
+          activities:
+            - SKU and pricing validation against marketplace catalog
+            - Private offer creation with pricing, terms, and routing
+            - Customer procurement path mapping and blocker resolution
+            - Consumption tracking against committed spend baseline
+          cadence: per-transaction, daily monitoring for active offers
+        - domain: Field Alignment
+          why: >
+            Hyperscaler field reps control co-sell priority. Without structured joint
+            sessions, opportunity registration, and debrief follow-through, the vendor
+            becomes invisible in the hyperscaler's account plan.
+          agent: ham-field-alignment-agent
+          contributing_agents:
+            - agent: ham-cosell-qualification-agent
+              provides: Readiness scores for session prioritization
+            - agent: ham-program-health-agent
+              provides: Pipeline and transaction data for joint session context
+          owner: ham-field-alignment-agent
+          receives: Account context, CRM data, hyperscaler portal data
+          provides: Session prep briefs, registration confirmations, debrief summaries
+          activities:
+            - Joint account mapping and white space identification
+            - Co-sell pitch alignment with hyperscaler solution plays
+            - Opportunity registration in ACE/Partner Center
+            - Session debrief with commitment capture
+          cadence: per-session, quarterly cadence per active account
+        - domain: Program Health
+          why: >
+            Individual metrics look healthy in isolation. A high registration count with
+            low acceptance rate and declining committed spend burn tells a different story
+            than any single metric suggests.
+          agent: ham-program-health-agent
+          contributing_agents:
+            - agent: ham-cosell-qualification-agent
+              provides: Acceptance rate trends and qualification patterns
+            - agent: ham-marketplace-agent
+              provides: Transaction volumes and consumption data
+          owner: ham-program-health-agent
+          receives: Portal pipeline data, marketplace transaction records, consumption reports
+          provides: Program health summaries, shortfall alerts, incentive tracking
+          activities:
+            - Registered pipeline review by hyperscaler with stage breakdown
+            - Closed transaction summary with deal count and value
+            - Committed spend burn rate analysis and projection
+            - Co-sell incentive eligibility and utilization tracking
+          cadence: monthly review, quarterly deep-dive, triggered by threshold breach
+    public_resources:
+      - title: "Tackle.io: State of Cloud Marketplaces"
+        url: https://tackle.io/resources/reports/state-of-cloud-marketplaces/
+        context: Annual survey on ISV marketplace maturity, co-sell execution gaps, and transaction patterns
+      - title: "AWS ISV Accelerate Program Guide"
+        url: https://aws.amazon.com/partners/programs/isv-accelerate/
+        context: Official program mechanics, ACE pipeline sharing, co-sell benefits
+      - title: "Microsoft: Azure IP Co-sell Overview"
+        url: https://learn.microsoft.com/en-us/partner-center/co-sell-overview
+        context: Co-sell ready vs. eligible tiers, MACC eligibility, Partner Center referrals
+      - title: "Google Cloud Partner Advantage"
+        url: https://cloud.google.com/partners
+        context: Sell/Service/Build paths, expertise designations, partner credits
+      - title: "Forrester TEI: Cloud Marketplace Practices"
+        url: https://tackle.io/resources/reports/forrester-tei/
+        context: 234% ROI, 50% faster deal closures for mature marketplace practices
+      - title: "Canalys: Channel Ecosystem Analysis"
+        url: https://canalys.com/
+        context: Co-sell revenue impact, partner ecosystem trends, hyperscaler growth data
+    playbook_raci:
+      context: >
+        Outside of agent-owned operations, the HAM participates in cross-role scenarios
+        orchestrated by playbooks. In these scenarios the HAM provides co-sell context
+        while other roles lead their domain.
+      entries:
+        - playbook: PB_AE_004
+          name: Opportunity Consult
+          raci: Consulted
+          contribution: Co-sell readiness context, marketplace buying path, committed spend status
+        - playbook: PB_HAM_001
+          name: Co-sell Opportunity Qualification
+          raci: Responsible
+          contribution: Full co-sell eligibility assessment and readiness scoring
+        - playbook: PB_HAM_002
+          name: Marketplace Transaction Management
+          raci: Responsible
+          contribution: Transaction lifecycle tracking from listing to consumption
+        - playbook: PB_HAM_003
+          name: Hyperscaler Field Alignment
+          raci: Responsible
+          contribution: Session prep, opportunity registration, debrief capture
+        - playbook: PB_HAM_004
+          name: Co-sell Program Health Review
+          raci: Responsible
+          contribution: Cross-hyperscaler program health dashboard
+    collaboration:
+      defer_to:
+        ae_agent:
+          scope: Customer relationship ownership, commercial terms, deal strategy
+          scenarios:
+            - trigger: Co-sell opportunity qualified and ready for customer engagement
+              context_passed: Readiness score, hyperscaler contacts, marketplace buying path
+              receiver_action: Incorporate co-sell context into deal strategy
+        partner_agent:
+          scope: ISV and reseller partner program management, CPPO authorization
+          scenarios:
+            - trigger: CPPO routing needed for marketplace transaction
+              context_passed: Channel partner details, deal context, wholesale pricing requirements
+              receiver_action: CPPO authorization, partner coordination
+        sa_agent:
+          scope: Technical architecture validation for co-sell pitch
+          scenarios:
+            - trigger: Hyperscaler field session requires technical depth
+              context_passed: Customer architecture context, hyperscaler solution play alignment
+              receiver_action: Technical co-sell pitch support, architecture validation
+      provide_to:
+        ae_agent:
+          scope: Co-sell readiness context for deal strategy
+          scenarios:
+            - trigger: Co-sell opportunity qualified
+              context_passed: Readiness score, marketplace buying path, committed spend status
+              receiver_action: Adjust deal strategy to leverage cloud budget
+        infohub_curator_agent:
+          scope: Co-sell outcomes and field engagement data
+          scenarios:
+            - trigger: Co-sell outcome recorded or field session completed
+              context_passed: Transaction records, consumption data, hyperscaler rep engagement notes
+              receiver_action: Persist to account InfoHub for cross-agent visibility
 
   handoffs:
-    human_escalation: Partner Manager
+    human_escalation: VP Alliances
     outbound:
       - target: ae-agent
-        trigger: Co-sell opportunity qualified
-        context: Opportunity context and hyperscaler engagement status
+        trigger: Co-sell opportunity qualified and ready for AE engagement
+        context: Co-sell readiness score, hyperscaler field contacts, marketplace buying path
       - target: infohub-curator-agent
         trigger: Co-sell outcome or field session completed
-        context: Consumption data and hyperscaler rep engagement notes
+        context: Consumption data, transaction records, hyperscaler rep engagement notes
 
   knowledge:
     references:
       - id: hyperscaler-program-mechanics
         path: references/hyperscaler-program-mechanics.yaml
-        description: AWS ISV Accelerate, Azure IP Co-sell, GCP Partner Advantage program rules and incentive structures
+        description: AWS ISV Accelerate, Azure IP Co-sell, GCP Partner Advantage program rules, tiers, and incentive structures
       - id: marketplace-transaction-playbook
         path: references/marketplace-transaction-playbook.yaml
-        description: Private offer flows, CPPO mechanics, procurement routing for AWS, Azure, and GCP
+        description: Private offer flows, CPPO mechanics, procurement routing for AWS, Azure, and GCP Marketplace
       - id: cosell-qualification-criteria
         path: references/cosell-qualification-criteria.yaml
-        description: ACE and Partner Center eligibility gates, committed spend thresholds, co-sell scoring
+        description: ACE and Partner Center eligibility gates, committed spend thresholds, co-sell scoring rubric
 
 guardrails:
   boundaries:
@@ -85,3 +593,4 @@ guardrails:
     - Do not negotiate contract terms with the customer
     - Do not manage ISV or reseller partner programs (Partner Manager's domain)
     - Do not commit to marketplace listing changes without product sign-off
+    - Do not make pricing decisions (Deal Desk's domain)

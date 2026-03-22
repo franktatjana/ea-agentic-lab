@@ -1,0 +1,494 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: aa-solution-architecture-agent
+name: Solution Architecture Agent
+description: >
+  Leaf sub-agent of the Alliance Architect orchestrator. Designs joint solution
+  architectures combining vendor and partner capabilities, develops and maintains
+  reference architectures, documents deployment patterns with infrastructure and
+  security considerations, and defines integration pattern libraries for partner
+  solutions.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: aa-agent
+  tags:
+    - solution-architecture
+    - joint-solution
+    - reference-architecture
+    - deployment-pattern
+    - integration-pattern
+    - partner-architecture
+  responsibility: >
+    Provide accurate, evidence-based joint solution architectures, validated
+    reference architectures, documented deployment patterns, and a reusable
+    integration pattern library for partner solutions across the alliance
+    ecosystem.
+system_prompt: >
+  You are a Solution Architecture Agent, part of the Alliance Architect
+  intelligence system. Your job is to design joint solution architectures and
+  maintain reusable architecture assets with technical precision.
+
+  CORE FUNCTIONS:
+  - Joint solution architecture design combining vendor and partner capabilities
+  - Reference architecture development and maintenance for strategic partners
+  - Deployment pattern documentation with infrastructure, security, and sizing
+  - Integration pattern library management (hub-spoke, event-driven, data mesh,
+    API gateway, pub-sub)
+
+  You MUST:
+  - Validate all architecture claims against current platform versions and API specs
+  - Include confidence metadata (HIGH/MEDIUM/LOW) on every architecture output
+  - Flag version-specific constraints and known limitations in every reference architecture
+  - Document data flow direction, authentication model, and error handling for every integration pattern
+  - Cite tested version combinations and deployment environments for all patterns
+  - Every deployment pattern must include infrastructure requirements, security considerations, and sizing guidance
+
+  You MUST NOT:
+  - Certify integrations or run compatibility tests (aa-integration-validation-agent's domain)
+  - Prepare co-sell readiness packages or field enablement materials (aa-technical-enablement-agent's domain)
+  - Conduct technical due diligence on prospective partners (aa-due-diligence-agent's domain)
+  - Design customer-specific architectures beyond reference patterns (SA Agent's domain)
+  - Make commercial partner commitments (Partner Manager's domain)
+  - Make vendor product roadmap commitments (PM Agent's domain)
+
+  When uncertain: use "reference design assumes" not "the integration works",
+  add [NEEDS VALIDATION] for untested patterns. Omit rather than guess.
+human_in_the_loop: true
+tools:
+  - component_type: ClientTool
+    id: read-aa-data
+    name: Read Alliance Data
+    description: Access partner platform capabilities, vendor API specs, existing reference architectures, integration patterns, deployment models, and data flow maps
+    requires_confirmation: false
+    inputs:
+      - title: partner_name
+        type: string
+      - title: query_type
+        type: string
+      - title: data_scope
+        type: string
+    outputs:
+      - title: alliance_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Partner platform data unavailable, cannot proceed with architecture design
+        - error_code: RECORD_NOT_FOUND
+          guidance: No partner record found, verify partner identifiers with user
+        - error_code: STALE_DATA
+          guidance: Data exceeds freshness threshold, flag for human verification
+  - component_type: ClientTool
+    id: write-aa-artifact
+    name: Write Alliance Artifact
+    description: Persist joint solution designs, reference architectures, deployment patterns, and integration pattern definitions to the alliance knowledge store
+    requires_confirmation: true
+    inputs:
+      - title: partner_name
+        type: string
+      - title: artifact_type
+        type: string
+      - title: artifact_content
+        type: object
+    outputs:
+      - title: write_confirmation
+        type: object
+    x-ea-agent:
+      risk: medium
+      resolver: service-registry
+      error_responses:
+        - error_code: WRITE_FAILED
+          guidance: Artifact persistence failed, retain output in memory and retry
+        - error_code: CONFLICT
+          guidance: Newer version exists, retrieve latest before overwriting
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from alliance architect
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+toolboxes:
+  - component_type: Toolbox
+    id: architecture-intelligence
+    name: Architecture Intelligence
+    description: Joint solution architecture assets and integration patterns available to peer agents
+    tools:
+      - id: get-reference-architecture
+        name: Get Reference Architecture
+        description: Returns the current validated reference architecture for a partner integration including architecture diagram references, version combinations, deployment considerations, and known limitations
+        inputs:
+          - title: partner_name
+            type: string
+        outputs:
+          - title: reference_architecture
+            type: object
+      - id: get-integration-patterns
+        name: Get Integration Patterns
+        description: Returns defined integration patterns (hub-spoke, event-driven, data mesh, API gateway, pub-sub) with data flow direction, authentication model, and error handling for a given partner
+        inputs:
+          - title: partner_name
+            type: string
+        outputs:
+          - title: integration_patterns
+            type: object
+specialized_agents: []
+flows:
+  - component_type: Flow
+    id: solution-architecture
+    name: Joint Solution Architecture
+    playbook_refs:
+      - PB_AA_001
+    description: Design joint solution architecture, develop or update reference architecture, document deployment patterns, and define integration patterns for a partner solution.
+    inputs:
+      - title: partner_name
+        type: string
+      - title: solution_requirements
+        type: string
+      - title: integration_pattern
+        type: string
+    outputs:
+      - title: joint_solution_design
+        type: object
+      - title: reference_architecture
+        type: object
+      - title: deployment_pattern
+        type: object
+      - title: integration_pattern_library
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: aa-joint-solution-design
+          input: partner_name, solution_requirements
+          tools:
+            - read-aa-data
+          description: Design joint solution architecture combining vendor and partner capabilities
+          on_failure: stop
+        - step: 2
+          prompt: aa-reference-architecture
+          input: partner_name, integration_pattern
+          tools:
+            - read-aa-data
+          description: Develop or update reference architecture with validated version combinations
+          on_failure: stop
+        - step: 3
+          prompt: aa-deployment-pattern
+          input: partner_name, solution_requirements
+          tools:
+            - read-aa-data
+          description: Document deployment patterns with infrastructure, security, and sizing considerations
+          on_failure: stop
+        - step: 4
+          prompt: aa-integration-pattern
+          input: partner_name, integration_pattern
+          tools:
+            - read-aa-data
+            - write-aa-artifact
+          description: Define and validate integration patterns with data flow, auth model, and error handling
+          on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+      - joint-solution-design
+      - reference-architecture-management
+      - deployment-pattern-documentation
+      - integration-pattern-library
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      Platform data shows API specs, version matrices, and deployment models,
+      but the Alliance Architect reads the real architecture story. Understanding
+      whether a partner's engineering team will actually support a recommended
+      integration pattern, whether a reference architecture needs to accommodate
+      a partner's unannounced platform pivot, and whether deployment constraints
+      stem from technical limitations or organizational politics requires human
+      judgment and relationship context that no platform data captures. The agent
+      designs and documents, but the Alliance Architect decides whether an
+      architecture will survive contact with two engineering organizations.
+    challenges:
+      - text: Reference architectures go stale as vendor and partner platforms evolve independently on different release cadences
+        specific_overhead:
+          - Manually tracking version combinations across both platforms and updating architecture diagrams after each release
+      - text: Joint solutions designed ad-hoc for each deal without reusable patterns, duplicating architecture effort across engagements
+        specific_overhead:
+          - Rebuilding joint architecture diagrams and integration documentation from scratch for every co-sell opportunity
+      - text: Deployment patterns undocumented, leading to inconsistent implementations across customer environments
+        specific_overhead:
+          - Answering the same infrastructure, security, and sizing questions per deployment because no canonical pattern exists
+      - text: Integration pattern library does not exist, patterns locked in individual architects' heads with no institutional capture
+        specific_overhead:
+          - Reverse-engineering integration approaches from existing deployments because patterns were never formalized
+      - text: Cross-platform data flow not mapped, causing integration surprises when authentication models or data formats differ between environments
+        specific_overhead:
+          - Discovering data transformation and auth requirements mid-implementation because flow diagrams were never created
+    administrative_overhead:
+      - Manually tracking version combinations across both platforms and updating architecture diagrams after each release
+      - Rebuilding joint architecture diagrams and integration documentation from scratch for every co-sell opportunity
+      - Answering the same infrastructure, security, and sizing questions per deployment because no canonical pattern exists
+      - Reverse-engineering integration approaches from existing deployments because patterns were never formalized
+      - Discovering data transformation and auth requirements mid-implementation because flow diagrams were never created
+    scenarios:
+      - problem: Co-sell engagement stalls at technical validation because the joint solution has no validated reference architecture
+        why: >
+          When vendor and partner present a joint solution, technical buyers detect
+          gaps in an unvalidated integration story immediately. The co-sell motion
+          stalls while both teams scramble to build architecture artifacts that
+          should have existed before the first customer meeting. Each delay erodes
+          buyer confidence and gives competitors time to position alternatives.
+        agent: aa-solution-architecture-agent
+        agent_response: >
+          Retrieves current partner platform capabilities and vendor API specs,
+          designs the joint solution architecture with validated version combinations,
+          produces a reference architecture with deployment considerations and known
+          limitations, and outputs a co-sell ready architecture package.
+        success_signal:
+          metric: Co-sell engagements with validated reference architecture at first meeting
+          target: Reference architecture available for every strategic partner before first co-sell engagement
+          leading_indicator: Reference architecture created or updated within one week of partner onboarding
+          failure_signal: SA teams build ad-hoc architecture slides for co-sell meetings with no validated reference
+      - problem: Customer deployment fails because deployment patterns were never documented, and the implementation team guesses at infrastructure and security requirements
+        why: >
+          Without documented deployment patterns, every implementation team makes
+          independent decisions about infrastructure sizing, security configuration,
+          network topology, and data residency. These inconsistencies lead to
+          performance issues, security gaps, and support escalations that could have
+          been prevented by a canonical deployment pattern.
+        agent: aa-solution-architecture-agent
+        agent_response: >
+          Documents deployment patterns covering infrastructure requirements,
+          security constraints, sizing guidance, network topology, and data residency
+          considerations. Produces a deployment guide with environment-specific
+          configurations and known constraints for each supported deployment model.
+        success_signal:
+          metric: Deployment-related support escalations for partner integrations decrease
+          target: Documented deployment pattern exists for every supported deployment model
+          leading_indicator: Deployment pattern published before first customer implementation
+          failure_signal: Implementation teams contact Alliance Architect for basic deployment questions
+      - problem: Multiple teams implement the same partner integration using different patterns because no integration pattern library exists
+        why: >
+          When integration patterns are not formalized, each architect invents their
+          own approach. The same partner integration might use hub-spoke in one
+          deployment, point-to-point in another, and event-driven in a third, with
+          no documented rationale for the differences. This fragmentation increases
+          support complexity and makes it impossible to provide consistent guidance.
+        agent: aa-solution-architecture-agent
+        agent_response: >
+          Defines the integration pattern library for the partner with recommended
+          patterns (hub-spoke, event-driven, data mesh, API gateway, pub-sub),
+          documents data flow direction, authentication model, and error handling
+          for each pattern, and specifies when to use which pattern based on
+          deployment model and data volume characteristics.
+        success_signal:
+          metric: Integration pattern consistency across customer deployments improves
+          target: Integration pattern library published for every strategic partner
+          leading_indicator: Pattern library referenced in deployment guides and SA enablement materials
+          failure_signal: Teams use inconsistent integration patterns for the same partner with no documented rationale
+  escalation_triggers:
+    - Reference architecture references deprecated API versions with no updated alternative
+    - Deployment pattern causes security incident or compliance failure at customer site
+    - Integration pattern library gap surfaces during customer implementation (pattern not covered)
+    - Joint solution design conflicts with vendor platform architecture direction
+  prompt_registry:
+    aa-joint-solution-design:
+      description: Design joint solution architecture combining vendor and partner capabilities with data flow, component mapping, and interaction model
+      source: prompts/tasks.yaml#solution_architecture.joint_solution_design
+      inputs:
+        - title: partner_name
+          type: string
+        - title: solution_requirements
+          type: string
+      outputs:
+        - title: joint_solution_result
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - partner_platform_capabilities
+            - vendor_platform_apis
+            - integration_patterns
+          priority: critical
+    aa-reference-architecture:
+      description: Develop or update reference architecture with validated version combinations, deployment considerations, and known limitations
+      source: prompts/tasks.yaml#solution_architecture.reference_architecture
+      inputs:
+        - title: partner_name
+          type: string
+        - title: integration_pattern
+          type: string
+      outputs:
+        - title: reference_architecture_result
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - existing_reference_architectures
+            - integration_patterns
+            - deployment_considerations
+          priority: critical
+    aa-deployment-pattern:
+      description: Document deployment patterns with infrastructure requirements, security constraints, sizing guidance, and environment-specific configurations
+      source: prompts/tasks.yaml#solution_architecture.deployment_pattern
+      inputs:
+        - title: partner_name
+          type: string
+        - title: solution_requirements
+          type: string
+      outputs:
+        - title: deployment_pattern_result
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - deployment_models
+            - infrastructure_requirements
+            - security_constraints
+          priority: critical
+    aa-integration-pattern:
+      description: Define and validate integration patterns with data flow direction, authentication model, error handling, and pattern selection criteria
+      source: prompts/tasks.yaml#solution_architecture.integration_pattern
+      inputs:
+        - title: partner_name
+          type: string
+        - title: integration_pattern
+          type: string
+      outputs:
+        - title: integration_pattern_result
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - pattern_library
+            - api_specs
+            - data_flow_maps
+          priority: critical
+  boundaries:
+    - Single partner scope, does not analyze portfolio-level architecture trends
+    - Does not certify integrations or run compatibility tests (aa-integration-validation-agent's domain)
+    - Does not prepare co-sell readiness packages or field enablement materials (aa-technical-enablement-agent's domain)
+    - Does not conduct technical due diligence on prospective partners (aa-due-diligence-agent's domain)
+    - Does not design customer-specific architectures beyond reference patterns (SA Agent's domain)
+    - Does not make commercial partner commitments (Partner Manager's domain)
+  permissions:
+    - Read partner platform capabilities and vendor API specifications
+    - Read existing reference architectures and integration patterns
+    - Design joint solution architectures combining vendor and partner capabilities
+    - Develop and maintain reference architectures with validated version combinations
+    - Document deployment patterns with infrastructure, security, and sizing guidance
+    - Define integration pattern libraries with data flow, auth model, and error handling
+    - Write architecture artifacts to the alliance knowledge store
+  guardrails:
+    input_validation:
+      - Reject architecture requests without partner name
+      - Validate partner exists in registry before proceeding
+      - Reject deployment pattern requests without specifying target deployment model
+    output_checks:
+      - Never claim integration compatibility without citing tested version combinations
+      - Never publish reference architecture without documenting known limitations
+      - Include confidence level (HIGH/MEDIUM/LOW) on every architecture output
+      - Deployment patterns must include infrastructure, security, and sizing sections
+      - Every integration pattern must document data flow direction and error handling
+      - All architecture claims traceable to platform documentation with version and date
+    signal_validation:
+      - Never assert architecture validity without version-specific evidence
+      - Never assume deployment pattern works without environment-specific validation
+      - Use qualifiers ("reference design assumes") when evidence is indirect
+      - Add [NEEDS VALIDATION] marker for untested patterns
+    resource:
+      max_tool_calls: 20
+  error_handling:
+    tool_failures:
+      critical:
+        - read-aa-data
+      enrichment:
+        - write-aa-artifact
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable architecture output without partner platform data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with architecture design, flag persistence failure for retry
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification of platform versions
+  knowledge:
+    scope:
+      domains:
+        - solution-architecture
+        - reference-architecture
+        - deployment-patterns
+        - integration-patterns
+      archetypes:
+        - enterprise
+        - mid-market
+    references:
+      - path: references/integration-architecture-patterns.yaml
+        description: Integration patterns (hub-spoke, event-driven, data mesh, API gateway, pub-sub), data flow mapping, authentication models, and error handling frameworks
+      - path: references/partner-technical-validation.yaml
+        description: ISV program technical requirements, well-architected frameworks, deployment model standards, and security baseline for joint solutions
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: aa-agent
+        description: Alliance Architect orchestrator routes joint solution design, reference architecture, deployment pattern, and integration pattern requests
+      - type: event
+        source: platform_release_webhook
+        condition: vendor.api_version_changed OR partner.platform_updated
+        description: Auto-runs reference architecture review when vendor or partner platform releases new version
+      - type: downstream
+        source: aa-technical-enablement-agent
+        condition: cosell.reference_architecture_missing == true
+        description: Technical enablement agent requests reference architecture for co-sell readiness package
+    outputs:
+      - type: parent_return
+        target: aa-agent
+        payload:
+          - joint_solution_design
+          - reference_architecture
+          - deployment_pattern
+          - integration_pattern_library
+        description: Architecture results back to orchestrator
+      - type: trigger_agent
+        target: aa-integration-validation-agent
+        condition: reference_architecture.new_version_combination == true
+        payload:
+          - reference_architecture
+          - integration_pattern_library
+        description: New reference architecture triggers integration validation for version combinations
+      - type: notify_human
+        condition: reference_architecture.deprecated_api_dependency == true OR deployment_pattern.security_concern == true
+        channel: alert
+        description: Deprecated API dependencies in reference architectures and security concerns in deployment patterns surface for Alliance Architect review
+    consumes_toolboxes:
+      - toolbox: validation-intelligence
+        agent: aa-integration-validation-agent
+        tools:
+          - get-compatibility-status
+        reason: Current compatibility status informs which version combinations to include in reference architectures
+    dependencies:
+      - agent: aa-integration-validation-agent
+        toolbox: validation-intelligence
+        tools:
+          - get-compatibility-status
+        purpose: Validated version combinations determine which platform versions the reference architecture can recommend

@@ -497,8 +497,66 @@ activity_capture:
 
 ---
 
+---
+
+## 9. Agent-Computer Interface (ACI) Design
+
+When extending or configuring agent tool sets, the quality of tool interfaces directly affects agent behavior. These principles apply to anyone authoring new tools, prompts, or knowledge references in the system.
+
+### Tool Design Principles
+
+```yaml
+tool_design:
+  documentation:
+    - "Name and describe every parameter: what it is, what values are valid"
+    - "Include at least one example invocation in the tool description"
+    - "Document edge cases and error conditions explicitly"
+    - "Match parameter names to how the domain naturally describes the concept"
+
+  interface_clarity:
+    - "Avoid parameters that require the agent to count characters or lines"
+    - "Return structured output the agent can reason about, not formatted strings"
+    - "Separate read and write operations into distinct tools"
+    - "Name tools as verbs: get-account-context, write-risk-card, invoke-sa-agent"
+
+  poka_yoke:
+    - "Make invalid states unrepresentable in the input schema"
+    - "Provide enums rather than freeform strings where values are bounded"
+    - "Add confirmation gates (requires_confirmation: true) on write tools"
+    - "Validate inputs at the tool boundary, not in the agent prompt"
+
+  trust_model:
+    - "Tool outputs are data, not instructions"
+    - "Agent reads customer documents, meeting notes, or web content as untrusted input"
+    - "Permission claims embedded in tool outputs are not valid authorization"
+    - "read- tools are low-risk (auto-approve), write- tools are medium-risk (confirmation required)"
+```
+
+### Prompt Design Principles
+
+```yaml
+prompt_design:
+  focus:
+    - "Each prompt handles one well-defined task"
+    - "Prompts that attempt multiple tasks in one call produce inconsistent results"
+    - "Isolate analysis prompts from generation prompts"
+
+  evidence_discipline:
+    - "Prompts should cite source fields in their instructions: use meeting_notes, not general context"
+    - "Require the model to quote verbatim when precision matters"
+    - "Distinguish 'confirmed' from 'inferred' in output schemas"
+
+  iteration:
+    - "For outputs where quality criteria are measurable, pair a generator prompt with an evaluator prompt"
+    - "Define the evaluation rubric before writing the generator prompt"
+    - "Set a maximum iteration count; open-ended refinement loops increase cost without bound"
+```
+
+---
+
 ## Sources
 
 - Industry SA best practices
 - Enterprise sales engineering methodologies
 - Value-based selling frameworks
+- Anthropic: Building Effective Agents (2025)

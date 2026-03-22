@@ -1,0 +1,572 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ve-workshop-agent
+name: VE Workshop Agent
+description: 'Prepares and facilitates value stream workshops that map customer current-state
+  workflows, design future-state improvements, and synthesize findings into a value
+  model with quick wins and phased roadmap. Workshops ground value in operational
+  reality and create shared ownership of the problem.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ve-agent
+  tags:
+  - value-stream
+  - workshop
+  - current-state
+  - future-state
+  - facilitation
+  - value-engineering
+  responsibility: 'Prepare structured value stream workshops with objectives, data requests, and
+    agendas. Map current-state workflows with pain points and baselines. Design
+    future-state improvements with target metrics. Synthesize into value model
+    with quick wins and phased roadmap.
+
+    '
+system_prompt: 'You are a Value Stream Workshop Agent, part of the Value Engineering intelligence
+  system. Your job is to prepare and facilitate structured workshops that ground value
+  claims in operational reality.
+
+
+  You MUST:
+
+  - Prepare workshops with clear objectives, pre-work data requests, and facilitator guides
+
+  - Map current-state workflows with tool inventory, handoff points, and pain points
+
+  - Design future-state workflows with eliminated pain points and target metrics
+
+  - Synthesize workshop findings into value model with quick wins and phased roadmap
+
+  - Use anchoring techniques to build shared understanding of current-state costs
+
+  - Capture baseline metrics during current-state mapping for downstream calculation
+
+  - Structure agendas with time allocation and participant roles
+
+
+  You MUST NOT:
+
+  - Calculate ROI or TCO (VE Calculation Agent''s domain)
+
+  - Build business cases or financial models (VE Hypothesis Agent''s domain)
+
+  - Track post-deployment value (VE Realization Agent''s domain)
+
+  - Skip pre-workshop data collection
+
+  - Present future state without current state baseline
+
+  - Fabricate workshop findings or invent participant input
+
+
+  When uncertain: note data gaps explicitly, flag areas requiring follow-up with
+  specific owners, and add [PRE-WORKSHOP RESEARCH NEEDED] for missing context.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-account-data
+  name: Read Account Data
+  description: Access account context, stakeholder data, and business context from vault
+  requires_confirmation: false
+  inputs:
+  - title: account_path
+    type: string
+  outputs:
+  - title: account_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Account data unavailable, cannot prepare workshop without account context
+    - error_code: RECORD_NOT_FOUND
+      guidance: Account not found, verify account identifier with user
+- component_type: ClientTool
+  id: read-value-tracker
+  name: Read Value Tracker
+  description: Access value hypothesis and prior workshop data from InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: tracker_path
+    type: string
+  outputs:
+  - title: tracker_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Value tracker unavailable, proceed with account data for workshop prep
+    - error_code: NO_RECORDS
+      guidance: No prior workshop data for this account, first workshop engagement
+- component_type: ClientTool
+  id: write-value-artifact
+  name: Write Value Artifact
+  description: Save workshop plan, current/future state maps, or synthesis to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact_type
+    type: string
+  - title: content
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: save-workshop-intelligence
+  name: Save Workshop Intelligence
+  description: Persist workshop findings and state maps to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: workshop_data
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification on workshop logistics, attendees, or focus areas
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: workshop-intelligence
+  name: Workshop Intelligence
+  description: Workshop findings, current/future state maps, and synthesis available to peer agents
+  tools:
+  - id: get-workshop-findings
+    name: Get Workshop Findings
+    description: Returns current/future state maps and value synthesis from completed workshop
+    inputs:
+    - title: account_name
+      type: string
+    - title: focus_area
+      type: string
+    outputs:
+    - title: workshop_findings
+      type: object
+  - id: get-current-state-map
+    name: Get Current State Map
+    description: Returns current-state workflow with tool inventory, handoffs, pain points, and baselines
+    inputs:
+    - title: account_name
+      type: string
+    - title: process_area
+      type: string
+    outputs:
+    - title: current_state_map
+      type: object
+  - id: get-future-state-design
+    name: Get Future State Design
+    description: Returns future-state workflow with eliminated pain points and target metrics
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: future_state_design
+      type: object
+  - id: get-workshop-synthesis
+    name: Get Workshop Synthesis
+    description: Returns value model with quick wins, phased roadmap, and prioritized opportunities
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: workshop_synthesis
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: value-stream-workshop
+  name: Value Stream Workshop
+  playbook_refs:
+  - PB_VE_004
+  description: Prepare and facilitate value stream workshops, map current and future state, and synthesize into value model.
+  inputs:
+  - title: account_context
+    type: object
+  - title: workshop_date
+    type: string
+  - title: attendees
+    type: array
+  - title: focus_area
+    type: string
+  outputs:
+  - title: workshop_plan
+    type: object
+  - title: current_state_map
+    type: object
+  - title: future_state_design
+    type: object
+  - title: workshop_synthesis
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ve-workshop-preparation
+      input: account_name, date, attendees, focus
+      tools:
+      - read-account-data
+      - read-value-tracker
+      description: Define objectives, prepare data request, build agenda and facilitator guide
+      on_failure: stop
+    - step: 2
+      prompt: ve-current-state-mapping
+      input: account_name, process_area, findings
+      tools:
+      - read-account-data
+      description: Map workflows, tool inventory, handoff points, pain points, baseline metrics
+      on_failure: stop
+    - step: 3
+      prompt: ve-future-state-design
+      input: account_name, current_state, capabilities
+      tools:
+      - read-account-data
+      description: Design future workflow with eliminated pain points and target metrics
+      on_failure: stop
+    - step: 4
+      prompt: ve-workshop-synthesis
+      input: account_name, current_state, future_state, metrics
+      tools:
+      - read-account-data
+      - read-value-tracker
+      description: Synthesize into value opportunity, quick wins, phased roadmap, prioritization
+      on_failure: stop
+    - step: 5
+      action: persist
+      tools:
+      - save-workshop-intelligence
+      - write-value-artifact
+      description: Save workshop artifacts and findings to InfoHub for peer agent consumption
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - workshop-preparation
+    - current-state-mapping
+    - future-state-design
+    - workshop-synthesis
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent structures the workshop and maps the value model, but the VE reads
+      the room: when to probe deeper on a cost the customer downplayed, when a
+      participant''s body language says the pain is worse than the numbers suggest,
+      and when to pivot the agenda because an unexpected insight changes the value story.
+      Facilitation is a human skill the agent supports but cannot replace.
+
+      '
+    challenges:
+    - text: Workshops lack structured pre-work data collection, forcing discovery during limited facilitation time
+      specific_overhead:
+      - Manually preparing data request lists and pre-work instructions for each workshop
+    - text: Current-state mapping captures tools but misses handoff points and hidden costs between workflow steps
+      specific_overhead:
+      - Interviewing multiple stakeholders separately to piece together the full workflow
+    - text: Future-state design jumps to solution features instead of mapping measurable improvements per pain point
+      specific_overhead:
+      - Translating product capabilities into workflow-level improvements the customer can validate
+    - text: Workshop findings are documented in meeting notes but never synthesized into a structured value model
+      specific_overhead:
+      - Manually converting workshop notes into prioritized value opportunities with quick wins
+    - text: Workshop agendas are generic templates not customized to the customer's industry and process area
+      specific_overhead:
+      - Researching industry-specific workflow patterns before each workshop
+    administrative_overhead:
+    - Preparing workshop agendas and facilitator guides from scratch
+    - Collecting and organizing pre-workshop research on customer workflows
+    - Documenting current-state findings during live facilitation
+    - Synthesizing workshop findings into prioritized value models post-session
+    scenarios:
+    - problem: Workshops lack structured pre-work data collection, forcing discovery during limited facilitation time
+      why: 'Value stream workshops have limited time with senior customer stakeholders. Without
+        pre-workshop data collection, the facilitation time is spent gathering baseline information
+        instead of analyzing it. The workshop produces shallow findings because the group never
+        moves past discovery into design.
+
+        '
+      agent: ve-workshop-agent
+      agent_response: 'Generates a structured pre-work data request tailored to the workshop focus area,
+        including specific metrics, tool inventories, and process documentation the customer should
+        provide before the session. Builds the facilitator guide with pre-populated baseline data
+        so the workshop starts at analysis, not collection.
+
+        '
+      success_signal:
+        metric: Pre-workshop data collection completeness before facilitation starts
+        target: At least 70% of baseline data collected before the workshop begins
+        leading_indicator: Data request sent to customer at least 5 business days before workshop
+        failure_signal: Workshop spends first 30+ minutes collecting basic information
+    - problem: Workshop findings are documented in meeting notes but never synthesized into a structured value model
+      why: 'Raw workshop notes capture individual observations but do not structure them into a
+        prioritized value model. Without synthesis, the findings sit in a document nobody references.
+        The value story dies in the meeting notes instead of driving the business case.
+
+        '
+      agent: ve-workshop-agent
+      agent_response: 'Synthesizes current-state and future-state findings into a structured value model
+        with categorized quick wins, a phased improvement roadmap, and prioritized value opportunities
+        ranked by impact and feasibility. The synthesis connects workshop findings directly to
+        downstream financial modeling inputs.
+
+        '
+      success_signal:
+        metric: Workshop findings converted to structured value model within 48 hours
+        target: Every workshop produces a prioritized value model with quick wins and phased roadmap
+        leading_indicator: Synthesis template pre-populated during workshop with real-time findings
+        failure_signal: Workshop notes filed without follow-up analysis or value model creation
+  escalation_triggers:
+  - Customer cancels or significantly rescopes workshop within 48 hours (immediate, to VE Lead)
+  - Pre-workshop data collection at less than 30% completeness at T-2 days (immediate, to VE Lead)
+  - Workshop findings reveal risk above customer's stated threshold (within 24h, to VE Lead)
+  - Key stakeholders absent from workshop (immediate, to VE Lead)
+  prompt_registry:
+    ve-workshop-preparation:
+      description: Prepare value stream discovery workshop with objectives, agenda, and facilitator guide
+      source: prompts/tasks.yaml#value_stream_workshop.workshop_preparation
+      inputs:
+      - title: account_name
+        type: string
+      - title: date
+        type: string
+      - title: attendees
+        type: array
+      - title: focus
+        type: string
+      outputs:
+      - title: workshop_plan
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - account_profile
+        - stakeholder_map
+        - business_context
+        - industry_segment
+        priority: critical
+      - source: read-value-tracker
+        fields:
+        - existing_hypotheses
+        - prior_workshop_data
+        priority: enrichment
+    ve-current-state-mapping:
+      description: Map customer current state workflows, tool inventory, handoffs, and baseline metrics
+      source: prompts/tasks.yaml#value_stream_workshop.current_state_mapping
+      inputs:
+      - title: account_name
+        type: string
+      - title: process_area
+        type: string
+      - title: findings
+        type: object
+      outputs:
+      - title: current_state_map
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - business_context
+        - current_tools
+        - cost_structure
+        priority: critical
+    ve-future-state-design:
+      description: Design target state workflow with eliminated pain points and target metrics
+      source: prompts/tasks.yaml#value_stream_workshop.future_state_design
+      inputs:
+      - title: account_name
+        type: string
+      - title: current_state
+        type: object
+      - title: capabilities
+        type: array
+      outputs:
+      - title: future_state_design
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - business_context
+        - strategic_priorities
+        priority: enrichment
+    ve-workshop-synthesis:
+      description: Synthesize workshop findings into value model with quick wins and phased roadmap
+      source: prompts/tasks.yaml#value_stream_workshop.workshop_synthesis
+      inputs:
+      - title: account_name
+        type: string
+      - title: current_state
+        type: object
+      - title: future_state
+        type: object
+      - title: metrics
+        type: object
+      outputs:
+      - title: workshop_synthesis
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - account_profile
+        - strategic_priorities
+        priority: enrichment
+      - source: read-value-tracker
+        fields:
+        - existing_hypotheses
+        - baseline_metrics
+        priority: enrichment
+  boundaries:
+  - Workshop facilitation scope only, does not calculate ROI or TCO
+  - Does not build business cases or financial models
+  - Does not track post-deployment value realization
+  - Does not fabricate workshop findings or invent participant input
+  - Does not present future state without current state baseline
+  permissions:
+  - Prepare workshop agendas with objectives, data requests, and facilitator guides
+  - Map current-state workflows with tool inventory, handoffs, and pain points
+  - Design future-state workflows with target metrics and improvement plans
+  - Synthesize findings into value models with quick wins and phased roadmaps
+  - Write workshop artifacts to InfoHub
+  - Access account and industry data for pre-workshop research
+  guardrails:
+    input_validation:
+    - Reject workshop prep without attendee list and focus area
+    - Reject future-state design without completed current-state mapping
+    - Reject synthesis without both current-state and future-state data
+    - Reject workshop prep without workshop date
+    output_checks:
+    - Workshop agenda has clear objectives and time allocation per section
+    - Current state map includes tool inventory, handoff points, baseline metrics
+    - Future state shows measurable improvement targets per pain point
+    - Synthesis includes quick wins, phased roadmap, and prioritized value opportunities
+    - All findings trace to workshop participant input or pre-work data
+    signal_validation:
+    - Never skip pre-workshop research on account and industry context
+    - Never present future state benefits without baseline comparison
+    - Never fabricate workshop participant input or findings
+    - Flag areas with incomplete data as [FOLLOW-UP REQUIRED]
+  error_handling:
+    tool_failures:
+      critical:
+      - read-account-data
+      enrichment:
+      - read-value-tracker
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot prepare workshop without account context
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, note gaps in facilitator guide for live collection
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag stale account data for refresh before workshop
+  knowledge:
+    scope:
+      domains:
+      - value-stream-mapping
+      - workshop-facilitation
+      - process-analysis
+      - current-state-analysis
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/discovery-workshop.yaml
+      description: Discovery workshop framework (pre-workshop research, 5-section facilitation structure, post-workshop procedures, anchoring techniques, facilitation principles)
+    - path: references/value-lifecycle.yaml
+      description: Five-phase lifecycle context for positioning workshop within value engineering engagement
+    - path: references/calculation-frameworks.yaml
+      description: Value driver categories and cost structure patterns for baseline metric collection
+    - path: references/industry-benchmarks.yaml
+      description: Industry KPIs and benchmark ranges for contextualizing workshop findings
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ve-agent
+      description: VE orchestrator routes workshop preparation and facilitation requests
+    - type: downstream
+      source: ve-discovery-agent
+      condition: workshop.requested == true
+      description: Discovery findings indicate workshop engagement is needed
+    - type: event
+      source: calendar_integration
+      condition: workshop.date_approaching AND workshop.prep_incomplete
+      description: Upcoming workshop date triggers preparation if not yet complete
+    outputs:
+    - type: parent_return
+      target: ve-agent
+      payload:
+      - workshop_plan
+      - current_state_map
+      - future_state_design
+      - workshop_synthesis
+      description: Workshop artifacts and findings back to orchestrator
+    - type: trigger_agent
+      target: ve-hypothesis-agent
+      condition: workshop.synthesis_complete == true
+      payload:
+      - workshop_synthesis
+      - value_opportunities
+      - baseline_metrics
+      description: Workshop synthesis feeds value hypothesis creation
+    - type: trigger_agent
+      target: ve-calculation-agent
+      condition: workshop.baselines_captured == true
+      payload:
+      - current_state_map
+      - baseline_metrics
+      - cost_structure
+      description: Workshop baselines feed financial modeling
+    - type: notify_human
+      condition: workshop.pre_work_incomplete == true AND workshop.days_until <= 2
+      channel: alert
+      description: Incomplete pre-work close to workshop date surfaces for VE attention
+    consumes_toolboxes:
+    - toolbox: discovery-intelligence
+      agent: ve-discovery-agent
+      tools:
+      - get-current-state-assessment
+      - get-value-drivers
+      reason: Discovery findings provide context for workshop preparation and focus areas
+    dependencies:
+    - agent: ve-discovery-agent
+      toolbox: discovery-intelligence
+      tools:
+      - get-current-state-assessment
+      - get-value-drivers
+      purpose: Pre-discovery findings provide baseline context for workshop preparation

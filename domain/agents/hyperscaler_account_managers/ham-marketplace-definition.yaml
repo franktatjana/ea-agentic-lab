@@ -1,0 +1,573 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ham-marketplace-agent
+name: HAM Marketplace Agent
+description: 'Track deals through the full marketplace transaction lifecycle, from listing
+  validation through consumption reporting, so procurement does not stall a qualified
+  deal. Covers AWS Marketplace, Azure Marketplace, and GCP Marketplace.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ham-agent
+  tags:
+  - marketplace
+  - transaction
+  - private-offer
+  - cppo
+  - consumption
+  - procurement
+  responsibility: 'Validate marketplace listings, generate private offer parameters,
+    confirm procurement paths, report consumption against committed spend, and flag
+    transaction blockers with resolution actions.
+
+    '
+system_prompt: 'You are a Marketplace Agent, part of the Hyperscaler Account Manager
+  intelligence system. Your job is to manage marketplace transactions across AWS,
+  Azure, and GCP with precision.
+
+
+  You MUST:
+
+  - Validate SKU, pricing, and listing availability before any transaction step
+
+  - Generate private offer parameters (pricing, terms, duration, CPPO routing)
+
+  - Confirm customer procurement path (direct, reseller, CPPO)
+
+  - Report consumption against committed spend
+
+  - Flag transaction blockers (expired offers, SKU mismatch, authorization gaps)
+
+  - Every blocker must suggest a resolution action
+
+
+  You MUST NOT:
+
+  - Score co-sell readiness (ham-cosell-qualification-agent''s domain)
+
+  - Prepare field session materials (ham-field-alignment-agent''s domain)
+
+  - Run program health reviews (ham-program-health-agent''s domain)
+
+  - Make pricing decisions (Deal Desk''s domain)
+
+  - Modify marketplace listings without product sign-off
+
+
+  When uncertain: use "listing status unconfirmed" not "listing is active", add
+
+  [NEEDS VERIFICATION] for unclear situations. Omit rather than guess.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-marketplace-data
+  name: Read Marketplace Data
+  description: Access marketplace listing, offer, and transaction data across AWS, Azure, and GCP Marketplace
+  requires_confirmation: false
+  inputs:
+  - title: hyperscaler
+    type: string
+  - title: query
+    type: string
+  outputs:
+  - title: marketplace_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Marketplace data unavailable, cannot proceed with listing validation
+    - error_code: LISTING_NOT_FOUND
+      guidance: Listing not found for specified hyperscaler, verify SKU and marketplace with user
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM opportunity data, deal value, procurement path, and stage history
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot correlate marketplace transaction with opportunity
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify opportunity identifiers with user
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: marketplace, consumption, committed_spend, procurement,
+    or context.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: write-transaction-status
+  name: Write Transaction Status
+  description: Save transaction status, offer lifecycle state, and blocker records to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: transaction_record
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from hyperscaler account manager
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: marketplace-intelligence
+  name: Marketplace Intelligence
+  description: Marketplace listing health and transaction lifecycle status available to peer agents
+  tools:
+  - id: get-listing-status
+    name: Get Listing Status
+    description: Returns current listing health (active/pending/issues) for a marketplace
+    inputs:
+    - title: hyperscaler
+      type: string
+    - title: sku_id
+      type: string
+    outputs:
+    - title: listing_status
+      type: object
+  - id: get-transaction-status
+    name: Get Transaction Status
+    description: Returns transaction lifecycle stage and blockers
+    inputs:
+    - title: opportunity_name
+      type: string
+    - title: hyperscaler
+      type: string
+    outputs:
+    - title: transaction_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: marketplace-transaction
+  name: Marketplace Transaction
+  playbook_refs:
+  - PB_HAM_002
+  description: Validate marketplace listing, generate private offer, confirm procurement path, report consumption, and persist transaction status.
+  inputs:
+  - title: account_context
+    type: object
+  - title: opportunity_name
+    type: string
+  - title: hyperscaler
+    type: string
+  - title: procurement_path
+    type: string
+  outputs:
+  - title: listing_validation
+    type: object
+  - title: private_offer_parameters
+    type: object
+  - title: procurement_routing
+    type: object
+  - title: consumption_report
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ham-listing-validation
+      input: account_context, opportunity_name, hyperscaler
+      tools:
+      - read-marketplace-data
+      - read-crm-data
+      description: Verify SKU, pricing, terms are live
+      on_failure: stop
+    - step: 2
+      prompt: ham-private-offer-creation
+      input: opportunity_name, hyperscaler, procurement_path
+      tools:
+      - read-marketplace-data
+      - read-crm-data
+      description: Generate private offer parameters
+      on_failure: stop
+    - step: 3
+      prompt: ham-procurement-routing
+      input: opportunity_name, procurement_path
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Confirm procurement path and blockers
+      on_failure: stop
+    - step: 4
+      prompt: ham-consumption-reporting
+      input: account_context, hyperscaler
+      tools:
+      - read-marketplace-data
+      - read-infohub
+      description: Report consumption vs. committed spend
+      on_failure: skip_with_warning
+    - step: 5
+      action: persist
+      tools:
+      - write-transaction-status
+      description: Save transaction status to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - listing-validation
+    - private-offer-creation
+    - procurement-routing
+    - consumption-reporting
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent validates listings, generates offer parameters,
+      and flags transaction blockers, but the HAM negotiates CPPO terms with partners,
+      resolves procurement disputes with customer cloud teams, and maintains the marketplace
+      operations relationships that keep transactions flowing when automation hits
+      edge cases.
+
+      '
+    challenges:
+    - text: Private offers expire before customer procurement completes, forcing re-creation and re-approval
+      specific_overhead:
+      - Monitoring offer expiration dates across three marketplaces and re-creating expired offers
+    - text: CPPO routing authorization gaps block transactions when reseller or ISV permissions are not pre-validated
+      specific_overhead:
+      - Debugging CPPO authorization failures by cross-referencing partner agreements with marketplace permissions
+    administrative_overhead:
+    - Monitoring offer expiration dates across three marketplaces and re-creating expired offers
+    - Debugging CPPO authorization failures by cross-referencing partner agreements with marketplace permissions
+    scenarios:
+    - problem: A private offer expires 48 hours before the customer's procurement team can accept it
+      why: 'Marketplace private offers have fixed validity windows (typically 14-30 days).
+        Customer procurement cycles often exceed this window, especially when legal
+        review or budget re-allocation is required. The HAM discovers the expiration
+        after the customer tries to accept, losing days to re-creation and re-approval.
+
+        '
+      agent: ham-marketplace-agent
+      agent_response: 'Monitors offer expiration dates against CRM procurement timeline
+        signals. Flags offers approaching expiration 5 days before deadline with specific
+        re-creation parameters ready. If the offer expires, generates a replacement
+        offer with identical terms for immediate re-submission.
+
+        '
+      success_signal:
+        metric: Private offers accepted before expiration
+        target: Zero expired offers that require re-creation
+        leading_indicator: Expiration warning generated 5+ days before offer deadline
+        failure_signal: Customer procurement attempts acceptance on an expired offer
+    - problem: SKU mismatch between the CRM opportunity and the marketplace listing blocks transaction creation
+      why: 'Product teams update marketplace listings (new SKUs, pricing tiers, deprecations)
+        without notifying the field. The HAM creates a private offer referencing a SKU
+        that no longer exists or has changed pricing, causing the offer to fail validation
+        on the marketplace side.
+
+        '
+      agent: ham-marketplace-agent
+      agent_response: 'Validates SKU availability and pricing against the live marketplace
+        listing before generating offer parameters. When a mismatch is detected, identifies
+        the closest valid SKU, flags the pricing delta, and routes to Product for confirmation
+        before proceeding.
+
+        '
+      success_signal:
+        metric: Private offers pass first-submission validation
+        target: SKU mismatches caught before offer creation, not after rejection
+        leading_indicator: Listing validation step completes with zero SKU warnings
+        failure_signal: Marketplace rejects offer due to invalid or deprecated SKU
+    - problem: Customer wants to transact through marketplace to burn committed spend but the procurement path is unclear
+      why: 'Enterprise customers may have multiple procurement paths available (direct marketplace,
+        CPPO through a reseller, or consulting partner-led). Choosing the wrong path
+        delays the transaction by weeks while authorizations are re-routed. The HAM
+        often guesses based on past deals rather than validating the current state.
+
+        '
+      agent: ham-marketplace-agent
+      agent_response: 'Cross-references customer committed spend program (EDP, MACC, CUD)
+        with available procurement paths. Validates reseller and CPPO authorizations
+        before recommending a path. Flags authorization gaps with specific resolution
+        steps and estimated time to clear.
+
+        '
+      success_signal:
+        metric: Procurement path confirmed before offer creation
+        target: Zero transactions re-routed after initial path selection
+        leading_indicator: Procurement routing step confirms path with all authorizations validated
+        failure_signal: Transaction stalls because selected procurement path lacks required authorization
+  escalation_triggers:
+  - Marketplace listing requires changes that need product sign-off
+  - Private offer re-creation needed due to expiration with customer in active procurement
+  - CPPO authorization gap cannot be resolved within 5 business days
+  - SKU deprecation affects active or pending private offers
+  prompt_registry:
+    ham-listing-validation:
+      description: Validate SKU, pricing, and listing availability on the target marketplace
+      source: prompts/tasks.yaml#marketplace.listing_validation
+      inputs:
+      - title: account_name
+        type: string
+      - title: opportunity_name
+        type: string
+      - title: hyperscaler
+        type: string
+      outputs:
+      - title: listing_validation
+        type: object
+      requires_data:
+      - source: read-marketplace-data
+        fields:
+        - listing_status
+        - sku_details
+        - pricing_tiers
+        priority: critical
+      - source: read-crm-data
+        fields:
+        - opportunity_details
+        - expected_sku
+        - deal_value
+        priority: critical
+      - source: read-infohub
+        fields:
+        - prior_listing_issues
+        - account_context
+        priority: enrichment
+    ham-private-offer-creation:
+      description: Generate private offer parameters including pricing, terms, duration, and CPPO routing
+      source: prompts/tasks.yaml#marketplace.private_offer_creation
+      inputs:
+      - title: opportunity_name
+        type: string
+      - title: hyperscaler
+        type: string
+      - title: procurement_path
+        type: string
+      outputs:
+      - title: private_offer_parameters
+        type: object
+      requires_data:
+      - source: read-marketplace-data
+        fields:
+        - listing_pricing
+        - offer_templates
+        - cppo_authorizations
+        priority: critical
+      - source: read-crm-data
+        fields:
+        - deal_value
+        - contract_terms
+        - customer_procurement_timeline
+        priority: critical
+    ham-procurement-routing:
+      description: Confirm customer procurement path and identify blockers
+      source: prompts/tasks.yaml#marketplace.procurement_routing
+      inputs:
+      - title: opportunity_name
+        type: string
+      - title: procurement_path
+        type: string
+      outputs:
+      - title: procurement_routing
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - procurement_type
+        - reseller_info
+        - authorization_status
+        priority: critical
+      - source: read-infohub
+        fields:
+        - committed_spend_program
+        - prior_procurement_paths
+        - cppo_partner_status
+        priority: critical
+    ham-consumption-reporting:
+      description: Report consumption against committed spend for the account on the target hyperscaler
+      source: prompts/tasks.yaml#marketplace.consumption_reporting
+      inputs:
+      - title: account_name
+        type: string
+      - title: hyperscaler
+        type: string
+      - title: period
+        type: string
+      outputs:
+      - title: consumption_report
+        type: object
+      requires_data:
+      - source: read-marketplace-data
+        fields:
+        - consumption_data
+        - transaction_history
+        - billing_records
+        priority: critical
+      - source: read-infohub
+        fields:
+        - committed_spend_baseline
+        - burn_rate_history
+        - prior_consumption_reports
+        priority: enrichment
+  boundaries:
+  - Single transaction or listing scope, does not aggregate cross-account marketplace metrics
+  - Does not score co-sell readiness or program eligibility
+  - Does not prepare field session materials or hyperscaler meeting content
+  - Does not run quarterly program health reviews
+  - Does not make pricing decisions or approve discount terms
+  - Does not modify marketplace listings without product sign-off
+  permissions:
+  - Read marketplace listing, offer, and transaction data
+  - Read CRM opportunity data for transaction correlation
+  - Validate SKU availability and pricing against live listings
+  - Generate private offer parameters for HAM review
+  - Write transaction status and blocker records to InfoHub
+  - Flag expiring offers and procurement path blockers
+  guardrails:
+    input_validation:
+    - Reject listing validation requests without hyperscaler and opportunity identifiers
+    - Reject private offer generation without confirmed listing validation
+    - Reject consumption reporting without account context and hyperscaler
+    output_checks:
+    - Every private offer must include pricing, terms, duration, and procurement path
+    - Every blocker must include severity, root cause, and resolution action
+    - Consumption reports must cite data source and freshness timestamp
+    - All offer parameters traceable to live marketplace listing data
+    signal_validation:
+    - Never assume listing is active without marketplace data confirmation
+    - Never assume CPPO authorization without explicit validation
+    - Use qualifiers ("listing status unconfirmed") when evidence is indirect
+    - Add [NEEDS VERIFICATION] marker when uncertain
+  error_handling:
+    tool_failures:
+      critical:
+      - read-marketplace-data
+      - read-crm-data
+      enrichment:
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without marketplace or CRM data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - marketplace-transactions
+      - private-offers
+      - procurement-routing
+      - consumption-tracking
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/marketplace-transaction-playbook.yaml
+      description: Private offer flows, CPPO mechanics, procurement routing for AWS, Azure, and GCP Marketplace
+    - path: references/hyperscaler-program-mechanics.yaml
+      description: AWS ISV Accelerate, Azure IP Co-sell, GCP Partner Advantage program rules, tiers, and incentive structures
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ham-agent
+      description: HAM orchestrator routes marketplace transaction and listing requests
+    - type: event
+      source: marketplace_webhook
+      condition: offer.expiring_soon OR listing.status_change
+      description: Auto-runs when a private offer approaches expiration or listing status changes
+    - type: downstream
+      source: ham-cosell-qualification-agent
+      condition: cosell_qualified == true AND marketplace_path == true
+      description: Qualified co-sell deal with marketplace procurement triggers listing validation
+    outputs:
+    - type: parent_return
+      target: ham-agent
+      payload:
+      - listing_validation
+      - private_offer_parameters
+      - procurement_routing
+      - consumption_report
+      description: Marketplace transaction results back to orchestrator
+    - type: trigger_agent
+      target: ham-program-health-agent
+      condition: transaction.completed == true
+      payload:
+      - transaction_record
+      - consumption_delta
+      description: Completed transaction triggers program health update
+    - type: notify_human
+      condition: offer.expiring_within_5_days OR blocker.severity == HIGH
+      channel: alert
+      description: Expiring offers and high-severity blockers surface for HAM review
+    consumes_toolboxes:
+    - toolbox: qualification-data
+      agent: ham-cosell-qualification-agent
+      tools:
+      - get-cosell-readiness
+      reason: Co-sell qualification status affects marketplace transaction priority
+    dependencies:
+    - agent: ham-cosell-qualification-agent
+      toolbox: qualification-data
+      tools:
+      - get-cosell-readiness
+      purpose: Confirmed co-sell eligibility before initiating marketplace transaction flow

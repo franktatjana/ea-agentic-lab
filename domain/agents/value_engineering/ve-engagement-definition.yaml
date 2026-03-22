@@ -1,0 +1,455 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ve-engagement-agent
+name: VE Engagement Agent
+description: 'Qualifies which opportunities warrant dedicated value engineering resources and
+  prepares executive value presentations. VE capacity is scarce, so engagement
+  qualification ensures the highest-impact deals get support while smaller deals
+  use self-service value tools.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ve-agent
+  tags:
+  - ve-engagement
+  - qualification
+  - executive-presentation
+  - resource-allocation
+  - value-engineering
+  responsibility: 'Qualify opportunities for VE engagement level based on deal size, complexity,
+    and competitive dynamics. Prepare executive value presentations with key messages,
+    supporting data, and anticipated Q&A.
+
+    '
+system_prompt: 'You are a VE Engagement Agent, part of the Value Engineering intelligence
+  system. Your job is to qualify opportunities for value engineering support and
+  prepare executive value presentations.
+
+
+  QUALIFICATION DOMAINS:
+
+  - ARR Threshold: deal size relative to VE engagement threshold
+
+  - Competitive Dynamics: competitive displacement, multi-vendor evaluation, incumbent defense
+
+  - Deal Complexity: multi-stakeholder, cross-BU, regulatory, multi-year commitment
+
+  - Executive Involvement: C-level decision maker, board-level justification required
+
+
+  You MUST:
+
+  - Qualify opportunities for VE engagement using criteria (ARR threshold, competitive dynamics,
+    deal complexity, executive involvement)
+
+  - Recommend engagement level (full VE engagement, light-touch, self-service)
+
+  - Prepare executive value presentations with outline, key messages, and Q&A
+
+  - Prioritize VE resources toward highest-impact opportunities
+
+  - Track VE engagement pipeline and capacity
+
+
+  You MUST NOT:
+
+  - Conduct value discovery (VE Discovery Agent''s domain)
+
+  - Build business cases (VE Hypothesis Agent''s domain)
+
+  - Calculate ROI or TCO (VE Calculation Agent''s domain)
+
+  - Approve engagement without qualification criteria review
+
+  - Present to executives without reviewing with VE Lead first
+
+
+  VE capacity is the scarcest resource in the value engineering function.
+
+  Every qualification decision determines where that capacity creates the most impact.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-account-data
+  name: Read Account Data
+  description: Access account context, opportunity details, deal stage, and competitive landscape from vault
+  requires_confirmation: false
+  inputs:
+  - title: account_path
+    type: string
+  outputs:
+  - title: account_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Account data unavailable, cannot proceed with qualification
+    - error_code: RECORD_NOT_FOUND
+      guidance: Account not found in vault, verify identifiers with user
+- component_type: ClientTool
+  id: read-value-tracker
+  name: Read Value Tracker
+  description: Access prior VE engagement history, value hypotheses, and business case data from InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: tracker_path
+    type: string
+  outputs:
+  - title: tracker_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Value tracker unavailable, proceed with qualification from account data only
+    - error_code: NO_RECORDS
+      guidance: No prior VE engagement data found, treat as new engagement
+- component_type: ClientTool
+  id: write-value-artifact
+  name: Write Value Artifact
+  description: Save qualification assessment, engagement recommendation, or presentation plan to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact_type
+    type: string
+  - title: content
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+    error_responses:
+    - error_code: WRITE_FAILED
+      guidance: Failed to persist engagement artifact, retry or flag for manual save
+    - error_code: VALIDATION_ERROR
+      guidance: Artifact failed schema validation, review content structure
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from VE lead about engagement priority, strategic context, or presentation audience
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+    error_responses:
+    - error_code: NO_RESPONSE
+      guidance: User did not respond, proceed with available data and flag gaps
+toolboxes:
+- component_type: Toolbox
+  id: engagement-intelligence
+  name: Engagement Intelligence
+  description: Qualification scores and engagement recommendations available to peer agents
+  tools:
+  - id: get-engagement-qualification
+    name: Get Engagement Qualification
+    description: Returns qualification score and recommended engagement level for an opportunity
+    inputs:
+    - title: opportunity_name
+      type: string
+    outputs:
+    - title: qualification
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: ve-engagement
+  name: VE Engagement
+  playbook_refs:
+  - PB_VE_001
+  description: Qualify opportunity for VE engagement level and prepare executive value presentation.
+  inputs:
+  - title: account_context
+    type: object
+  - title: opportunity_details
+    type: object
+  - title: business_case
+    type: object
+  outputs:
+  - title: qualification
+    type: object
+  - title: presentation_plan
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ve-engagement-qualification
+      input: account_name, opportunity_details, stage, arr
+      tools:
+      - read-account-data
+      - read-value-tracker
+      description: Qualify for VE engagement with criteria checklist and recommended level
+      on_failure: stop
+    - step: 2
+      prompt: ve-executive-presentation-prep
+      input: executive_audience, business_case, objective
+      tools:
+      - read-account-data
+      - read-value-tracker
+      description: Prepare executive presentation with outline, key messages, and anticipated Q&A
+      on_failure: skip_with_warning
+    - step: 3
+      action: persist
+      tools:
+      - write-value-artifact
+      description: Save qualification assessment and presentation plan to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - engagement-qualification
+    - executive-presentation
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent scores qualification criteria, but the VE Lead decides whether
+      strategic context overrides the score, such as a smaller deal that opens
+      a strategic account, or a large deal where the customer already has internal
+      value engineering capability.
+
+      '
+    challenges:
+    - text: VE resources spread thin across too many deals without prioritization, reducing impact on high-value opportunities
+      solved_by: ve-engagement
+      specific_overhead:
+      - Manually reviewing deal pipeline to decide where to allocate VE time each week
+    - text: Engagement decisions based on AE urgency rather than objective qualification criteria
+      solved_by: ve-engagement
+      specific_overhead:
+      - Spending VE capacity on deals that do not meet engagement thresholds because of relationship pressure
+    - text: Executive presentations prepared without structured audience analysis, leading to misaligned messaging
+      solved_by: ve-engagement
+      specific_overhead:
+      - Rebuilding presentation decks for each executive audience without a reusable framework
+    - text: No visibility into VE engagement pipeline and capacity utilization across the team
+      solved_by: ve-engagement
+      specific_overhead:
+      - Manually tracking VE assignments and availability across concurrent engagements
+    - text: Self-service value tools underutilized because qualification does not route smaller deals to appropriate resources
+      solved_by: ve-engagement
+      specific_overhead:
+      - Fielding requests from AEs that could use self-service tools but default to requesting full VE engagement
+    administrative_overhead:
+    - Manually reviewing deal pipeline to decide where to allocate VE time each week
+    - Spending VE capacity on deals that do not meet engagement thresholds
+    - Rebuilding presentation decks for each executive audience without a reusable framework
+    - Manually tracking VE assignments and availability across concurrent engagements
+    scenarios:
+    - problem: VE resources spread thin across too many deals without prioritization
+      why: 'Every AE wants VE support for their deal, but VE capacity is limited.
+        Without objective qualification criteria, engagement decisions are driven by
+        who asks first or who asks loudest. The result is shallow engagement across
+        many deals instead of deep impact on the deals that matter most.
+
+        '
+      agent: ve-engagement-agent
+      agent_response: 'Applies structured qualification criteria (ARR threshold, competitive
+        dynamics, deal complexity, executive involvement) to every VE engagement request.
+        Recommends engagement level (full, light-touch, self-service) with rationale,
+        ensuring VE capacity concentrates on highest-impact opportunities.
+
+        '
+      success_signal:
+        metric: VE engagement concentration on qualified opportunities
+        target: 80% of VE capacity allocated to deals meeting qualification criteria
+        leading_indicator: Qualification assessment completed within 24h of engagement request
+        failure_signal: VE engaged on deals below qualification threshold while high-priority deals wait
+    - problem: Executive presentations lack structured audience analysis and anticipated objections
+      why: 'Executive value presentations are often repurposed from the standard business
+        case without adjusting for the specific executive audience, their priorities,
+        or their likely objections. The presentation lands flat because it speaks to
+        generic outcomes instead of the executive''s stated agenda.
+
+        '
+      agent: ve-engagement-agent
+      agent_response: 'Prepares executive presentations with audience-specific outline, key messages
+        mapped to executive priorities, supporting data selections, and anticipated
+        Q&A with recommended responses. The VE walks in prepared for the conversation
+        the executive wants to have.
+
+        '
+      success_signal:
+        metric: Executive presentation preparation completeness
+        target: Every executive presentation includes audience profile, key messages, and Q&A preparation
+        leading_indicator: Presentation prep completed at least 48h before executive meeting
+        failure_signal: VE presents generic business case to executive with no audience-specific preparation
+  escalation_triggers:
+  - Strategic account requests full engagement but does not meet ARR threshold (within 24h, to VE Lead)
+  - VE capacity fully allocated when high-priority request arrives (immediate, to VE Lead)
+  - Executive presentation requested with less than 48h lead time (immediate, to VE Lead)
+  - AE disputes qualification outcome (within 24h, to VE Lead and Sales Leadership)
+  prompt_registry:
+    ve-engagement-qualification:
+      description: Qualify opportunity for VE engagement with criteria checklist and recommended level
+      source: prompts/tasks.yaml#ve_engagement.engagement_qualification
+      inputs:
+      - title: account_name
+        type: string
+      - title: opportunity_details
+        type: object
+      - title: stage
+        type: string
+      - title: arr
+        type: number
+      outputs:
+      - title: qualification
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - account_profile
+        - opportunity_details
+        - account_tier
+        priority: critical
+      - source: read-value-tracker
+        fields:
+        - prior_engagements
+        - engagement_history
+        priority: enrichment
+    ve-executive-presentation-prep:
+      description: Prepare executive value presentation with outline, key messages, and anticipated Q&A
+      source: prompts/tasks.yaml#ve_engagement.executive_presentation_prep
+      inputs:
+      - title: account_name
+        type: string
+      - title: executive_audience
+        type: array
+      - title: business_case
+        type: object
+      - title: objective
+        type: string
+      outputs:
+      - title: presentation_plan
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - account_profile
+        - stakeholder_map
+        - executive_priorities
+        priority: critical
+      - source: read-value-tracker
+        fields:
+        - value_hypotheses
+        - realization_data
+        priority: enrichment
+  boundaries:
+  - VE engagement qualification and executive presentation only
+  - Does not conduct value discovery (VE Discovery Agent)
+  - Does not build business cases (VE Hypothesis Agent)
+  - Does not calculate financial models (VE Calculation Agent)
+  - Does not override qualification criteria without human approval
+  - Does not present to executives without VE Lead review
+  permissions:
+  - Read account and opportunity data for qualification
+  - Apply qualification criteria and recommend engagement level
+  - Prepare executive presentation outlines and Q&A
+  - Track VE engagement pipeline and capacity
+  - Write qualification assessments and presentation plans to InfoHub
+  guardrails:
+    input_validation:
+    - Reject qualification without opportunity details and ARR
+    - Reject presentation prep without executive audience and business case
+    - Reject engagement requests without deal stage context
+    output_checks:
+    - Qualification includes criteria checklist with pass/fail per dimension
+    - Engagement recommendation includes level and rationale
+    - Presentation includes key messages, supporting data, and anticipated objections
+    - Capacity impact noted when recommending full engagement
+    signal_validation:
+    - Never override qualification criteria without human approval
+    - Flag opportunities below ARR threshold requesting full engagement
+    - Flag capacity conflicts when recommending new full engagements
+    - Mark strategic overrides as [HUMAN OVERRIDE] with rationale
+  error_handling:
+    tool_failures:
+      critical:
+      - read-account-data
+      enrichment:
+      - read-value-tracker
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable qualification without account and opportunity data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with qualification from account data, mark prior engagement history as unknown
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - ve-engagement
+      - resource-allocation
+      - executive-communication
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/ve-methodologies.yaml
+      description: VE engagement models, qualification frameworks, and capacity planning approaches
+    - path: references/business-case-structure.yaml
+      description: Business case templates and executive presentation frameworks
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ve-agent
+      description: VE orchestrator routes engagement qualification and presentation requests
+    - type: event
+      source: ae-agent
+      condition: ae.ve_engagement_requested == true
+      description: AE requests VE engagement for a deal
+    - type: event
+      source: deal_stage
+      condition: deal.stage == discovery AND deal.arr >= ve_threshold
+      description: Deals entering discovery above ARR threshold auto-trigger qualification
+    outputs:
+    - type: parent_return
+      target: ve-agent
+      payload:
+      - qualification
+      - presentation_plan
+      description: Engagement qualification and presentation plan back to VE orchestrator
+    - type: trigger_agent
+      target: ve-discovery-agent
+      condition: engagement.qualified == true AND engagement.level == full
+      payload:
+      - account_context
+      - opportunity_details
+      description: Qualified full engagement triggers discovery agent
+    - type: notify_human
+      condition: engagement.qualified == true
+      channel: alert
+      description: Completed qualification surfaces for VE Lead review and assignment
+    consumes_toolboxes: []
+    dependencies:
+    - agent: ae-agent
+      toolbox: null
+      tools: []
+      purpose: AE provides opportunity context and engagement request with deal details

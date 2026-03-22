@@ -1,0 +1,1852 @@
+# Alliance Architect Agent - Task Prompts (Runbook Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
+# Reference: Personality defined in personalities/aa_personality.yaml
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
+# 16 prompts across 4 runbook domains
+
+# ============================================================================
+# INTEGRATION VALIDATION PROMPTS
+# ============================================================================
+integration_validation:
+
+  api_compatibility:
+    id: aa-api-compatibility
+    name: "API/SDK Compatibility Assessment"
+    description: "Assess API and SDK compatibility across platform versions by inventorying endpoints, mapping version dependencies, identifying breaking changes, and producing a compatibility matrix with remediation guidance"
+    domain: integration_validation
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: integration_inventory
+        required: true
+        description: Current integration inventory with API endpoints, SDK versions, and authentication methods in use
+      - name: partner_api_changelog
+        required: true
+        description: Partner API changelog or release notes covering recent and upcoming versions
+      - name: our_platform_versions
+        required: false
+        description: Our platform version matrix and supported API versions
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Assessing API/SDK compatibility for {partner_name} integration.
+      Integration inventory: {integration_inventory}
+      Partner API changelog: {partner_api_changelog}
+      Our platform versions: {our_platform_versions}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are determining whether current integrations remain compatible across platform versions and identifying breaking changes before they cause production incidents. The output drives remediation planning and version upgrade sequencing.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode selection:
+      - FULL: all required inputs PRESENT
+      - DEGRADED: 1+ inputs PARTIAL, flag gaps in every affected deliverable
+      - DEFER: 2+ required inputs ABSENT, STOP and produce: (a) missing inputs with specific ask, (b) who can provide each, (c) re-run deadline
+      If integration_inventory is ABSENT, DEFER: cannot assess compatibility without knowing what integrations exist.
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Run Mode declaration.
+
+      STEP 1: INTEGRATION INVENTORY AUDIT
+      Document every active integration point with the partner platform.
+      For each integration:
+      - Endpoint or SDK method (full path or method signature)
+      - HTTP method and authentication type (OAuth2, API key, mTLS, HMAC)
+      - Current API version in use (e.g., v2.3, 2024-01-15 date-based)
+      - Latest available API version from partner
+      - SDK version and language runtime (e.g., Python SDK 4.2.1 on Python 3.11)
+      - Request/response payload format (JSON, XML, Protobuf, GraphQL)
+      - Call frequency (daily volume estimate)
+      - Criticality: P0 (revenue-blocking) / P1 (customer-facing) / P2 (internal) / P3 (batch/async)
+      - Confidence: VERIFIED (tested) / ESTIMATED (documentation-based) / ASSUMED (inferred)
+      If integration_inventory is sparse, state what is missing rather than inferring endpoints.
+      Deliverable: Integration audit table (Endpoint | Auth | Current Version | Latest Version | SDK | Payload | Volume | Criticality | Confidence).
+
+      STEP 2: VERSION GAP ANALYSIS
+      Compare current versions against latest available versions for each integration.
+      For each integration:
+      - Current version and release date
+      - Latest stable version and release date
+      - Versions behind (count of minor/major releases skipped)
+      - Deprecation status: CURRENT / DEPRECATED / SUNSET DATE SET / END-OF-LIFE
+      - If deprecated, sunset date and days remaining
+      - Breaking changes between current and latest (from changelog): list each breaking change with affected endpoint
+      - Non-breaking changes of interest (new features, performance improvements)
+      Deliverable: Version gap matrix (Integration | Current | Latest | Versions Behind | Deprecation Status | Sunset Date | Breaking Changes Count | Key Breaking Changes).
+
+      STEP 3: COMPATIBILITY MATRIX
+      Produce a cross-version compatibility matrix.
+      For each integration crossed with each target platform version:
+      - Compatibility: COMPATIBLE / COMPATIBLE WITH CHANGES / INCOMPATIBLE / UNTESTED
+      - If COMPATIBLE WITH CHANGES, list required modifications (code change, config update, auth migration)
+      - If INCOMPATIBLE, state the specific incompatibility (removed endpoint, changed auth flow, payload schema change)
+      - Effort to achieve compatibility: LOW (config change) / MEDIUM (code modification) / HIGH (re-architecture)
+      - Test status: TESTED / UNTESTED with test environment availability
+      Deliverable: Compatibility matrix (Integration | Target Version | Status | Required Changes | Effort | Test Status).
+
+      STEP 4: REMEDIATION PLAN
+      For each INCOMPATIBLE or COMPATIBLE WITH CHANGES integration, define the remediation path.
+      Prioritize by: criticality (P0 first), then by sunset date proximity, then by effort (LOW first for quick wins).
+      For each remediation:
+      - Integration and target version
+      - Remediation action (specific code/config changes)
+      - Owner (engineering team or individual)
+      - Estimated effort (hours/days)
+      - Dependencies (other integrations that must be updated first)
+      - Test plan (unit tests, integration tests, staging validation)
+      - Rollback plan if remediation causes regression
+      Deliverable: Remediation plan table (Priority | Integration | Action | Owner | Effort | Dependencies | Test Plan | Rollback).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every active integration explicitly assessed (no silent skips)
+      - Breaking changes sourced from partner changelog, not assumed
+      - Deprecation dates verified against partner documentation
+      - Compatibility matrix covers all integration-version combinations
+      - Remediation plan includes rollback strategy for each change
+      - Criticality drives prioritization (P0 before P1 before P2)
+      - Executive summary is self-sufficient: reader can act without reading details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + version gap summary + top remediation action + state delta
+      - DISCOVERY: signal acquisition plan (partner API changelog location, SDK release feed, deprecation notice channel, test environment access)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) count of integrations with version gap breakdown and most critical deprecation deadline, (2) number of breaking changes requiring remediation and highest-criticality affected integration, (3) single most urgent remediation action with owner and timeline.
+
+  integration_testing:
+    id: aa-integration-testing
+    name: "Integration Pattern Validation and Certification"
+    description: "Validate integration patterns against best practices, execute certification test scenarios, and produce a certification report with pass/fail results and remediation for failures"
+    domain: integration_validation
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: integration_pattern
+        required: true
+        description: Integration pattern to validate including architecture diagram, data flows, and error handling
+      - name: certification_criteria
+        required: true
+        description: Certification requirements and test scenarios the integration must pass
+      - name: test_results
+        required: false
+        description: Results from prior test executions if available
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Validating integration pattern and certifying results for {partner_name}.
+      Integration pattern: {integration_pattern}
+      Certification criteria: {certification_criteria}
+      Test results: {test_results}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are validating that an integration pattern meets certification standards and produces reliable, maintainable connections between platforms. The output drives certification decisions and identifies deficiencies that must be resolved before production deployment.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If integration_pattern is ABSENT, DEFER: cannot validate without a pattern to assess.
+      If certification_criteria is ABSENT, DEFER: cannot certify without defined pass/fail criteria.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: PATTERN ANALYSIS
+      Decompose the integration pattern into testable components.
+      For each component:
+      - Component name (authentication, data transformation, error handling, retry logic, circuit breaker, logging)
+      - Implementation approach (synchronous, asynchronous, event-driven, batch, streaming)
+      - Protocol and transport (REST/HTTPS, gRPC, WebSocket, message queue, SFTP)
+      - Data flow direction: INBOUND / OUTBOUND / BIDIRECTIONAL
+      - Idempotency: IMPLEMENTED / NOT IMPLEMENTED / NOT APPLICABLE
+      - Error handling: RETRY WITH BACKOFF / CIRCUIT BREAKER / DEAD LETTER QUEUE / FAIL-FAST / NONE
+      - Observability: LOGGING / TRACING / METRICS / ALERTING (which are implemented)
+      - Security: encryption in transit, encryption at rest, credential rotation, least-privilege scope
+      - Confidence: VERIFIED (code review) / ESTIMATED (documentation) / ASSUMED (interview)
+      Deliverable: Pattern component table (Component | Approach | Protocol | Direction | Idempotency | Error Handling | Observability | Security | Confidence).
+
+      STEP 2: CERTIFICATION TEST MAPPING
+      Map certification criteria to test scenarios.
+      For each criterion:
+      - Criterion ID and description
+      - Category: FUNCTIONAL / PERFORMANCE / SECURITY / RESILIENCE / COMPLIANCE
+      - Test scenario(s) that validate this criterion
+      - Expected result (specific pass condition)
+      - Test execution method: AUTOMATED / MANUAL / HYBRID
+      - Environment required: SANDBOX / STAGING / PRODUCTION-MIRROR
+      - Prerequisites (data setup, credential provisioning, partner sandbox access)
+      Deliverable: Test map table (Criterion ID | Category | Test Scenario | Expected Result | Method | Environment | Prerequisites).
+
+      STEP 3: CERTIFICATION RESULTS
+      If test_results are available, evaluate against criteria.
+      For each test scenario:
+      - Test ID and criterion reference
+      - Result: PASS / FAIL / PARTIAL / NOT EXECUTED
+      - If FAIL or PARTIAL: actual result vs. expected, root cause hypothesis
+      - Performance metrics (latency p50/p95/p99, throughput, error rate) where applicable
+      - Evidence: test log reference, screenshot, trace ID
+      If test_results is ABSENT, state "Certification results pending, test execution not yet performed" and list test execution prerequisites.
+      Deliverable: Certification results table (Test ID | Criterion | Result | Actual vs Expected | Performance | Evidence) + overall pass rate.
+
+      STEP 4: CERTIFICATION DECISION
+      Synthesize results into a certification recommendation.
+      - Overall status: CERTIFIED / CONDITIONALLY CERTIFIED / NOT CERTIFIED
+      - CERTIFIED: all criteria PASS
+      - CONDITIONALLY CERTIFIED: no FAIL on FUNCTIONAL or SECURITY criteria, minor issues on PERFORMANCE or RESILIENCE
+      - NOT CERTIFIED: any FAIL on FUNCTIONAL or SECURITY criteria
+      - Conditions (if conditional): specific items that must be resolved and re-tested
+      - Remediation plan for each FAIL or PARTIAL result
+      - Re-certification timeline recommendation
+      Deliverable: Certification decision (Status | Pass Rate | Failed Criteria | Conditions | Remediation Plan | Re-certification Date).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every certification criterion mapped to at least one test scenario
+      - FAIL results include root cause hypothesis, not just "did not pass"
+      - Performance metrics include percentile measurements (p50/p95/p99), not just averages
+      - Security criteria treated as hard gates (any FAIL = NOT CERTIFIED)
+      - Conditional certification includes explicit conditions and re-test timeline
+      - Remediation plan for failures includes effort estimates
+      - Executive summary is self-sufficient: reader can act without reading test details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + certification decision + top remediation action + state delta
+      - DISCOVERY: signal plan (test environment access, certification criteria source, test automation framework, partner sandbox provisioning)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) certification status with pass rate and confidence, (2) most critical failure or condition and its category, (3) single most urgent remediation or re-test action with owner and timeline.
+
+  version_tracking:
+    id: aa-version-tracking
+    name: "API Version and Deprecation Timeline Tracker"
+    description: "Track partner API versions, deprecation timelines, and sunset schedules to maintain a current version registry and proactively flag migration deadlines"
+    domain: integration_validation
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: version_registry
+        required: true
+        description: Current version registry of all partner APIs and SDKs in use
+      - name: partner_roadmap
+        required: false
+        description: Partner API roadmap, deprecation announcements, and planned version releases
+      - name: migration_history
+        required: false
+        description: History of prior version migrations including effort and issues encountered
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Tracking API versions and deprecation timelines for {partner_name}.
+      Version registry: {version_registry}
+      Partner roadmap: {partner_roadmap}
+      Migration history: {migration_history}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are maintaining an accurate version registry and tracking deprecation timelines to prevent integration failures from unsupported API versions. The output drives version migration planning and deadline awareness.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If version_registry is ABSENT, DEFER: cannot track versions without a baseline registry.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: VERSION REGISTRY AUDIT
+      Validate and update the version registry for all partner API and SDK dependencies.
+      For each dependency:
+      - API or SDK name and purpose
+      - Current version in production
+      - Version release date
+      - Latest stable version available
+      - Latest version release date
+      - Versioning scheme: SEMVER / DATE-BASED / CUSTOM (describe)
+      - Update channel: where version announcements are published (changelog URL, RSS, email list, partner portal)
+      - Last registry update date
+      - Confidence: VERIFIED (production check) / ESTIMATED (last known) / ASSUMED (inferred)
+      Deliverable: Version registry table (API/SDK | Current Version | Released | Latest Version | Released | Scheme | Update Channel | Last Verified | Confidence).
+
+      STEP 2: DEPRECATION TIMELINE MAPPING
+      Map all known deprecation and sunset dates.
+      For each deprecated or soon-to-be-deprecated version:
+      - API or SDK name and version
+      - Deprecation announcement date
+      - Deprecation effective date (when deprecated status begins)
+      - Sunset date (when version stops functioning)
+      - Days until sunset
+      - Migration urgency: CRITICAL (< 30 days) / HIGH (30-90 days) / MEDIUM (90-180 days) / LOW (> 180 days) / MONITORING (no sunset date set)
+      - Partner migration guide available: YES (URL) / NO
+      - Breaking changes in migration path
+      If partner_roadmap is ABSENT, state "Deprecation timeline based on currently published notices only, partner roadmap not available."
+      Deliverable: Deprecation timeline table (API/SDK | Version | Announced | Deprecated | Sunset | Days Left | Urgency | Migration Guide | Breaking Changes).
+
+      STEP 3: MIGRATION EFFORT ESTIMATION
+      For each version requiring migration, estimate the effort.
+      If migration_history is available, use prior migrations as calibration.
+      For each migration:
+      - Source version and target version
+      - Estimated effort: hours/days with confidence range
+      - Complexity: LOW (drop-in upgrade) / MEDIUM (code changes required) / HIGH (re-architecture needed)
+      - Risk: LOW / MEDIUM / HIGH based on breaking change count and integration criticality
+      - Prerequisites (other migrations that must happen first, test environment needs)
+      - Regression risk areas (most likely failure points based on breaking changes)
+      If migration_history is ABSENT, state "Effort estimates are baseline, no historical calibration available."
+      Deliverable: Migration effort table (API/SDK | Source | Target | Effort | Complexity | Risk | Prerequisites | Regression Risk Areas).
+
+      STEP 4: VERSION TRACKING DASHBOARD
+      Produce a summary dashboard view for ongoing monitoring.
+      - Total dependencies tracked
+      - Versions current (on latest stable)
+      - Versions behind (1-2 minor versions)
+      - Versions deprecated (using deprecated version)
+      - Versions at sunset risk (sunset date within 90 days)
+      - Overall health: GREEN (90%+ current) / YELLOW (70-89% current) / RED (< 70% current or any sunset risk within 30 days)
+      - Next review date recommendation
+      - Monitoring gaps (APIs without update channels, untracked dependencies)
+      Deliverable: Dashboard summary (Total | Current | Behind | Deprecated | Sunset Risk | Health | Next Review | Gaps).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every dependency in the registry verified or gap flagged
+      - Deprecation dates sourced from partner announcements, not assumed
+      - Sunset dates distinguished from deprecation dates (deprecated != sunset)
+      - Migration effort calibrated against historical data where available
+      - Dashboard health score follows stated classification rules
+      - Monitoring gaps explicitly listed (untracked APIs are the highest risk)
+      - Executive summary is self-sufficient: reader can act without reading registry details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + dashboard summary + most urgent migration + state delta
+      - DISCOVERY: signal plan (partner changelog URLs, API status page, developer newsletter, SDK release feed, partner developer relations contact)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) version health score with count of current vs. deprecated dependencies, (2) nearest sunset deadline with affected API and days remaining, (3) single most urgent migration action with owner and effort estimate.
+
+  change_impact:
+    id: aa-change-impact
+    name: "Partner Platform Change Impact Assessment"
+    description: "Assess the impact of partner platform changes on existing integrations by cataloging changes, mapping affected integrations, quantifying blast radius, and producing a mitigation plan"
+    domain: integration_validation
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: change_announcement
+        required: true
+        description: Partner platform change details including affected APIs, timeline, and migration guidance
+      - name: integration_inventory
+        required: true
+        description: Current integration inventory to assess impact against
+      - name: customer_deployments
+        required: false
+        description: Customer deployments using affected integrations for blast radius analysis
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Assessing impact of partner platform changes from {partner_name}.
+      Change announcement: {change_announcement}
+      Integration inventory: {integration_inventory}
+      Customer deployments: {customer_deployments}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are determining how a partner platform change affects existing integrations, customers, and operations. The output drives go/no-go decisions on change adoption and mitigation planning to prevent disruption.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If change_announcement is ABSENT, DEFER: cannot assess impact without knowing what changed.
+      If integration_inventory is ABSENT, DEFER: cannot map impact without knowing current integrations.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: CHANGE CATALOG
+      Decompose the partner platform change into discrete change items.
+      For each change item:
+      - Change ID and description
+      - Change type: BREAKING / NON-BREAKING / BEHAVIORAL / DEPRECATION / NEW FEATURE
+      - Affected API endpoints or SDK methods (specific paths)
+      - Change effective date
+      - Mandatory or optional migration
+      - Backward compatibility: MAINTAINED / PARTIAL / NONE
+      - Partner migration guide: AVAILABLE (URL) / NOT AVAILABLE
+      - Confidence: VERIFIED (tested in sandbox) / ESTIMATED (from documentation) / ASSUMED (inferred)
+      Deliverable: Change catalog table (Change ID | Description | Type | Affected Endpoints | Effective Date | Mandatory | Backward Compat | Guide | Confidence).
+
+      STEP 2: INTEGRATION IMPACT MAPPING
+      Map each change item to affected integrations in our inventory.
+      For each affected integration:
+      - Integration name and current version
+      - Change items that affect it (reference Change IDs)
+      - Impact: BROKEN (will fail) / DEGRADED (reduced functionality) / COSMETIC (minor) / NONE
+      - Specific failure mode if BROKEN (timeout, auth failure, payload rejection, data corruption)
+      - Workaround available: YES (describe) / NO
+      - Effort to adapt: LOW (< 1 day) / MEDIUM (1-5 days) / HIGH (> 5 days)
+      - Criticality of affected integration: P0 / P1 / P2 / P3
+      If no integrations are affected, state "No current integrations impacted by this change."
+      Deliverable: Impact map table (Integration | Change IDs | Impact | Failure Mode | Workaround | Effort | Criticality).
+
+      STEP 3: BLAST RADIUS ANALYSIS
+      Quantify the total impact scope.
+      - Total integrations affected and severity distribution (BROKEN / DEGRADED / COSMETIC / NONE)
+      - If customer_deployments available: customers affected, revenue at risk, SLA exposure
+      - If customer_deployments ABSENT: state "Customer blast radius not quantified, deployment data not provided"
+      - Downstream systems affected (internal systems that depend on affected integrations)
+      - Timeline pressure: days until change is effective vs. estimated remediation time
+      - Overall blast radius: CRITICAL (P0 integration BROKEN) / HIGH (P1 BROKEN or multiple P2) / MEDIUM (P2 BROKEN or P1 DEGRADED) / LOW (cosmetic only)
+      Deliverable: Blast radius summary (Total Affected | Broken | Degraded | Cosmetic | Customers at Risk | Revenue at Risk | Timeline Gap | Blast Radius Classification).
+
+      STEP 4: MITIGATION PLAN
+      For each BROKEN or DEGRADED integration, define the mitigation path.
+      Prioritize by: blast radius (P0 first), then timeline pressure (nearest deadline first).
+      For each mitigation:
+      - Integration and change reference
+      - Mitigation action (code change, configuration update, version upgrade, workaround)
+      - Owner (engineering team or individual)
+      - Estimated effort (hours/days)
+      - Test plan (what to validate after the change)
+      - Rollback plan if mitigation introduces regression
+      - Deadline (must complete before partner change effective date)
+      - Communication plan (who to notify: customers, internal teams, support)
+      Deliverable: Mitigation plan table (Priority | Integration | Action | Owner | Effort | Test Plan | Rollback | Deadline | Communication).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every change item in the announcement cataloged (no items silently ignored)
+      - Impact assessed per integration, not generalized across all
+      - Blast radius quantified with customer and revenue impact where data permits
+      - Timeline gap calculated (effective date minus estimated remediation time)
+      - Mitigation plan includes rollback strategy for each change
+      - Communication plan identifies who needs to know before the change takes effect
+      - Executive summary is self-sufficient: reader can act without reading full impact map
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + blast radius summary + top mitigation action + state delta
+      - DISCOVERY: signal plan (partner change notification channels, sandbox access for testing, customer deployment inventory, downstream dependency map)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) blast radius classification with count of affected integrations and severity distribution, (2) highest-criticality broken integration and its failure mode, (3) single most urgent mitigation action with owner and deadline.
+
+# ============================================================================
+# SOLUTION ARCHITECTURE PROMPTS
+# ============================================================================
+solution_architecture:
+
+  joint_solution_design:
+    id: aa-joint-solution-design
+    name: "Joint Solution Architecture Design"
+    description: "Design a joint solution architecture combining both platforms by mapping capabilities, defining integration points, specifying data flows, and producing an architecture decision record"
+    domain: solution_architecture
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: solution_requirements
+        required: true
+        description: Business and technical requirements the joint solution must satisfy
+      - name: our_platform_capabilities
+        required: true
+        description: Our platform capabilities, APIs, and services available for the joint solution
+      - name: partner_platform_capabilities
+        required: true
+        description: Partner platform capabilities, APIs, and services available for the joint solution
+      - name: constraints
+        required: false
+        description: Technical, regulatory, or business constraints (latency, data residency, compliance)
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Designing joint solution architecture with {partner_name}.
+      Solution requirements: {solution_requirements}
+      Our platform capabilities: {our_platform_capabilities}
+      Partner platform capabilities: {partner_platform_capabilities}
+      Constraints: {constraints}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are designing the technical architecture for a joint solution that combines both platforms to deliver customer value that neither platform can achieve alone. The output drives engineering implementation and partner alignment on technical approach.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If solution_requirements is ABSENT, DEFER: cannot design without defined requirements.
+      If our_platform_capabilities or partner_platform_capabilities is ABSENT, DEFER: need both sides to design a joint solution.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: CAPABILITY MAPPING
+      Map requirements to capabilities across both platforms.
+      For each requirement:
+      - Requirement ID and description
+      - Priority: MUST HAVE / SHOULD HAVE / NICE TO HAVE
+      - Our platform capability that addresses it (or GAP)
+      - Partner platform capability that addresses it (or GAP)
+      - Fulfillment: OUR PLATFORM / PARTNER PLATFORM / JOINT (both needed) / GAP (neither)
+      - Integration complexity if JOINT: LOW / MEDIUM / HIGH
+      - Confidence: VERIFIED (demonstrated) / ESTIMATED (documented) / ASSUMED (claimed)
+      Deliverable: Capability map table (Requirement | Priority | Our Capability | Partner Capability | Fulfillment | Complexity | Confidence).
+
+      STEP 2: ARCHITECTURE DEFINITION
+      Define the joint solution architecture.
+      - Architecture style: microservices, event-driven, API-gateway, hybrid (justify selection)
+      - Component diagram: list every component, its owner (ours/partner/shared), and responsibility
+      - Integration points: for each integration define protocol, data format, authentication, SLA
+      - Data flow: source, transformations, destination, frequency, volume, latency requirement
+      - State management: which system is the source of truth for each data domain
+      - Security architecture: authentication flow, authorization model, data encryption, key management
+      - Non-functional requirements: scalability approach, availability target, disaster recovery
+      - Technology constraints: runtime environment, language compatibility, cloud provider dependencies
+      Deliverable: Architecture specification (Style | Component List | Integration Points | Data Flows | State Management | Security | NFRs | Constraints).
+
+      STEP 3: TRADE-OFF ANALYSIS
+      Document architectural trade-offs and decisions.
+      For each key decision:
+      - Decision description
+      - Options considered (2-3 alternatives)
+      - Selected option with rationale
+      - Trade-off: what is sacrificed by this choice
+      - Reversibility: REVERSIBLE / PARTIALLY REVERSIBLE / IRREVERSIBLE
+      - Risk: what could go wrong with this choice
+      Key trade-offs to address: synchronous vs. asynchronous integration, data replication vs. real-time query, tight vs. loose coupling, managed service vs. self-hosted.
+      Deliverable: Architecture Decision Record (Decision | Options | Selected | Rationale | Trade-off | Reversibility | Risk).
+
+      STEP 4: IMPLEMENTATION ROADMAP
+      Sequence the implementation into phases.
+      For each phase:
+      - Phase name and scope (which components and integrations)
+      - Duration estimate
+      - Prerequisites (from prior phases or external dependencies)
+      - Team requirements (our engineers, partner engineers, shared resources)
+      - Validation criteria (what proves this phase is complete)
+      - Risk and mitigation for this phase
+      Recommend minimum viable integration (MVI): the smallest set of integrations that delivers customer value.
+      Deliverable: Implementation roadmap table (Phase | Scope | Duration | Prerequisites | Team | Validation | Risk) + MVI definition.
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every MUST HAVE requirement mapped to a capability or explicitly flagged as GAP
+      - Integration points specify protocol, auth, SLA (not just "connects to partner API")
+      - Data flow includes source of truth designation for every data domain
+      - Trade-off analysis covers coupling, consistency, and latency choices
+      - Implementation roadmap identifies minimum viable integration
+      - Security architecture addressed at every integration point
+      - Executive summary is self-sufficient: reader can act without reading architecture details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + capability map + MVI definition + state delta
+      - DISCOVERY: signal plan (partner technical documentation, API sandbox access, engineering contact, constraint catalog)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) requirement coverage with count of JOINT vs. GAP items, (2) most critical architectural decision and its trade-off, (3) MVI scope and estimated timeline with team requirement.
+
+  reference_architecture:
+    id: aa-reference-architecture
+    name: "Reference Architecture Development"
+    description: "Develop or update a reference architecture by validating components, documenting patterns, and producing a publishable reference architecture document"
+    domain: solution_architecture
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: use_case
+        required: true
+        description: Target use case or scenario the reference architecture addresses
+      - name: existing_reference_architecture
+        required: false
+        description: Existing reference architecture to update or validate
+      - name: validated_deployments
+        required: false
+        description: Production deployments that validate the architecture patterns
+      - name: partner_documentation
+        required: true
+        description: Partner platform documentation, best practices guides, and architecture recommendations
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Developing reference architecture with {partner_name} for {use_case}.
+      Existing reference architecture: {existing_reference_architecture}
+      Validated deployments: {validated_deployments}
+      Partner documentation: {partner_documentation}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are creating or updating a reference architecture that serves as the golden standard for how the joint solution should be deployed. The output is used by field SAs, partner engineers, and customers as the authoritative design guide.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If use_case is ABSENT, DEFER: cannot design reference architecture without a target scenario.
+      If partner_documentation is ABSENT, DEFER: cannot validate partner components without their documentation.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: USE CASE ANALYSIS
+      Define the use case the reference architecture addresses.
+      - Use case name and description
+      - Target customer profile (industry, size, technical maturity)
+      - Business outcome the customer achieves
+      - Technical requirements (performance, scale, availability, compliance)
+      - Assumptions and constraints (cloud provider, runtime, network topology)
+      - Variants: list variations of the use case that the architecture should accommodate (e.g., single-region vs. multi-region, SaaS vs. on-prem)
+      If existing_reference_architecture is available, compare use case definition for drift or expansion.
+      Deliverable: Use case specification (Name | Customer Profile | Business Outcome | Technical Requirements | Assumptions | Variants).
+
+      STEP 2: COMPONENT VALIDATION
+      Validate every component in the reference architecture.
+      For each component:
+      - Component name, owner (ours/partner/third-party), and version
+      - Role in the architecture (what it does)
+      - Validation status: PRODUCTION-PROVEN / LAB-TESTED / DOCUMENTED-ONLY / UNVALIDATED
+      - If validated_deployments available: reference deployment using this component
+      - Configuration best practices (partner-recommended settings)
+      - Known limitations or caveats
+      - Alternative components considered and why this was selected
+      - Confidence: VERIFIED / ESTIMATED / ASSUMED
+      If existing_reference_architecture is available, flag components that are outdated or no longer recommended.
+      Deliverable: Component validation table (Component | Owner | Version | Role | Validation Status | Reference Deployment | Best Practices | Limitations | Confidence).
+
+      STEP 3: PATTERN DOCUMENTATION
+      Document the architectural patterns used in the reference architecture.
+      For each pattern:
+      - Pattern name (e.g., API Gateway, Event Bridge, Data Lake Sync, Circuit Breaker)
+      - Where it appears in the architecture (which integration points)
+      - Implementation guidance (step-by-step with configuration examples)
+      - Anti-patterns: what not to do and why
+      - Performance characteristics (latency, throughput, resource consumption)
+      - Failure modes and recovery mechanisms
+      - Monitoring and alerting recommendations
+      Deliverable: Pattern catalog (Pattern | Location | Implementation Guide | Anti-patterns | Performance | Failure Modes | Monitoring).
+
+      STEP 4: REFERENCE ARCHITECTURE DOCUMENT
+      Produce the complete reference architecture document.
+      Structure:
+      - Title, version, date, authors (our team + partner team)
+      - Use case summary (from Step 1)
+      - Architecture overview (high-level diagram description with numbered components)
+      - Component catalog (from Step 2)
+      - Integration patterns (from Step 3)
+      - Deployment guide: prerequisites, step sequence, validation checks
+      - Sizing guide: resource requirements for small/medium/large deployments
+      - Security considerations: authentication flows, data classification, compliance mapping
+      - Operational guide: monitoring, scaling, backup, disaster recovery
+      - Known issues and workarounds
+      - Version history and change log
+      Deliverable: Reference architecture document (structured narrative, publishable quality).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every component validated against current partner documentation (not stale versions)
+      - PRODUCTION-PROVEN components reference specific deployments
+      - UNVALIDATED components flagged with validation plan
+      - Anti-patterns documented for every pattern (not just happy path)
+      - Sizing guide includes at least three tiers (small/medium/large)
+      - Security section covers authentication, authorization, encryption, and compliance
+      - Document is self-contained: a field SA can deploy without external references
+      - Executive summary is self-sufficient: reader can act without reading full document
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + architecture overview + component status summary + state delta
+      - DISCOVERY: signal plan (partner documentation sources, production deployment contacts, lab environment for validation, partner architecture review session)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) reference architecture maturity with component validation status distribution, (2) most critical unvalidated component or stale pattern, (3) single most impactful action to improve architecture quality with owner and timeline.
+
+  deployment_pattern:
+    id: aa-deployment-pattern
+    name: "Deployment Pattern Documentation"
+    description: "Document deployment patterns and considerations for joint solutions including environment requirements, configuration management, rollback procedures, and operational runbooks"
+    domain: solution_architecture
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: solution_architecture
+        required: true
+        description: Joint solution architecture that the deployment pattern supports
+      - name: target_environments
+        required: true
+        description: Target deployment environments (cloud provider, region, network, compliance zone)
+      - name: existing_deployments
+        required: false
+        description: Existing deployment instances for pattern extraction and validation
+      - name: operational_requirements
+        required: false
+        description: Operational requirements (SLA, monitoring, incident response, change management)
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Documenting deployment patterns for {partner_name} joint solution.
+      Solution architecture: {solution_architecture}
+      Target environments: {target_environments}
+      Existing deployments: {existing_deployments}
+      Operational requirements: {operational_requirements}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are producing deployment documentation that enables repeatable, reliable deployment of the joint solution. The output is used by DevOps engineers, field SAs, and partner implementation teams to deploy consistently across environments.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If solution_architecture is ABSENT, DEFER: cannot document deployment without architecture to deploy.
+      If target_environments is ABSENT, DEFER: cannot define deployment pattern without target environment specifications.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: ENVIRONMENT REQUIREMENTS
+      Define requirements for each target deployment environment.
+      For each environment:
+      - Environment name and purpose (dev, staging, production, DR)
+      - Cloud provider and region(s)
+      - Network topology: VPC/VNET configuration, subnets, peering requirements
+      - Compute requirements: instance types, container orchestration, serverless components
+      - Storage requirements: databases, object storage, caching layers
+      - Identity and access: IAM roles, service accounts, cross-account/cross-tenant access
+      - Compliance zone: data residency, encryption requirements, audit logging
+      - Partner-side requirements: partner tenant configuration, API gateway setup, webhook endpoints
+      - Environment parity: differences between environments that affect deployment
+      Deliverable: Environment requirements table (Environment | Cloud/Region | Network | Compute | Storage | IAM | Compliance | Partner Config | Parity Notes).
+
+      STEP 2: DEPLOYMENT PROCEDURE
+      Document the step-by-step deployment procedure.
+      For each deployment step:
+      - Step number and description
+      - Component being deployed (ours, partner, shared)
+      - Prerequisites (prior steps, external dependencies, approvals)
+      - Configuration parameters (environment-specific values, secrets management)
+      - Validation check after step completion (health check, smoke test, integration test)
+      - Estimated duration
+      - Rollback action if step fails
+      - Common failure modes and troubleshooting
+      Include: infrastructure provisioning, application deployment, integration configuration, data migration (if applicable), smoke testing, traffic cutover.
+      Deliverable: Deployment procedure table (Step | Component | Prerequisites | Config | Validation | Duration | Rollback | Failure Modes).
+
+      STEP 3: CONFIGURATION MANAGEMENT
+      Document configuration management for the joint solution.
+      - Configuration sources: environment variables, config files, secrets vault, partner portal settings
+      - Environment-specific overrides: what changes per environment
+      - Secrets management: how credentials, API keys, and certificates are stored, rotated, and distributed
+      - Feature flags: toggles that control integration behavior
+      - Partner configuration: settings that must be coordinated with partner (webhook URLs, IP allowlisting, certificate exchange)
+      - Configuration validation: how to verify configuration is correct before deployment
+      - Configuration drift detection: how to identify when running config diverges from intended
+      Deliverable: Configuration management specification (Source | Scope | Secrets | Feature Flags | Partner Config | Validation | Drift Detection).
+
+      STEP 4: OPERATIONAL RUNBOOK
+      Produce an operational runbook for day-2 operations.
+      - Monitoring: what to monitor, alerting thresholds, dashboard components
+      - Scaling: horizontal and vertical scaling procedures, auto-scaling configuration
+      - Backup and recovery: backup schedule, recovery procedure, RTO/RPO targets
+      - Incident response: escalation path for integration failures (our team, partner team, joint triage)
+      - Change management: how to apply updates, patch procedures, partner API version upgrades
+      - Certificate and credential rotation: schedule and procedure
+      - Health check endpoints and expected responses
+      - Performance baseline: expected latency, throughput, and error rate under normal load
+      Deliverable: Operational runbook (Monitoring | Scaling | Backup | Incident Response | Change Mgmt | Cert Rotation | Health Checks | Performance Baseline).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every deployment step has a validation check and rollback procedure
+      - Secrets never appear in plain text in the documentation
+      - Partner-side configuration requirements explicitly listed (cannot deploy without partner actions)
+      - Environment parity documented (dev/staging/prod differences that affect deployment)
+      - Operational runbook includes partner escalation contacts and procedures
+      - Configuration drift detection mechanism defined
+      - Executive summary is self-sufficient: reader can act without reading full procedure
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + environment requirements + deployment procedure summary + state delta
+      - DISCOVERY: signal plan (target environment access, partner deployment guide, existing deployment inventory, DevOps team contact, secrets vault access)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) deployment complexity with environment count and step count, (2) most critical deployment risk or gap (missing partner config, untested environment, no rollback), (3) single most important action to improve deployment reliability with owner and timeline.
+
+  integration_pattern:
+    id: aa-integration-pattern
+    name: "Integration Pattern Definition and Validation"
+    description: "Define and validate integration patterns by specifying data contracts, error handling, resilience mechanisms, and producing a validated pattern library"
+    domain: solution_architecture
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: integration_requirements
+        required: true
+        description: Integration requirements including data exchange, event handling, and synchronization needs
+      - name: partner_api_documentation
+        required: true
+        description: Partner API documentation including endpoints, schemas, rate limits, and error codes
+      - name: existing_patterns
+        required: false
+        description: Existing integration patterns in use for consistency and reuse
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Defining integration patterns for {partner_name} integration.
+      Integration requirements: {integration_requirements}
+      Partner API documentation: {partner_api_documentation}
+      Existing patterns: {existing_patterns}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are defining the standard integration patterns that all implementations should follow when connecting with this partner platform. The output serves as the integration style guide, ensuring consistency, resilience, and maintainability across all integration points.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If integration_requirements is ABSENT, DEFER: cannot define patterns without knowing what needs to be integrated.
+      If partner_api_documentation is ABSENT, DEFER: cannot specify patterns without partner API contract details.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: DATA CONTRACT SPECIFICATION
+      Define the data contracts for each integration point.
+      For each integration:
+      - Integration name and direction (INBOUND / OUTBOUND / BIDIRECTIONAL)
+      - Partner API endpoint and method
+      - Request schema: fields, types, required/optional, validation rules
+      - Response schema: fields, types, status codes, pagination format
+      - Error response schema: error code taxonomy, error message format, retry-eligible errors
+      - Rate limits: requests per second/minute, burst allowance, rate limit response headers
+      - Payload size limits: maximum request/response size
+      - Data sensitivity: PII fields, encryption requirements, masking rules
+      - Schema versioning: how schema changes are communicated and handled
+      Deliverable: Data contract table (Integration | Endpoint | Request Schema | Response Schema | Error Schema | Rate Limits | Size Limits | Sensitivity | Versioning).
+
+      STEP 2: ERROR HANDLING PATTERNS
+      Define standard error handling for each error category.
+      Error categories:
+      - Transient errors (429 rate limit, 503 service unavailable, network timeout)
+      - Client errors (400 bad request, 401 unauthorized, 403 forbidden, 404 not found)
+      - Server errors (500 internal, 502 bad gateway)
+      - Integration-specific errors (webhook delivery failure, schema validation failure, data conflict)
+      For each category:
+      - Detection method (HTTP status code, response body pattern, timeout threshold)
+      - Handling pattern: RETRY / CIRCUIT BREAK / DEAD LETTER / FAIL / COMPENSATE
+      - Retry policy: max attempts, backoff algorithm (exponential with jitter), max delay
+      - Circuit breaker: failure threshold, half-open timeout, recovery condition
+      - Logging: what to log (request ID, partner correlation ID, error detail, timing)
+      - Alerting: when to alert (threshold, sustained failures, circuit open)
+      - Escalation: when to engage partner support (after N retries, circuit open for N minutes)
+      Deliverable: Error handling matrix (Error Category | Detection | Pattern | Retry Policy | Circuit Breaker | Logging | Alerting | Escalation).
+
+      STEP 3: RESILIENCE MECHANISMS
+      Define resilience patterns for the integration.
+      - Idempotency: implementation approach (idempotency keys, deduplication windows)
+      - Ordering guarantees: at-most-once, at-least-once, exactly-once semantics per integration
+      - Timeout strategy: connect timeout, read timeout, overall timeout per endpoint
+      - Bulkhead: isolation between integration points (separate connection pools, thread pools)
+      - Fallback: behavior when partner is unavailable (cached response, degraded mode, queue for later)
+      - Data consistency: eventual consistency handling, conflict resolution strategy
+      - Health monitoring: health check endpoint, expected response, check frequency
+      - Graceful degradation: which features to disable when partner is degraded vs. down
+      Deliverable: Resilience specification (Mechanism | Implementation | Configuration | Failure Scenario | Recovery Behavior).
+
+      STEP 4: PATTERN LIBRARY
+      Consolidate into a validated pattern library.
+      For each pattern:
+      - Pattern name and category (data exchange, event handling, synchronization, authentication)
+      - When to use (scenario description)
+      - When NOT to use (anti-pattern scenarios)
+      - Implementation template (pseudocode or configuration skeleton)
+      - Validation criteria: how to verify the pattern is correctly implemented
+      - Consistency with existing_patterns: CONSISTENT / DIVERGENT (justify if divergent)
+      - Maturity: PRODUCTION-PROVEN / LAB-TESTED / SPECIFICATION-ONLY
+      If existing_patterns is available, flag any inconsistencies and recommend consolidation.
+      Deliverable: Pattern library table (Pattern | Category | When to Use | When Not | Template | Validation | Consistency | Maturity).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every data contract includes error schema and rate limits (not just happy path)
+      - Error handling covers all five categories (not just retries for transient errors)
+      - Resilience mechanisms address both partner-down and partner-degraded scenarios
+      - Idempotency approach specified for every write operation
+      - Pattern library includes anti-patterns, not just positive guidance
+      - Existing patterns reviewed for consistency (no conflicting patterns across integrations)
+      - Executive summary is self-sufficient: reader can act without reading pattern details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + data contracts summary + error handling matrix + state delta
+      - DISCOVERY: signal plan (partner API documentation portal, rate limit details, error code reference, partner integration engineering contact)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) integration pattern count with maturity distribution, (2) most critical resilience gap or missing pattern, (3) single most impactful action to strengthen integration reliability with owner and timeline.
+
+# ============================================================================
+# TECHNICAL ENABLEMENT PROMPTS
+# ============================================================================
+technical_enablement:
+
+  cosell_readiness:
+    id: aa-cosell-readiness
+    name: "Co-Sell Technical Readiness Package"
+    description: "Prepare a co-sell technical readiness package by validating joint solution architecture, compiling technical proof points, and producing field-ready technical collateral"
+    domain: technical_enablement
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: joint_solution
+        required: true
+        description: Joint solution description including architecture, value proposition, and target use cases
+      - name: reference_architecture
+        required: false
+        description: Validated reference architecture for the joint solution
+      - name: customer_proof_points
+        required: false
+        description: Customer deployments, case studies, and technical proof points
+      - name: competitive_landscape
+        required: false
+        description: Competing joint solutions or alternative approaches in market
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Preparing co-sell technical readiness package for {partner_name} joint solution.
+      Joint solution: {joint_solution}
+      Reference architecture: {reference_architecture}
+      Customer proof points: {customer_proof_points}
+      Competitive landscape: {competitive_landscape}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are producing the technical readiness package that field SAs and partner SEs need to confidently present and defend the joint solution in customer engagements. The output must be technically accurate, differentiated, and immediately usable in sales motions.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If joint_solution is ABSENT, DEFER: cannot prepare readiness package without solution definition.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: TECHNICAL READINESS ASSESSMENT
+      Assess readiness across five technical dimensions.
+      For each dimension:
+      1. Architecture Validation: is the joint architecture validated and documented?
+      2. Integration Maturity: are integration patterns tested and certified?
+      3. Deployment Repeatability: can the solution be deployed consistently?
+      4. Technical Proof Points: are there customer references with quantified results?
+      5. Field Enablement: can field SAs present and demo the solution confidently?
+      For each dimension:
+      - Status: READY / GAPS / NOT READY
+      - Evidence supporting the assessment
+      - Gaps: specific items missing
+      - Confidence: HIGH / MEDIUM / LOW
+      Deliverable: Readiness matrix (Dimension | Status | Evidence | Gaps | Confidence).
+
+      STEP 2: TECHNICAL COLLATERAL INVENTORY
+      Catalog available and needed technical collateral.
+      For each collateral type:
+      - Type: REFERENCE ARCHITECTURE / INTEGRATION GUIDE / DEMO SCRIPT / SIZING GUIDE / FAQ / BATTLE CARD / WHITEPAPER
+      - Availability: AVAILABLE / IN PROGRESS / NOT STARTED / NOT NEEDED
+      - If AVAILABLE: location, last updated, accuracy status (CURRENT / STALE / NEEDS REVIEW)
+      - If NOT STARTED: priority, owner, estimated effort
+      - Target audience: field SA, partner SE, customer technical buyer
+      If reference_architecture is ABSENT, flag "Reference architecture is highest-priority gap for co-sell readiness."
+      Deliverable: Collateral inventory table (Type | Status | Location | Updated | Accuracy | Priority | Owner | Audience).
+
+      STEP 3: TECHNICAL DIFFERENTIATION
+      Articulate technical differentiators for the joint solution.
+      For each differentiator:
+      - Differentiator description
+      - Technical basis (why this is architecturally superior)
+      - Proof point (customer result, benchmark, certification) or UNSUBSTANTIATED
+      - Competitive alternative and why the joint solution is better
+      - Objection handler: most likely technical objection and the response
+      If competitive_landscape is ABSENT, state "Competitive differentiation not validated, market data not provided."
+      Deliverable: Differentiation table (Differentiator | Technical Basis | Proof Point | vs. Alternative | Objection Handler).
+
+      STEP 4: CO-SELL READINESS BRIEF
+      Synthesize into a field-ready co-sell technical brief.
+      Structure:
+      - Joint solution one-liner (what it does in one sentence)
+      - Target customer profile (industry, size, technical requirements)
+      - Architecture overview (3-5 sentences, not a deep dive)
+      - Top 3 technical differentiators with proof points
+      - Common technical objections and responses (top 3)
+      - Demo availability and scenario description
+      - SA engagement model: how to bring in specialist support
+      - Partner SE coordination: who to contact, what to align on before customer meetings
+      Deliverable: Co-sell readiness brief (structured narrative, field-ready tone).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Readiness assessed across all five dimensions (no silent skips)
+      - Collateral gaps prioritized by field impact (demo script and battle card are high priority for co-sell)
+      - Differentiators backed by proof points or explicitly marked UNSUBSTANTIATED
+      - Objection handlers are technically accurate, not marketing claims
+      - Co-sell brief is usable by a field SA who has never seen the joint solution before
+      - Partner SE coordination details included (co-sell requires coordination, not just collateral)
+      - Executive summary is self-sufficient: reader can act without reading details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + readiness matrix + co-sell brief + state delta
+      - DISCOVERY: signal plan (reference architecture status, customer proof point candidates, partner SE contact, demo environment availability)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) overall co-sell readiness with dimension status distribution, (2) most critical readiness gap and its impact on field confidence, (3) single most urgent action to close the gap with owner and timeline.
+
+  documentation_review:
+    id: aa-documentation-review
+    name: "Partner Technical Documentation Review"
+    description: "Review and validate partner technical documentation for accuracy, completeness, and usability by field teams and customers"
+    domain: technical_enablement
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: documentation_set
+        required: true
+        description: Partner technical documentation to review (API docs, integration guides, deployment guides)
+      - name: review_criteria
+        required: false
+        description: Specific review criteria or checklist to evaluate against
+      - name: field_feedback
+        required: false
+        description: Feedback from field SAs and partner SEs who have used the documentation
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Reviewing technical documentation for {partner_name}.
+      Documentation set: {documentation_set}
+      Review criteria: {review_criteria}
+      Field feedback: {field_feedback}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are validating that partner technical documentation is accurate, complete, and usable for field teams conducting joint implementations. Poor documentation causes deployment failures, extended timelines, and partner escalations.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If documentation_set is ABSENT, DEFER: cannot review without documentation to evaluate.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: DOCUMENTATION INVENTORY
+      Catalog all documentation provided for review.
+      For each document:
+      - Document name and type (API reference, integration guide, quickstart, troubleshooting, architecture guide)
+      - Version and last updated date
+      - Target audience (developer, SA, DevOps, customer admin)
+      - Format (web docs, PDF, Swagger/OpenAPI, Postman collection, code samples)
+      - Scope coverage: which integration areas this document addresses
+      - Confidence: CURRENT (updated within 6 months) / AGING (6-12 months) / STALE (> 12 months)
+      Deliverable: Documentation inventory table (Document | Type | Version | Updated | Audience | Format | Scope | Freshness).
+
+      STEP 2: ACCURACY VALIDATION
+      Validate technical accuracy of each document.
+      For each document, check:
+      - API endpoints match current production API (correct URLs, methods, parameters)
+      - Authentication examples work with current auth flow
+      - Code samples execute without modification (or clearly state version dependencies)
+      - Configuration examples use current parameter names and valid values
+      - Error codes and error handling match actual API behavior
+      - Screenshots and UI references match current interface
+      For each issue found:
+      - Issue description
+      - Location in document (section, page, code block)
+      - Severity: BLOCKER (will cause failure) / MAJOR (will cause confusion) / MINOR (cosmetic)
+      - Suggested correction
+      Deliverable: Accuracy audit table (Document | Issue | Location | Severity | Correction).
+
+      STEP 3: COMPLETENESS ASSESSMENT
+      Assess documentation completeness against integration needs.
+      Check for presence of:
+      - Authentication and authorization setup (complete flow, not just "use OAuth2")
+      - Error handling guidance (what to do for each error code, not just a code table)
+      - Rate limiting documentation (limits, headers, backoff strategy)
+      - Pagination patterns (cursor vs. offset, page size limits)
+      - Webhook setup and verification (signature validation, retry behavior)
+      - SDK installation and version compatibility
+      - Environment setup (sandbox/test environment provisioning)
+      - Migration guides (version upgrade procedures)
+      - Troubleshooting section (common issues and resolution)
+      For each gap:
+      - Missing topic
+      - Impact on field teams: HIGH (blocks implementation) / MEDIUM (slows implementation) / LOW (inconvenience)
+      - Workaround available: YES (describe) / NO
+      If field_feedback is available, cross-reference reported gaps.
+      Deliverable: Completeness checklist (Topic | Present | Quality | Gap Impact | Workaround | Field Feedback).
+
+      STEP 4: REVIEW REPORT
+      Produce a documentation review report with recommendations.
+      - Overall quality score: PUBLISHABLE / NEEDS REVISION / INADEQUATE
+      - PUBLISHABLE: no BLOCKER issues, < 3 MAJOR issues, all critical topics covered
+      - NEEDS REVISION: BLOCKER issues or > 3 MAJOR issues, but structure is sound
+      - INADEQUATE: fundamental gaps that prevent field use
+      - Top issues by severity (BLOCKER first)
+      - Recommended improvements with priority and effort
+      - Partner feedback: specific, constructive items to share with partner documentation team
+      Deliverable: Review report (Quality Score | Issue Summary | Improvement Priorities | Partner Feedback).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Accuracy validation tests actual current behavior, not documentation vs. documentation
+      - BLOCKER issues clearly distinguished from cosmetic issues
+      - Completeness check covers all integration lifecycle phases (setup, implement, operate, troubleshoot)
+      - Field feedback incorporated where available (real-world usability data)
+      - Partner feedback is constructive and specific (not "docs are bad")
+      - Review report is actionable: partner team can prioritize fixes from it
+      - Executive summary is self-sufficient: reader can act without reading audit details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + quality score + BLOCKER issues + state delta
+      - DISCOVERY: signal plan (partner documentation portal, API changelog, field SA feedback channel, partner documentation team contact)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) overall documentation quality score with issue count by severity, (2) most critical BLOCKER or gap and its field impact, (3) single most urgent documentation fix to request from partner with expected impact.
+
+  catalog_validation:
+    id: aa-catalog-validation
+    name: "Partner Solution Catalog Entry Validation"
+    description: "Validate partner solution catalog entries for technical accuracy, positioning consistency, and marketplace readiness"
+    domain: technical_enablement
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: catalog_entries
+        required: true
+        description: Solution catalog entries to validate (marketplace listings, solution briefs, technical specifications)
+      - name: validated_architecture
+        required: false
+        description: Validated reference architecture or integration specifications to check catalog claims against
+      - name: marketplace_requirements
+        required: false
+        description: Marketplace listing requirements and standards
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Validating solution catalog entries for {partner_name}.
+      Catalog entries: {catalog_entries}
+      Validated architecture: {validated_architecture}
+      Marketplace requirements: {marketplace_requirements}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are validating that partner solution catalog entries accurately represent the joint solution's technical capabilities and meet marketplace listing standards. Inaccurate catalog entries cause customer confusion, failed evaluations, and support escalations.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If catalog_entries is ABSENT, DEFER: cannot validate without entries to review.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: CATALOG ENTRY AUDIT
+      Review each catalog entry for technical accuracy.
+      For each entry:
+      - Entry name and marketplace/catalog location
+      - Claimed capabilities: list each technical capability claim
+      - Validation status per claim: VERIFIED (tested/documented) / OVERSTATED (exaggerated) / INACCURATE (incorrect) / UNVERIFIABLE (no evidence)
+      - Version accuracy: do stated versions match current production?
+      - Integration claims: are stated integration points accurate and currently functional?
+      - Performance claims: are stated benchmarks reproducible?
+      - Certification claims: are stated certifications current and valid?
+      If validated_architecture is available, cross-reference claims against validated specifications.
+      Deliverable: Catalog audit table (Entry | Capability Claim | Validation Status | Evidence | Correction Needed).
+
+      STEP 2: POSITIONING CONSISTENCY CHECK
+      Verify that catalog positioning aligns with agreed joint messaging.
+      For each entry:
+      - Messaging alignment: CONSISTENT / INCONSISTENT / UNAUTHORIZED CLAIM
+      - Value proposition accuracy: does the stated value match the validated joint value prop?
+      - Use case accuracy: are target use cases and customer profiles correctly stated?
+      - Competitive positioning: any claims that could create channel conflict or partner friction?
+      - Legal and compliance: any claims requiring legal review (guarantees, SLA commitments, regulatory compliance)
+      Deliverable: Positioning consistency table (Entry | Messaging | Value Prop | Use Cases | Competitive Risk | Legal Flag).
+
+      STEP 3: MARKETPLACE READINESS
+      Assess readiness for marketplace listing (if applicable).
+      If marketplace_requirements is available:
+      - Requirement compliance: check each marketplace requirement
+      - Required metadata: all required fields populated
+      - Asset readiness: logos, screenshots, demo videos, documentation links
+      - Pricing model: pricing information accurate and current
+      - Support information: support channels and response commitments accurate
+      If marketplace_requirements is ABSENT, state "Marketplace compliance not assessed, requirements not provided."
+      Deliverable: Marketplace readiness checklist (Requirement | Status | Gap | Action Needed).
+
+      STEP 4: VALIDATION REPORT
+      Produce a catalog validation report with recommended updates.
+      - Overall catalog health: ACCURATE / NEEDS UPDATES / SIGNIFICANT ISSUES
+      - ACCURATE: no INACCURATE claims, < 2 OVERSTATED claims
+      - NEEDS UPDATES: OVERSTATED claims or stale version references
+      - SIGNIFICANT ISSUES: INACCURATE claims or unauthorized competitive positioning
+      - Required updates by priority (INACCURATE first, then OVERSTATED, then cosmetic)
+      - Partner action items: specific changes to request from partner catalog team
+      - Timeline for re-validation after updates
+      Deliverable: Validation report (Health Score | Update Priority List | Partner Actions | Re-validation Timeline).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every capability claim explicitly validated, not assumed accurate
+      - OVERSTATED claims include specific correction (what the claim should say)
+      - Version references checked against current production versions
+      - Competitive positioning reviewed for channel conflict risk
+      - Legal flags raised for any guarantee or compliance claims
+      - Validation report provides specific, actionable update requests (not "please review")
+      - Executive summary is self-sufficient: reader can act without reading audit details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + catalog health score + critical issues + state delta
+      - DISCOVERY: signal plan (catalog entry locations, validated architecture reference, marketplace listing requirements, partner catalog team contact)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) catalog health score with count of entries and issue distribution, (2) most critical inaccuracy or unauthorized claim and its customer impact, (3) single most urgent catalog update with owner and timeline.
+
+  field_enablement:
+    id: aa-field-enablement
+    name: "Field SA Enablement Materials Preparation"
+    description: "Prepare field SA enablement materials for partner capabilities by creating technical briefings, demo guides, objection handlers, and hands-on lab content"
+    domain: technical_enablement
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: partner_capabilities
+        required: true
+        description: Partner platform capabilities, integrations, and technical value propositions to enable on
+      - name: target_audience
+        required: true
+        description: Target SA audience profile (generalist, specialist, experience level, current knowledge baseline)
+      - name: existing_enablement
+        required: false
+        description: Existing enablement materials, training recordings, and lab environments
+      - name: field_knowledge_gaps
+        required: false
+        description: Known knowledge gaps from field SA surveys, deal feedback, or enablement assessments
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Preparing field SA enablement materials for {partner_name} capabilities.
+      Partner capabilities: {partner_capabilities}
+      Target audience: {target_audience}
+      Existing enablement: {existing_enablement}
+      Field knowledge gaps: {field_knowledge_gaps}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are creating enablement materials that equip field SAs to confidently position, architect, and defend joint solutions with this partner in customer engagements. The output must close knowledge gaps and be immediately usable in the field.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If partner_capabilities is ABSENT, DEFER: cannot create enablement without knowing what to enable on.
+      If target_audience is ABSENT, DEFER: enablement materials must be calibrated to audience level.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: KNOWLEDGE GAP ANALYSIS
+      Identify what field SAs need to learn about this partner's capabilities.
+      For each capability area:
+      - Capability name and description
+      - Current field SA knowledge level: PROFICIENT / BASIC / AWARENESS / NONE
+      - Required knowledge level for customer engagements: EXPERT / PROFICIENT / BASIC
+      - Gap size: NONE / SMALL (1 level) / LARGE (2+ levels)
+      - Priority: HIGH (blocking deals) / MEDIUM (limiting deal quality) / LOW (nice to have)
+      If field_knowledge_gaps is available, validate against reported gaps.
+      If existing_enablement is available, identify what is already covered and what is stale.
+      Deliverable: Knowledge gap matrix (Capability | Current Level | Required Level | Gap | Priority | Existing Content | Content Status).
+
+      STEP 2: ENABLEMENT CONTENT PLAN
+      Define the content needed to close identified gaps.
+      For each content item:
+      - Content type: TECHNICAL BRIEFING / DEMO GUIDE / HANDS-ON LAB / BATTLE CARD / FAQ / ARCHITECTURE DEEP DIVE / OBJECTION HANDLER
+      - Title and scope
+      - Knowledge gap(s) it addresses (reference from Step 1)
+      - Format: slide deck, written guide, video recording, interactive lab, one-pager
+      - Estimated creation effort: LOW (< 1 day) / MEDIUM (1-3 days) / HIGH (> 3 days)
+      - Shelf life: how long before this content needs refresh
+      - Dependencies: partner input needed, demo environment required, SME review
+      Prioritize by: gap size (LARGE first), then priority (HIGH first), then effort (LOW first for quick wins).
+      Deliverable: Content plan table (Priority | Type | Title | Gaps Addressed | Format | Effort | Shelf Life | Dependencies).
+
+      STEP 3: TECHNICAL BRIEFING OUTLINE
+      Produce the outline for the primary technical briefing.
+      Structure:
+      - Partner platform overview: what it does, how it works (5 minutes, not a partner sales pitch)
+      - Joint value proposition: why our platform + partner = better together (3 key points)
+      - Architecture overview: how the integration works technically (diagram walk-through)
+      - Key integration points: what field SAs need to understand about data flow, auth, and error handling
+      - Customer qualification: how to identify opportunities for the joint solution (3-5 qualifying questions)
+      - Demo flow: recommended demo sequence with talking points
+      - Common objections: top 5 technical objections with evidence-based responses
+      - Competitive positioning: how the joint solution compares to alternatives (without disparaging competitors)
+      - Resources: where to find reference architecture, documentation, partner SE contacts
+      For each section: estimated time allocation and content status (DRAFTED / OUTLINE ONLY / NOT STARTED).
+      Deliverable: Technical briefing outline (Section | Time | Key Points | Content Status).
+
+      STEP 4: HANDS-ON COMPONENT
+      Define the hands-on enablement component (lab or guided exercise).
+      - Lab scenario: realistic customer use case the SA will implement
+      - Prerequisites: environment access, credentials, pre-configuration steps
+      - Exercise steps: numbered steps with expected outcome per step
+      - Time to complete: estimated hands-on time
+      - Assessment: how to verify the SA completed the exercise correctly
+      - Environment: lab environment availability (always-on, on-demand, scheduled)
+      - Partner coordination: any partner sandbox or test tenant needed
+      If no lab environment is available, recommend creation and specify requirements.
+      Deliverable: Hands-on lab specification (Scenario | Prerequisites | Steps | Duration | Assessment | Environment | Partner Coordination).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Knowledge gaps validated against field feedback, not assumed
+      - Content plan covers all HIGH-priority gaps
+      - Technical briefing is educational, not a partner sales pitch (SAs detect and reject sales pitches)
+      - Objection handlers are technically accurate with evidence (not marketing rebuttals)
+      - Hands-on component uses a realistic scenario, not a trivial hello-world exercise
+      - Shelf life estimated for every content item (enablement materials go stale quickly)
+      - Executive summary is self-sufficient: reader can act without reading content plan details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + knowledge gap matrix + briefing outline + state delta
+      - DISCOVERY: signal plan (field SA survey, deal feedback analysis, existing content inventory, partner enablement resources, lab environment availability)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) field readiness with count of gaps by priority and size, (2) most critical knowledge gap blocking deals and the content needed to close it, (3) single most urgent enablement action with owner and delivery timeline.
+
+# ============================================================================
+# DUE DILIGENCE PROMPTS
+# ============================================================================
+due_diligence:
+
+  technical_assessment:
+    id: aa-technical-assessment
+    name: "Partner Platform Technical Capability Assessment"
+    description: "Assess partner platform technical capabilities across architecture, API design, security, scalability, and operational maturity to inform partnership decisions"
+    domain: due_diligence
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: platform_documentation
+        required: true
+        description: Partner platform technical documentation, architecture overviews, and API specifications
+      - name: demo_or_trial_access
+        required: false
+        description: Access to partner platform demo, sandbox, or trial environment for hands-on evaluation
+      - name: customer_references
+        required: false
+        description: Customer references or case studies using the partner platform
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Assessing technical capabilities of {partner_name} platform.
+      Platform documentation: {platform_documentation}
+      Demo/trial access: {demo_or_trial_access}
+      Customer references: {customer_references}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are evaluating whether this partner's technical platform meets the standards required for a production partnership. The output drives go/no-go decisions on partnership investment and identifies technical risks that must be mitigated.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If platform_documentation is ABSENT, DEFER: cannot assess technical capabilities without documentation.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: ARCHITECTURE ASSESSMENT
+      Evaluate the partner's platform architecture.
+      Assessment dimensions:
+      - Architecture style: monolith, microservices, serverless, hybrid (identify and evaluate appropriateness)
+      - Multi-tenancy model: single-tenant, multi-tenant, tenant-per-database, tenant-per-instance
+      - Cloud infrastructure: cloud-native, cloud-hosted, hybrid, on-premises (evaluate modernity)
+      - Data architecture: database technologies, data partitioning, data sovereignty support
+      - Event architecture: event-driven capabilities, pub/sub support, webhook infrastructure
+      - Extensibility: plugin model, custom integrations, extension APIs
+      For each dimension:
+      - Current state assessment
+      - Maturity: ADVANCED / ADEQUATE / BASIC / CONCERNING
+      - Evidence basis
+      - Confidence: VERIFIED (hands-on) / ESTIMATED (documentation) / ASSUMED (marketing materials)
+      Deliverable: Architecture assessment table (Dimension | Assessment | Maturity | Evidence | Confidence).
+
+      STEP 2: API DESIGN QUALITY
+      Evaluate the partner's API design and developer experience.
+      Score using Richardson Maturity Model (Level 0-3):
+      - Level 0: single URI, single HTTP method (RPC-style)
+      - Level 1: individual URIs per resource
+      - Level 2: HTTP methods used correctly (GET, POST, PUT, DELETE)
+      - Level 3: HATEOAS, hypermedia controls
+      Additional quality dimensions:
+      - API documentation quality: OpenAPI/Swagger spec, interactive docs, code samples
+      - Consistency: naming conventions, error formats, pagination patterns across endpoints
+      - Versioning strategy: URL path, header, query parameter, content negotiation
+      - Authentication: OAuth2, API keys, mTLS, token refresh flow
+      - Rate limiting: documented limits, rate limit headers, graceful degradation
+      - Webhook support: delivery guarantees, signature verification, retry policy
+      - SDK availability: language coverage, maintenance frequency, version currency
+      - Developer portal: sandbox access, self-service provisioning, community support
+      For each dimension: score (1-5), evidence, and confidence.
+      Deliverable: API quality scorecard (Dimension | Score | Richardson Level | Evidence | Confidence).
+
+      STEP 3: SECURITY AND COMPLIANCE EVALUATION
+      Evaluate partner's security posture and compliance certifications.
+      - Security certifications: SOC 2 Type II, ISO 27001, FedRAMP, HIPAA, PCI DSS (which held, audit dates)
+      - Data encryption: at rest (algorithm, key management), in transit (TLS version, cipher suites)
+      - Authentication security: MFA support, session management, credential storage
+      - Authorization model: RBAC, ABAC, tenant isolation, privilege escalation controls
+      - Vulnerability management: CVE response time, penetration testing frequency, bug bounty program
+      - Data privacy: GDPR compliance, data processing agreements, data residency options
+      - Incident response: published incident response plan, historical incident transparency
+      - Supply chain security: dependency management, SBOM availability, container image signing
+      For each area: status, evidence, gap assessment, confidence.
+      Deliverable: Security evaluation table (Area | Status | Certifications/Evidence | Gaps | Confidence).
+
+      STEP 4: CAPABILITY SCORECARD
+      Produce a composite technical capability scorecard.
+      - Overall score: weighted average across architecture (30%), API quality (25%), security (25%), scalability (10%), operational maturity (10%)
+      - Overall recommendation: PROCEED / PROCEED WITH CONDITIONS / DO NOT PROCEED
+      - PROCEED: all dimensions ADEQUATE or above, no CONCERNING security gaps
+      - PROCEED WITH CONDITIONS: 1-2 dimensions BASIC, conditions listed
+      - DO NOT PROCEED: any dimension CONCERNING or critical security gaps
+      - Top 3 technical strengths
+      - Top 3 technical risks with mitigation requirements
+      - Conditions for partnership (specific items that must be resolved)
+      If demo_or_trial_access or customer_references is ABSENT, note what could not be validated hands-on.
+      Deliverable: Capability scorecard (Overall Score | Recommendation | Strengths | Risks | Conditions | Unvalidated Areas).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Architecture assessment covers all six dimensions (not just "good architecture")
+      - Richardson Maturity Model applied with specific evidence per level
+      - Security evaluation distinguishes between claimed and audited certifications
+      - Scorecard weights stated and justified
+      - DO NOT PROCEED recommendation supported by specific, objective findings
+      - Conditions for PROCEED WITH CONDITIONS are specific and verifiable
+      - Confidence clearly distinguishes hands-on evaluation from documentation review
+      - Executive summary is self-sufficient: reader can act without reading assessment details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + capability scorecard + top risk + state delta
+      - DISCOVERY: signal plan (partner documentation portal, sandbox/trial access, security certification copies, customer reference contacts, partner engineering contact for architecture walk-through)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) overall recommendation with composite score and confidence, (2) most critical technical risk or gap, (3) single most important condition or next step with owner and timeline.
+
+  api_maturity:
+    id: aa-api-maturity
+    name: "Partner API Maturity Scoring"
+    description: "Score partner API maturity and design quality using Richardson Maturity Model, API governance indicators, and developer experience metrics"
+    domain: due_diligence
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: api_specifications
+        required: true
+        description: Partner API specifications (OpenAPI/Swagger, GraphQL schema, gRPC proto files)
+      - name: api_documentation
+        required: true
+        description: Partner API documentation including guides, examples, and changelog
+      - name: api_usage_data
+        required: false
+        description: API usage data if available (uptime, latency, error rates, rate limit behavior)
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Scoring API maturity for {partner_name}.
+      API specifications: {api_specifications}
+      API documentation: {api_documentation}
+      API usage data: {api_usage_data}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are scoring the maturity and quality of a partner's APIs to determine integration feasibility and maintenance burden. Low API maturity increases integration cost, reduces reliability, and creates ongoing maintenance overhead.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If api_specifications is ABSENT, DEFER: cannot score maturity without API specifications to evaluate.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: RICHARDSON MATURITY MODEL SCORING
+      Score the API against the Richardson Maturity Model.
+      - Level 0 (The Swamp of POX): single endpoint, RPC-style, XML/JSON-RPC
+      - Level 1 (Resources): individual URIs per resource, but inconsistent HTTP methods
+      - Level 2 (HTTP Verbs): correct HTTP method semantics, proper status codes, content negotiation
+      - Level 3 (Hypermedia Controls): HATEOAS links, discoverability, self-documenting responses
+      For each level:
+      - Compliance: FULL / PARTIAL / NONE
+      - Evidence: specific API examples demonstrating compliance or non-compliance
+      - Exceptions: endpoints that deviate from the dominant level
+      Overall Richardson Level: highest level with FULL or majority PARTIAL compliance.
+      Deliverable: Richardson scoring table (Level | Compliance | Evidence | Exceptions) + Overall Level.
+
+      STEP 2: API GOVERNANCE SCORING
+      Evaluate API governance maturity across eight dimensions (1-5 scale per dimension).
+      1. Naming Consistency: resource naming conventions, camelCase/snake_case consistency, pluralization rules
+      2. Error Handling: standardized error format, error code taxonomy, actionable error messages
+      3. Versioning Strategy: version scheme (URL, header, query), backward compatibility policy, deprecation process
+      4. Authentication: OAuth2 flows, token lifecycle, scope granularity, credential rotation support
+      5. Rate Limiting: documented limits, rate limit headers (X-RateLimit-*), graceful 429 handling
+      6. Pagination: consistent pattern (cursor/offset), page size controls, total count availability
+      7. Filtering and Sorting: query parameter conventions, field selection, complex filter support
+      8. Idempotency: idempotency key support for write operations, duplicate detection window
+      For each dimension:
+      - Score (1-5): 1=Ad Hoc, 2=Developing, 3=Defined, 4=Managed, 5=Optimizing
+      - Evidence (specific examples from API specification)
+      - Impact on integration: how this score affects our integration effort
+      Deliverable: Governance scorecard (Dimension | Score | Evidence | Integration Impact).
+
+      STEP 3: DEVELOPER EXPERIENCE ASSESSMENT
+      Evaluate the developer experience for integrators.
+      Assess:
+      - Documentation completeness: getting started guide, endpoint reference, code samples, error guide
+      - Interactive documentation: Swagger UI, Postman collection, GraphQL playground
+      - SDK quality: language coverage, code generation, test helpers, version maintenance
+      - Sandbox environment: availability, data quality, parity with production, self-service provisioning
+      - Changelog quality: breaking change announcements, migration guides, advance notice period
+      - Support channels: developer forum, Slack/Discord, dedicated integration support, response SLA
+      - Status page: uptime tracking, incident communication, scheduled maintenance notices
+      For each area: score (1-5), evidence, and impact on integration timeline.
+      If api_usage_data is available, include uptime percentage, p95 latency, and error rate.
+      Deliverable: Developer experience table (Area | Score | Evidence | Impact on Timeline).
+
+      STEP 4: MATURITY SCORECARD
+      Produce a composite API maturity scorecard.
+      - Richardson Level (from Step 1)
+      - Governance Score: average across eight dimensions with per-dimension scores
+      - Developer Experience Score: average across assessment areas
+      - Overall API Maturity: MATURE (governance 4+, DX 4+) / ADEQUATE (governance 3+, DX 3+) / IMMATURE (any dimension < 3)
+      - Integration burden estimate: LOW (mature API, minimal custom handling) / MEDIUM (adequate, some workarounds needed) / HIGH (immature, significant custom code required)
+      - Top 3 strengths (highest-scoring dimensions)
+      - Top 3 improvement areas (lowest-scoring dimensions with impact on integration)
+      - Recommendation: proceed with integration, request API improvements first, or defer
+      Deliverable: Maturity scorecard (Richardson Level | Governance Score | DX Score | Overall Maturity | Integration Burden | Strengths | Improvements | Recommendation).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Richardson Level assessment uses specific API examples, not generic evaluation
+      - Governance scoring applied to actual API specification, not documentation claims
+      - Developer experience includes hands-on evaluation where sandbox is available
+      - Integration burden estimate calibrated to specific dimension scores (not subjective "feels hard")
+      - Improvement areas include impact on integration (not just "this could be better")
+      - Scores use the full 1-5 range with evidence (avoid clustering at 3)
+      - Executive summary is self-sufficient: reader can act without reading dimension details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + maturity scorecard + top risk + state delta
+      - DISCOVERY: signal plan (OpenAPI spec URL, developer portal access, sandbox provisioning, partner API engineering contact, API status page URL)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) overall API maturity with Richardson Level and composite scores, (2) lowest-scoring dimension and its integration cost impact, (3) single most important API improvement to request from partner or workaround to implement.
+
+  integration_effort:
+    id: aa-integration-effort
+    name: "Integration Effort and Complexity Estimation"
+    description: "Estimate integration effort and complexity by decomposing the integration scope, sizing each component, identifying risks, and producing a resource-loaded implementation estimate"
+    domain: due_diligence
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: integration_scope
+        required: true
+        description: Integration scope including required data flows, events, and synchronization needs
+      - name: api_assessment
+        required: false
+        description: Prior API maturity assessment or API documentation quality evaluation
+      - name: team_capabilities
+        required: false
+        description: Available engineering team capabilities, experience, and capacity
+      - name: historical_benchmarks
+        required: false
+        description: Effort data from prior similar integrations for calibration
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Estimating integration effort for {partner_name}.
+      Integration scope: {integration_scope}
+      API assessment: {api_assessment}
+      Team capabilities: {team_capabilities}
+      Historical benchmarks: {historical_benchmarks}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are producing an effort estimate for integrating with this partner's platform. The estimate drives resource allocation, timeline commitments, and build-vs-buy decisions. Estimates must be evidence-based with explicit assumptions and confidence ranges.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If integration_scope is ABSENT, DEFER: cannot estimate effort without defined scope.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: SCOPE DECOMPOSITION
+      Break the integration scope into estimable work packages.
+      For each work package:
+      - Work package name and description
+      - Category: AUTHENTICATION / DATA SYNC / EVENT HANDLING / TRANSFORMATION / ERROR HANDLING / MONITORING / TESTING / DOCUMENTATION
+      - Integration direction: INBOUND / OUTBOUND / BIDIRECTIONAL
+      - Partner API endpoints involved (list specific endpoints)
+      - Data volume: expected record count and payload size per operation
+      - Complexity: LOW (standard REST CRUD) / MEDIUM (custom transformation, pagination) / HIGH (real-time sync, conflict resolution, complex auth flows)
+      - Dependencies: what must be completed before this work package can start
+      Deliverable: Scope decomposition table (Work Package | Category | Direction | Endpoints | Volume | Complexity | Dependencies).
+
+      STEP 2: EFFORT SIZING
+      Estimate effort for each work package.
+      For each work package:
+      - Optimistic estimate (best case, everything goes smoothly)
+      - Most likely estimate (normal conditions, minor issues)
+      - Pessimistic estimate (significant issues, partner delays, rework)
+      - Weighted estimate: (Optimistic + 4 * Most Likely + Pessimistic) / 6 (PERT formula)
+      - Estimate unit: person-days
+      - Key assumptions affecting this estimate
+      - Risk factors that could push to pessimistic
+      Adjust estimates based on:
+      - If api_assessment available: adjust for API maturity (immature API = +30-50% effort)
+      - If team_capabilities available: adjust for team experience (first integration with this API type = +20-30%)
+      - If historical_benchmarks available: calibrate against actual effort from similar work
+      Deliverable: Effort sizing table (Work Package | Optimistic | Most Likely | Pessimistic | Weighted | Assumptions | Risk Factors).
+
+      STEP 3: COMPLEXITY ANALYSIS
+      Assess overall integration complexity.
+      Complexity factors:
+      - Authentication complexity: API key (LOW) / OAuth2 client credentials (MEDIUM) / OAuth2 authorization code + token refresh (HIGH) / mTLS + custom auth (VERY HIGH)
+      - Data mapping complexity: 1:1 field mapping (LOW) / transformation required (MEDIUM) / complex multi-source mapping (HIGH)
+      - Error handling complexity: standard HTTP errors (LOW) / custom error taxonomy (MEDIUM) / eventual consistency + compensation (HIGH)
+      - Testing complexity: unit testable (LOW) / integration tests with sandbox (MEDIUM) / requires production-like environment (HIGH)
+      - Operational complexity: fire-and-forget (LOW) / monitoring required (MEDIUM) / 24/7 alerting + on-call (HIGH)
+      - Partner dependency: self-service (LOW) / partner support needed for setup (MEDIUM) / ongoing partner coordination required (HIGH)
+      Overall complexity: composite of individual factors. Any VERY HIGH or 3+ HIGH = VERY HIGH overall.
+      Deliverable: Complexity analysis (Factor | Level | Rationale | Effort Multiplier).
+
+      STEP 4: IMPLEMENTATION ESTIMATE
+      Produce the final resource-loaded estimate.
+      - Total effort: sum of weighted estimates across all work packages
+      - Confidence range: optimistic total to pessimistic total
+      - Team composition: roles needed (senior engineer, integration specialist, QA, DevOps)
+      - Calendar timeline: effort converted to calendar time based on team size and availability
+      - Phases: design, implement, test, deploy, stabilize with effort per phase
+      - Contingency recommendation: percentage buffer based on overall complexity (LOW=10%, MEDIUM=20%, HIGH=30%, VERY HIGH=40%)
+      - Go/no-go factors: conditions that would change the estimate significantly
+      - Cost estimate: effort * blended rate (if rate information available)
+      Deliverable: Implementation estimate (Total Effort | Confidence Range | Team | Calendar Timeline | Phases | Contingency | Go/No-Go Factors | Cost).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every work package has three-point estimate (no single-number estimates)
+      - PERT formula applied consistently for weighted estimates
+      - Assumptions documented for every estimate (estimates without assumptions are guesses)
+      - Risk factors specific to each work package, not generic "things might go wrong"
+      - Complexity analysis uses defined criteria, not subjective "feels complex"
+      - Contingency based on complexity assessment, not arbitrary padding
+      - Calendar timeline accounts for team availability, not just total effort
+      - Executive summary is self-sufficient: reader can act without reading decomposition details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + implementation estimate + top risk + state delta
+      - DISCOVERY: signal plan (partner API documentation, sandbox access for spike, team capacity data, historical integration effort data)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) total effort estimate with confidence range and complexity classification, (2) largest work package or highest-risk factor driving the estimate, (3) recommended next step (proceed, spike first, or defer) with timeline.
+
+  technical_risk:
+    id: aa-technical-risk
+    name: "Partnership Technical Risk Analysis"
+    description: "Analyze technical risks for a prospective partnership by evaluating platform stability, integration sustainability, vendor lock-in, and producing a risk-adjusted partnership recommendation"
+    domain: due_diligence
+    inputs:
+      - name: partner_name
+        required: true
+        description: Partner organization name
+      - name: technical_assessment
+        required: true
+        description: Partner technical capability assessment results (from aa-technical-assessment or equivalent)
+      - name: market_position
+        required: false
+        description: Partner's market position, funding status, competitive landscape, and growth trajectory
+      - name: integration_dependencies
+        required: false
+        description: Planned integration dependencies and their criticality to our platform
+      - name: exit_considerations
+        required: false
+        description: Considerations for unwinding the integration if the partnership ends
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Analyzing technical risks for prospective partnership with {partner_name}.
+      Technical assessment: {technical_assessment}
+      Market position: {market_position}
+      Integration dependencies: {integration_dependencies}
+      Exit considerations: {exit_considerations}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are identifying and quantifying technical risks that the partnership introduces to our platform and customers. The output drives risk-adjusted investment decisions and ensures mitigation plans are in place before deep integration commitments.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (standard rules).
+      If technical_assessment is ABSENT, DEFER: cannot analyze technical risk without baseline capability assessment.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: PLATFORM STABILITY RISK
+      Evaluate risks related to the partner's platform stability.
+      Risk areas:
+      - API stability: breaking change frequency, deprecation cadence, backward compatibility track record
+      - Uptime history: SLA commitments vs. actual uptime, incident frequency, mean time to recover
+      - Performance consistency: latency variability, throughput under load, degradation patterns
+      - Release cadence: how often the partner releases, release quality (hotfix frequency post-release)
+      - Infrastructure maturity: single points of failure, disaster recovery capabilities, geographic redundancy
+      For each risk area:
+      - Current assessment
+      - Risk level: HIGH / MEDIUM / LOW
+      - Evidence basis
+      - Historical trend: IMPROVING / STABLE / DECLINING (with data points)
+      - Confidence: VERIFIED (SLA data, incident history) / ESTIMATED (documentation) / ASSUMED (market reputation)
+      Deliverable: Platform stability risk table (Risk Area | Assessment | Risk Level | Evidence | Trend | Confidence).
+
+      STEP 2: INTEGRATION SUSTAINABILITY RISK
+      Evaluate risks to long-term integration maintainability.
+      Risk areas:
+      - API evolution risk: does the partner's versioning strategy support long-lived integrations?
+      - SDK maintenance risk: is the SDK actively maintained, or at risk of abandonment?
+      - Documentation currency: does documentation keep pace with releases?
+      - Developer relations: is the partner invested in integration partner success?
+      - Ecosystem risk: is the partner building a closed ecosystem or open integration platform?
+      - Technology divergence: is the partner's technology stack moving in a direction incompatible with ours?
+      For each risk:
+      - Risk description (specific scenario, not generic label)
+      - Likelihood: HIGH / MEDIUM / LOW with rationale
+      - Impact: HIGH / MEDIUM / LOW with consequences
+      - Combined severity: HIGH / MEDIUM / LOW (standard matrix)
+      - Time horizon: NEAR-TERM (< 6 months) / MEDIUM-TERM (6-18 months) / LONG-TERM (> 18 months)
+      Deliverable: Sustainability risk table (Risk | Likelihood | Impact | Severity | Time Horizon | Evidence).
+
+      STEP 3: VENDOR LOCK-IN ASSESSMENT
+      Evaluate the degree of vendor lock-in the partnership creates.
+      Lock-in dimensions:
+      - Data lock-in: can customer data be exported completely? Format portability? Data deletion guarantees?
+      - API lock-in: proprietary APIs vs. industry standards? Custom SDK dependency?
+      - Feature lock-in: capabilities available only through partner platform (no alternative provider)?
+      - Contractual lock-in: minimum terms, migration assistance clauses, data portability obligations?
+      - Operational lock-in: operational dependencies that cannot be easily replaced (monitoring, alerting, support)
+      For each dimension:
+      - Lock-in level: NONE / LOW / MEDIUM / HIGH / CRITICAL
+      - Switching cost estimate: LOW (< 1 month effort) / MEDIUM (1-3 months) / HIGH (3-6 months) / VERY HIGH (> 6 months)
+      - Mitigation: abstraction layer, multi-vendor strategy, contractual protections
+      Overall lock-in classification: ACCEPTABLE / MANAGEABLE / CONCERNING / UNACCEPTABLE
+      Deliverable: Lock-in assessment table (Dimension | Lock-in Level | Switching Cost | Mitigation | Confidence).
+
+      STEP 4: RISK-ADJUSTED RECOMMENDATION
+      Produce a risk-adjusted partnership recommendation.
+      - Overall technical risk: HIGH / MEDIUM / LOW with composite rationale
+      - Risk-adjusted recommendation: PROCEED / PROCEED WITH MITIGATIONS / CONDITIONAL / DO NOT PROCEED
+      - PROCEED: overall risk LOW, lock-in ACCEPTABLE
+      - PROCEED WITH MITIGATIONS: overall risk MEDIUM, mitigations identified and feasible
+      - CONDITIONAL: overall risk HIGH but partnership value justifies investment in risk reduction
+      - DO NOT PROCEED: unacceptable risk that cannot be mitigated, or lock-in UNACCEPTABLE
+      - Required mitigations: specific actions before or during partnership (abstraction layers, contractual clauses, exit planning)
+      - Monitoring plan: what to track post-partnership to detect risk materialization
+      - Exit plan outline: high-level steps to unwind integration if needed, with estimated effort and timeline
+      Deliverable: Risk-adjusted recommendation (Overall Risk | Recommendation | Mitigations | Monitoring Plan | Exit Plan Outline).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Risks are specific scenarios with evidence, not generic "the partner might fail"
+      - Platform stability assessed with historical data where available, not just current snapshot
+      - Lock-in assessment covers all five dimensions (not just data portability)
+      - Switching costs estimated with specific effort, not just HIGH/LOW labels
+      - Risk-adjusted recommendation follows stated criteria consistently
+      - Exit plan included even for PROCEED recommendation (responsible partnership planning)
+      - Monitoring plan defines specific metrics and thresholds for risk detection
+      - Executive summary is self-sufficient: reader can act without reading risk details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + risk-adjusted recommendation + top risk + state delta
+      - DISCOVERY: signal plan (partner SLA data, incident history, API changelog for breaking change frequency, SDK release history, contractual terms, market analysis reports)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) overall technical risk classification with lock-in level, (2) highest-severity risk and its potential business impact, (3) recommendation with single most critical mitigation or condition.

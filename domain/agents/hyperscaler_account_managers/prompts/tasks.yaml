@@ -1,0 +1,1299 @@
+# HAM Agent - Task Prompts (Runbook Format)
+# Purpose: Full runbook prompts with numbered steps, named deliverables, and quality checks
+# Reference: Personality defined in personalities/ham_personality.yaml
+# Standard: docs/architecture/playbooks/runbook-design-principles.md
+# 14 prompts across 4 runbook domains
+
+# ============================================================================
+# CO-SELL QUALIFICATION PROMPTS
+# ============================================================================
+cosell_qualification:
+
+  hyperscaler_involvement_check:
+    id: ham-hyperscaler-involvement-check
+    name: "Hyperscaler Involvement Check"
+    description: "Identify which hyperscalers (AWS, Azure, GCP) are active on an account, classify relationship tier, and detect multi-cloud involvement"
+    domain: cosell_qualification
+    inputs:
+      - name: account_name
+        required: true
+        description: Customer account name
+      - name: crm_data
+        required: true
+        description: CRM opportunity and account data including hyperscaler fields
+      - name: partner_portal_data
+        required: false
+        description: ACE, Partner Center, Partner Advantage registration data
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Checking hyperscaler involvement for {account_name}.
+      CRM data: {crm_data}
+      Partner portal data: {partner_portal_data}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are building an involvement map showing which hyperscalers have active relationships with this account, at what tier, and whether multi-cloud dynamics create co-sell leverage or conflict.
+
+      STEP 0: INPUT GATE
+      Classify each input:
+      - PRESENT: data received and parseable
+      - PARTIAL: data received but incomplete (specify gap)
+      - ABSENT: no data received
+      Run mode selection:
+      - FULL: all required inputs PRESENT
+      - DEGRADED: 1+ inputs PARTIAL, flag gaps in every affected deliverable
+      - DEFER: 2+ required inputs ABSENT, STOP and produce: (a) missing inputs with specific ask, (b) who can provide each, (c) re-run deadline
+      Deliverable: Input Gate (Input | Status | Gap Detail | Impact on Output) + Run Mode declaration.
+
+      STEP 1: HYPERSCALER PRESENCE SCAN
+      For each hyperscaler (AWS, Azure, GCP), determine:
+      - Active: customer has workloads, spend, or contractual relationship
+      - Prospective: conversations or POC activity but no production workloads
+      - Inactive: no evidence of engagement
+      - Evidence basis (contract, portal registration, CRM field, AE notes)
+      - Confidence: VERIFIED (portal data) / ESTIMATED (CRM field) / ASSUMED (inference)
+      If no evidence exists for a hyperscaler, state "No data available" rather than inferring inactive.
+      Deliverable: Presence table (Hyperscaler | Status | Evidence | Confidence).
+
+      STEP 2: RELATIONSHIP TIER CLASSIFICATION
+      For each active or prospective hyperscaler, classify the ISV-to-hyperscaler relationship tier:
+      - Strategic: named partner, executive sponsorship, joint GTM plan
+      - Established: registered partner, co-sell history, program enrollment
+      - Emerging: partner application in progress or recently onboarded
+      - Transactional: marketplace listing only, no co-sell motion
+      Classify per-dimension: Partner Program Tier, Co-sell History, Executive Access, Joint GTM.
+      Each dimension scored independently, then combined into primary tier with secondary flags.
+      Deliverable: Tier table (Hyperscaler | Program Tier | Co-sell History | Exec Access | GTM | Overall Tier | Confidence).
+
+      STEP 3: MULTI-CLOUD DYNAMICS
+      If 2+ hyperscalers are active or prospective:
+      - Identify overlap (same workload types, competing for same budget)
+      - Identify complementarity (different workload types, additive spend)
+      - Assess co-sell conflict risk (registering same deal with competing hyperscalers)
+      - Recommend sequencing (which hyperscaler to engage first and why)
+      If only one hyperscaler is active, state "Single-cloud account, no multi-cloud dynamics" and skip.
+      Deliverable: Multi-cloud assessment (Overlap Areas | Complementarity | Conflict Risk | Recommended Sequence).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Specify field-level changes:
+      - Fields updated (field path | old value | new value | evidence)
+      - Signals to append to recent history
+      - Next actions to add
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every hyperscaler has an explicit status (no silent omissions)
+      - Tier classification uses per-dimension scoring, not single averaged label
+      - Confidence level attached to every status and tier assessment
+      - Multi-cloud conflict risk assessed when 2+ hyperscalers present
+      - Empty states handled explicitly (no data = stated, not guessed)
+      - Executive summary is self-sufficient: reader can act without reading details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + state delta + single highest-priority action with prerequisites
+      - DISCOVERY: signal acquisition plan (data gaps, questions for AE, portal access requests, re-assessment date)
+      - FULL: all deliverables as described
+
+      EXECUTIVE SUMMARY: State (1) number of active hyperscalers and dominant tier, (2) multi-cloud risk or opportunity, (3) single most urgent next step with prerequisite.
+
+  committed_spend_applicability:
+    id: ham-committed-spend-applicability
+    name: "Committed Spend Applicability Check"
+    description: "Assess EDP (AWS), MACC (Azure), and CUD (GCP) status to determine draw-down eligibility for ISV marketplace purchases"
+    domain: cosell_qualification
+    inputs:
+      - name: account_name
+        required: true
+        description: Customer account name
+      - name: committed_spend_data
+        required: true
+        description: EDP/MACC/CUD contract details including balance, burn rate, expiry
+      - name: deal_value
+        required: true
+        description: Proposed deal value for marketplace transaction
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Evaluating committed spend applicability for {account_name}.
+      Committed spend data: {committed_spend_data}
+      Deal value: {deal_value}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are determining whether the customer's committed spend agreements can be drawn down through an ISV marketplace purchase. This directly affects deal urgency and procurement path.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER (same rules as standard input gate).
+      If committed_spend_data is ABSENT, DEFER: the customer's finance or cloud ops team must provide contract details.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: COMMITTED SPEND INVENTORY
+      For each hyperscaler with active committed spend:
+      - Program: EDP (AWS), MACC (Azure), CUD (GCP)
+      - Contract value (total commitment)
+      - Remaining balance (uncommitted amount)
+      - Burn rate (monthly average consumption)
+      - Contract expiry date
+      - ISV marketplace eligibility (does this program allow third-party marketplace draw-down?)
+      - Confidence: VERIFIED (contract doc) / ESTIMATED (portal snapshot) / ASSUMED (AE notes)
+      If no committed spend exists for a hyperscaler, state "No committed spend program identified."
+      Deliverable: Spend inventory table (Hyperscaler | Program | Total | Remaining | Monthly Burn | Expiry | ISV Eligible | Confidence).
+
+      STEP 2: DRAW-DOWN ELIGIBILITY ANALYSIS
+      For each eligible program, assess:
+      - Does remaining balance cover the proposed deal value? (Yes/No, gap amount if No)
+      - Time pressure: months until expiry vs. deal close timeline
+      - Draw-down mechanics: is ISV spend counted at list price or discounted?
+      - Restrictions: excluded SKU categories, minimum transaction sizes, approval requirements
+      - Urgency signal: if balance expires within 6 months with >30% uncommitted, flag as HIGH urgency
+      Deliverable: Eligibility matrix (Hyperscaler | Balance vs. Deal | Time Pressure | Restrictions | Urgency | Confidence).
+
+      STEP 3: APPLICABILITY SCORE
+      Score each hyperscaler's committed spend applicability:
+      - STRONG: balance covers deal, ISV eligible, no restrictions, expiry pressure creates urgency
+      - MODERATE: balance covers deal but restrictions apply or timeline is tight
+      - WEAK: balance insufficient or ISV draw-down not eligible
+      - N/A: no committed spend program
+      Include confidence level with each score.
+      Deliverable: Applicability score card (Hyperscaler | Score | Key Factor | Confidence).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Field-level changes: committed spend fields, urgency flags, next actions.
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every hyperscaler assessed (even if N/A)
+      - Balance vs. deal value gap quantified, not just flagged
+      - Urgency signal uses expiry date and burn rate, not subjective assessment
+      - Confidence attached to every score
+      - Executive summary actionable without reading details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + state delta + top action with prerequisites
+      - DISCOVERY: signal plan (what spend data to request, from whom, by when)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) which hyperscaler(s) have applicable committed spend and at what score, (2) the biggest blocker or gap, (3) single most urgent action with prerequisite.
+
+  ace_marketplace_fit:
+    id: ham-ace-marketplace-fit
+    name: "ACE / Marketplace Program Fit Assessment"
+    description: "Evaluate eligibility gates for ACE Pipeline Manager (AWS), Partner Center (Azure), or Partner Advantage (GCP) co-sell programs"
+    domain: cosell_qualification
+    inputs:
+      - name: account_name
+        required: true
+        description: Customer account name
+      - name: opportunity_data
+        required: true
+        description: Deal size, use case, timeline, competitive landscape
+      - name: partner_program_status
+        required: true
+        description: Current enrollment and tier in each hyperscaler partner program
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Evaluating co-sell program fit for {account_name}.
+      Opportunity data: {opportunity_data}
+      Partner program status: {partner_program_status}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are checking whether this deal meets the eligibility gates for hyperscaler co-sell programs. Each program has specific requirements. A gate-by-gate assessment prevents wasted registration attempts.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER.
+      If partner_program_status is ABSENT, DEFER: cannot assess eligibility without program enrollment data.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: PROGRAM GATE ASSESSMENT
+      For each hyperscaler program (ACE, Partner Center, Partner Advantage), evaluate gates:
+      - Partner enrollment: active, pending, not enrolled
+      - Minimum deal size: does deal value meet threshold? (state threshold and deal value)
+      - Solution alignment: does ISV solution map to a hyperscaler solution play or workload?
+      - Co-sell flag eligibility: what criteria must be met to set the co-sell flag?
+      - Customer cloud presence: does the customer have active cloud spend with this hyperscaler?
+      - Technical validation: has the solution been validated/certified on this cloud?
+      Each gate: PASS / FAIL / CONDITIONAL (with condition stated).
+      Confidence: VERIFIED / ESTIMATED / ASSUMED per gate.
+      If data is insufficient for a gate, mark "INSUFFICIENT DATA" not PASS or FAIL.
+      Deliverable: Gate matrix (Hyperscaler | Gate | Status | Evidence | Condition if any | Confidence).
+
+      STEP 2: USE CASE ALIGNMENT
+      Map the deal's use case to hyperscaler solution plays:
+      - AWS: identify relevant AWS solution area (migration, modernization, data, AI/ML, security)
+      - Azure: identify relevant Azure solution play (infrastructure, data & AI, modern work, security)
+      - GCP: identify relevant GCP solution area (data analytics, AI/ML, infrastructure modernization)
+      Primary alignment (strongest fit) and secondary alignment (additional relevance).
+      If no alignment found, state "No solution play alignment identified" with implication.
+      Deliverable: Alignment table (Hyperscaler | Solution Play | Fit Level | Evidence).
+
+      STEP 3: REMEDIATION PLAN
+      For each FAIL or CONDITIONAL gate:
+      - What must change to convert to PASS
+      - Owner (ISV team, hyperscaler team, customer)
+      - Timeline estimate
+      - Prerequisites (what must be true before remediation can start)
+      Deliverable: Remediation table (Gate | Action | Owner | Timeline | Prerequisites | Expected Impact).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every gate explicitly assessed (no silent skips)
+      - FAIL gates have remediation actions with prerequisites
+      - Use case alignment uses hyperscaler-specific solution play names
+      - Confidence attached to each gate assessment
+      - Executive summary actionable without reading gate details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + state delta + top remediation action
+      - DISCOVERY: signal plan (program enrollment status to verify, contacts to reach)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) pass/fail/conditional count per hyperscaler, (2) the most critical gate failure, (3) single most urgent remediation with prerequisite and owner.
+
+  cosell_readiness_score:
+    id: ham-cosell-readiness-score
+    name: "Co-sell Readiness Score"
+    description: "Aggregate hyperscaler involvement, committed spend, and marketplace fit into a weighted readiness score with recommended hyperscaler contact to engage"
+    domain: cosell_qualification
+    inputs:
+      - name: account_name
+        required: true
+        description: Customer account name
+      - name: involvement_check
+        required: true
+        description: Output from ham-hyperscaler-involvement-check
+      - name: spend_applicability
+        required: true
+        description: Output from ham-committed-spend-applicability
+      - name: marketplace_fit
+        required: true
+        description: Output from ham-ace-marketplace-fit
+      - name: deal_data
+        required: true
+        description: Deal value, expected close date, competitive situation
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Scoring co-sell readiness for {account_name}.
+      Involvement check: {involvement_check}
+      Spend applicability: {spend_applicability}
+      Marketplace fit: {marketplace_fit}
+      Deal data: {deal_data}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are aggregating three upstream assessments into a single readiness score. This score determines whether to activate co-sell motion and which hyperscaler to engage first.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Critical: this prompt depends on outputs from three upstream runbooks. If any upstream output is ABSENT, DEFER with instruction to run the prerequisite runbook first.
+      If upstream outputs are PARTIAL, proceed in DEGRADED mode and inherit confidence levels from upstream.
+      Deliverable: Input Gate table + Run Mode declaration + inherited confidence note.
+
+      STEP 1: DIMENSION SCORING
+      Score five dimensions per hyperscaler (each 0-10 with confidence):
+      - Hyperscaler Relationship (25%): tier, executive access, co-sell history
+      - Committed Spend (25%): balance coverage, ISV eligibility, urgency
+      - Marketplace Readiness (20%): gate pass rate, listing status, technical validation
+      - Deal Value & Timeline (15%): deal size vs. thresholds, close timeline vs. spend expiry
+      - Solution Alignment (15%): solution play fit, use case match, certification status
+      Each dimension: score (0-10), weight, weighted score, confidence (VERIFIED/ESTIMATED/ASSUMED), basis.
+      If a dimension has ASSUMED confidence, cap its weighted contribution at 50%.
+      Deliverable: Dimension score table (Hyperscaler | Dimension | Score | Weight | Weighted | Confidence | Basis).
+
+      STEP 2: AGGREGATE READINESS SCORE
+      Calculate weighted total per hyperscaler (0-10 scale):
+      - HIGH (7-10): activate co-sell immediately
+      - MEDIUM (4-6.9): address gaps before activation
+      - LOW (0-3.9): co-sell not viable without significant remediation
+      State overall confidence as the lowest confidence across all dimensions.
+      Deliverable: Readiness score card (Hyperscaler | Weighted Total | Rating | Overall Confidence | Limiting Factor).
+
+      STEP 3: HYPERSCALER ENGAGEMENT RECOMMENDATION
+      Recommend which hyperscaler to engage first:
+      - Primary: highest readiness score with viable path
+      - Secondary: next best option if primary stalls
+      - For primary, specify: contact type (Partner Development Manager, Partner Solutions Architect, field rep), ask (what to request in first outreach), timing (when to reach out relative to deal timeline)
+      - Prerequisites: what must be true before outreach (registration complete, listing live, etc.)
+      Deliverable: Engagement recommendation (Primary Hyperscaler | Contact Type | Ask | Timing | Prerequisites).
+
+      STEP 4: GAP CLOSURE PLAN
+      For MEDIUM and LOW rated hyperscalers, list gap closure actions:
+      - Action | Owner | Timeline | Prerequisites | Expected Score Impact
+      Rank by score impact descending.
+      Deliverable: Gap closure table.
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Five dimensions scored independently per hyperscaler (no single averaged number without breakdown)
+      - ASSUMED confidence caps weighted contribution at 50%
+      - Overall confidence is the minimum across dimensions, not an average
+      - Engagement recommendation includes prerequisites
+      - Gap closure actions ranked by score impact
+      - Upstream confidence levels inherited and documented
+      - Executive summary actionable without reading dimension details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + engagement recommendation + state delta
+      - DISCOVERY: signal plan for filling upstream data gaps
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) readiness rating per hyperscaler with overall confidence, (2) recommended primary hyperscaler and contact, (3) single most impactful gap to close with prerequisite and owner.
+
+# ============================================================================
+# MARKETPLACE TRANSACTION PROMPTS
+# ============================================================================
+marketplace_transaction:
+
+  listing_validation:
+    id: ham-listing-validation
+    name: "Marketplace Listing Validation"
+    description: "Verify SKU availability, pricing accuracy, EULA currency, and technical integration status for marketplace listings"
+    domain: marketplace_transaction
+    inputs:
+      - name: account_name
+        required: true
+        description: Customer account name
+      - name: listing_data
+        required: true
+        description: Marketplace listing details (SKU, pricing, EULA, integration endpoints)
+      - name: crm_quote
+        required: true
+        description: CRM quote for price comparison
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Validating marketplace listing for {account_name}.
+      Listing data: {listing_data}
+      CRM quote: {crm_quote}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are verifying that the marketplace listing is transaction-ready. A stale listing, pricing mismatch, or expired EULA will block procurement. Catch issues before the customer hits them.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      Run mode: FULL / DEGRADED / DEFER.
+      If listing_data is ABSENT, DEFER: cannot validate without listing details.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: SKU VALIDATION
+      For each SKU referenced in the deal:
+      - SKU ID and name
+      - Marketplace where listed (AWS/Azure/GCP)
+      - Status: LIVE / DRAFT / SUSPENDED / NOT FOUND
+      - Last updated date
+      - Version currency (is the listed version current production release?)
+      If SKU not found, flag as blocker with resolution: "Submit listing through marketplace portal."
+      Deliverable: SKU table (SKU ID | Name | Marketplace | Status | Last Updated | Version Current | Confidence).
+
+      STEP 2: PRICING VALIDATION
+      Compare marketplace pricing to CRM quote:
+      - List price on marketplace vs. CRM quoted price
+      - Pricing model match (per-seat, consumption, flat fee, tiered)
+      - Currency match
+      - Discount applicability (can private offer adjust to match quote?)
+      - Variance: MATCH / MINOR (<5%) / MAJOR (>=5%) with exact delta
+      Deliverable: Price comparison table (SKU | Marketplace Price | CRM Price | Model | Variance | Resolution).
+
+      STEP 3: EULA AND COMPLIANCE
+      - EULA version on marketplace (date, version number)
+      - Is EULA current with legal team's latest approved version?
+      - Compliance certifications listed (SOC2, ISO 27001, FedRAMP, etc.)
+      - Customer compliance requirements met? (compare to known requirements)
+      If EULA is outdated, flag as blocker with owner (Legal) and timeline estimate.
+      Deliverable: Compliance table (Item | Marketplace Version | Current Version | Status | Action if Needed).
+
+      STEP 4: TECHNICAL INTEGRATION
+      - Integration endpoints active and responding
+      - Provisioning flow functional (can a new customer onboard via marketplace?)
+      - Metering/billing integration operational (for consumption-based pricing)
+      If technical validation cannot be performed, state "NEEDS VERIFICATION" with who should test.
+      Deliverable: Integration checklist (Check | Status | Evidence | Action if Failed).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every SKU has explicit status (no assumptions about availability)
+      - Price variance quantified with exact delta, not just flagged
+      - EULA version compared to specific current version, not generic "up to date"
+      - Blockers have owner, timeline, and resolution action
+      - Executive summary actionable without reading validation details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + blocker list + state delta
+      - DISCOVERY: checklist of data to collect (listing URLs, CRM quote, EULA version)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) listing health (all clear / blockers found) with blocker count, (2) most critical blocker, (3) single most urgent action with owner and prerequisite.
+
+  private_offer_creation:
+    id: ham-private-offer-creation
+    name: "Private Offer Creation"
+    description: "Generate private offer parameters including pricing, payment schedule, contract duration, and CPPO routing for marketplace console submission"
+    domain: marketplace_transaction
+    inputs:
+      - name: account_name
+        required: true
+        description: Customer account name
+      - name: deal_terms
+        required: true
+        description: Approved pricing, contract duration, payment terms from Deal Desk
+      - name: customer_account_id
+        required: true
+        description: Customer's cloud account ID for the target marketplace
+      - name: listing_validation
+        required: false
+        description: Output from ham-listing-validation
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Creating private offer for {account_name}.
+      Deal terms: {deal_terms}
+      Customer account ID: {customer_account_id}
+      Listing validation: {listing_validation}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are generating a private offer specification ready for submission in the marketplace console. Precision matters: a wrong account ID or pricing mismatch means rework and deal delay.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      If deal_terms or customer_account_id is ABSENT, DEFER: cannot create offer without approved terms and target account.
+      If listing_validation is ABSENT, proceed in DEGRADED mode but flag that listing health is unverified.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: OFFER PARAMETERS
+      Compile the offer specification:
+      - Target marketplace (AWS / Azure / GCP)
+      - Customer account ID (verified format for target marketplace)
+      - SKU(s) included with quantities
+      - Pricing: unit price, total price, discount from list (percentage and absolute)
+      - Pricing model: per-seat, consumption, flat-fee, tiered (must match listing model)
+      - Contract duration (months)
+      - Payment schedule (upfront, monthly, annual, custom milestones)
+      - Auto-renewal: yes/no
+      - Offer expiry date (how long customer has to accept)
+      Deliverable: Offer parameter table (Field | Value | Validation Check).
+
+      STEP 2: CPPO ROUTING CHECK
+      If deal involves a channel partner (reseller, distributor):
+      - Is CPPO (Channel Partner Private Offer) required?
+      - Channel partner marketplace ID
+      - Margin/discount split (ISV share vs. partner share)
+      - Partner authorization status (is partner authorized for this product?)
+      If no channel partner, state "Direct marketplace transaction, CPPO not applicable."
+      Deliverable: CPPO assessment (Required | Partner ID | Split | Authorization | Blockers).
+
+      STEP 3: PRE-SUBMISSION CHECKLIST
+      Verify readiness for console submission:
+      - [ ] Customer account ID format valid for target marketplace
+      - [ ] Pricing matches Deal Desk approved terms
+      - [ ] SKU is LIVE on marketplace (from listing validation or needs verification)
+      - [ ] EULA is current
+      - [ ] Payment schedule configured
+      - [ ] CPPO routing configured (if applicable)
+      - [ ] Offer expiry date set
+      Each item: READY / NOT READY / NEEDS VERIFICATION with action for NOT READY items.
+      Deliverable: Submission checklist with status per item.
+
+      STEP 4: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Customer account ID format validated for specific marketplace
+      - Pricing cross-referenced against Deal Desk approved terms
+      - CPPO routing explicitly addressed (required or not applicable)
+      - Every NOT READY checklist item has an action with owner and prerequisite
+      - Executive summary actionable without reading offer details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + submission checklist + state delta
+      - DISCOVERY: data collection plan (Deal Desk terms, customer account ID, partner details)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) offer readiness status (ready / blocked) with blocker count, (2) most critical gap, (3) single next action with owner and prerequisite.
+
+  procurement_routing:
+    id: ham-procurement-routing
+    name: "Procurement Routing Decision"
+    description: "Map the customer's buying path (direct marketplace, reseller, CPPO) and identify procurement blockers with resolution actions"
+    domain: marketplace_transaction
+    inputs:
+      - name: account_name
+        required: true
+        description: Customer account name
+      - name: customer_procurement_data
+        required: true
+        description: Customer procurement policies, approved vendors, billing configuration
+      - name: deal_structure
+        required: true
+        description: Deal value, contract type, channel partner involvement
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Determining procurement route for {account_name}.
+      Customer procurement data: {customer_procurement_data}
+      Deal structure: {deal_structure}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are mapping how the customer will actually buy through the marketplace. The wrong procurement path causes weeks of delay. Identify the correct route and clear blockers proactively.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      If customer_procurement_data is ABSENT, DEFER: procurement routing requires understanding of customer buying process.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: BUYING PATH ANALYSIS
+      Evaluate three possible paths:
+      - Direct marketplace: customer buys directly from marketplace listing
+      - Reseller: customer buys through an authorized reseller
+      - CPPO: channel partner creates private offer on ISV's behalf
+      For each path, assess:
+      - Feasible: yes/no with reason
+      - Customer preference: known/unknown
+      - Time to close estimate
+      - Committed spend draw-down eligible on this path?
+      Recommend primary path with rationale.
+      Deliverable: Path comparison table (Path | Feasible | Preference | Time Estimate | Spend Eligible | Recommendation).
+
+      STEP 2: BLOCKER IDENTIFICATION
+      For the recommended path, identify blockers:
+      - Authorization: does customer procurement approve marketplace purchases?
+      - Billing: is customer's cloud billing configured for marketplace transactions?
+      - Compliance: any regulatory or policy constraints on marketplace buying?
+      - Budget: is budget allocated and approved?
+      - Technical: any integration or provisioning prerequisites?
+      Each blocker: severity (CRITICAL / MODERATE / LOW), owner, resolution action, prerequisites for resolution, estimated time.
+      If no blockers found, state "No blockers identified for recommended path."
+      Deliverable: Blocker table (Blocker | Severity | Owner | Resolution | Prerequisites | Time Estimate).
+
+      STEP 3: ROUTING DECISION
+      State the routing decision:
+      - Recommended path with confidence
+      - Fallback path if primary is blocked
+      - Estimated procurement timeline (optimistic / realistic / pessimistic)
+      - Key dependencies and their current status
+      Deliverable: Routing decision summary.
+
+      STEP 4: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - All three paths explicitly evaluated (not just the obvious one)
+      - Blockers have severity, owner, resolution, and prerequisites
+      - Timeline estimates include range (optimistic/realistic/pessimistic)
+      - Committed spend eligibility assessed per path
+      - Executive summary actionable without reading path analysis
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + routing decision + state delta
+      - DISCOVERY: questions for customer procurement team, data to collect
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) recommended procurement path with confidence, (2) critical blocker count and most severe, (3) single most urgent action with owner and prerequisite.
+
+  consumption_reporting:
+    id: ham-consumption-reporting
+    name: "Consumption Reporting"
+    description: "Report current marketplace consumption against committed spend, calculate burn rate, project end-of-period consumption, and flag shortfall or overage risk"
+    domain: marketplace_transaction
+    inputs:
+      - name: account_name
+        required: true
+        description: Customer account name
+      - name: consumption_data
+        required: true
+        description: Current consumption metrics by hyperscaler and SKU
+      - name: committed_spend_data
+        required: true
+        description: EDP/MACC/CUD contract details with baseline and actuals
+      - name: prior_period_data
+        required: false
+        description: Previous period consumption for trend analysis
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Reporting consumption for {account_name}.
+      Consumption data: {consumption_data}
+      Committed spend data: {committed_spend_data}
+      Prior period data: {prior_period_data}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are building a consumption dashboard that shows burn rate against committed spend. Shortfall means the customer wastes committed spend. Overage means unexpected costs. Both need early warning.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      If prior_period_data is ABSENT, proceed but mark all trend claims as "INSUFFICIENT DATA, single period only."
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: CURRENT CONSUMPTION SNAPSHOT
+      For each hyperscaler with active committed spend:
+      - Total consumption this period (dollar value)
+      - Consumption by SKU/product category
+      - Percentage of committed spend consumed
+      - Days elapsed in period vs. total period days
+      - Expected linear consumption at this point vs. actual
+      Confidence: VERIFIED (billing API) / ESTIMATED (portal snapshot) / ASSUMED (extrapolation).
+      Deliverable: Consumption table (Hyperscaler | SKU | Consumed | Committed | % Used | Expected % | Variance | Confidence).
+
+      STEP 2: BURN RATE CALCULATION
+      - Monthly average consumption (total consumed / months elapsed)
+      - Burn rate trend: compare current month to prior months within period
+        Trend requires 2+ data points. If only 1 month, state "INSUFFICIENT DATA for trend."
+      - Projected end-of-period consumption: burn rate x remaining months + consumed
+      - Projected vs. committed: SHORTFALL / ON TRACK / OVERAGE with dollar variance
+      Deliverable: Burn rate table (Hyperscaler | Monthly Avg | Trend | Projected Total | Committed | Variance | Status).
+
+      STEP 3: RISK FLAGS
+      Flag conditions requiring attention:
+      - Shortfall risk: projected consumption < 80% of committed (threshold: 80%)
+      - Overage risk: projected consumption > 110% of committed
+      - Acceleration opportunity: if shortfall, calculate how much additional ISV spend could draw down
+      - Deceleration warning: if overage, quantify excess and recommend action
+      Each flag: severity (HIGH/MEDIUM/LOW), dollar impact, recommended action, prerequisites.
+      If no risks, state "Consumption tracking within normal parameters."
+      Deliverable: Risk flag table (Flag | Severity | Dollar Impact | Action | Prerequisites).
+
+      STEP 4: PERIOD-OVER-PERIOD COMPARISON
+      If prior_period_data is PRESENT:
+      - Current period vs. prior period consumption (absolute and percentage)
+      - Growth rate
+      - SKU mix shift (which products growing, which declining)
+      If prior_period_data is ABSENT: state "Prior period data unavailable. No trend comparison possible."
+      Deliverable: Comparison table (Metric | Prior Period | Current Period | Change | Direction).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every consumption figure has confidence level
+      - Trend claims cite two data points or state "INSUFFICIENT DATA"
+      - Shortfall/overage thresholds are explicit numbers, not subjective
+      - Burn rate uses actual monthly data, not annualized single-month extrapolation (unless only 1 month available, then flagged)
+      - Executive summary actionable without reading consumption details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + risk flags + state delta
+      - DISCOVERY: data collection plan (billing API access, portal credentials, prior period reports)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) consumption status per hyperscaler (shortfall/on track/overage with dollar variance), (2) highest-severity risk flag, (3) single most urgent action with prerequisite.
+
+# ============================================================================
+# FIELD ALIGNMENT PROMPTS
+# ============================================================================
+field_alignment:
+
+  field_session_prep:
+    id: ham-field-session-prep
+    name: "Field Session Preparation Brief"
+    description: "Build joint account map, identify white space, align co-sell pitch to hyperscaler solution play, and define specific ask for hyperscaler rep"
+    domain: field_alignment
+    inputs:
+      - name: account_name
+        required: true
+        description: Customer account name
+      - name: hyperscaler
+        required: true
+        description: Which hyperscaler rep (AWS, Azure, GCP) the session is with
+      - name: account_map
+        required: true
+        description: Known customer contacts, org chart, existing relationships
+      - name: cosell_context
+        required: false
+        description: Co-sell readiness score and qualification data
+      - name: session_objective
+        required: true
+        description: What the ISV team wants from this session
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Preparing for joint field session with {hyperscaler} rep for {account_name}.
+      Account map: {account_map}
+      Co-sell context: {cosell_context}
+      Session objective: {session_objective}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are building a session prep brief so the ISV team walks into the joint session with clear objectives, a shared account map, and a specific ask for the hyperscaler rep. Unprepared sessions waste the hyperscaler rep's time and erode partner credibility.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      If account_map is ABSENT, DEFER: cannot build joint mapping without existing contact data.
+      If cosell_context is ABSENT, proceed DEGRADED and note that co-sell readiness is unvalidated.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: JOINT ACCOUNT MAP
+      Build a combined view of ISV and hyperscaler relationships:
+      - Customer contacts known to ISV (name, role, relationship strength)
+      - Customer contacts likely known to hyperscaler rep (cloud decision makers, procurement)
+      - Overlap: contacts both sides know (coordination points)
+      - White space: contacts neither side has reached (expansion targets)
+      - Power map: who influences cloud spend decisions
+      Deliverable: Account map table (Contact | Role | Known to ISV | Known to Hyperscaler | Influence Level | Notes).
+
+      STEP 2: CO-SELL PITCH ALIGNMENT
+      Align the ISV value proposition to the hyperscaler's current priorities:
+      - Hyperscaler solution play that best fits (specific named program)
+      - How ISV solution drives consumption of hyperscaler cloud services
+      - Customer business outcome the joint pitch addresses
+      - Competitive displacement angle (if applicable: displacing on-prem or competitor cloud)
+      - Proof points: existing joint wins, case studies, certifications
+      If cosell_context is available, incorporate readiness score and committed spend angle.
+      Deliverable: Pitch alignment brief (Solution Play | ISV Value Prop | Cloud Consumption Driver | Business Outcome | Proof Points).
+
+      STEP 3: SESSION ASK AND AGENDA
+      Define the specific ask for the hyperscaler rep:
+      - Primary ask: one specific, actionable request (intro to contact, technical resource, program enrollment support, deal registration sponsorship)
+      - Give-to-get: what the ISV offers in return (pipeline visibility, consumption commitment, co-marketing)
+      - Proposed agenda with time allocation
+      - Success criteria: what makes this session a win
+      Prerequisites: what must be true before making the ask (deal registered, listing live, etc.).
+      Deliverable: Session plan (Ask | Give-to-Get | Agenda | Success Criteria | Prerequisites).
+
+      STEP 4: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Account map includes white space, not just known contacts
+      - Pitch aligned to specific named hyperscaler solution play
+      - Ask is specific and actionable, not generic ("support the deal")
+      - Prerequisites for the ask are stated
+      - Executive summary actionable without reading session details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + session ask + state delta
+      - DISCOVERY: questions to answer before session can be prepared
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) session readiness level and key alignment point, (2) primary ask for hyperscaler rep, (3) single prep action still needed with owner and prerequisite.
+
+  opportunity_registration:
+    id: ham-opportunity-registration
+    name: "Opportunity Registration Record"
+    description: "Compile required fields for ACE or Partner Center registration, set co-sell flags, and produce a registration record ready for portal submission"
+    domain: field_alignment
+    inputs:
+      - name: account_name
+        required: true
+        description: Customer account name
+      - name: opportunity_data
+        required: true
+        description: CRM opportunity details (deal value, stage, close date, products)
+      - name: hyperscaler
+        required: true
+        description: Target hyperscaler portal (AWS ACE, Azure Partner Center, GCP Partner Advantage)
+      - name: cosell_readiness
+        required: false
+        description: Output from ham-cosell-readiness-score
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Registering opportunity for {account_name} in {hyperscaler} portal.
+      Opportunity data: {opportunity_data}
+      Co-sell readiness: {cosell_readiness}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are compiling a registration record with all required fields populated. Incomplete registrations get rejected or deprioritized by the hyperscaler. Every field must be filled or explicitly flagged as missing with who can provide it.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      If opportunity_data is ABSENT, DEFER: cannot register without deal details.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: REQUIRED FIELD COMPILATION
+      For the target portal, compile all required fields:
+      - Customer company name and domain
+      - Customer cloud account ID (if required)
+      - Opportunity title and description
+      - Deal value (expected revenue)
+      - Expected close date
+      - Sales stage mapping (map CRM stage to portal stage values)
+      - Product/solution category
+      - Use case description
+      - Customer contact (name, email, role)
+      - ISV sales contact (name, email)
+      Each field: value (populated from opportunity_data) or MISSING (with who can provide).
+      Deliverable: Registration field table (Field | Value | Status | Source | Action if Missing).
+
+      STEP 2: CO-SELL FLAG CONFIGURATION
+      Determine co-sell flag settings:
+      - Co-sell eligible: does this deal qualify for co-sell flag? (from readiness score or gate assessment)
+      - Co-sell type: IP co-sell, services co-sell, marketplace transaction
+      - Referral needed: is the ISV requesting a hyperscaler referral?
+      - Hyperscaler assistance type: technical, sales, executive sponsorship
+      If cosell_readiness is available, reference the readiness score to validate flag settings.
+      If cosell_readiness is ABSENT, flag settings as "NEEDS VERIFICATION against readiness assessment."
+      Deliverable: Co-sell flag table (Flag | Setting | Justification | Confidence).
+
+      STEP 3: METADATA AND COMPLIANCE
+      Add deal metadata:
+      - Competitive landscape (which competitors are in the deal)
+      - Win probability
+      - Strategic importance (standard, strategic, lighthouse)
+      - Notes for hyperscaler partner team (context that helps them prioritize)
+      Compliance check: does this registration meet program requirements for incentive eligibility?
+      Deliverable: Metadata record + compliance check result.
+
+      STEP 4: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every required portal field populated or explicitly flagged MISSING with action
+      - Co-sell flags justified with evidence, not defaulted to "yes"
+      - Stage mapping uses portal-specific values, not generic CRM stages
+      - Compliance check performed for incentive eligibility
+      - Executive summary actionable without reading field details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + missing field list + state delta
+      - DISCOVERY: portal field requirements list + data to collect from AE and customer
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) registration completeness (X of Y fields populated), (2) co-sell flag status with confidence, (3) single most urgent missing field with who can provide it.
+
+  field_session_debrief:
+    id: ham-field-session-debrief
+    name: "Field Session Debrief"
+    description: "Capture hyperscaler rep commitments, document agreed next steps with owners, and extract prioritization signals from the joint session"
+    domain: field_alignment
+    inputs:
+      - name: account_name
+        required: true
+        description: Customer account name
+      - name: hyperscaler
+        required: true
+        description: Which hyperscaler rep the session was with
+      - name: session_notes
+        required: true
+        description: Raw notes from the session (transcript, bullet points, or summary)
+      - name: session_prep
+        required: false
+        description: Output from ham-field-session-prep (original objectives and ask)
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Debriefing joint session with {hyperscaler} rep for {account_name}.
+      Session notes: {session_notes}
+      Session prep: {session_prep}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are extracting actionable intelligence from a joint field session. The goal is to capture commitments, identify prioritization signals, and ensure nothing agreed in the session is lost.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      If session_notes is ABSENT, DEFER: cannot debrief without session content.
+      If session_prep is ABSENT, proceed DEGRADED and note that original objectives cannot be compared.
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: COMMITMENT CAPTURE
+      Extract every commitment made during the session:
+      - Who committed (hyperscaler rep, ISV team member, or jointly)
+      - What was committed (specific action, not vague intent)
+      - Timeline stated (specific date or "within X days/weeks")
+      - Confidence: EXPLICIT (clearly stated) / IMPLICIT (inferred from discussion) / AMBIGUOUS (unclear)
+      If no commitments were made, state "No explicit commitments captured" and note whether the session was informational or the ask was deferred.
+      Deliverable: Commitment table (Who | Commitment | Timeline | Confidence | Follow-up Needed).
+
+      STEP 2: NEXT STEPS WITH OWNERS
+      Compile agreed next steps:
+      - Action item
+      - Owner (specific person, not team)
+      - Deadline
+      - Prerequisites (what must happen before this action can start)
+      - Dependencies (other actions that depend on this one)
+      Flag any action where owner is unclear or deadline was not discussed.
+      Deliverable: Next steps table (Action | Owner | Deadline | Prerequisites | Dependencies | Status).
+
+      STEP 3: PRIORITIZATION SIGNALS
+      Extract signals about how the hyperscaler rep views this account:
+      - Priority level: did the rep signal high, medium, or low priority?
+      - Evidence for priority signal (specific statements, resource commitments, escalation offers)
+      - Program alignment: did the rep mention specific programs, incentives, or initiatives?
+      - Competitive intelligence: did the rep share info about competitor activity?
+      - Risk signals: did the rep flag concerns about the deal or account?
+      Confidence: EXPLICIT (rep stated directly) / INFERRED (derived from behavior or tone).
+      Deliverable: Signal table (Signal Type | Content | Confidence | Implication for Co-sell).
+
+      STEP 4: OBJECTIVE ACHIEVEMENT
+      If session_prep is available, compare outcomes to original objectives:
+      - Was the primary ask addressed? (yes / partially / no)
+      - Was the give-to-get delivered?
+      - Were success criteria met?
+      If session_prep is ABSENT, state "Original objectives unavailable for comparison."
+      Deliverable: Objective comparison (Objective | Outcome | Gap | Follow-up).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - Every commitment has confidence level (not all treated as confirmed)
+      - Next steps have specific owners, not teams
+      - Prioritization signals distinguished between EXPLICIT and INFERRED
+      - Empty states handled (no commitments, no competitive intel, etc.)
+      - If session_prep available, objective comparison completed
+      - Executive summary actionable without reading session details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + commitment list + state delta
+      - DISCOVERY: follow-up questions to clarify ambiguous commitments
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) key outcome (primary ask met/not met) and commitment count, (2) most important prioritization signal, (3) single most urgent follow-up action with owner and deadline.
+
+# ============================================================================
+# PROGRAM HEALTH PROMPTS
+# ============================================================================
+program_health:
+
+  pipeline_registered_review:
+    id: ham-pipeline-registered-review
+    name: "Registered Pipeline Review"
+    description: "Summarize registered pipeline by hyperscaler, break down by stage and co-sell flag status, and compare to prior period"
+    domain: program_health
+    inputs:
+      - name: pipeline_data
+        required: true
+        description: Current registered pipeline by hyperscaler, stage, deal value, co-sell flag
+      - name: prior_period_pipeline
+        required: false
+        description: Previous period pipeline data for trend comparison
+      - name: program_targets
+        required: false
+        description: Pipeline targets by hyperscaler and period
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Reviewing registered pipeline across hyperscalers.
+      Pipeline data: {pipeline_data}
+      Prior period pipeline: {prior_period_pipeline}
+      Program targets: {program_targets}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are producing a pipeline health table that shows registration volume, stage distribution, and co-sell flag coverage across all three hyperscalers. This is the basis for program health conversations with VP Alliances.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      If pipeline_data is ABSENT, DEFER: no pipeline review possible without registration data.
+      If prior_period_pipeline is ABSENT, mark all trend claims as "INSUFFICIENT DATA."
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: PIPELINE SUMMARY BY HYPERSCALER
+      For each hyperscaler (AWS, Azure, GCP):
+      - Total registered pipeline value
+      - Deal count
+      - Average deal size
+      - Stage distribution: count and value per stage (early, mid, late, closed-won, closed-lost)
+      - Co-sell flagged: count and value of deals with co-sell flag set
+      - Co-sell flag coverage: percentage of pipeline value with co-sell flag
+      If a hyperscaler has zero registrations, state "No registered pipeline" rather than omitting.
+      Deliverable: Pipeline summary table (Hyperscaler | Total Value | Deal Count | Avg Deal | Stage Breakdown | Co-sell Coverage).
+
+      STEP 2: PIPELINE HEALTH INDICATORS
+      Assess health across dimensions:
+      - Stage balance: is pipeline concentrated in early stages (healthy) or stalled in mid-stage (risk)?
+      - Co-sell coverage: percentage of pipeline with co-sell flag (target: >70%)
+      - Deal velocity: average days in current stage
+      - Stale deals: deals with no stage movement in >30 days
+      Each indicator: status (HEALTHY / AT RISK / CRITICAL), value, threshold, confidence.
+      Deliverable: Health indicator table (Indicator | Hyperscaler | Value | Threshold | Status | Confidence).
+
+      STEP 3: PERIOD-OVER-PERIOD COMPARISON
+      If prior_period_pipeline is PRESENT:
+      - Pipeline value change (absolute and percentage)
+      - Deal count change
+      - Stage distribution shift
+      - Co-sell coverage change
+      Each comparison: current value, prior value, delta, direction.
+      If prior_period_pipeline is ABSENT: "Prior period data unavailable. No trend comparison."
+      Deliverable: Comparison table (Metric | Prior | Current | Delta | Direction).
+
+      STEP 4: TARGET ATTAINMENT
+      If program_targets is PRESENT:
+      - Current pipeline vs. target by hyperscaler
+      - Gap to target (absolute and percentage)
+      - Projected attainment based on current trajectory
+      If targets ABSENT: "Targets not provided. Cannot assess attainment."
+      Deliverable: Attainment table (Hyperscaler | Target | Current | Gap | Projected).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - All three hyperscalers reported (even if zero pipeline)
+      - Trend claims cite two data points or state "INSUFFICIENT DATA"
+      - Co-sell flag coverage calculated as percentage with threshold reference
+      - Stale deals identified with specific day count
+      - Executive summary actionable without reading pipeline details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + health indicators + state delta
+      - DISCOVERY: data collection plan (portal export, CRM pipeline report, target documents)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) total registered pipeline value with hyperscaler split and co-sell coverage, (2) most critical health indicator breach, (3) single most urgent action with owner and prerequisite.
+
+  transactions_closed_summary:
+    id: ham-transactions-closed-summary
+    name: "Closed Transactions Summary"
+    description: "Summarize closed marketplace transactions by deal count, transaction value, and hyperscaler split with period-over-period comparison"
+    domain: program_health
+    inputs:
+      - name: transaction_data
+        required: true
+        description: Closed marketplace transactions for current period
+      - name: prior_period_transactions
+        required: false
+        description: Previous period closed transactions for trend comparison
+      - name: revenue_targets
+        required: false
+        description: Marketplace revenue targets by hyperscaler and period
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Summarizing closed marketplace transactions.
+      Transaction data: {transaction_data}
+      Prior period transactions: {prior_period_transactions}
+      Revenue targets: {revenue_targets}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are producing a transaction summary showing what has actually closed through marketplace. This is the outcome metric for the co-sell program, separate from pipeline which is forward-looking.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      If transaction_data is ABSENT, DEFER: no transaction summary possible.
+      If prior_period_transactions is ABSENT, mark trend claims as "INSUFFICIENT DATA."
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: TRANSACTION SUMMARY
+      For each hyperscaler:
+      - Deal count (number of closed transactions)
+      - Total transaction value
+      - Average transaction value
+      - Transaction type breakdown: new business, renewal, expansion
+      - Pricing model breakdown: subscription, consumption, one-time
+      If zero transactions for a hyperscaler, state "No closed transactions" rather than omitting.
+      Deliverable: Transaction summary table (Hyperscaler | Count | Total Value | Avg Value | Type Breakdown | Model Breakdown).
+
+      STEP 2: TRANSACTION VELOCITY AND PATTERNS
+      Analyze transaction patterns:
+      - Average time from private offer creation to close
+      - Average time from deal registration to marketplace close
+      - Fastest and slowest transactions (with contributing factors)
+      - Common blockers that extended close time
+      Confidence: VERIFIED (timestamp data) / ESTIMATED (milestone approximation).
+      Deliverable: Velocity table (Metric | Value | Confidence | Notable Patterns).
+
+      STEP 3: PERIOD-OVER-PERIOD COMPARISON
+      If prior_period_transactions is PRESENT:
+      - Transaction count change
+      - Total value change (absolute and percentage)
+      - Average value change
+      - Mix shift (type and model distribution changes)
+      Each comparison: prior value, current value, delta, direction.
+      If ABSENT: "Prior period data unavailable. No trend comparison."
+      Deliverable: Comparison table (Metric | Prior | Current | Delta | Direction).
+
+      STEP 4: TARGET ATTAINMENT
+      If revenue_targets is PRESENT:
+      - Closed value vs. target by hyperscaler
+      - Gap to target
+      - Projected full-period attainment based on current run rate
+      - Actions needed to close gap (with prerequisites)
+      If ABSENT: "Revenue targets not provided. Cannot assess attainment."
+      Deliverable: Attainment table (Hyperscaler | Target | Closed | Gap | Projected | Actions).
+
+      STEP 5: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - All three hyperscalers reported (even if zero transactions)
+      - Trend claims cite two data points or state "INSUFFICIENT DATA"
+      - Transaction velocity uses timestamp data where available
+      - Target attainment projection uses run rate, not optimistic assumption
+      - Executive summary actionable without reading transaction details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + target attainment + state delta
+      - DISCOVERY: data collection plan (marketplace reports, CRM closed-won filter, target documents)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) total closed value with deal count and hyperscaler split, (2) most critical gap to target or velocity issue, (3) single most urgent action with owner and prerequisite.
+
+  committed_spend_health:
+    id: ham-committed-spend-health
+    name: "Committed Spend Health Dashboard"
+    description: "Compare consumption to committed spend baseline, project burn rate, flag shortfall risk, and track incentive utilization across all hyperscalers"
+    domain: program_health
+    inputs:
+      - name: spend_data
+        required: true
+        description: Current committed spend status by hyperscaler (EDP, MACC, CUD)
+      - name: consumption_actuals
+        required: true
+        description: Actual consumption data by hyperscaler and category
+      - name: prior_period_spend
+        required: false
+        description: Previous period committed spend data for trend comparison
+      - name: incentive_data
+        required: false
+        description: Co-sell incentive eligibility and utilization data
+      - name: account_state
+        required: true
+        description: Current account state object
+      - name: run_mode
+        required: false
+        description: "FULL | QUICK | DISCOVERY (default: FULL)"
+    prompt: |
+      Context: Assessing committed spend health across hyperscalers.
+      Spend data: {spend_data}
+      Consumption actuals: {consumption_actuals}
+      Prior period spend: {prior_period_spend}
+      Incentive data: {incentive_data}
+      Account state: {account_state}
+      Run mode: {run_mode} (FULL = all deliverables; QUICK = executive summary + state delta + top action; DISCOVERY = signal acquisition plan only. Default: FULL)
+
+      You are building a spend health dashboard for VP Alliances. This shows whether committed spend programs are on track and whether co-sell incentives are being captured. Shortfall burns committed dollars. Missed incentives leave money on the table.
+
+      STEP 0: INPUT GATE
+      Classify each input as PRESENT / PARTIAL / ABSENT.
+      If spend_data is ABSENT, DEFER: cannot assess health without committed spend contract data.
+      If prior_period_spend is ABSENT, mark trend claims as "INSUFFICIENT DATA."
+      If incentive_data is ABSENT, mark incentive section as "Data unavailable, manual check required."
+      Deliverable: Input Gate table + Run Mode declaration.
+
+      STEP 1: COMMITTED SPEND STATUS
+      For each hyperscaler with committed spend:
+      - Program (EDP / MACC / CUD)
+      - Total commitment value
+      - Consumed to date
+      - Remaining balance
+      - Contract period (start, end, months remaining)
+      - Linear burn target at current point in period
+      - Actual vs. linear: ahead / on track / behind (with dollar variance)
+      If no committed spend for a hyperscaler, state "No committed spend program."
+      Deliverable: Spend status table (Hyperscaler | Program | Committed | Consumed | Remaining | Linear Target | Actual vs. Target | Variance).
+
+      STEP 2: BURN RATE PROJECTION
+      - Monthly burn rate (average consumption per month)
+      - Projected end-of-contract consumption
+      - Projected shortfall or surplus (dollar amount)
+      - Shortfall threshold: flag if projected consumption < 85% of committed
+      - Trend: compare burn rate across last 3+ months. If <2 months of data, state "INSUFFICIENT DATA for trend."
+      Deliverable: Projection table (Hyperscaler | Monthly Burn | Projected Total | Committed | Variance | Status | Trend).
+
+      STEP 3: SHORTFALL RISK ACTIONS
+      For each hyperscaler at risk of shortfall:
+      - Gap to close (dollar amount)
+      - Months remaining to close gap
+      - Required monthly acceleration (additional spend needed per month)
+      - Acceleration options: new ISV deals, expanded usage, additional products
+      - Each option: feasibility (HIGH/MEDIUM/LOW), prerequisites, timeline
+      If no shortfall risk, state "All programs on track. No acceleration required."
+      Deliverable: Action table (Hyperscaler | Gap | Monthly Acceleration Needed | Option | Feasibility | Prerequisites | Timeline).
+
+      STEP 4: INCENTIVE UTILIZATION
+      If incentive_data is PRESENT:
+      - Incentive programs available by hyperscaler
+      - Eligibility status (qualified / pending / not qualified)
+      - Incentive value earned to date
+      - Incentive value available but unclaimed
+      - Actions to claim unclaimed incentives with prerequisites
+      If ABSENT: "Incentive data unavailable. Manual review of partner portal required."
+      Deliverable: Incentive table (Hyperscaler | Program | Eligibility | Earned | Unclaimed | Action).
+
+      STEP 5: PERIOD-OVER-PERIOD COMPARISON
+      If prior_period_spend is PRESENT:
+      - Burn rate change
+      - Shortfall risk change (improving / stable / worsening)
+      - Incentive utilization change
+      Each comparison: prior, current, delta, direction.
+      If ABSENT: "Prior period data unavailable. No trend comparison."
+      Deliverable: Comparison table (Metric | Prior | Current | Delta | Direction).
+
+      STEP 6: ACCOUNT STATE DELTA
+      Deliverable: Account State Delta (Field | Previous | Updated | Evidence | Runbook Source).
+
+      QUALITY CHECKS:
+      - All three hyperscalers reported (even if no committed spend)
+      - Shortfall threshold explicit (85%) not subjective
+      - Burn rate uses 3+ months of data or flags "INSUFFICIENT DATA"
+      - Trend claims cite two data points
+      - Incentive section either populated or explicitly marked unavailable
+      - Acceleration options have feasibility and prerequisites
+      - Executive summary actionable without reading spend details
+
+      RUN MODE EXECUTION:
+      - QUICK: executive summary + shortfall risk flags + state delta
+      - DISCOVERY: data collection plan (contract documents, billing reports, incentive portal access)
+      - FULL: all deliverables
+
+      EXECUTIVE SUMMARY: State (1) spend health status per hyperscaler (on track / at risk / critical with dollar variance), (2) highest shortfall risk and gap amount, (3) single most urgent action with owner and prerequisite.

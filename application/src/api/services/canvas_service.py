@@ -235,8 +235,7 @@ class CanvasService:
             "Company": realm_profile.get("realm_name", ""),
             "Industry": realm_profile.get("classification", {}).get("segment", ""),
             "Region": realm_profile.get("classification", {}).get("region", ""),
-            "Current Tools": str(len(env.get("existing_tools", {}).get("acme", []))
-                                 + len(env.get("existing_tools", {}).get("industrietechnik", []))) + " tools",
+            "Current Tools": str(len(env.get("existing_tools") or [])) + " tools",
             "Target Coverage": target.get("coverage_target", ""),
             "Stage": node_profile.get("commercial", {}).get("stage", ""),
         }

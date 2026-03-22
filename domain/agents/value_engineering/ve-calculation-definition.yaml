@@ -1,0 +1,595 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ve-calculation-agent
+name: VE Calculation Agent
+description: 'Builds the financial evidence layer for value engineering. Calculates ROI with
+  sensitivity analysis, compares TCO current versus proposed, quantifies cost of
+  inaction as compounding risk, and breaks value into hard savings, soft savings,
+  risk avoidance, and revenue enablement. Every number is defensible.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ve-agent
+  tags:
+  - roi
+  - tco
+  - financial-modeling
+  - cost-of-inaction
+  - value-calculation
+  - value-engineering
+  responsibility: 'Calculate ROI, TCO, cost of inaction, and value by type with sensitivity analysis.
+    Present probabilistic ranges, isolate differentiated value, and ensure every
+    calculation is verifiable and reproducible.
+
+    '
+system_prompt: 'You are a Value Calculation Agent, part of the Value Engineering intelligence
+  system. Your job is to build defensible financial models that quantify business value.
+
+
+  You MUST:
+
+  - Calculate 3-year ROI with sensitivity analysis and payback period
+
+  - Compare current vs proposed TCO with detailed cost drivers
+
+  - Quantify cost of inaction with compounding risk and missed opportunity
+
+  - Break value into hard savings, soft savings, risk avoidance, revenue enablement
+
+  - Present probabilistic ranges, not single-point estimates
+
+  - Isolate differentiated value (what only this solution delivers) vs commodity value
+
+  - Include NPV, IRR, and WACC-adjusted calculations where appropriate
+
+  - State all assumptions explicitly with confidence levels
+
+  - Show methodology for every calculation
+
+
+  You MUST NOT:
+
+  - Conduct value discovery (VE Discovery Agent''s domain)
+
+  - Create value hypotheses or narratives (VE Hypothesis Agent''s domain)
+
+  - Track value realization (VE Realization Agent''s domain)
+
+  - Fabricate benchmark data or invent cost structures
+
+  - Guarantee specific financial outcomes
+
+  - Present single-point estimates without ranges
+
+
+  When uncertain: present ranges with confidence intervals, state assumptions
+  explicitly, and add [ESTIMATE PENDING VALIDATION] for unverified inputs.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-account-data
+  name: Read Account Data
+  description: Access account context, stakeholder data, and business context from vault
+  requires_confirmation: false
+  inputs:
+  - title: account_path
+    type: string
+  outputs:
+  - title: account_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Account data unavailable, cannot proceed with financial modeling
+    - error_code: RECORD_NOT_FOUND
+      guidance: Account not found, verify account identifier with user
+- component_type: ClientTool
+  id: read-value-tracker
+  name: Read Value Tracker
+  description: Access value hypothesis and realization data from InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: tracker_path
+    type: string
+  outputs:
+  - title: tracker_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Value tracker unavailable, proceed with available account data
+    - error_code: NO_RECORDS
+      guidance: No existing value data for this account, build from scratch
+- component_type: ClientTool
+  id: write-value-artifact
+  name: Write Value Artifact
+  description: Save ROI model, TCO analysis, or value quantification to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact_type
+    type: string
+  - title: content
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: save-calculation-intelligence
+  name: Save Calculation Intelligence
+  description: Persist financial model results to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: calculation
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification on financial inputs, cost assumptions, or investment details
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: calculation-intelligence
+  name: Calculation Intelligence
+  description: Financial model results and value quantification available to peer agents
+  tools:
+  - id: get-roi-model
+    name: Get ROI Model
+    description: Returns ROI calculation with sensitivity analysis, payback period, and NPV
+    inputs:
+    - title: account_name
+      type: string
+    - title: use_case
+      type: string
+    outputs:
+    - title: roi_model
+      type: object
+  - id: get-tco-comparison
+    name: Get TCO Comparison
+    description: Returns current vs proposed TCO with cost driver breakdown and net savings
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: tco_comparison
+      type: object
+  - id: get-cost-of-inaction
+    name: Get Cost of Inaction
+    description: Returns compounding cost of maintaining status quo with risk accumulation
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: cost_of_inaction
+      type: object
+  - id: get-value-by-type
+    name: Get Value by Type
+    description: Returns value breakdown into hard savings, soft savings, risk avoidance, revenue enablement
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: value_by_type
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: value-calculation
+  name: Value Calculation
+  playbook_refs:
+  - PB_VE_003
+  description: Calculate ROI, analyze TCO, assess cost of inaction, and quantify value across all value types.
+  inputs:
+  - title: account_context
+    type: object
+  - title: investment_details
+    type: object
+  - title: benefit_details
+    type: object
+  - title: current_tools
+    type: array
+  outputs:
+  - title: roi_calculation
+    type: object
+  - title: tco_analysis
+    type: object
+  - title: cost_of_inaction
+    type: object
+  - title: value_quantification
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ve-roi-calculation
+      input: account_name, investment_details, benefit_details, timeline
+      tools:
+      - read-account-data
+      - read-value-tracker
+      description: Calculate 3-year ROI with sensitivity analysis, payback period, and NPV
+      on_failure: stop
+    - step: 2
+      prompt: ve-tco-analysis
+      input: account_name, current_tools, solution, years
+      tools:
+      - read-account-data
+      description: Compare current vs proposed TCO with detailed cost drivers and net savings
+      on_failure: stop
+    - step: 3
+      prompt: ve-cost-of-inaction
+      input: account_name, pain_points, risks, growth
+      tools:
+      - read-account-data
+      description: Calculate compounding cost of inaction with risk accumulation and missed opportunity
+      on_failure: stop
+    - step: 4
+      prompt: ve-value-quantification-by-type
+      input: account_name, use_cases, baselines
+      tools:
+      - read-account-data
+      - read-value-tracker
+      description: Quantify value across hard savings, soft savings, risk avoidance, revenue enablement
+      on_failure: stop
+    - step: 5
+      action: persist
+      tools:
+      - save-calculation-intelligence
+      - write-value-artifact
+      description: Save financial models to InfoHub for peer agent consumption
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - roi-calculation
+    - tco-analysis
+    - cost-of-inaction
+    - value-quantification
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Financial models structure the argument, but the VE knows which assumptions
+      the CFO will challenge first, whether the discount rate assumption matches
+      the customer''s capital planning, and when to present conservative versus
+      aggressive scenarios based on the room''s risk appetite. The agent calculates and
+      stress-tests, but the VE decides which scenario to lead with.
+
+      '
+    challenges:
+    - text: Business cases present single-point ROI estimates instead of probabilistic ranges that sophisticated buyers expect
+      specific_overhead:
+      - Manually creating optimistic/pessimistic scenarios as separate spreadsheets instead of integrated ranges
+    - text: Value models show total ROI but do not isolate differentiated value for competitive positioning
+      specific_overhead:
+      - Manually separating "any solution" benefits from "our solution only" benefits in each business case
+    - text: TCO comparisons omit hidden costs like integration, training, and ongoing operational overhead
+      specific_overhead:
+      - Researching and estimating hidden cost categories from scratch for every deal
+    - text: Cost-of-inaction analysis treats risk as static when it compounds over time
+      specific_overhead:
+      - Building compounding risk models manually without standardized methodology
+    - text: Financial models lack sensitivity analysis, making them brittle when buyers challenge assumptions
+      specific_overhead:
+      - Creating multiple scenario versions as separate documents instead of parameterized models
+    administrative_overhead:
+    - Building ROI models in spreadsheets from scratch for every deal
+    - Manually creating sensitivity analysis scenarios
+    - Researching current vs proposed cost structures across multiple cost categories
+    - Calculating NPV and IRR manually with varying discount rates
+    scenarios:
+    - problem: Business cases present single-point ROI estimates instead of probabilistic ranges
+      why: 'Sophisticated buyers, especially CFOs, distrust single-number ROI claims. Without sensitivity
+        analysis showing how results change under different assumptions, the business case looks
+        like a sales tool rather than a financial model. The CFO challenges one assumption and the
+        entire case collapses.
+
+        '
+      agent: ve-calculation-agent
+      agent_response: 'Calculates ROI with optimistic, base, and pessimistic scenarios using parameterized
+        assumptions. Each scenario shows which inputs drive the variance, so the buyer can adjust
+        assumptions and see the impact. Includes payback period and NPV for each scenario.
+
+        '
+      success_signal:
+        metric: ROI models include sensitivity analysis with at least three scenarios
+        target: Every ROI calculation presents probabilistic ranges with assumption transparency
+        leading_indicator: CFO engages with the model assumptions rather than dismissing the number
+        failure_signal: Business case presented with a single ROI percentage and no scenario analysis
+    - problem: Value models show total ROI but do not isolate differentiated value for competitive positioning
+      why: 'When a business case shows ROI that any solution could deliver, the buyer has no financial
+        reason to choose this vendor over a cheaper alternative. Differentiated value, the outcomes
+        only this solution enables, is what justifies the premium and creates competitive separation.
+
+        '
+      agent: ve-calculation-agent
+      agent_response: 'Separates total value into commodity value (any solution delivers this) and differentiated
+        value (only this solution delivers this). Quantifies each category separately so the buyer
+        sees the financial cost of choosing a less capable alternative.
+
+        '
+      success_signal:
+        metric: Business cases include differentiated value isolation alongside total ROI
+        target: Buyer can articulate why this solution''s value justifies its price versus alternatives
+        leading_indicator: Competitive discussions reference differentiated value metrics from the model
+        failure_signal: Buyer treats the business case as interchangeable with a competitor''s ROI claim
+  escalation_triggers:
+  - Customer challenges financial model methodology (immediate, to VE Lead)
+  - ROI calculation relies on more than 50% assumed inputs (immediate, to VE Lead)
+  - Competitive value differentiation requested urgently (within 24h, to VE Lead)
+  - Cost-of-inaction analysis reveals risk above customer''s stated threshold (immediate, to VE Lead)
+  prompt_registry:
+    ve-roi-calculation:
+      description: Calculate 3-year ROI with investment/benefits breakdown, sensitivity analysis, and payback
+      source: prompts/tasks.yaml#value_calculation.roi_calculation
+      inputs:
+      - title: account_name
+        type: string
+      - title: investment_details
+        type: object
+      - title: benefit_details
+        type: object
+      - title: timeline
+        type: string
+      - title: use_case
+        type: string
+      outputs:
+      - title: roi_calculation
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - account_profile
+        - cost_structure
+        - discount_rate
+        priority: critical
+      - source: read-value-tracker
+        fields:
+        - value_hypotheses
+        - baseline_metrics
+        - historical_roi_patterns
+        priority: enrichment
+    ve-tco-analysis:
+      description: Compare current vs proposed Total Cost of Ownership with cost drivers and net savings
+      source: prompts/tasks.yaml#value_calculation.tco_analysis
+      inputs:
+      - title: account_name
+        type: string
+      - title: current_tools
+        type: array
+      - title: solution
+        type: string
+      - title: years
+        type: integer
+      outputs:
+      - title: tco_analysis
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - account_profile
+        - current_tools
+        - cost_structure
+        - license_costs
+        - integration_costs
+        - personnel_costs
+        priority: critical
+    ve-cost-of-inaction:
+      description: Calculate cost of maintaining status quo with risk accumulation and missed opportunities
+      source: prompts/tasks.yaml#value_calculation.cost_of_inaction
+      inputs:
+      - title: account_name
+        type: string
+      - title: pain_points
+        type: array
+      - title: risks
+        type: array
+      - title: growth
+        type: object
+      outputs:
+      - title: cost_of_inaction
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - business_context
+        - risk_register
+        - growth_projections
+        - competitive_landscape
+        priority: critical
+    ve-value-quantification-by-type:
+      description: Quantify value across all types, hard savings, soft savings, risk avoidance, and revenue enablement
+      source: prompts/tasks.yaml#value_calculation.value_quantification_by_type
+      inputs:
+      - title: account_name
+        type: string
+      - title: use_cases
+        type: array
+      - title: baselines
+        type: object
+      outputs:
+      - title: value_quantification
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - business_context
+        - baseline_metrics
+        - cost_structure
+        priority: critical
+      - source: read-value-tracker
+        fields:
+        - value_hypotheses
+        - historical_baselines
+        priority: enrichment
+  boundaries:
+  - Financial modeling scope only, does not conduct value discovery or create hypotheses
+  - Does not track post-deployment value realization
+  - Does not create stakeholder narratives or business case documents
+  - Does not fabricate benchmark data or invent cost structures
+  - Does not guarantee specific financial outcomes
+  permissions:
+  - Calculate ROI with sensitivity analysis and payback period
+  - Compare current vs proposed TCO with full cost driver breakdown
+  - Quantify cost of inaction with compounding risk models
+  - Break value into hard savings, soft savings, risk avoidance, revenue enablement
+  - Write financial model artifacts to InfoHub
+  - Access benchmark and industry reference data for validation
+  guardrails:
+    input_validation:
+    - Reject ROI calculation without investment amount or benefit estimates
+    - Reject TCO analysis without current tool inventory or cost baseline
+    - Reject cost-of-inaction without identified pain points or risks
+    - Reject value quantification without use cases and baseline metrics
+    output_checks:
+    - ROI includes sensitivity analysis with optimistic/base/pessimistic scenarios
+    - TCO comparison includes all cost categories (license, integration, personnel, hidden)
+    - Every calculation shows assumptions and methodology explicitly
+    - Differentiated value isolated from commodity value in every model
+    - All financial metrics include units (currency, percentage, time)
+    - Ranges presented with confidence intervals, not single-point estimates
+    signal_validation:
+    - Never fabricate benchmark financial data
+    - Never present single-point estimates without ranges
+    - Flag calculations with >50% assumed inputs as low-confidence
+    - Use [ESTIMATE PENDING VALIDATION] for unverified cost assumptions
+    - Cross-check totals against industry benchmarks for reasonableness
+  error_handling:
+    tool_failures:
+      critical:
+      - read-account-data
+      enrichment:
+      - read-value-tracker
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable financial models without account data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected calculations low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag data freshness concern for human verification before presenting to customer
+  knowledge:
+    scope:
+      domains:
+      - financial-modeling
+      - roi-analysis
+      - tco-analysis
+      - value-quantification
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/calculation-frameworks.yaml
+      description: TCO components, ROI formula and factors, value driver categories, sensitivity parameters
+    - path: references/financial-modeling.yaml
+      description: Core financial concepts (NPV, IRR, WACC, payback, DCF, sensitivity analysis, TCO model, cost of inaction, CapEx vs OpEx)
+    - path: references/industry-benchmarks.yaml
+      description: Industry KPIs and benchmark ranges per vertical for validating calculation inputs
+    - path: references/ve-methodologies.yaml
+      description: VE frameworks (Forrester TEI, Monte Carlo simulation, LeveragePoint dollarized differentiation)
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ve-agent
+      description: VE orchestrator routes financial modeling requests
+    - type: downstream
+      source: ve-discovery-agent
+      condition: discovery.baseline_complete == true
+      description: Completed value discovery baseline triggers ROI and TCO calculations
+    - type: downstream
+      source: ve-hypothesis-agent
+      condition: hypothesis.needs_financial_model == true
+      description: Value hypothesis requires financial model to validate claims
+    - type: downstream
+      source: PB_VE_003
+      signal: SIG_VE_CALIBRATION
+      condition: calibration_pass.completed == true
+      description: Retrospective calibration compares calculation accuracy against realized outcomes
+    outputs:
+    - type: parent_return
+      target: ve-agent
+      payload:
+      - roi_calculation
+      - tco_analysis
+      - cost_of_inaction
+      - value_quantification
+      description: Financial model results back to orchestrator
+    - type: trigger_agent
+      target: ve-proof-agent
+      condition: calculation.poc_criteria_needed == true
+      payload:
+      - roi_calculation
+      - value_drivers
+      description: Financial model triggers POC success criteria alignment
+    - type: trigger_agent
+      target: ve-hypothesis-agent
+      condition: calculation.narrative_update_needed == true
+      payload:
+      - roi_calculation
+      - differentiated_value
+      description: Updated calculations trigger narrative refresh
+    - type: notify_human
+      condition: calculation.assumed_inputs_ratio > 0.5 OR roi.negative_in_base_scenario == true
+      channel: alert
+      description: Low-confidence calculations and negative ROI scenarios surface for VE review
+    consumes_toolboxes:
+    - toolbox: discovery-intelligence
+      agent: ve-discovery-agent
+      tools:
+      - get-current-state-assessment
+      - get-pain-quantification
+      reason: Discovery baseline provides cost structure and pain points for financial modeling
+    - toolbox: hypothesis-intelligence
+      agent: ve-hypothesis-agent
+      tools:
+      - get-value-hypothesis
+      reason: Value hypotheses provide benefit estimates and target outcomes for ROI calculation
+    dependencies:
+    - agent: ve-discovery-agent
+      toolbox: discovery-intelligence
+      tools:
+      - get-current-state-assessment
+      - get-pain-quantification
+      purpose: Customer cost baseline and quantified pain points as inputs to financial models
+    - agent: ve-hypothesis-agent
+      toolbox: hypothesis-intelligence
+      tools:
+      - get-value-hypothesis
+      purpose: Value hypotheses with benefit estimates and confidence levels for ROI calculation

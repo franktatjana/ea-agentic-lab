@@ -594,6 +594,7 @@ export interface AgentProfile {
   capabilities: string[];
   with_this_agent?: WithThisAgentDomain[];
   key_metrics?: string[];
+  key_responsibilities?: string[];
   qualification_framework?: QualificationFramework;
   stakeholder_landscape?: StakeholderLandscape;
   public_resources?: PublicResource[];

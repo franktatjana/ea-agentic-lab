@@ -1,0 +1,475 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ve-discovery-agent
+name: VE Discovery Agent
+description: 'Assesses customer current state costs, identifies value drivers per stakeholder,
+  and quantifies pain points to establish a defensible baseline before any business
+  case is built. Without grounded discovery, every ROI model is guesswork.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ve-agent
+  tags:
+  - value-discovery
+  - current-state
+  - baseline
+  - pain-quantification
+  - value-engineering
+  responsibility: 'Conduct structured value discovery that maps the customer''s actual cost structure,
+    identifies which value drivers matter to each stakeholder, and quantifies pain
+    points with frequency, cost, and annual impact.
+
+    '
+system_prompt: 'You are a Value Discovery Agent, part of the Value Engineering intelligence
+  system. Your job is to establish a grounded, evidence-based baseline of customer
+  costs, inefficiencies, and value opportunities before any business case is built.
+
+
+  You MUST:
+
+  - Assess current state costs including hidden costs and inefficiencies
+
+  - Identify value drivers per stakeholder with measurement criteria
+
+  - Quantify pain points by cost, frequency, and annual impact
+
+  - Map stakeholder-specific value language and priorities
+
+  - Establish baseline metrics for hypothesis comparison
+
+  - Lead with unconsidered needs, not just buyer-stated challenges
+
+
+  You MUST NOT:
+
+  - Create value hypotheses (VE Hypothesis Agent''s domain)
+
+  - Calculate ROI or TCO (VE Calculation Agent''s domain)
+
+  - Build business cases (VE Hypothesis Agent''s domain)
+
+  - Fabricate cost data or benchmark numbers
+
+  - Assume cost structures not validated by customer
+
+
+  When uncertain: use ranges with confidence levels, state "estimate pending validation."
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-account-data
+  name: Read Account Data
+  description: Access account context, stakeholder data, cost structure, and business context from vault
+  requires_confirmation: false
+  inputs:
+  - title: account_path
+    type: string
+  outputs:
+  - title: account_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Account data unavailable, cannot proceed with discovery
+    - error_code: RECORD_NOT_FOUND
+      guidance: Account not found in vault, verify identifiers with user
+- component_type: ClientTool
+  id: read-value-tracker
+  name: Read Value Tracker
+  description: Access value hypothesis and realization data from InfoHub for baseline context
+  requires_confirmation: false
+  inputs:
+  - title: tracker_path
+    type: string
+  outputs:
+  - title: tracker_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Value tracker unavailable, proceed with discovery from account data only
+    - error_code: NO_RECORDS
+      guidance: No prior value data found, establish baseline from scratch
+- component_type: ClientTool
+  id: write-value-artifact
+  name: Write Value Artifact
+  description: Save discovery findings, current state assessment, or value driver map to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact_type
+    type: string
+  - title: content
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+    error_responses:
+    - error_code: WRITE_FAILED
+      guidance: Failed to persist discovery artifact, retry or flag for manual save
+    - error_code: VALIDATION_ERROR
+      guidance: Artifact failed schema validation, review content structure
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification, baseline data, or cost validation from value engineer
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+    error_responses:
+    - error_code: NO_RESPONSE
+      guidance: User did not respond, proceed with available data and flag gaps
+toolboxes:
+- component_type: Toolbox
+  id: discovery-intelligence
+  name: Discovery Intelligence
+  description: Current state assessments and value driver maps available to peer agents
+  tools:
+  - id: get-current-state-assessment
+    name: Get Current State Assessment
+    description: Returns baseline costs, hidden costs, inefficiencies, and risk exposure for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: current_state_assessment
+      type: object
+  - id: get-value-driver-map
+    name: Get Value Driver Map
+    description: Returns stakeholder-mapped value drivers with priorities and measurement criteria
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: value_driver_map
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: value-discovery
+  name: Value Discovery
+  playbook_refs:
+  - PB_VE_001
+  description: Assess customer current state costs, identify value drivers per stakeholder, and quantify pain points to establish a value baseline.
+  inputs:
+  - title: account_context
+    type: object
+  - title: business_context
+    type: string
+  - title: current_tools
+    type: array
+  outputs:
+  - title: current_state_assessment
+    type: object
+  - title: value_driver_map
+    type: object
+  - title: pain_point_quantification
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ve-current-state-assessment
+      input: account_name, business_context, current_tools
+      tools:
+      - read-account-data
+      - read-value-tracker
+      description: Assess current spending, hidden costs, inefficiencies, and risk exposure
+      on_failure: stop
+    - step: 2
+      prompt: ve-value-driver-identification
+      input: stakeholder_list, priorities
+      tools:
+      - read-account-data
+      description: Map value drivers per stakeholder with priority and measurement criteria
+      on_failure: stop
+    - step: 3
+      prompt: ve-pain-point-quantification
+      input: pain_points, context
+      tools:
+      - read-account-data
+      - ask-user
+      description: Quantify each pain point by cost, frequency, and annual impact
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - write-value-artifact
+      description: Save discovery findings to InfoHub for downstream hypothesis creation
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - current-state-assessment
+    - value-driver-mapping
+    - pain-quantification
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Data reveals cost patterns, but the VE reads the real story. Understanding which
+      costs the customer considers strategic versus wasteful, whether a pain point is
+      politically sensitive, and which stakeholders will champion the business case
+      requires human judgment the spreadsheet never captures.
+
+      '
+    challenges:
+    - text: Value discovery starts reactively with buyer's stated challenges instead of leading with unconsidered needs
+      solved_by: value-discovery
+      source: REF_VE_BP_001
+      specific_overhead:
+      - Researching buyer's industry pain points before each discovery call
+    - text: ROI models use generic benchmarks because customer-specific cost data is unavailable
+      solved_by: value-discovery
+      specific_overhead:
+      - Searching for industry-average metrics when buyer-specific data is not provided
+    - text: No industry-specific value driver libraries with vertical-native language
+      solved_by: value-discovery
+      source: REF_VE_BP_001
+      specific_overhead:
+      - Translating generic value categories into industry-native KPIs
+    - text: Cost baselines lack hidden cost identification, understating the true current state
+      solved_by: value-discovery
+      specific_overhead:
+      - Manually auditing tool sprawl, integration costs, and shadow IT spend
+    - text: Stakeholder value priorities are assumed rather than mapped, leading to misaligned narratives
+      solved_by: value-discovery
+      specific_overhead:
+      - Running separate discovery calls per stakeholder to understand individual priorities
+    administrative_overhead:
+    - Researching buyer's industry pain points before each discovery call
+    - Searching for industry-average metrics when buyer-specific data is not provided
+    - Translating generic value categories into industry-native KPIs
+    - Manually auditing hidden costs across tooling and integration landscape
+    scenarios:
+    - problem: ROI models use generic benchmarks because customer-specific cost data is unavailable
+      why: 'Building a defensible business case requires the customer''s actual cost structure:
+        headcount, tool spend, incident frequency, resolution times. Collecting this data
+        involves multiple stakeholders and back-and-forth requests. Under deal pressure,
+        teams default to industry averages that the CFO will challenge.
+
+        '
+      agent: ve-discovery-agent
+      agent_response: 'The agent structures value discovery around specific data requirements
+        per stakeholder, identifies which inputs are available versus assumed, and flags
+        which inputs would most improve baseline defensibility. It generates data collection
+        templates for customer engagement and annotates every metric with its source and
+        confidence level.
+
+        '
+      success_signal:
+        metric: Percentage of baseline cost inputs backed by customer data versus assumptions
+        target: At least 60% of cost structure validated with customer-specific data
+        leading_indicator: Data collection template sent to customer within first discovery session
+        failure_signal: Current state assessment presented with 100% assumed cost inputs
+    - problem: Value discovery starts reactively with buyer's stated challenges instead of leading with unconsidered needs
+      why: 'Buyers articulate the problems they already know about. The highest-urgency
+        opportunities come from unconsidered needs the buyer has not yet recognized.
+        Leading with the buyer''s stated pain produces incremental value stories that
+        fail to differentiate from competitors who heard the same brief.
+
+        '
+      agent: ve-discovery-agent
+      agent_response: 'The agent researches industry-specific pain points and cost patterns
+        before discovery, builds a point-of-view on unconsidered needs, and structures
+        the discovery conversation to surface hidden costs and unrecognized inefficiencies
+        that the buyer has not yet articulated.
+
+        '
+      success_signal:
+        metric: Discovery sessions surface unconsidered needs beyond buyer's initial brief
+        target: At least 2 unconsidered needs identified per discovery engagement
+        leading_indicator: Industry-specific insight brief prepared before first customer discovery call
+        failure_signal: Discovery output mirrors buyer's original problem statement with no new insights
+  escalation_triggers:
+  - Customer refuses to share cost data (immediate, to VE Lead)
+  - Discovery reveals scope significantly larger than anticipated (within 24h, to VE Lead)
+  - Baseline costs indicate deal value misalignment with opportunity ARR (within 24h, to AE)
+  - Industry-specific cost data unavailable for vertical (flag to VE Lead for benchmark sourcing)
+  prompt_registry:
+    ve-current-state-assessment:
+      description: Assess customer current state costs, hidden costs, inefficiencies, and risk exposure
+      source: prompts/tasks.yaml#value_discovery.current_state_assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: business_context
+        type: string
+      - title: current_tools
+        type: array
+      outputs:
+      - title: current_state_assessment
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - account_profile
+        - business_context
+        - current_tools
+        - cost_structure
+        priority: critical
+      - source: read-value-tracker
+        fields:
+        - historical_baselines
+        - prior_assessments
+        priority: enrichment
+    ve-value-driver-identification:
+      description: Identify and map customer value drivers per stakeholder with priority and measurement
+      source: prompts/tasks.yaml#value_discovery.value_driver_identification
+      inputs:
+      - title: account_name
+        type: string
+      - title: stakeholder_list
+        type: array
+      - title: priorities
+        type: string
+      outputs:
+      - title: value_driver_map
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - stakeholder_map
+        - strategic_priorities
+        priority: critical
+    ve-pain-point-quantification:
+      description: Quantify business impact of customer pain points by cost, frequency, and annual impact
+      source: prompts/tasks.yaml#value_discovery.pain_point_quantification
+      inputs:
+      - title: account_name
+        type: string
+      - title: pain_points
+        type: array
+      - title: context
+        type: string
+      outputs:
+      - title: pain_quantification
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - business_context
+        - cost_structure
+        priority: enrichment
+  boundaries:
+  - Does not create value hypotheses or business cases
+  - Does not calculate ROI or TCO
+  - Does not fabricate cost data or benchmark numbers
+  - Does not assume cost structures not validated by customer
+  - Does not run value stream workshops
+  permissions:
+  - Read account data for cost structure analysis
+  - Assess current state costs and inefficiencies
+  - Map value drivers per stakeholder
+  - Quantify pain points with impact analysis
+  - Write discovery findings to InfoHub
+  guardrails:
+    input_validation:
+    - Reject discovery requests without account context or industry
+    - Reject pain quantification without at least one identified pain point
+    - Reject value driver mapping without stakeholder identification
+    output_checks:
+    - Every cost must cite source (customer-provided, estimated, industry benchmark)
+    - Value drivers must map to specific stakeholders
+    - Pain quantification must include frequency, cost per occurrence, annual impact
+    - Hidden costs must be flagged separately from stated costs
+    signal_validation:
+    - Never invent cost data not provided by customer
+    - Never assume headcount or salary data
+    - Use ranges with confidence levels for estimates
+    - Add [ESTIMATE PENDING VALIDATION] when source data is insufficient
+  error_handling:
+    tool_failures:
+      critical:
+      - read-account-data
+      enrichment:
+      - read-value-tracker
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable discovery output without account data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - value-discovery
+      - cost-analysis
+      - baseline-assessment
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/signal-detection.yaml
+      description: Signal patterns for identifying hidden costs and unconsidered needs
+    - path: references/value-lifecycle.yaml
+      description: Value lifecycle stages and discovery-to-realization progression
+    - path: references/industry-benchmarks.yaml
+      description: Industry-specific cost benchmarks and value driver libraries by vertical
+    - path: references/discovery-workshop.yaml
+      description: Discovery workshop structure, data collection templates, and facilitation patterns
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ve-agent
+      description: VE orchestrator routes discovery and baseline assessment requests
+    - type: event
+      source: deal_stage
+      condition: deal.stage == discovery
+      description: Auto-runs when deal enters discovery stage
+    - type: downstream
+      source: ae-agent
+      condition: new_opportunity.requires_ve == true
+      description: New opportunity flagged for VE engagement triggers discovery
+    outputs:
+    - type: parent_return
+      target: ve-agent
+      payload:
+      - current_state_assessment
+      - value_driver_map
+      - pain_point_quantification
+      description: Discovery results back to VE orchestrator
+    - type: trigger_agent
+      target: ve-hypothesis-agent
+      condition: discovery.complete == true
+      payload:
+      - current_state_assessment
+      - value_driver_map
+      - pain_point_quantification
+      description: Completed discovery triggers hypothesis creation
+    - type: notify_human
+      condition: customer_data_gap.severity >= HIGH
+      channel: alert
+      description: Critical data gaps surface for VE review and customer follow-up
+    consumes_toolboxes: []
+    dependencies: []

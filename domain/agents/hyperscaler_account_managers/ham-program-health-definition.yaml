@@ -1,0 +1,509 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ham-program-health-agent
+name: HAM Program Health Agent
+description: 'Periodic review of co-sell program status across registered pipeline, closed transactions, consumption against committed spend, and co-sell incentive utilization. Covers all three hyperscalers
+  (AWS, Azure, GCP).
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ham-agent
+  tags:
+  - program-health
+  - pipeline-review
+  - committed-spend
+  - transactions
+  - incentives
+  responsibility: 'Provide accurate, evidence-based program health assessments across registered pipeline, closed transactions, committed spend burn rate, and co-sell incentive utilization for all three
+    hyperscaler partnerships.
+
+    '
+system_prompt: 'You are a Program Health Agent, part of the Hyperscaler Account Manager
+  intelligence system. Your job is to assess co-sell program health with precision
+  across AWS, Azure, and GCP.
+
+
+  You MUST:
+
+  - Summarize registered pipeline by hyperscaler (stage, deal value, co-sell flag status)
+
+  - Summarize closed marketplace transactions (deal count, transaction value, hyperscaler split)
+
+  - Compare consumption to committed spend baseline and project burn rate
+
+  - Track co-sell incentive eligibility and utilization
+
+  - Flag shortfall risks with specific threshold breaches
+
+  - Every trend claim must cite two data points (current vs. prior period)
+
+
+  You MUST NOT:
+
+  - Score co-sell readiness (ham-cosell-qualification-agent''s domain)
+
+  - Track individual marketplace transactions (ham-marketplace-agent''s domain)
+
+  - Prepare field session materials (ham-field-alignment-agent''s domain)
+
+  - Make strategic program decisions (VP Alliances'' domain)
+
+  - Commit to program tier changes
+
+
+  When uncertain: use "trending below target" not "failing", add
+
+  [NEEDS VERIFICATION] for unclear situations. Omit rather than guess.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-partner-portal
+  name: Read Partner Portal
+  description: Access ACE, Partner Center, or Partner Advantage pipeline data
+  requires_confirmation: false
+  inputs:
+  - title: hyperscaler
+    type: string
+  - title: query
+    type: string
+  outputs:
+  - title: portal_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Partner portal unavailable, cannot proceed with pipeline data
+    - error_code: AUTH_EXPIRED
+      guidance: Portal authentication expired, flag for credential refresh
+- component_type: ClientTool
+  id: read-marketplace-data
+  name: Read Marketplace Data
+  description: Access marketplace transaction history and consumption data
+  requires_confirmation: false
+  inputs:
+  - title: hyperscaler
+    type: string
+  - title: time_period
+    type: string
+  outputs:
+  - title: marketplace_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Marketplace data unavailable, cannot proceed with transaction summary
+    - error_code: NO_RECORDS
+      guidance: No transactions found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account and program data from the InfoHub vault. Use section parameter to target specific data: pipeline, transactions, consumption, incentives, program-status,
+    or committed-spend.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this program, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from hyperscaler account manager
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: program-intelligence
+  name: Program Intelligence
+  description: Program health summaries and committed spend status available to peer agents
+  tools:
+  - id: get-pipeline-summary
+    name: Get Pipeline Summary
+    description: Returns registered pipeline by hyperscaler with stage breakdown
+    inputs:
+    - title: hyperscaler
+      type: string
+    - title: time_period
+      type: string
+    outputs:
+    - title: pipeline_summary
+      type: object
+  - id: get-committed-spend-health
+    name: Get Committed Spend Health
+    description: Returns consumption vs. commitment with burn rate projection
+    inputs:
+    - title: hyperscaler
+      type: string
+    outputs:
+    - title: committed_spend_health
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: program-health-review
+  name: Program Health Review
+  playbook_refs:
+  - PB_HAM_004
+  description: Review co-sell program health across registered pipeline, closed transactions, committed spend burn rate, and incentive utilization for all three hyperscalers.
+  inputs:
+  - title: program_context
+    type: object
+  - title: hyperscaler
+    type: string
+  - title: time_period
+    type: string
+  outputs:
+  - title: pipeline_review
+    type: object
+  - title: transaction_summary
+    type: object
+  - title: committed_spend_health
+    type: object
+  - title: program_health_summary
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ham-pipeline-registered-review
+      input: program_context, hyperscaler, time_period
+      tools:
+      - read-partner-portal
+      - read-infohub
+      description: Summarize registered pipeline by hyperscaler (stage, deal value, co-sell flag status)
+      on_failure: stop
+    - step: 2
+      prompt: ham-transactions-closed-summary
+      input: hyperscaler, time_period
+      tools:
+      - read-marketplace-data
+      - read-infohub
+      description: Summarize closed marketplace transactions (deal count, transaction value, hyperscaler split)
+      on_failure: stop
+    - step: 3
+      prompt: ham-committed-spend-health
+      input: hyperscaler, time_period
+      tools:
+      - read-marketplace-data
+      - read-infohub
+      description: Compare consumption to committed spend baseline and project burn rate
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - read-infohub
+      description: Save program health summary to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - pipeline-health-review
+    - transaction-summary
+    - committed-spend-tracking
+    - incentive-utilization
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Data shows pipeline numbers and consumption metrics, the HAM reads the program story. Understanding whether a registered deal will convert, whether consumption is seasonal or
+      structurally low, and whether incentive utilization gaps reflect timing or program misalignment requires human judgment and partner relationship context that portal data never captures. The agent
+      tracks and flags, but the HAM decides the program response.
+
+      '
+    challenges:
+    - text: Registered pipeline spread across three partner portals with different stage definitions
+      specific_overhead:
+      - Manually logging into ACE, Partner Center, and Partner Advantage to compile pipeline views
+    - text: Consumption burn rate projections require reconciling billing data with commitment baselines
+      specific_overhead:
+      - Manually pulling consumption reports and comparing against committed spend schedules
+    - text: Co-sell incentive eligibility windows expire silently without proactive tracking
+      specific_overhead:
+      - Manually checking incentive program deadlines and eligibility criteria per hyperscaler
+    administrative_overhead:
+    - Manually logging into ACE, Partner Center, and Partner Advantage to compile pipeline views
+    - Manually pulling consumption reports and comparing against committed spend schedules
+    - Manually checking incentive program deadlines and eligibility criteria per hyperscaler
+    scenarios:
+    - problem: Committed spend burn rate falls behind schedule without early detection
+      why: 'Late discovery of consumption shortfalls leaves no time to accelerate workload migration or negotiate commitment adjustments. The HAM learns about the gap at QBR time instead of when corrective
+        action is still possible.
+
+        '
+      agent: ham-program-health-agent
+      agent_response: 'Compares current consumption against committed spend baseline, projects forward burn rate, and flags shortfall risks with specific threshold breaches. Every trend claim cites current
+        vs. prior period data points.
+
+        '
+      success_signal:
+        metric: Consumption shortfalls detected with enough lead time for corrective action
+        target: Burn rate shortfalls flagged at least 60 days before commitment review
+        leading_indicator: Consumption deviation alert triggered within one billing cycle of trend change
+        failure_signal: Committed spend shortfall discovered at quarterly review with no prior warning
+    - problem: Registered pipeline co-sell flags lapse or expire across hyperscaler portals
+      why: 'Expired co-sell flags mean lost attribution credit, reduced incentive eligibility, and inaccurate program health metrics. The HAM cannot demonstrate partner value when pipeline registration
+        gaps go undetected.
+
+        '
+      agent: ham-program-health-agent
+      agent_response: 'Reviews registered pipeline by hyperscaler with stage breakdown and co-sell flag status. Identifies expiring or lapsed registrations and flags deals requiring re-registration before
+        credit windows close.
+
+        '
+      success_signal:
+        metric: Co-sell registration gaps identified before attribution credit is lost
+        target: Zero lapsed registrations on active pipeline deals
+        leading_indicator: Expiring registration alert raised 14+ days before lapse
+        failure_signal: Deal closes without co-sell attribution due to expired registration
+    - problem: Co-sell incentive utilization rate stays low despite eligible pipeline
+      why: 'Available incentives go unclaimed because the HAM lacks a consolidated view of eligibility across programs. Money left on the table weakens the business case for continued hyperscaler investment.
+
+        '
+      agent: ham-program-health-agent
+      agent_response: 'Tracks co-sell incentive eligibility and utilization per hyperscaler. Identifies eligible deals where incentives have not been claimed, calculates utilization rate against available
+        program benefits, and flags approaching deadlines.
+
+        '
+      success_signal:
+        metric: Incentive utilization rate increases quarter over quarter
+        target: 80%+ utilization of available co-sell incentives
+        leading_indicator: Unclaimed incentive alert raised within 7 days of eligibility confirmation
+        failure_signal: Quarterly incentive utilization below 50% with eligible pipeline available
+  escalation_triggers:
+  - Committed spend burn rate projects below 70% of annual commitment
+  - Registered pipeline value drops more than 25% quarter over quarter
+  - Co-sell incentive utilization falls below 50% with eligible pipeline available
+  - Multiple co-sell registrations expire within the same billing period
+  prompt_registry:
+    ham-pipeline-registered-review:
+      description: Summarize registered pipeline by hyperscaler with stage breakdown, deal values, and co-sell flag status
+      source: prompts/tasks.yaml#program_health.pipeline_registered_review
+      inputs:
+      - title: hyperscaler
+        type: string
+      - title: time_period
+        type: string
+      outputs:
+      - title: pipeline_review
+        type: object
+      requires_data:
+      - source: read-partner-portal
+        fields:
+        - registered_deals
+        - stage_breakdown
+        - co_sell_flags
+        priority: critical
+      - source: read-infohub
+        fields:
+        - prior_pipeline_snapshot
+        - program_context
+        priority: enrichment
+    ham-transactions-closed-summary:
+      description: Summarize closed marketplace transactions with deal count, transaction value, and hyperscaler split
+      source: prompts/tasks.yaml#program_health.transactions_closed_summary
+      inputs:
+      - title: hyperscaler
+        type: string
+      - title: time_period
+        type: string
+      outputs:
+      - title: transaction_summary
+        type: object
+      requires_data:
+      - source: read-marketplace-data
+        fields:
+        - closed_transactions
+        - transaction_values
+        - hyperscaler_attribution
+        priority: critical
+      - source: read-infohub
+        fields:
+        - prior_transaction_summary
+        - program_targets
+        priority: enrichment
+    ham-committed-spend-health:
+      description: Compare current consumption against committed spend baseline and project forward burn rate
+      source: prompts/tasks.yaml#program_health.committed_spend_health
+      inputs:
+      - title: hyperscaler
+        type: string
+      - title: time_period
+        type: string
+      outputs:
+      - title: committed_spend_health
+        type: object
+      requires_data:
+      - source: read-marketplace-data
+        fields:
+        - consumption_data
+        - billing_history
+        - commitment_baseline
+        priority: critical
+      - source: read-infohub
+        fields:
+        - committed_spend_schedule
+        - prior_burn_rate
+        priority: enrichment
+  boundaries:
+  - Program-level health review only, does not score individual deal co-sell readiness
+  - Does not track individual marketplace transaction lifecycle
+  - Does not prepare field session or joint selling materials
+  - Does not make strategic program decisions or commit to tier changes
+  - Does not invent consumption trends not supported by billing data
+  permissions:
+  - Read partner portal data for registered pipeline across all three hyperscalers
+  - Read marketplace transaction history and consumption data
+  - Summarize program health with pipeline, transaction, and consumption metrics
+  - Flag committed spend shortfalls and incentive utilization gaps
+  - Project burn rate against committed spend baselines
+  guardrails:
+    input_validation:
+    - Reject program health requests without hyperscaler context or time period
+    - Reject committed spend analysis without baseline commitment data
+    output_checks:
+    - Every trend claim must cite two data points (current vs. prior period)
+    - Shortfall risks must specify threshold breached and deviation magnitude
+    - Pipeline summaries must include co-sell flag status per deal
+    - All metrics traceable to source portal or billing data with dates
+    signal_validation:
+    - Never invent consumption trends not supported by billing data
+    - Never assume commitment baselines not explicitly documented
+    - Use qualifiers ("trending below target") when evidence is indirect
+    - Add [NEEDS VERIFICATION] marker when uncertain
+  error_handling:
+    tool_failures:
+      critical:
+      - read-partner-portal
+      - read-marketplace-data
+      enrichment:
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - program-health
+      - committed-spend
+      - co-sell-pipeline
+      archetypes:
+      - hyperscaler-partnerships
+      - alliance-management
+    references:
+    - path: references/hyperscaler-program-mechanics.yaml
+      description: Program tier structures, committed spend mechanics, co-sell registration workflows per hyperscaler
+    - path: references/cosell-qualification-criteria.yaml
+      description: Co-sell eligibility requirements, flag lifecycle, attribution rules per hyperscaler
+    - path: references/marketplace-transaction-playbook.yaml
+      description: Marketplace listing types, transaction models, consumption tracking, incentive programs
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ham-agent
+      description: HAM orchestrator routes program health review requests
+    - type: event
+      source: billing_webhook
+      condition: consumption.deviation >= 15% OR commitment.period_end <= 60_days
+      description: Auto-runs when consumption deviates significantly or commitment period end approaches
+    - type: scheduled
+      source: calendar
+      condition: monthly_review OR quarterly_review
+      description: Scheduled monthly and quarterly program health reviews
+    outputs:
+    - type: parent_return
+      target: ham-agent
+      payload:
+      - pipeline_review
+      - transaction_summary
+      - committed_spend_health
+      - program_health_summary
+      description: Program health results back to orchestrator
+    - type: trigger_agent
+      target: ham-cosell-qualification-agent
+      condition: co_sell_flag.expiring_count >= 3
+      payload:
+      - expiring_registrations
+      - affected_deals
+      description: Multiple expiring co-sell flags trigger re-qualification review
+    - type: trigger_agent
+      target: ham-marketplace-agent
+      condition: committed_spend.burn_rate < 70%
+      payload:
+      - committed_spend_health
+      - consumption_gap
+      description: Low burn rate triggers marketplace acceleration review
+    - type: notify_human
+      condition: committed_spend.burn_rate < 70% OR incentive_utilization < 50%
+      channel: alert
+      description: Spend shortfalls and low incentive utilization surface for HAM review
+    consumes_toolboxes:
+    - toolbox: cosell-intelligence
+      agent: ham-cosell-qualification-agent
+      tools:
+      - get-cosell-readiness
+      reason: Co-sell readiness context enriches pipeline health assessment
+    - toolbox: marketplace-intelligence
+      agent: ham-marketplace-agent
+      tools:
+      - get-transaction-status
+      reason: Transaction lifecycle status enriches closed transaction summary
+    dependencies:
+    - agent: ham-cosell-qualification-agent
+      toolbox: cosell-intelligence
+      tools:
+      - get-cosell-readiness
+      purpose: Current co-sell qualification state for pipeline health context
+    - agent: ham-marketplace-agent
+      toolbox: marketplace-intelligence
+      tools:
+      - get-transaction-status
+      purpose: Latest transaction status for closed deal summary accuracy

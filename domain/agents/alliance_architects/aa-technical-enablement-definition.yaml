@@ -1,0 +1,501 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: aa-technical-enablement-agent
+name: Technical Enablement Agent
+description: >
+  Leaf sub-agent of the Alliance Architect orchestrator. Prepares co-sell technical
+  readiness packages, reviews partner documentation for accuracy, maintains the
+  partner solution catalog against current platform versions, and creates field SA
+  enablement materials on partner capabilities.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: aa-agent
+  tags:
+    - technical-enablement
+    - co-sell-readiness
+    - partner-documentation
+    - solution-catalog
+    - field-enablement
+    - partner-capabilities
+  responsibility: >
+    Provide accurate, evidence-based technical enablement outputs covering co-sell
+    readiness packages, partner documentation validation, solution catalog maintenance,
+    and field SA enablement materials for partner capabilities.
+system_prompt: >
+  You are a Technical Enablement Agent, part of the Alliance Architect intelligence
+  system. Your job is to ensure field teams and co-sell motions have technically
+  validated, current partner enablement materials.
+
+  CORE FUNCTIONS:
+  - Co-sell technical readiness package preparation
+  - Partner documentation review and validation
+  - Solution catalog entry validation and maintenance
+  - Field SA enablement material creation
+
+  You MUST:
+  - Validate all integration claims in partner documentation against tested behavior before approval
+  - Include confidence metadata (HIGH/MEDIUM/LOW) on every output
+  - Flag catalog entries where platform versions have changed since last validation
+  - Cross-reference enablement materials against current reference architectures
+  - Cite specific API versions, deployment models, and known limitations in all outputs
+  - Every documentation issue must include a correction recommendation with evidence
+
+  You MUST NOT:
+  - Validate API compatibility or run integration tests (aa-integration-validation-agent's domain)
+  - Design joint solution architectures or reference patterns (aa-solution-architecture-agent's domain)
+  - Assess partner platform maturity or technical feasibility (aa-due-diligence-agent's domain)
+  - Make commercial partner commitments or manage relationships (Partner Manager human's domain)
+  - Certify integrations without evidence from integration validation
+  - Publish enablement materials with unvalidated integration claims
+
+  When uncertain: use "documentation states" not "the integration supports", add
+  [NEEDS VERIFICATION] for claims not cross-referenced against tested behavior.
+  Omit rather than guess.
+human_in_the_loop: true
+tools:
+  - component_type: ClientTool
+    id: read-aa-data
+    name: Read Alliance Data
+    description: Access partner technical documentation, solution catalog entries, reference architectures, integration guides, and field feedback for enablement analysis
+    requires_confirmation: false
+    inputs:
+      - title: partner_name
+        type: string
+      - title: query_type
+        type: string
+      - title: data_scope
+        type: string
+    outputs:
+      - title: alliance_data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: Data source unavailable, cannot proceed with enablement analysis
+        - error_code: RECORD_NOT_FOUND
+          guidance: No partner record found, verify partner identifiers with user
+        - error_code: STALE_DATA
+          guidance: Data exceeds freshness threshold, flag for human verification
+  - component_type: ClientTool
+    id: write-aa-artifact
+    name: Write Alliance Artifact
+    description: Persist co-sell readiness packages, documentation reviews, catalog updates, and enablement materials to the alliance knowledge store
+    requires_confirmation: true
+    inputs:
+      - title: partner_name
+        type: string
+      - title: artifact_type
+        type: string
+      - title: artifact_content
+        type: object
+    outputs:
+      - title: write_confirmation
+        type: object
+    x-ea-agent:
+      risk: medium
+      resolver: service-registry
+      error_responses:
+        - error_code: WRITE_FAILED
+          guidance: Artifact persistence failed, retain output in memory and retry
+        - error_code: CONFLICT
+          guidance: Newer version exists, retrieve latest before overwriting
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification from alliance architect
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+toolboxes:
+  - component_type: Toolbox
+    id: enablement-intelligence
+    name: Enablement Intelligence
+    description: Partner enablement status and catalog validation results available to peer agents
+    tools:
+      - id: get-cosell-readiness-status
+        name: Get Co-sell Readiness Status
+        description: Returns current co-sell technical readiness status for a partner including validated materials, gaps, and known limitations
+        inputs:
+          - title: partner_name
+            type: string
+        outputs:
+          - title: cosell_readiness_status
+            type: object
+      - id: get-catalog-validation-status
+        name: Get Catalog Validation Status
+        description: Returns current solution catalog validation status for a partner including stale entries, version mismatches, and last validation date
+        inputs:
+          - title: partner_name
+            type: string
+        outputs:
+          - title: catalog_validation_status
+            type: object
+specialized_agents: []
+flows:
+  - component_type: Flow
+    id: technical-enablement
+    name: Technical Enablement Assessment
+    playbook_refs:
+      - PB_AA_001
+    description: Prepare co-sell technical readiness packages, validate partner documentation, audit solution catalog entries, and produce field SA enablement materials.
+    inputs:
+      - title: partner_name
+        type: string
+      - title: engagement_context
+        type: object
+      - title: assessment_trigger
+        type: string
+    outputs:
+      - title: cosell_readiness
+        type: object
+      - title: documentation_review
+        type: object
+      - title: catalog_validation
+        type: object
+      - title: field_enablement
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: aa-cosell-readiness
+          input: partner_name, engagement_context
+          tools:
+            - read-aa-data
+          description: Prepare co-sell technical readiness package with validated integration story
+          on_failure: stop
+        - step: 2
+          prompt: aa-documentation-review
+          input: partner_name, cosell_readiness
+          tools:
+            - read-aa-data
+          description: Review partner documentation for accuracy against tested integration behavior
+          on_failure: stop
+        - step: 3
+          prompt: aa-catalog-validation
+          input: partner_name, documentation_review
+          tools:
+            - read-aa-data
+          description: Validate solution catalog entries against current API versions and platform capabilities
+          on_failure: stop
+        - step: 4
+          prompt: aa-field-enablement
+          input: cosell_readiness, documentation_review, catalog_validation
+          tools:
+            - read-aa-data
+            - write-aa-artifact
+          description: Create field SA enablement materials covering partner capabilities, integration patterns, and known limitations
+          on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+      - cosell-readiness-preparation
+      - partner-documentation-review
+      - solution-catalog-validation
+      - field-sa-enablement
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      Catalog data shows validation dates, documentation reviews, and enablement
+      material versions, but the Alliance Architect reads the real enablement
+      story. Understanding whether a co-sell readiness package actually addresses
+      the questions technical buyers will ask, whether partner documentation gaps
+      reflect deeper integration issues or just poor writing, and whether field
+      SAs need hands-on workshops rather than slide decks requires human judgment
+      and field context that no data source captures. The agent validates and
+      packages, but the Alliance Architect decides what enablement investments
+      will move the needle.
+    challenges:
+      - text: Co-sell engagements start without validated technical readiness packages, forcing SAs to build materials during live customer interactions
+        specific_overhead:
+          - Assembling integration guides, architecture diagrams, and known limitations from scattered sources before each co-sell meeting
+      - text: Partner documentation contains inaccurate integration claims that reach customers, damaging credibility when implementations diverge from published behavior
+        specific_overhead:
+          - Cross-referencing partner marketing documentation against actual API behavior and tested integration patterns
+      - text: Solution catalog entries become stale as vendor and partner platforms evolve independently, leading to field teams positioning outdated capabilities
+        specific_overhead:
+          - Manually checking catalog entries against current API versions and platform release notes across all partners
+      - text: Field SAs lack enablement materials on partner capabilities, resulting in superficial or incorrect partner positioning in customer conversations
+        specific_overhead:
+          - Creating and updating partner capability briefs, integration cheat sheets, and deployment guides for each strategic partner
+      - text: Integration troubleshooting knowledge is locked in individual engineers rather than documented in reusable enablement materials
+        specific_overhead:
+          - Extracting integration patterns, error scenarios, and workarounds from support tickets and engineer conversations into structured guides
+    administrative_overhead:
+      - Assembling integration guides, architecture diagrams, and known limitations from scattered sources before each co-sell meeting
+      - Cross-referencing partner marketing documentation against actual API behavior and tested integration patterns
+      - Manually checking catalog entries against current API versions and platform release notes across all partners
+      - Creating and updating partner capability briefs, integration cheat sheets, and deployment guides for each strategic partner
+      - Extracting integration patterns, error scenarios, and workarounds from support tickets and engineer conversations into structured guides
+    scenarios:
+      - problem: Co-sell engagement scheduled but no validated technical readiness package exists, risking an unprepared joint customer meeting
+        why: >
+          Co-sell motions require both vendors to present a credible joint solution
+          story. When the technical readiness package is missing or outdated, the SA
+          team walks into the meeting without validated architecture artifacts,
+          integration guides, or known limitation documentation. Technical buyers
+          detect the gap immediately, and the co-sell motion loses credibility before
+          it gains traction.
+        agent: aa-technical-enablement-agent
+        agent_response: >
+          Assembles the co-sell technical readiness package by pulling current reference
+          architectures, validated integration patterns, deployment considerations, and
+          known limitations. Cross-references all materials against the latest platform
+          versions and flags any gaps requiring Alliance Architect review before the
+          customer engagement.
+        success_signal:
+          metric: Co-sell engagements with validated technical readiness packages
+          target: Technical readiness package available 48 hours before every co-sell meeting
+          leading_indicator: Package assembly triggered automatically when co-sell engagement is scheduled
+          failure_signal: SAs enter co-sell meetings without validated technical materials
+      - problem: Partner documentation claims integration capabilities that do not match tested behavior, reaching customers as authoritative guidance
+        why: >
+          Partner marketing and documentation teams describe integration capabilities
+          based on planned features, best-case scenarios, or outdated testing. When
+          field teams or customers rely on these claims without independent validation,
+          implementations fail at deployment and both vendors absorb the support burden
+          and credibility damage.
+        agent: aa-technical-enablement-agent
+        agent_response: >
+          Reviews partner documentation against integration validation results, reference
+          architecture specs, and known behavior. Flags inaccurate claims with specific
+          evidence of divergence, produces a correction report with recommended language
+          changes, and tracks documentation issues until the partner resolves them.
+        success_signal:
+          metric: Partner documentation accuracy rate after review
+          target: Zero inaccurate integration claims in customer-facing partner documentation
+          leading_indicator: Documentation review completed for every new partner publication before distribution
+          failure_signal: Customer implementations fail due to inaccurate partner documentation claims
+      - problem: Solution catalog entries reference deprecated API versions or removed features, misleading field teams about current partner capabilities
+        why: >
+          Both vendor and partner platforms release updates independently. Catalog
+          entries validated six months ago may reference API endpoints that have been
+          deprecated, features that have been restructured, or deployment models that
+          are no longer supported. Field teams trust catalog entries as current and
+          position capabilities that no longer exist in their documented form.
+        agent: aa-technical-enablement-agent
+        agent_response: >
+          Validates each catalog entry against current API version documentation,
+          partner release notes, and integration validation results. Flags stale entries
+          with specific version mismatches, produces an update report with recommended
+          corrections, and tracks validation status with last-checked timestamps.
+        success_signal:
+          metric: Catalog entries validated against current platform versions
+          target: All strategic partner catalog entries validated quarterly
+          leading_indicator: Validation triggered automatically when partner or vendor platform releases occur
+          failure_signal: Field teams position capabilities from outdated catalog entries
+  escalation_triggers:
+    - Partner documentation contains claims contradicting integration validation results
+    - Catalog entries reference deprecated APIs with active customer deployments
+    - Co-sell readiness package cannot be assembled due to missing reference architectures
+    - Field SA reports enablement material inaccuracy during customer engagement
+  prompt_registry:
+    aa-cosell-readiness:
+      description: Prepare co-sell technical readiness package with validated integration story, architecture artifacts, and known limitations
+      source: prompts/tasks.yaml#technical_enablement.cosell_readiness
+      inputs:
+        - title: partner_name
+          type: string
+        - title: engagement_context
+          type: object
+      outputs:
+        - title: cosell_readiness
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - reference_architectures
+            - integration_guides
+            - deployment_considerations
+            - known_limitations
+          priority: critical
+    aa-documentation-review:
+      description: Review and validate partner technical documentation against tested integration behavior and current API specifications
+      source: prompts/tasks.yaml#technical_enablement.documentation_review
+      inputs:
+        - title: partner_name
+          type: string
+        - title: documentation
+          type: string
+      outputs:
+        - title: documentation_review
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - partner_docs
+            - integration_behavior
+            - api_specs
+          priority: critical
+    aa-catalog-validation:
+      description: Validate partner solution catalog entries against current API versions, platform capabilities, and integration validation results
+      source: prompts/tasks.yaml#technical_enablement.catalog_validation
+      inputs:
+        - title: partner_name
+          type: string
+      outputs:
+        - title: catalog_validation
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - catalog_entries
+            - current_api_versions
+            - validation_status
+          priority: critical
+    aa-field-enablement:
+      description: Create field SA enablement materials covering partner capabilities, integration patterns, deployment considerations, and troubleshooting guidance
+      source: prompts/tasks.yaml#technical_enablement.field_enablement
+      inputs:
+        - title: partner_name
+          type: string
+      outputs:
+        - title: field_enablement
+          type: object
+      requires_data:
+        - source: read-aa-data
+          fields:
+            - partner_capabilities
+            - integration_patterns
+            - customer_use_cases
+          priority: critical
+  boundaries:
+    - Single partner scope, does not analyze portfolio-level enablement metrics
+    - Does not validate API compatibility or run integration tests (aa-integration-validation-agent's domain)
+    - Does not design joint solution architectures or reference patterns (aa-solution-architecture-agent's domain)
+    - Does not assess partner platform maturity or technical feasibility (aa-due-diligence-agent's domain)
+    - Does not make commercial partner commitments or manage relationships (Partner Manager human's domain)
+    - Does not certify integrations without evidence from integration validation
+  permissions:
+    - Read partner technical documentation for review and validation
+    - Read solution catalog entries and current API version references
+    - Read reference architectures and integration validation results for cross-referencing
+    - Prepare co-sell technical readiness packages with validated integration materials
+    - Validate partner documentation claims against tested integration behavior
+    - Update solution catalog entries with current platform version status
+    - Create field SA enablement materials on partner capabilities
+    - Write enablement artifacts and catalog updates to alliance knowledge store
+  guardrails:
+    input_validation:
+      - Reject enablement requests without partner name
+      - Validate partner exists in registry before proceeding
+      - Reject co-sell readiness requests without engagement context
+    output_checks:
+      - Never publish enablement materials with unvalidated integration claims
+      - Never assert integration capabilities not confirmed by validation results
+      - Include confidence level (HIGH/MEDIUM/LOW) on every output
+      - Catalog validation must cite specific API versions and last-checked dates
+      - Every documentation issue must include correction recommendation with evidence
+      - All outputs traceable to source data with dates
+    signal_validation:
+      - Never assert partner capability without cross-referencing validation results
+      - Never assume documentation accuracy without independent verification
+      - Use qualifiers ("documentation states") when evidence is from partner sources only
+      - Add [NEEDS VERIFICATION] marker when claims cannot be cross-referenced
+    resource:
+      max_tool_calls: 20
+  error_handling:
+    tool_failures:
+      critical:
+        - read-aa-data
+      enrichment:
+        - write-aa-artifact
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without partner data and validation results
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with enablement output, flag persistence failure for retry
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+        - technical-enablement
+        - co-sell-readiness
+        - partner-documentation
+        - solution-catalog
+      archetypes:
+        - isv-partner
+        - si-partner
+        - technology-partner
+    references:
+      - path: references/integration-architecture-patterns.yaml
+        description: Integration patterns, API design principles, data mapping, authentication flows for validating partner documentation claims
+      - path: references/partner-technical-validation.yaml
+        description: ISV program technical requirements, marketplace listing criteria, well-architected frameworks for catalog validation standards
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: aa-agent
+        description: Alliance Architect orchestrator routes co-sell readiness, documentation review, catalog, and field enablement requests
+      - type: event
+        source: cosell_engagement_webhook
+        condition: cosell.engagement_scheduled == true AND cosell.readiness_package_missing == true
+        description: Auto-runs when co-sell engagement is scheduled without a validated readiness package
+      - type: downstream
+        source: aa-integration-validation-agent
+        condition: validation.catalog_entry_affected == true
+        description: Integration validation results indicate a catalog entry needs revalidation
+    outputs:
+      - type: parent_return
+        target: aa-agent
+        payload:
+          - cosell_readiness
+          - documentation_review
+          - catalog_validation
+          - field_enablement
+        description: Technical enablement results back to orchestrator
+      - type: trigger_agent
+        target: aa-integration-validation-agent
+        condition: documentation.claims_unverifiable == true
+        payload:
+          - documentation_review
+        description: Documentation contains integration claims that cannot be verified against existing validation data
+      - type: notify_human
+        condition: documentation.inaccurate_claims_customer_facing == true OR catalog.deprecated_api_active_deployments == true
+        channel: alert
+        description: Inaccurate customer-facing documentation or deprecated catalog entries with active deployments surface for Alliance Architect review
+    consumes_toolboxes:
+      - toolbox: validation-intelligence
+        agent: aa-integration-validation-agent
+        tools:
+          - get-validation-status
+        reason: Current integration validation results needed to cross-reference partner documentation claims and catalog entries
+      - toolbox: architecture-intelligence
+        agent: aa-solution-architecture-agent
+        tools:
+          - get-reference-architecture
+        reason: Current reference architectures needed for co-sell readiness packages and field enablement materials
+    dependencies:
+      - agent: aa-integration-validation-agent
+        toolbox: validation-intelligence
+        tools:
+          - get-validation-status
+        purpose: Integration validation results determine whether partner documentation claims are accurate
+      - agent: aa-solution-architecture-agent
+        toolbox: architecture-intelligence
+        tools:
+          - get-reference-architecture
+        purpose: Reference architectures are core inputs for co-sell readiness packages and enablement materials

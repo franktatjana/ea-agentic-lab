@@ -1,0 +1,500 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ve-hypothesis-agent
+name: VE Hypothesis Agent
+description: 'Creates quantified value hypotheses tied to specific stakeholders, generates
+  persona-specific value narratives, and builds defensible business cases that
+  survive CFO scrutiny. Every hypothesis carries a confidence level and a
+  validation method.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ve-agent
+  tags:
+  - value-hypothesis
+  - business-case
+  - stakeholder-narrative
+  - value-engineering
+  responsibility: 'Build quantified value hypotheses with confidence levels, generate stakeholder-specific
+    narratives (CFO, CTO, LOB), and construct defensible business cases with ROI,
+    TCO, cost-of-inaction, and validation methods.
+
+    '
+system_prompt: 'You are a Value Hypothesis Agent, part of the Value Engineering intelligence
+  system. Your job is to convert discovery findings into quantified value hypotheses,
+  stakeholder-specific narratives, and defensible business cases.
+
+
+  You MUST:
+
+  - Create value hypotheses with baseline, target, timeline, and confidence level
+
+  - Generate stakeholder-specific narratives (CFO, CTO, LOB) from a single model
+
+  - Build business cases with investment, benefits, ROI, cost of inaction
+
+  - Co-create business cases where buyer inputs their own numbers
+
+  - Tag every assumption with confidence level and validation method
+
+  - Map each hypothesis to specific value drivers from discovery
+
+
+  You MUST NOT:
+
+  - Conduct value discovery (VE Discovery Agent''s domain)
+
+  - Calculate detailed ROI/TCO models (VE Calculation Agent''s domain)
+
+  - Track value realization post-deployment (VE Realization Agent''s domain)
+
+  - Guarantee specific outcomes
+
+  - Skip assumption documentation
+
+
+  When uncertain: present as hypothesis (not fact), use ranges with
+  confidence levels, state "estimate pending validation."
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-account-data
+  name: Read Account Data
+  description: Access account context, stakeholder data, opportunity details, and business context from vault
+  requires_confirmation: false
+  inputs:
+  - title: account_path
+    type: string
+  outputs:
+  - title: account_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Account data unavailable, cannot proceed with hypothesis creation
+    - error_code: RECORD_NOT_FOUND
+      guidance: Account not found in vault, verify identifiers with user
+- component_type: ClientTool
+  id: read-value-tracker
+  name: Read Value Tracker
+  description: Access value hypothesis history, baseline metrics, and discovery findings from InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: tracker_path
+    type: string
+  outputs:
+  - title: tracker_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Value tracker unavailable, cannot create hypothesis without baseline data
+    - error_code: NO_RECORDS
+      guidance: No prior value data found, require discovery baseline before hypothesis creation
+- component_type: ClientTool
+  id: write-value-artifact
+  name: Write Value Artifact
+  description: Save value hypothesis, business case, or stakeholder narrative to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact_type
+    type: string
+  - title: content
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+    error_responses:
+    - error_code: WRITE_FAILED
+      guidance: Failed to persist hypothesis artifact, retry or flag for manual save
+    - error_code: VALIDATION_ERROR
+      guidance: Artifact failed schema validation, review content structure
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification, assumption validation, or stakeholder context from value engineer
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+    error_responses:
+    - error_code: NO_RESPONSE
+      guidance: User did not respond, proceed with documented assumptions and flag for review
+toolboxes:
+- component_type: Toolbox
+  id: hypothesis-intelligence
+  name: Hypothesis Intelligence
+  description: Value hypotheses and business case summaries available to peer agents
+  tools:
+  - id: get-value-hypothesis
+    name: Get Value Hypothesis
+    description: Returns quantified value hypothesis with confidence levels, baselines, targets, and validation methods
+    inputs:
+    - title: account_name
+      type: string
+    - title: hypothesis_id
+      type: string
+    outputs:
+    - title: value_hypothesis
+      type: object
+  - id: get-business-case-summary
+    name: Get Business Case Summary
+    description: Returns business case executive summary with investment, benefits, ROI, and cost of inaction
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: business_case_summary
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: value-hypothesis
+  name: Value Hypothesis
+  playbook_refs:
+  - PB_VE_002
+  description: Create quantified value hypotheses, stakeholder-specific narratives, and comprehensive business cases from discovery findings.
+  inputs:
+  - title: account_context
+    type: object
+  - title: baseline_metrics
+    type: object
+  - title: target_outcomes
+    type: object
+  outputs:
+  - title: value_hypothesis
+    type: object
+  - title: stakeholder_narrative
+    type: object
+  - title: business_case
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ve-create-value-hypothesis
+      input: account_name, baseline_metrics, target_outcomes
+      tools:
+      - read-account-data
+      - read-value-tracker
+      description: Create hypothesis with baseline, target, timeline, and confidence level
+      on_failure: stop
+    - step: 2
+      prompt: ve-stakeholder-value-narrative
+      input: stakeholder_role, stakeholder_priorities, hypothesis
+      tools:
+      - read-account-data
+      description: Create targeted narrative with metrics, language, and objection handling per persona
+      on_failure: stop
+    - step: 3
+      prompt: ve-business-case-development
+      input: opportunity_value, hypothesis, decision_maker
+      tools:
+      - read-account-data
+      - read-value-tracker
+      description: Build full business case with investment, benefits, ROI, and cost of inaction
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - write-value-artifact
+      description: Save hypothesis, narratives, and business case to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - value-hypothesis
+    - stakeholder-narrative
+    - business-case
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent structures the business case, but the VE knows which assumptions
+      will face challenge, which stakeholder needs political cover, and whether
+      the value narrative fits the customer''s actual decision process. The business
+      case is structured, but human judgment determines whether it moves the deal.
+
+      '
+    challenges:
+    - text: Business cases rely on assumptions that are never validated
+      solved_by: value-hypothesis
+      specific_overhead:
+      - Building ROI models in spreadsheets for every deal from scratch
+    - text: Different stakeholders need different value narratives
+      solved_by: value-hypothesis
+      specific_overhead:
+      - Reformatting the same business case for different executive audiences
+    - text: VE builds the model and presents it rather than co-creating with the buyer
+      solved_by: value-hypothesis
+      source: REF_VE_BP_001
+      specific_overhead:
+      - Iterating through multiple review cycles because buyer disputes assumptions they had no role in setting
+    - text: Hypotheses lack validation methods, making post-deployment tracking impossible
+      solved_by: value-hypothesis
+      specific_overhead:
+      - Manually defining measurement criteria for each hypothesis after business case delivery
+    - text: Business case assumptions are inherited from prior deals without verification
+      solved_by: value-hypothesis
+      specific_overhead:
+      - Manually auditing assumption libraries for accuracy against prior deployment outcomes
+    administrative_overhead:
+    - Building ROI models in spreadsheets for every deal from scratch
+    - Reformatting the same business case for different executive audiences
+    - Iterating through review cycles when buyer disputes unvalidated assumptions
+    - Manually defining validation methods for each hypothesis
+    scenarios:
+    - problem: Business cases rely on assumptions that are never validated
+      why: 'Pre-sales business cases are built under time pressure with assumed inputs
+        for cost savings, productivity gains, and risk reduction. After the deal closes,
+        nobody goes back to test whether the assumptions were correct. Future business
+        cases inherit the same unvalidated assumptions, compounding the accuracy
+        problem across deals.
+
+        '
+      agent: ve-hypothesis-agent
+      agent_response: 'The agent tags each business case assumption with a confidence level
+        and a validation method. It structures hypotheses so each assumption maps to a
+        measurable post-deployment metric, enabling systematic validation. It feeds
+        validated actuals back into the assumption library so future business cases
+        start from empirical data rather than inherited guesses.
+
+        '
+      success_signal:
+        metric: Business case assumption validation rate
+        target: At least 50% of key assumptions validated with actual data within 6 months of deployment
+        leading_indicator: Every hypothesis includes a validation method and measurement timeline
+        failure_signal: Business cases continue using assumptions that prior deployments have disproven
+    - problem: Different stakeholders need different value narratives
+      why: 'A CFO cares about TCO and payback period. A CTO cares about engineering
+        productivity and technical debt reduction. A line-of-business leader cares about
+        revenue impact and competitive advantage. Presenting the same value narrative
+        to all three wastes the meeting and fails to connect with the metric each
+        decision-maker optimizes for.
+
+        '
+      agent: ve-hypothesis-agent
+      agent_response: 'The agent generates stakeholder-specific value narratives from a
+        single underlying business case model. It maps value drivers to the metrics
+        each persona cares about, adjusts the framing and emphasis per audience, and
+        produces tailored presentations that speak to the CFO in financial terms, the
+        CTO in technical terms, and the business leader in outcome terms.
+
+        '
+      success_signal:
+        metric: Stakeholder-specific value narrative coverage
+        target: Tailored value narratives generated for at least 3 key personas per enterprise deal
+        leading_indicator: Stakeholder mapping completed with persona-specific value drivers identified
+        failure_signal: Same value deck presented to all stakeholders with no persona-specific adjustment
+  escalation_triggers:
+  - Discovery baseline missing or incomplete when hypothesis creation requested (immediate, to VE Lead)
+  - Business case assumptions below 40% confidence on critical drivers (within 24h, to VE Lead)
+  - Stakeholder priorities conflict, making single narrative impossible (within 24h, to AE)
+  - Buyer refuses co-creation, insisting on vendor-built model (flag to VE Lead for approach adjustment)
+  prompt_registry:
+    ve-create-value-hypothesis:
+      description: Create quantified value hypothesis with baseline, target, timeline, and confidence
+      source: prompts/tasks.yaml#value_hypothesis.create_value_hypothesis
+      inputs:
+      - title: account_name
+        type: string
+      - title: baseline_metrics
+        type: object
+      - title: target_outcomes
+        type: object
+      - title: use_cases
+        type: string
+      outputs:
+      - title: value_hypothesis
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - account_profile
+        - baseline_metrics
+        - strategic_priorities
+        priority: critical
+      - source: read-value-tracker
+        fields:
+        - existing_hypotheses
+        - historical_baselines
+        priority: enrichment
+    ve-stakeholder-value-narrative:
+      description: Create stakeholder-specific value narrative with metrics, language, and objection handling
+      source: prompts/tasks.yaml#value_hypothesis.stakeholder_value_narrative
+      inputs:
+      - title: account_name
+        type: string
+      - title: stakeholder_role
+        type: string
+      - title: stakeholder_priorities
+        type: string
+      - title: hypothesis
+        type: object
+      outputs:
+      - title: stakeholder_narrative
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - stakeholder_map
+        - stakeholder_priorities
+        priority: critical
+    ve-business-case-development:
+      description: Develop comprehensive business case with investment, benefits, ROI, and cost of inaction
+      source: prompts/tasks.yaml#value_hypothesis.business_case_development
+      inputs:
+      - title: account_name
+        type: string
+      - title: opportunity_value
+        type: string
+      - title: hypothesis
+        type: object
+      - title: decision_maker
+        type: string
+      outputs:
+      - title: business_case
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - account_profile
+        - opportunity_details
+        - stakeholder_map
+        priority: critical
+      - source: read-value-tracker
+        fields:
+        - value_hypotheses
+        - baseline_metrics
+        priority: critical
+  boundaries:
+  - Does not conduct value discovery or baseline assessment
+  - Does not calculate detailed ROI/TCO models (provides inputs to calculation agent)
+  - Does not track post-deployment value realization
+  - Does not guarantee specific outcomes
+  - Does not skip assumption documentation or confidence levels
+  permissions:
+  - Read account data for stakeholder context and opportunity details
+  - Read value tracker for discovery baseline and prior hypotheses
+  - Create value hypotheses with confidence levels and validation methods
+  - Generate stakeholder-specific value narratives
+  - Build business cases with investment, benefits, and cost of inaction
+  - Write hypothesis artifacts to InfoHub
+  guardrails:
+    input_validation:
+    - Reject hypothesis creation without discovery baseline
+    - Reject narrative generation without stakeholder identification
+    - Reject business case development without at least one quantified hypothesis
+    output_checks:
+    - Every hypothesis has baseline, target, confidence level, and validation method
+    - Business case includes investment, benefits, ROI, and cost of inaction
+    - Stakeholder narratives use persona-specific metrics and language
+    - Every assumption is tagged with confidence and validation method
+    - Co-creation markers indicate which numbers are buyer-provided vs vendor-estimated
+    signal_validation:
+    - Never guarantee specific outcomes
+    - Never skip assumption documentation
+    - Flag hypotheses with <40% confidence for human review
+    - Present as hypothesis (not fact) when evidence is indirect
+  error_handling:
+    tool_failures:
+      critical:
+      - read-account-data
+      - read-value-tracker
+      enrichment: []
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable hypothesis without account data and discovery baseline
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification of baseline data
+  knowledge:
+    scope:
+      domains:
+      - value-hypothesis
+      - business-case
+      - stakeholder-narrative
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/signal-detection.yaml
+      description: Signal patterns for identifying stakeholder priorities and value alignment
+    - path: references/value-lifecycle.yaml
+      description: Value lifecycle stages and hypothesis-to-realization progression
+    - path: references/calculation-frameworks.yaml
+      description: ROI, TCO, and cost-of-inaction calculation frameworks for business case inputs
+    - path: references/business-case-structure.yaml
+      description: Business case structure, executive summary format, and stakeholder narrative templates
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ve-agent
+      description: VE orchestrator routes hypothesis and business case requests
+    - type: downstream
+      source: ve-discovery-agent
+      condition: discovery.complete == true
+      description: Completed discovery triggers hypothesis creation from baseline data
+    outputs:
+    - type: parent_return
+      target: ve-agent
+      payload:
+      - value_hypothesis
+      - stakeholder_narrative
+      - business_case
+      description: Hypothesis results back to VE orchestrator
+    - type: trigger_agent
+      target: ve-calculation-agent
+      condition: hypothesis.needs_financial_model == true
+      payload:
+      - value_hypothesis
+      - baseline_metrics
+      description: Hypothesis requiring detailed financial modeling triggers calculation agent
+    - type: notify_human
+      condition: hypothesis.confidence < 40
+      channel: alert
+      description: Low-confidence hypotheses surface for VE review and assumption strengthening
+    consumes_toolboxes:
+    - toolbox: discovery-intelligence
+      agent: ve-discovery-agent
+      tools:
+      - get-current-state-assessment
+      - get-value-driver-map
+      reason: Discovery baseline and value drivers as foundation for hypothesis creation
+    dependencies:
+    - agent: ve-discovery-agent
+      toolbox: discovery-intelligence
+      tools:
+      - get-current-state-assessment
+      - get-value-driver-map
+      purpose: Grounded baseline data and stakeholder-mapped value drivers for hypothesis creation

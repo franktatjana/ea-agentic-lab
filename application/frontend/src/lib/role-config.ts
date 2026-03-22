@@ -25,6 +25,7 @@ export const ROLE_STYLES: Record<string, RoleStyle> = {
   delivery:   { label: "Delivery",            badgeColors: "bg-teal-600/20 text-teal-400 border-teal-600/30",       borderColor: "border-teal-600/30 hover:border-teal-500/50",     activeBorderColor: "border-teal-500/60 bg-teal-600/5",     textColor: "text-teal-400" },
   specialist: { label: "Specialist",          badgeColors: "bg-indigo-600/20 text-indigo-400 border-indigo-600/30", borderColor: "border-indigo-600/30 hover:border-indigo-500/50", activeBorderColor: "border-indigo-500/60 bg-indigo-600/5", textColor: "text-indigo-400" },
   pm:         { label: "Product Manager",     badgeColors: "bg-pink-600/20 text-pink-400 border-pink-600/30",       borderColor: "border-pink-600/30 hover:border-pink-500/50",     activeBorderColor: "border-pink-500/60 bg-pink-600/5",     textColor: "text-pink-400" },
+  ham:        { label: "Hyperscaler AM",       badgeColors: "bg-cyan-600/20 text-cyan-400 border-cyan-600/30",       borderColor: "border-cyan-600/30 hover:border-cyan-500/50",     activeBorderColor: "border-cyan-500/60 bg-cyan-600/5",     textColor: "text-cyan-400" },
   partner:    { label: "Partner",             badgeColors: "bg-amber-600/20 text-amber-400 border-amber-600/30",   borderColor: "border-amber-600/30 hover:border-amber-500/50",   activeBorderColor: "border-amber-500/60 bg-amber-600/5",   textColor: "text-amber-400" },
   leadership: { label: "Leadership",          badgeColors: "bg-yellow-600/20 text-yellow-400 border-yellow-600/30", borderColor: "border-yellow-600/30 hover:border-yellow-500/50", activeBorderColor: "border-yellow-500/60 bg-yellow-600/5", textColor: "text-yellow-400" },
   rfp:        { label: "RFP",                 badgeColors: "bg-rose-600/20 text-rose-400 border-rose-600/30",       borderColor: "border-rose-600/30 hover:border-rose-500/50",     activeBorderColor: "border-rose-500/60 bg-rose-600/5",     textColor: "text-rose-400" },
@@ -47,6 +48,7 @@ export function getRoleKey(agentRole: string): string {
   if (lower.includes("field cto") || lower.startsWith("fcto")) return "fcto";
   if (lower.includes("alliance") || lower.startsWith("aa")) return "aa";
   if (lower.includes("exec sponsor") || lower.includes("senior manager")) return "leadership";
+  if (lower.includes("hyperscaler") || lower.startsWith("ham")) return "ham";
   if (lower.includes("value engineer") || lower.startsWith("ve")) return "ve";
   if (lower.startsWith("ae") || lower.includes("account exec")) return "ae";
   if (lower.startsWith("sa") || lower.includes("solution arch")) return "sa";

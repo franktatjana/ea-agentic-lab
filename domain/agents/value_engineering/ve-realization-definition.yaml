@@ -1,0 +1,617 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ve-realization-agent
+name: VE Realization Agent
+description: >
+  Closes the loop between pre-sales promises and post-deployment evidence. Converts
+  value hypotheses into trackable milestones, monitors projected versus actual value
+  monthly, prepares QBR value content, and develops success stories from verified
+  results. Realized value is the strongest asset for renewals.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ve-agent
+  tags:
+  - value-realization
+  - tracking
+  - qbr
+  - success-stories
+  - renewal
+  - value-engineering
+  responsibility: >
+    Convert pre-sales hypotheses into post-deployment milestones, track projected
+    vs actual value monthly, prepare QBR value content, develop success stories,
+    and produce comprehensive realized value assessments.
+system_prompt: >
+  You are a Value Realization Agent, part of the Value Engineering intelligence
+  system. Your job is to close the loop between what was sold and what was delivered.
+
+
+  You MUST:
+
+  - Convert pre-sales value hypotheses into trackable realization milestones
+
+  - Track projected versus actual value monthly with variance analysis
+
+  - Prepare QBR value content with metrics, ROI-to-date, and value roadmap
+
+  - Develop success stories with headline metrics and customer narrative
+
+  - Produce comprehensive realized value assessments comparing original to actual
+
+  - Establish tracking ownership and cadence at deal close
+
+  - Quantify in currency, percentages, or time
+
+  - State assumptions explicitly
+
+  - Use ranges with confidence levels when precision is impossible
+
+
+  You MUST NOT:
+
+  - Build pre-sales business cases (VE Hypothesis Agent's domain)
+
+  - Calculate original ROI models (VE Calculation Agent's domain)
+
+  - Build renewal justification narratives (VE Amplification Agent's domain)
+
+  - Claim realized value without documented evidence
+
+  - Guarantee future value based on current trajectory
+
+  - Project unrealized value as realized
+
+
+  NEVER fabricate realization data. NEVER claim value without documented evidence.
+
+  NEVER project future value as realized. NEVER suppress negative variance.
+
+
+  When uncertain: present as "tracking indicates" (not confirmed), use ranges
+  with confidence levels, state "pending customer validation."
+
+
+  Output format: markdown with hypothesis-to-realization headers, tables for
+  variance analysis and ROI-to-date, bold for key metrics and milestone status.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-account-data
+  name: Read Account Data
+  description: Access account context, customer relationship data, and deployment status
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: section
+    type: string
+  outputs:
+  - title: account_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Account data unavailable, cannot proceed with realization tracking
+    - error_code: RECORD_NOT_FOUND
+      guidance: Account not found, verify identifiers with user
+- component_type: ClientTool
+  id: read-value-tracker
+  name: Read Value Tracker
+  description: Access value hypothesis tracker, realization milestones, and variance data
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: tracker_type
+    type: string
+  - title: review_period
+    type: string
+  outputs:
+  - title: tracker_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Value tracker unavailable, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No tracker found for account, verify realization setup completed
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: value, realization, qbr-history, success-stories, or context.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: write-value-artifact
+  name: Write Value Artifact
+  description: Save realization reports, QBR content, success stories, and value assessments to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: artifact_type
+    type: string
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from value engineer
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: realization-intelligence
+  name: Realization Intelligence
+  description: Hypothesis vs actual tracking and documented realized value available to peer agents
+  tools:
+  - id: get-realization-status
+    name: Get Realization Status
+    description: Returns hypothesis vs actual tracking with variance analysis and milestone status
+    inputs:
+    - title: account_name
+      type: string
+    - title: review_period
+      type: string
+    outputs:
+    - title: realization_status
+      type: object
+  - id: get-value-evidence
+    name: Get Value Evidence
+    description: Returns documented realized value with sources, validation status, and customer attribution
+    inputs:
+    - title: account_name
+      type: string
+    - title: value_category
+      type: string
+    outputs:
+    - title: value_evidence
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: value-realization
+  name: Value Realization
+  playbook_refs:
+  - PB_VE_006
+  description: Track realization milestones, prepare QBR content, develop success stories, and produce realized value assessments.
+  inputs:
+  - title: account_name
+    type: string
+  - title: tracker_link
+    type: string
+  - title: review_period
+    type: string
+  - title: quarter
+    type: string
+  - title: stakeholders
+    type: array
+  - title: original_case
+    type: object
+  outputs:
+  - title: tracker_update
+    type: object
+  - title: qbr_value_content
+    type: object
+  - title: success_story
+    type: object
+  - title: realized_value_assessment
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ve-value-tracker-update
+      input: account_name, tracker_link, review_period
+      tools:
+      - read-account-data
+      - read-value-tracker
+      - read-infohub
+      description: Update value tracker with current actuals, calculate variance against projections
+      on_failure: stop
+    - step: 2
+      prompt: ve-qbr-value-content
+      input: account_name, quarter, tracker, stakeholders
+      tools:
+      - read-value-tracker
+      - read-infohub
+      description: Prepare QBR value content with metrics, ROI-to-date, and value roadmap
+      on_failure: stop
+    - step: 3
+      prompt: ve-success-story-development
+      input: value_summary, metrics
+      tools:
+      - read-account-data
+      - read-value-tracker
+      description: Develop success story with headline metrics, customer narrative, and reference potential
+      on_failure: skip_with_warning
+    - step: 4
+      prompt: ve-realized-value-assessment
+      input: duration, original_case
+      tools:
+      - read-value-tracker
+      - read-infohub
+      description: Comprehensive assessment comparing original business case to actual realized value
+      on_failure: stop
+    - step: 5
+      action: persist
+      tools:
+      - write-value-artifact
+      description: Save tracker update, QBR content, success story, and assessment to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - realization-tracking
+    - qbr-content
+    - success-stories
+    - realized-assessment
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent tracks metrics and produces reports, but the VE interprets what the
+      numbers mean for the customer relationship: whether a missed target is a
+      measurement issue or a real gap, whether the customer sees the value even when
+      metrics are mixed, and which success stories will resonate for reference calls.
+    challenges:
+    - text: Post-deployment realization is rarely tracked systematically
+      specific_overhead:
+      - Reformatting the same business case for different executive audiences
+    - text: Value realization is never tracked after deployment, weakening renewal and expansion cases
+      specific_overhead:
+      - Manually comparing original business case assumptions against post-deployment outcomes
+    - text: QBR value content is assembled ad-hoc from scattered data sources
+      specific_overhead:
+      - Pulling metrics from multiple systems to build quarterly value summaries
+    - text: Success stories lack validated metrics and customer attribution
+      specific_overhead:
+      - Chasing customers for approval and metric validation on case study content
+    - text: Original business case assumptions are never revisited post-deployment
+      specific_overhead:
+      - Searching archived pre-sales materials to reconstruct original value projections
+    administrative_overhead:
+    - Manually comparing original business case assumptions against post-deployment outcomes
+    - Reformatting the same business case for different executive audiences
+    - Pulling metrics from multiple systems to build quarterly value summaries
+    - Chasing customers for approval and metric validation on case study content
+    - Searching archived pre-sales materials to reconstruct original value projections
+    scenarios:
+    - problem: Post-deployment realization is rarely tracked systematically
+      why: >
+        Without systematic tracking, the vendor cannot prove what was delivered
+        matches what was sold. Renewal conversations default to price negotiation
+        because neither side has evidence of realized value. The customer questions
+        whether the investment was worthwhile.
+      agent: ve-realization-agent
+      agent_response: >
+        Converts pre-sales value hypotheses into trackable realization milestones
+        at deal close. Establishes monthly tracking cadence with variance analysis,
+        ensuring projected versus actual value is documented continuously.
+      success_signal:
+        metric: Realization tracking active for deployed accounts
+        target: 90% of closed-won accounts have active value trackers within 30 days
+        leading_indicator: Realization milestone plan created within 7 days of deal close
+        failure_signal: Renewal approaches with no documented realized value
+    - problem: Value realization is never tracked after deployment, weakening renewal and expansion cases
+      why: >
+        Pre-sales value claims become empty promises when post-deployment evidence
+        does not exist. Renewal conversations rely on relationship rather than proof,
+        and expansion cases cannot build on demonstrated outcomes. Competitors exploit
+        the evidence gap during competitive displacement.
+      agent: ve-realization-agent
+      agent_response: >
+        Tracks projected versus actual value monthly with variance analysis. Prepares
+        QBR value content with ROI-to-date, develops success stories with validated
+        metrics, and produces comprehensive realized value assessments that compare
+        original projections to documented outcomes.
+      success_signal:
+        metric: Realized value documented at renewal
+        target: 85% of renewals include a realized value assessment with validated metrics
+        leading_indicator: Monthly variance reports produced for 6+ consecutive months
+        failure_signal: Renewal negotiation without any post-deployment value evidence
+  escalation_triggers:
+  - Variance exceeds -20% against original hypothesis for 3+ consecutive months
+  - QBR approaches with insufficient value evidence
+  - Success story candidate identified but customer attribution pending
+  - Realization tracker not established within 30 days of deal close
+  prompt_registry:
+    ve-value-tracker-update:
+      description: Update value tracker with current actuals, calculate variance against original projections
+      source: prompts/tasks.yaml#value_realization.value_tracker_update
+      inputs:
+      - title: account_name
+        type: string
+      - title: tracker_link
+        type: string
+      - title: review_period
+        type: string
+      outputs:
+      - title: tracker_update
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - account_context
+        - deployment_status
+        - customer_contacts
+        priority: critical
+      - source: read-value-tracker
+        fields:
+        - original_hypotheses
+        - projected_values
+        - prior_actuals
+        - milestone_status
+        priority: critical
+      - source: read-infohub
+        fields:
+        - deployment_milestones
+        - usage_metrics
+        - customer_feedback
+        priority: enrichment
+    ve-qbr-value-content:
+      description: Prepare QBR value content with metrics, ROI-to-date, and forward-looking value roadmap
+      source: prompts/tasks.yaml#value_realization.qbr_value_content
+      inputs:
+      - title: account_name
+        type: string
+      - title: quarter
+        type: string
+      - title: tracker
+        type: object
+      - title: stakeholders
+        type: array
+      outputs:
+      - title: qbr_value_content
+        type: object
+      requires_data:
+      - source: read-value-tracker
+        fields:
+        - quarterly_metrics
+        - roi_to_date
+        - milestone_progress
+        priority: critical
+      - source: read-infohub
+        fields:
+        - qbr_history
+        - stakeholder_priorities
+        - expansion_opportunities
+        priority: critical
+      - source: read-account-data
+        fields:
+        - relationship_context
+        - strategic_initiatives
+        priority: enrichment
+    ve-success-story-development:
+      description: Develop success story with headline metrics, customer narrative, and reference potential
+      source: prompts/tasks.yaml#value_realization.success_story_development
+      inputs:
+      - title: value_summary
+        type: object
+      - title: metrics
+        type: object
+      outputs:
+      - title: success_story
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - customer_profile
+        - industry_context
+        - deployment_scope
+        priority: critical
+      - source: read-value-tracker
+        fields:
+        - validated_metrics
+        - headline_results
+        - timeline
+        priority: critical
+      - source: read-infohub
+        fields:
+        - customer_quotes
+        - reference_status
+        - approval_status
+        priority: enrichment
+    ve-realized-value-assessment:
+      description: Comprehensive assessment comparing original business case projections to documented realized value
+      source: prompts/tasks.yaml#value_realization.realized_value_assessment
+      inputs:
+      - title: duration
+        type: string
+      - title: original_case
+        type: object
+      outputs:
+      - title: realized_value_assessment
+        type: object
+      requires_data:
+      - source: read-value-tracker
+        fields:
+        - original_projections
+        - actual_results
+        - variance_history
+        - milestone_completion
+        priority: critical
+      - source: read-infohub
+        fields:
+        - deployment_history
+        - scope_changes
+        - external_factors
+        priority: critical
+      - source: read-account-data
+        fields:
+        - account_health
+        - renewal_timeline
+        - expansion_potential
+        priority: enrichment
+  boundaries:
+  - Post-deployment scope only, does not build pre-sales business cases
+  - Does not calculate original ROI models
+  - Does not build renewal justification narratives
+  - Does not fabricate realization data or suppress negative variance
+  - Does not project unrealized value as realized
+  permissions:
+  - Read account data and value tracker for realization metrics
+  - Read InfoHub for deployment history and QBR context
+  - Track projected versus actual value with variance analysis
+  - Write realization reports, QBR content, and success stories to InfoHub
+  - Develop success stories with validated metrics
+  guardrails:
+    input_validation:
+    - Reject tracker update without account context and review period
+    - Reject QBR content without tracker data and quarter specification
+    - Reject success story without validated metrics and customer attribution
+    - Reject realized value assessment without original business case reference
+    output_checks:
+    - Every realization metric maps to original pre-sales hypothesis
+    - Variance analysis includes explanation and corrective action
+    - Success stories include validated metrics with customer attribution
+    - QBR content includes ROI-to-date and value roadmap
+    - All assessments traceable to source data with dates and values
+    signal_validation:
+    - Never claim value without documented evidence
+    - Never project future value as realized
+    - Flag hypotheses with negative variance >20%
+    - Use qualifiers when evidence is indirect
+    - Add [NEEDS VERIFICATION] for metrics pending customer validation
+  error_handling:
+    tool_failures:
+      critical:
+      - read-account-data
+      - read-value-tracker
+      enrichment:
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable realization tracking without account and value tracker data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - value-realization
+      - qbr-preparation
+      - success-stories
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/value-realization-framework.yaml
+      description: Realization tracking methodology, milestone structures, variance analysis, cadence design
+    - path: references/value-lifecycle.yaml
+      description: Value lifecycle stages, hypothesis-to-realization progression, handoff protocols
+    - path: references/business-case-structure.yaml
+      description: Original business case anatomy for comparison against realized outcomes
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ve-agent
+      description: VE orchestrator routes realization tracking and QBR preparation requests
+    - type: scheduled_cadence
+      schedule: monthly
+      description: Monthly realization review for all active accounts with value trackers
+    - type: event
+      source: crm_webhook
+      condition: renewal_minus_90
+      description: Renewal approaching triggers comprehensive realized value assessment
+    - type: downstream
+      source: ve-proof-agent
+      condition: poc.completed AND deal.closed_won
+      description: Completed POC with closed deal triggers realization tracking setup
+    outputs:
+    - type: parent_return
+      target: ve-agent
+      payload:
+      - tracker_update
+      - qbr_value_content
+      - success_story
+      - realized_value_assessment
+      description: Realization results back to orchestrator
+    - type: trigger_agent
+      target: ve-amplification-agent
+      condition: realization.evidence_ready == true
+      payload:
+      - realized_value_assessment
+      - success_story
+      - validated_metrics
+      description: Verified realization evidence triggers value amplification for renewal/expansion
+    - type: notify_human
+      condition: variance.negative > 20% OR qbr_approaching AND evidence.insufficient
+      channel: alert
+      description: Significant negative variance and QBR readiness gaps surface for VE review
+    consumes_toolboxes:
+    - toolbox: hypothesis-intelligence
+      agent: ve-hypothesis-agent
+      tools:
+      - get-value-hypothesis
+      reason: Original hypothesis provides the baseline for realization comparison
+    - toolbox: proof-intelligence
+      agent: ve-proof-agent
+      tools:
+      - get-pov-status
+      reason: POV results provide the initial post-evaluation baseline for realization tracking
+    dependencies:
+    - agent: ve-hypothesis-agent
+      toolbox: hypothesis-intelligence
+      tools:
+      - get-value-hypothesis
+      purpose: Original value hypothesis as baseline for realization variance analysis
+    - agent: ve-proof-agent
+      toolbox: proof-intelligence
+      tools:
+      - get-pov-status
+      purpose: POV evaluation results as starting point for post-deployment tracking

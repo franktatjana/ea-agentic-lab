@@ -1,0 +1,558 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ve-proof-agent
+name: VE Proof Agent
+description: >
+  Connects evaluation results to the original value hypothesis, tracking POC/POV
+  metrics against business case drivers, comparing to industry benchmarks, and
+  documenting quick wins that build momentum toward purchase decision. The POC
+  succeeds when it proves the business case, not just the technology.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ve-agent
+  tags:
+  - value-proof
+  - poc
+  - pov
+  - benchmarks
+  - quick-wins
+  - value-engineering
+  responsibility: >
+    Track POC/POV value metrics against hypotheses, compare to industry benchmarks,
+    document quick wins, and produce value proof reports connecting technical results
+    to financial impact.
+system_prompt: >
+  You are a Value Proof Agent, part of the Value Engineering intelligence system.
+  Your job is to connect evaluation results to the original value hypothesis,
+  proving the business case during POC/POV.
+
+
+  You MUST:
+
+  - Map POC success criteria directly to value hypothesis drivers
+
+  - Track POC/POV metrics against value hypotheses with weekly progress
+
+  - Compare customer results to industry benchmarks
+
+  - Document quick wins with quantified value and amplification plan
+
+  - Produce value proof reports connecting technical results to financial impact
+
+  - Ensure every evaluation milestone generates evidence for the business case
+
+  - Quantify in currency, percentages, or time
+
+  - State assumptions explicitly
+
+  - Use ranges with confidence levels when precision is impossible
+
+
+  You MUST NOT:
+
+  - Conduct value discovery (VE Discovery Agent's domain)
+
+  - Calculate ROI/TCO independently (VE Calculation Agent's domain)
+
+  - Track post-deployment realization (VE Realization Agent's domain)
+
+  - Fabricate benchmark data or POC results
+
+  - Claim proof without documented evidence
+
+  - Present benchmarks without industry context
+
+
+  When uncertain: use qualifiers ("suggests", "indicates"), add
+  [NEEDS VERIFICATION] for ambiguous data. Omit rather than guess.
+
+
+  Output format: markdown with hypothesis-mapped headers, tables for
+  benchmark comparisons, bold for key metrics and proof milestones.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-account-data
+  name: Read Account Data
+  description: Access account context, opportunity data, and value tracker state
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: section
+    type: string
+  outputs:
+  - title: account_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Account data unavailable, cannot proceed with proof tracking
+    - error_code: RECORD_NOT_FOUND
+      guidance: Account not found, verify identifiers with user
+- component_type: ClientTool
+  id: read-value-tracker
+  name: Read Value Tracker
+  description: Access value hypothesis tracker, POC metrics, and benchmark data
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: tracker_type
+    type: string
+  outputs:
+  - title: tracker_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Value tracker unavailable, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No tracker found for account, verify hypothesis exists
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account data from the InfoHub vault. Use section parameter
+    to target specific data: value, benchmarks, poc-status, competitive, or context.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: write-value-artifact
+  name: Write Value Artifact
+  description: Save value proof reports, benchmark comparisons, and quick win documentation to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: artifact_type
+    type: string
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from value engineer
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: proof-intelligence
+  name: Proof Intelligence
+  description: POV tracking and benchmark comparison data available to peer agents
+  tools:
+  - id: get-pov-status
+    name: Get POV Status
+    description: Returns POV metrics vs hypothesis tracking with weekly progress and variance
+    inputs:
+    - title: account_name
+      type: string
+    - title: opportunity_name
+      type: string
+    outputs:
+    - title: pov_status
+      type: object
+  - id: get-benchmark-comparison
+    name: Get Benchmark Comparison
+    description: Returns customer vs industry benchmark comparison with context (industry, size, maturity)
+    inputs:
+    - title: account_name
+      type: string
+    - title: use_case
+      type: string
+    outputs:
+    - title: benchmark_comparison
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: value-proof
+  name: Value Proof
+  playbook_refs:
+  - PB_VE_005
+  description: Track POV metrics against hypotheses, compare to benchmarks, and document quick wins.
+  inputs:
+  - title: account_name
+    type: string
+  - title: success_criteria
+    type: object
+  - title: duration
+    type: string
+  - title: customer_metrics
+    type: object
+  - title: industry
+    type: string
+  - title: use_case
+    type: string
+  outputs:
+  - title: pov_tracking_report
+    type: object
+  - title: benchmark_comparison
+    type: object
+  - title: quick_win_documentation
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ve-pov-value-tracking
+      input: account_name, success_criteria, duration, status
+      tools:
+      - read-account-data
+      - read-value-tracker
+      - read-infohub
+      description: Map POC success criteria to hypothesis drivers, track weekly metrics against targets
+      on_failure: stop
+    - step: 2
+      prompt: ve-benchmark-comparison
+      input: customer_metrics, industry, use_case
+      tools:
+      - read-value-tracker
+      - read-infohub
+      description: Compare customer evaluation results to industry benchmarks with context
+      on_failure: stop
+    - step: 3
+      prompt: ve-quick-win-documentation
+      input: quick_wins, timeline
+      tools:
+      - read-account-data
+      - read-value-tracker
+      description: Document quick wins with quantified value, validation source, and amplification plan
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - write-value-artifact
+      description: Save value proof report, benchmark comparison, and quick win documentation to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - pov-tracking
+    - benchmark-comparison
+    - quick-win-documentation
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent tracks metrics and maps them to hypotheses, but the VE knows when
+      a quick win resonates with the executive sponsor, when benchmark numbers
+      need context to avoid misleading comparisons, and when to adjust success
+      criteria because the customer's priorities shifted during evaluation.
+    challenges:
+    - text: Value proof during POC is disconnected from the original hypothesis
+      specific_overhead:
+      - Collecting customer-specific cost data through back-and-forth emails
+    - text: POC success criteria focus on technical checkboxes rather than business outcomes
+      specific_overhead:
+      - Manually mapping POC results back to pre-sales business case assumptions
+    - text: Quick wins discovered during evaluation are not captured or communicated to stakeholders
+      specific_overhead:
+      - Assembling ad-hoc proof point summaries from scattered POC notes and demo feedback
+    - text: Benchmark comparisons lack industry context, making them misleading or dismissible
+      specific_overhead:
+      - Researching industry-specific benchmarks across analyst reports and public sources
+    - text: POC/POV reporting does not connect technical test results to financial impact
+      specific_overhead:
+      - Reformatting technical POC reports into business-value language for executive audiences
+    administrative_overhead:
+    - Manually mapping POC results back to pre-sales business case assumptions
+    - Collecting customer-specific cost data through back-and-forth emails
+    - Assembling ad-hoc proof point summaries from scattered POC notes and demo feedback
+    - Researching industry-specific benchmarks across analyst reports and public sources
+    - Reformatting technical POC reports into business-value language for executive audiences
+    scenarios:
+    - problem: Value proof during POC is disconnected from the original hypothesis
+      why: >
+        The value hypothesis defines what the customer should expect. During POC,
+        evaluation focuses on technical features rather than measuring value drivers
+        that justified the investment. Without this connection, the business case
+        dies between pre-sales and evaluation.
+      agent: ve-proof-agent
+      agent_response: >
+        Maps POC success criteria directly to value hypothesis drivers, ensuring
+        each evaluation milestone generates evidence for or against the business
+        case. Tracks weekly progress with variance analysis against original targets.
+      success_signal:
+        metric: POC-to-value hypothesis alignment
+        target: At least 80% of POC success criteria linked to value hypothesis drivers
+        leading_indicator: Value-mapped POC plan delivered before evaluation kickoff
+        failure_signal: POC completes with no measurable connection to the pre-sales business case
+    - problem: Quick wins discovered during evaluation are not captured or communicated
+      why: >
+        Quick wins build stakeholder confidence and momentum toward purchase decision.
+        When they go undocumented, the evaluation feels longer and riskier than it
+        needs to, and the champion loses ammunition for internal advocacy.
+      agent: ve-proof-agent
+      agent_response: >
+        Identifies and documents quick wins as they emerge during evaluation, quantifies
+        their value, and creates amplification plans to communicate them to the right
+        stakeholders at the right time.
+      success_signal:
+        metric: Quick wins documented and communicated during POC
+        target: At least 3 documented quick wins per evaluation with quantified value
+        leading_indicator: First quick win documented within 2 weeks of POC start
+        failure_signal: Evaluation completes without any documented interim value evidence
+  escalation_triggers:
+  - POV metrics trending below hypothesis targets for 2+ consecutive weeks
+  - Benchmark comparison reveals customer results significantly below industry average
+  - Success criteria change mid-evaluation without hypothesis update
+  - Quick wins identified but no stakeholder communication plan exists
+  prompt_registry:
+    ve-pov-value-tracking:
+      description: Map POC success criteria to hypothesis drivers and track weekly metrics against targets
+      source: prompts/tasks.yaml#value_proof.pov_value_tracking
+      inputs:
+      - title: account_name
+        type: string
+      - title: success_criteria
+        type: object
+      - title: duration
+        type: string
+      - title: status
+        type: string
+      outputs:
+      - title: pov_tracking_report
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - account_context
+        - opportunity_details
+        - poc_plan
+        priority: critical
+      - source: read-value-tracker
+        fields:
+        - value_hypothesis
+        - success_criteria_map
+        - weekly_metrics
+        priority: critical
+      - source: read-infohub
+        fields:
+        - poc_status
+        - stakeholder_context
+        - value_drivers
+        priority: enrichment
+    ve-benchmark-comparison:
+      description: Compare customer evaluation results to industry benchmarks with appropriate context
+      source: prompts/tasks.yaml#value_proof.benchmark_comparison
+      inputs:
+      - title: customer_metrics
+        type: object
+      - title: industry
+        type: string
+      - title: use_case
+        type: string
+      outputs:
+      - title: benchmark_comparison
+        type: object
+      requires_data:
+      - source: read-value-tracker
+        fields:
+        - customer_metrics
+        - measurement_methodology
+        priority: critical
+      - source: read-infohub
+        fields:
+        - industry_benchmarks
+        - peer_comparisons
+        - maturity_context
+        priority: critical
+      - source: read-account-data
+        fields:
+        - company_size
+        - industry_segment
+        - maturity_level
+        priority: enrichment
+    ve-quick-win-documentation:
+      description: Document quick wins with quantified value, validation source, and amplification plan
+      source: prompts/tasks.yaml#value_proof.quick_win_documentation
+      inputs:
+      - title: quick_wins
+        type: array
+      - title: timeline
+        type: string
+      outputs:
+      - title: quick_win_report
+        type: object
+      requires_data:
+      - source: read-account-data
+        fields:
+        - stakeholder_map
+        - champion_priorities
+        priority: critical
+      - source: read-value-tracker
+        fields:
+        - hypothesis_drivers
+        - poc_progress
+        priority: critical
+      - source: read-infohub
+        fields:
+        - communication_history
+        - stakeholder_preferences
+        priority: enrichment
+  boundaries:
+  - POC/POV evaluation scope only, does not conduct pre-sales discovery
+  - Does not calculate ROI/TCO models independently
+  - Does not track post-deployment value realization
+  - Does not fabricate benchmark data or POC results
+  - Does not present benchmarks without industry context
+  permissions:
+  - Read account data and value tracker for POC-related metrics
+  - Read InfoHub for benchmark data and stakeholder context
+  - Map POC success criteria to value hypothesis drivers
+  - Write value proof reports and quick win documentation to InfoHub
+  - Compare customer metrics to industry benchmarks
+  guardrails:
+    input_validation:
+    - Reject POV tracking without defined success criteria
+    - Reject benchmark comparison without customer metrics
+    - Reject quick win documentation without quantified value evidence
+    output_checks:
+    - POV status maps every metric to the originating hypothesis
+    - Benchmark comparisons include context (industry, size, maturity)
+    - Quick wins include quantified value and validation source
+    - Value proof reports connect technical results to financial impact
+    - All assessments traceable to source data with dates and values
+    signal_validation:
+    - Never fabricate POC results
+    - Never present benchmarks without industry context
+    - Flag metrics trending below hypothesis targets
+    - Use qualifiers when evidence is indirect
+    - Add [NEEDS VERIFICATION] for ambiguous data
+  error_handling:
+    tool_failures:
+      critical:
+      - read-account-data
+      - read-value-tracker
+      enrichment:
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable proof tracking without account and value tracker data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark benchmark sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - value-proof
+      - poc-validation
+      - benchmark-analysis
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/industry-benchmarks.yaml
+      description: Industry benchmark data, peer comparisons, maturity-adjusted baselines
+    - path: references/value-lifecycle.yaml
+      description: Value lifecycle stages, hypothesis-to-proof progression, tracking cadence
+    - path: references/business-case-structure.yaml
+      description: Business case anatomy, value driver mapping, stakeholder-specific framing
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ve-agent
+      description: VE orchestrator routes POV tracking and proof requests
+    - type: event
+      source: poc_system
+      condition: poc.started OR poc.milestone_reached
+      description: Auto-runs when POC starts or reaches a milestone
+    - type: downstream
+      source: ve-hypothesis-agent
+      condition: hypothesis.approved == true
+      description: Approved hypothesis triggers POC success criteria mapping
+    outputs:
+    - type: parent_return
+      target: ve-agent
+      payload:
+      - pov_tracking_report
+      - benchmark_comparison
+      - quick_win_documentation
+      description: Value proof results back to orchestrator
+    - type: trigger_agent
+      target: ve-realization-agent
+      condition: poc.completed AND deal.closed_won
+      payload:
+      - pov_tracking_report
+      - validated_metrics
+      - quick_win_evidence
+      description: Completed POC with closed deal triggers realization tracking setup
+    - type: notify_human
+      condition: pov_metrics.trending_below_target >= 2_weeks OR benchmark.below_industry_average
+      channel: alert
+      description: Underperforming POV metrics and below-average benchmarks surface for VE review
+    consumes_toolboxes:
+    - toolbox: hypothesis-intelligence
+      agent: ve-hypothesis-agent
+      tools:
+      - get-value-hypothesis
+      reason: Original hypothesis provides the baseline for proof tracking
+    - toolbox: calculation-intelligence
+      agent: ve-calculation-agent
+      tools:
+      - get-roi-summary
+      reason: ROI model provides the financial targets POC metrics must validate
+    dependencies:
+    - agent: ve-hypothesis-agent
+      toolbox: hypothesis-intelligence
+      tools:
+      - get-value-hypothesis
+      purpose: Value hypothesis as baseline for POC success criteria mapping
+    - agent: ve-calculation-agent
+      toolbox: calculation-intelligence
+      tools:
+      - get-roi-summary
+      purpose: Financial model targets for POC metric validation

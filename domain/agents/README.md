@@ -1,8 +1,8 @@
 # Agents
 
-This directory contains agent definitions for all 47 agents in the EA Agentic Lab system. Agents are organized across 21 team directories following the DDR-019 v3.0 domain model. Each agent is defined by a canonical `*-definition.yaml` file (Oracle Agent Spec 26.1.0) and supporting configuration files.
+This directory contains agent definitions for all 49 agents in the EA Agentic Lab system. Agents are organized across 23 team directories following the DDR-019 v3.0 domain model. Each agent is defined by a canonical `*-definition.yaml` file (Oracle Agent Spec 26.1.0) and supporting configuration files.
 
-The system has 33 standalone role agents and 14 sub-agents. Two orchestrator agents (AE and SA) use holonic decomposition to delegate specialized work to sub-agents while retaining routing and coordination responsibility.
+The system has 35 standalone role agents and 14 sub-agents. Two orchestrator agents (AE and SA) use holonic decomposition to delegate specialized work to sub-agents while retaining routing and coordination responsibility.
 
 ## Agent Catalog
 
@@ -15,9 +15,9 @@ Strategic oversight, escalation resolution, and product alignment.
 | `leadership/` | Senior Manager Agent | senior-manager-agent | Oversight, coaching, escalation resolution |
 | `product_managers/` | PM Agent | pm-agent | Product roadmap alignment, feature requests |
 
-### Sales (4 roles + 8 sub-agents)
+### Sales (5 roles + 8 sub-agents)
 
-Commercial strategy, competitive positioning, value quantification, and partner alignment. The AE agent is an orchestrator with 8 sub-agents handling specialized sales workflows.
+Commercial strategy, competitive positioning, value quantification, partner alignment, and customer advocacy. The AE agent is an orchestrator with 8 sub-agents handling specialized sales workflows.
 
 | Directory | Agent | ID | Type | Purpose |
 |-----------|-------|----|------|---------|
@@ -33,6 +33,7 @@ Commercial strategy, competitive positioning, value quantification, and partner 
 | `competitive_intelligence/` | CI Agent | ci-agent | standalone | Competitive intelligence, win/loss insights |
 | `value_engineering/` | VE Agent | ve-agent | standalone | Business value quantification, ROI/TCO |
 | `partners/` | Partner Agent | partner-agent | standalone | Partner ecosystem coordination |
+| `customer_advocacy/` | Customer Advocate Agent | cad-agent | standalone | Customer references, case studies, proof points |
 
 ### Architecture (3 roles + 6 sub-agents + 3 domain specialists)
 
@@ -101,11 +102,12 @@ Account, industry, and technology intelligence from public sources. These agents
 | `technology_scout/` | Tech Signal Analyzer | tech-signal-analyzer-agent | Technology trend analysis, vendor landscape |
 | `market_news_analysis/` | MNA Agent | mna-agent | Lightweight news monitoring, signal feeds |
 
-### Operations (1)
+### Operations (2)
 
 | Directory | Agent | ID | Purpose |
 |-----------|-------|----|---------|
 | `retrospective/` | Retrospective Agent | retrospective-agent | Win/loss analysis, lessons learned |
+| `technical_writing/` | Technical Writer Agent | tw-agent | Technical content, documentation strategy, sales enablement content |
 
 ## Orchestrator Pattern (Holonic Decomposition)
 

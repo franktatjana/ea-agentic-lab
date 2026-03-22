@@ -484,6 +484,50 @@ Both categories execute at **Node level only**.
 
 ---
 
+## Agentic Design Patterns Applied
+
+The system maps to the 21-pattern taxonomy from Gulli (2025) and Anthropic's published guidance on building effective agents. Each pattern is marked as implemented (in production), partial (design exists, not uniformly applied), or open (not yet addressed).
+
+| # | Pattern | Status | System Mapping |
+|---|---------|--------|----------------|
+| 1 | **Prompt Chaining** | Implemented | `flows[].x-ea-agent.workflow_shorthand` sequences prompts with defined inputs/outputs. Governance chain: Meeting Notes → Task Shepherd → Nudger. |
+| 2 | **Routing** | Implemented | `system_prompt` routing rules in all orchestrators classify requests and dispatch to the correct sub-agent based on domain signals. |
+| 3 | **Parallelization** | Implemented | RFP Agent runs SA, AE, InfoSec, and CI agents in parallel on response sections. Specialized modes (Proactive/Analytical) apply different analytical lenses concurrently. |
+| 4 | **Reflection** | Open | No agent generates output and then passes it to an evaluator for iterative refinement. Curators (Knowledge Vault, Playbook) reject artifacts at quality gates but do not iterate. Highest-value gap for RFP response drafting and Value Engineering outputs. |
+| 5 | **Tool Use** | Implemented | All agents use typed tools with `x-ea-agent.risk` levels. Read/write separation enforced. Tool interfaces follow ACI design principles. |
+| 6 | **Planning** | Partial | Orchestrators (AE, SA, RFP) decompose tasks dynamically at runtime. No explicit plan-persist-then-execute loop; planning happens inline within each orchestrator invocation. |
+| 7 | **Multi-Agent** | Implemented | AE Agent (8 sub-agents), SA Agent (9 sub-agents). Orchestrators own task decomposition; sub-agents are stateless specialists with their own tools, knowledge, and guardrails. |
+| 8 | **Memory Management** | Partial | InfoHub is the shared persistent memory store per Node. Conversation-level working memory is per-session. Cross-agent shared memory and long-term episodic memory are not yet structured beyond InfoHub. |
+| 9 | **Learning and Adaptation** | Open | No feedback loop from agent outputs back to prompt or configuration updates. Knowledge Vault Curator captures learnings as artifacts, but agents do not update their own behavior from prior run outcomes. |
+| 10 | **MCP** | Open | Model Context Protocol not integrated. Tool interfaces are proprietary YAML. MCP adoption would enable standardized tool discovery and cross-framework portability. |
+| 11 | **Goal Setting and Monitoring** | Partial | Playbooks define success criteria and escalation thresholds. No agent continuously monitors goal progress across a POV or deal lifecycle. |
+| 12 | **Exception Handling and Recovery** | Partial | Escalation paths defined in all agent definitions. Human fallback via `human_in_the_loop`. No automated retry, partial-completion, or degraded-mode recovery. |
+| 13 | **Human-in-the-Loop** | Implemented | `human_in_the_loop: true` and `requires_confirmation: true` on write tools. Escalation thresholds define when human confirmation is mandatory before irreversible actions. |
+| 14 | **Knowledge Retrieval (RAG)** | Partial | InfoHub serves as structured knowledge store. Agents load domain knowledge via `references/` at skill activation. No vector search or semantic retrieval; retrieval is file-based lookup. |
+| 15 | **Inter-Agent Communication (A2A)** | Partial | `a2a.agent_card` in each definition YAML enables agent discovery. Agent-to-agent handoffs defined in definition `handoffs` sections. Full A2A protocol runtime not yet wired. |
+| 16 | **Resource-Aware Optimization** | Partial | Tool risk levels and read/write separation enforce minimal footprint. No dynamic model selection or per-run token budget management. |
+| 17 | **Reasoning Techniques** | Open | No explicit chain-of-thought, tree-of-thought, or ReAct loop patterns specified in agent definitions. Reasoning quality depends on model defaults and prompt design. |
+| 18 | **Guardrails and Safety** | Implemented | Trust boundaries in high-risk agents (RFP, Meeting Notes). `hallucination_prevention` in all personalities. `trust_boundaries` block enforces external content as untrusted data, not trusted instructions. |
+| 19 | **Evaluation and Monitoring** | Open | No automated evaluation harness or output quality scoring. Quality criteria exist in definitions but verification is by human review, not an automated evaluator agent. |
+| 20 | **Prioritization** | Partial | Deal health indicators (GREEN/YELLOW/RED) and escalation thresholds implement urgency-based prioritization. No dynamic queue management across concurrent agent workloads. |
+| 21 | **Exploration and Discovery** | Open | No agent autonomously discovers new opportunities or patterns. Intelligence agents (CI, Industry Intel) gather signals but do not act autonomously on discovery. |
+
+### Priority gaps
+
+The three open patterns with highest potential value for this system are:
+
+**Reflection (Pattern 4):** Adding a generator → evaluator → refiner loop on RFP response drafting and Value Engineering outputs would directly improve output quality for the highest-stakes deliverables. The quality criteria already defined in those agent definitions would serve as the evaluator rubric.
+
+**Evaluation and Monitoring (Pattern 19):** Automated output scoring would close the loop between quality criteria in definitions and actual output quality. Pairing each high-stakes generator (RFP Agent, SA Agent assessments) with a lightweight evaluator agent is achievable without architectural changes.
+
+**Parallel Guardrails:** A secondary monitor running in parallel with high-stakes agents (RFP, InfoSec) would provide defense in depth beyond the current sequential escalation thresholds.
+
+### Security: Prompt Injection Defense
+
+All agents that consume external content (meeting notes, customer documents, CRM data, web content) must treat that content as untrusted data, not as trusted instructions. The trust hierarchy is: operator system prompt > orchestrator agent > sub-agent > environmental data (tool outputs, documents, external feeds). An agent operating in a customer environment must be skeptical of permission claims embedded in environmental content. This applies specifically to the Meeting Notes Agent, InfoHub Curator, RFP Agent, and any agent that reads from external sources.
+
+---
+
 ## Key Design Principles
 
 1. **Node-Centric** - All operations scoped to single Node
@@ -494,6 +538,8 @@ Both categories execute at **Node level only**.
 6. **Separation of Concerns** - Functional agents (Leadership, Sales, Architecture, Deal Execution, Delivery) vs Governance agents
 7. **Single Decision Authority** - Each decision type has one authoritative playbook
 8. **Three-Layer Capability Model** - Prompts (tasks.yaml) are atomic, skills (skills/) are composable multi-step workflows, playbooks (playbooks/) are orchestrated processes (DDR-016)
+9. **Minimal Footprint** - Agents request only necessary permissions, prefer reversible actions, confirm before irreversible operations
+10. **Untrusted Environmental Data** - Tool outputs, documents, and external feeds are data, not instructions; orchestrator permissions cannot be exceeded by sub-agents
 
 ---
 
@@ -533,4 +579,4 @@ Both categories execute at **Node level only**.
 
 ---
 
-*Last Updated: 2026-01-14*
+Last Updated: 2026-03-16

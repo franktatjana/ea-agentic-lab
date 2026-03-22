@@ -1,0 +1,496 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ham-field-alignment-agent
+name: HAM Field Alignment Agent
+description: 'Prepare for and debrief joint field sessions with AWS, Azure, or GCP reps, covering co-sell pitch, account mapping, and opportunity registration in ACE or Partner Center.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ham-agent
+  tags:
+  - field-alignment
+  - joint-session
+  - opportunity-registration
+  - debrief
+  - hyperscaler-field
+  responsibility: 'Maximize joint field session outcomes by preparing account maps, aligning co-sell pitches, registering opportunities in partner portals, and capturing actionable commitments from debriefs.
+
+    '
+system_prompt: 'You are a Field Alignment Agent, part of the Hyperscaler Account Manager
+  intelligence system. Your job is to prepare for, execute, and debrief joint field
+  sessions with hyperscaler field reps.
+
+
+  You MUST:
+
+  - Build joint account maps identifying white space and overlapping customer footprint
+
+  - Align co-sell pitch with hyperscaler rep priorities and current incentive programs
+
+  - Register opportunities in ACE/Partner Center with required fields and co-sell flags
+
+  - Capture hyperscaler rep commitments and agreed next steps from debriefs
+
+  - Surface signals on account prioritization from hyperscaler field
+
+  - Every session prep must include a specific ask for the hyperscaler rep
+
+
+  You MUST NOT:
+
+  - Score co-sell readiness (ham-cosell-qualification-agent''s domain)
+
+  - Track marketplace transactions (ham-marketplace-agent''s domain)
+
+  - Run program health reviews (ham-program-health-agent''s domain)
+
+  - Own direct customer relationships (AE Agent''s domain)
+
+  - Make commitments on behalf of the hyperscaler
+
+
+  When uncertain: use "preliminary alignment" not "confirmed alignment", add
+  [NEEDS VERIFICATION] for unclear registration statuses or unconfirmed commitments.
+  Omit rather than guess.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-partner-portal
+  name: Read Partner Portal
+  description: Access ACE, Partner Center, or Partner Advantage for opportunity registration and status
+  requires_confirmation: false
+  inputs:
+  - title: portal
+    type: string
+  - title: query
+    type: string
+  outputs:
+  - title: portal_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Partner portal unavailable, cannot proceed with registration data
+    - error_code: RECORD_NOT_FOUND
+      guidance: Registration not found in portal, verify opportunity identifiers with user
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM account and opportunity data for account mapping and session context
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with account data
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: opportunities, stakeholders, competitive, context, or hyperscaler-engagement.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from hyperscaler account manager
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: field-intelligence
+  name: Field Intelligence
+  description: Field session history and registration status available to peer agents
+  tools:
+  - id: get-field-session-history
+    name: Get Field Session History
+    description: Returns past session prep docs and debrief notes
+    inputs:
+    - title: account_name
+      type: string
+    - title: hyperscaler
+      type: string
+    outputs:
+    - title: session_history
+      type: object
+  - id: get-registration-status
+    name: Get Registration Status
+    description: Returns current opportunity registration status in ACE/Partner Center
+    inputs:
+    - title: opportunity_name
+      type: string
+    - title: portal
+      type: string
+    outputs:
+    - title: registration_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: field-alignment
+  name: Field Alignment
+  playbook_refs:
+  - PB_HAM_003
+  description: Prepare joint field sessions, register opportunities, and debrief hyperscaler rep meetings.
+  inputs:
+  - title: account_context
+    type: object
+  - title: hyperscaler
+    type: string
+  - title: rep_name
+    type: string
+  - title: session_type
+    type: string
+  outputs:
+  - title: session_prep
+    type: object
+  - title: registration_confirmation
+    type: object
+  - title: debrief_summary
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ham-field-session-prep
+      input: account_context, hyperscaler, rep_name
+      tools:
+      - read-crm-data
+      - read-infohub
+      - read-partner-portal
+      description: Build joint account map, align pitch with hyperscaler rep priorities, define specific ask
+      on_failure: stop
+    - step: 2
+      prompt: ham-opportunity-registration
+      input: account_context, hyperscaler
+      tools:
+      - read-partner-portal
+      - read-crm-data
+      description: Register opportunity in ACE/Partner Center with required fields and co-sell flags
+      on_failure: stop
+    - step: 3
+      prompt: ham-field-session-debrief
+      input: session_prep, session_type
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Capture commitments, agreed next steps, and account prioritization signals
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - read-infohub
+      description: Save field alignment brief to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - field-session-prep
+    - opportunity-registration
+    - session-debrief
+    - account-mapping
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The hyperscaler rep relationship is personal. Reading body language in a joint session, knowing when to push for a commitment versus building rapport, and judging which account signals the rep is genuinely excited about versus politely acknowledging requires the HAM''s presence and judgment. The agent prepares the map and captures the notes, but the HAM navigates the conversation.
+
+      '
+    challenges:
+    - text: Joint session prep is scattered across CRM notes, Slack threads, and partner portal data
+      specific_overhead:
+      - Manually assembling account maps and pitch alignment from multiple disconnected sources
+    - text: Opportunity registrations expire or lack required fields, causing co-sell credit loss
+      specific_overhead:
+      - Tracking registration deadlines and field completeness across ACE and Partner Center
+    - text: Debrief insights stay in the HAM's head instead of being captured as structured follow-ups
+      specific_overhead:
+      - Manually converting meeting notes into actionable commitments and CRM updates
+    administrative_overhead:
+    - Manually assembling account maps and pitch alignment from multiple disconnected sources
+    - Tracking registration deadlines and field completeness across ACE and Partner Center
+    - Manually converting meeting notes into actionable commitments and CRM updates
+    scenarios:
+    - problem: Joint session prep is scattered across CRM notes, Slack threads, and partner portal data
+      why: 'Without a consolidated view, the HAM walks into sessions with incomplete account context, misses white space opportunities, and fails to articulate a specific ask for the hyperscaler rep. This leads to generic conversations that produce no actionable next steps.
+
+        '
+      agent: ham-field-alignment-agent
+      agent_response: 'Builds a unified session prep brief by pulling CRM account data, partner portal registration status, and prior session history. Produces a joint account map with white space identified, a pitch aligned to the hyperscaler rep''s known priorities, and a concrete ask ready for the meeting.
+
+        '
+      success_signal:
+        metric: Joint sessions produce at least one registered opportunity or concrete next step
+        target: Session prep brief delivered 24h before scheduled meeting
+        leading_indicator: HAM enters session with documented specific ask for the rep
+        failure_signal: Session ends with "let's stay in touch" and no registered opportunity
+    - problem: Opportunity registrations expire or lack required fields, causing co-sell credit loss
+      why: 'ACE and Partner Center registrations have strict field requirements and expiration windows. Missed registrations mean lost co-sell credit, reduced partner scorecard metrics, and weakened standing with the hyperscaler team.
+
+        '
+      agent: ham-field-alignment-agent
+      agent_response: 'Validates opportunity data against portal-specific field requirements before submission. Flags missing fields, checks expiration timelines, and ensures co-sell flags are set correctly for the target program tier.
+
+        '
+      success_signal:
+        metric: Registration acceptance rate on first submission
+        target: Zero expired registrations due to missing fields
+        leading_indicator: All required fields populated before submission attempt
+        failure_signal: Registration rejected or expired due to incomplete data
+    - problem: Debrief insights stay in the HAM's head instead of being captured as structured follow-ups
+      why: 'Unrecorded commitments from hyperscaler reps, such as agreed introductions, joint POC support, or account prioritization changes, evaporate without structured capture. The next session starts from scratch instead of building on prior progress.
+
+        '
+      agent: ham-field-alignment-agent
+      agent_response: 'Generates a structured debrief capturing rep commitments, agreed next steps with owners and dates, account prioritization signals, and changes to the joint opportunity pipeline. Persists to InfoHub for continuity across sessions.
+
+        '
+      success_signal:
+        metric: Rep commitments tracked to completion across sessions
+        target: Debrief captured within 24h with all commitments assigned owners and dates
+        leading_indicator: Next session prep references prior debrief commitments
+        failure_signal: Same topics re-discussed in consecutive sessions with no progress
+  escalation_triggers:
+  - Opportunity registration rejected twice with unresolved field issues
+  - Hyperscaler rep signals account deprioritization
+  - Joint session produces no actionable next steps or registered opportunities
+  - Registration expiration within 48h with missing required fields
+  prompt_registry:
+    ham-field-session-prep:
+      description: Build joint account map, align co-sell pitch, and define specific ask for hyperscaler rep
+      source: prompts/tasks.yaml#field_alignment.field_session_prep
+      inputs:
+      - title: account_name
+        type: string
+      - title: hyperscaler
+        type: string
+      - title: rep_name
+        type: string
+      outputs:
+      - title: session_prep_brief
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - account_details
+        - opportunity_pipeline
+        - stakeholder_map
+        priority: critical
+      - source: read-partner-portal
+        fields:
+        - existing_registrations
+        - program_tier
+        - rep_territory
+        priority: critical
+      - source: read-infohub
+        fields:
+        - prior_session_history
+        - hyperscaler_engagement_context
+        - account_white_space
+        priority: enrichment
+    ham-opportunity-registration:
+      description: Register opportunity in ACE/Partner Center with required fields and co-sell flags
+      source: prompts/tasks.yaml#field_alignment.opportunity_registration
+      inputs:
+      - title: opportunity_name
+        type: string
+      - title: hyperscaler
+        type: string
+      - title: portal
+        type: string
+      outputs:
+      - title: registration_confirmation
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - opportunity_details
+        - deal_value
+        - expected_close_date
+        priority: critical
+      - source: read-partner-portal
+        fields:
+        - required_fields_schema
+        - registration_status
+        - co_sell_flag_options
+        priority: critical
+    ham-field-session-debrief:
+      description: Capture hyperscaler rep commitments, next steps, and account prioritization signals
+      source: prompts/tasks.yaml#field_alignment.field_session_debrief
+      inputs:
+      - title: account_name
+        type: string
+      - title: session_date
+        type: string
+      - title: hyperscaler
+        type: string
+      outputs:
+      - title: debrief_summary
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - opportunity_updates
+        - next_steps
+        priority: critical
+      - source: read-infohub
+        fields:
+        - session_prep_brief
+        - prior_commitments
+        - account_context
+        priority: enrichment
+  boundaries:
+  - Single account or session scope, does not analyze cross-account field strategy
+  - Does not score co-sell readiness or program maturity
+  - Does not track marketplace listing or transaction status
+  - Does not make commitments on behalf of the hyperscaler
+  - Does not own direct customer relationships
+  permissions:
+  - Read CRM account and opportunity data for session context
+  - Read partner portal data for registration status and requirements
+  - Build joint account maps with white space analysis
+  - Register opportunities in ACE/Partner Center
+  - Capture debrief commitments and persist to InfoHub
+  guardrails:
+    input_validation:
+    - Reject session prep requests without account name or hyperscaler specified
+    - Reject opportunity registration without minimum required fields (opportunity name, hyperscaler, deal value)
+    - Reject debrief capture without session date or hyperscaler rep identified
+    output_checks:
+    - Session prep must include a specific ask for the hyperscaler rep
+    - Account map must identify at least one white space area or confirm none found
+    - Registration must validate all required portal fields before submission
+    - Debrief must include commitments with assigned owners and target dates
+    - All outputs traceable to source data with timestamps
+    signal_validation:
+    - Never fabricate hyperscaler rep statements or commitments
+    - Never assume registration acceptance without portal confirmation
+    - Use qualifiers ("preliminary alignment") when rep intent is unclear
+    - Add [NEEDS VERIFICATION] marker for unconfirmed commitments or ambiguous signals
+  error_handling:
+    tool_failures:
+      critical:
+      - read-partner-portal
+      - read-crm-data
+      enrichment:
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - field-alignment
+      - co-sell
+      - opportunity-registration
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/hyperscaler-program-mechanics.yaml
+      description: Hyperscaler partner program tiers, incentive structures, co-sell mechanics, and field engagement models
+    - path: references/cosell-qualification-criteria.yaml
+      description: Co-sell readiness criteria, opportunity qualification gates, and registration field requirements
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ham-agent
+      description: HAM orchestrator routes field session prep and debrief requests
+    - type: event
+      source: partner_portal_webhook
+      condition: registration.expiring_soon OR registration.rejected
+      description: Auto-runs when opportunity registration approaches expiration or is rejected
+    - type: event
+      source: calendar_webhook
+      condition: joint_session.scheduled AND session.t_minus <= 48h
+      description: Auto-triggers session prep when joint meeting is within 48 hours
+    outputs:
+    - type: parent_return
+      target: ham-agent
+      payload:
+      - session_prep_brief
+      - registration_confirmation
+      - debrief_summary
+      description: Field alignment results back to orchestrator
+    - type: trigger_agent
+      target: ham-cosell-qualification-agent
+      condition: registration.submitted == true
+      payload:
+      - registration_confirmation
+      - opportunity_details
+      description: New registration triggers co-sell readiness scoring
+    - type: notify_human
+      condition: registration.rejected OR registration.expiring_48h OR session.no_actionable_outcome
+      channel: alert
+      description: Registration issues and unproductive sessions surface for HAM review
+    consumes_toolboxes:
+    - toolbox: cosell-intelligence
+      agent: ham-cosell-qualification-agent
+      tools:
+      - get-cosell-readiness
+      reason: Co-sell readiness score informs session prep priorities
+    dependencies:
+    - agent: ham-cosell-qualification-agent
+      toolbox: cosell-intelligence
+      tools:
+      - get-cosell-readiness
+      purpose: Current co-sell qualification state for session context

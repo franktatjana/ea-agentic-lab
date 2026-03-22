@@ -1,0 +1,380 @@
+# Integration Architecture Patterns - Domain Knowledge
+# Referenced by: alliance architect agent definitions requiring integration design, API strategy, data flow planning
+# Sources: Martin Fowler Enterprise Integration Patterns, AWS Well-Architected, Microsoft Cloud Design Patterns, CNCF
+# Last verified: 2026-03
+
+description: >
+  Reference knowledge for designing and evaluating integration architectures across partner ecosystems.
+  Covers topology patterns, API design principles, data mapping strategies, authentication flows,
+  and error handling patterns that Alliance Architects apply when assessing partner technical fit
+  and designing joint solution architectures.
+
+integration_patterns:
+
+  hub_spoke:
+    full_name: "Hub-and-Spoke Integration Pattern"
+    source_url: "https://www.enterpriseintegrationpatterns.com/patterns/messaging/MessageBroker.html"
+    description: "Central broker mediates all communication between connected systems, reducing point-to-point complexity"
+    characteristics:
+      - "Single integration hub manages message routing, transformation, and orchestration"
+      - "Spoke systems connect only to the hub, not to each other"
+      - "Centralizes monitoring, logging, and error handling"
+      - "Hub becomes single point of failure without redundancy planning"
+    when_to_use:
+      - "Partner ecosystem with fewer than 20 integration endpoints"
+      - "Need for centralized transformation and protocol mediation"
+      - "Regulatory requirements demand auditable message flows"
+    when_to_avoid:
+      - "High-throughput scenarios where hub becomes bottleneck"
+      - "Geographically distributed systems requiring low latency"
+      - "Partners requiring direct peer-to-peer data exchange"
+
+  event_driven:
+    full_name: "Event-Driven Architecture (EDA)"
+    source_url: "https://martinfowler.com/articles/201701-event-driven.html"
+    description: "Systems communicate by producing and consuming events asynchronously, enabling loose coupling and real-time responsiveness"
+    characteristics:
+      - "Producers emit events without knowledge of consumers"
+      - "Event broker (Kafka, EventBridge, Pub/Sub) handles distribution and persistence"
+      - "Supports event sourcing, CQRS, and saga patterns"
+      - "Enables temporal decoupling: producer and consumer operate independently"
+    sub_patterns:
+      - name: "Event Notification"
+        description: "Lightweight event signals that something happened, consumer fetches details separately"
+      - name: "Event-Carried State Transfer"
+        description: "Event payload contains full state, reducing need for callbacks"
+      - name: "Event Sourcing"
+        description: "System state derived from append-only event log, enabling full audit trail"
+      - name: "CQRS"
+        description: "Separate read and write models optimized for their respective access patterns"
+    when_to_use:
+      - "Multi-partner workflows requiring asynchronous coordination"
+      - "Real-time data synchronization across partner boundaries"
+      - "Systems requiring full audit trail and replay capability"
+
+  data_mesh:
+    full_name: "Data Mesh Architecture"
+    source_url: "https://martinfowler.com/articles/data-mesh-principles.html"
+    description: "Decentralized data ownership where domain teams own, produce, and serve their data as products"
+    characteristics:
+      - "Domain-oriented data ownership replaces centralized data teams"
+      - "Data treated as a product with SLAs, documentation, and discoverability"
+      - "Self-serve data infrastructure platform enables domain autonomy"
+      - "Federated computational governance ensures interoperability without central bottleneck"
+    partner_relevance:
+      - "Each partner owns and serves their domain data as a product"
+      - "Shared data contracts define schema, quality, and freshness expectations"
+      - "Federated governance aligns data standards across organizational boundaries"
+      - "Reduces dependency on central data engineering teams for partner integrations"
+
+  api_gateway:
+    full_name: "API Gateway Pattern"
+    source_url: "https://learn.microsoft.com/en-us/azure/architecture/microservices/design/gateway"
+    description: "Single entry point for all API consumers, handling cross-cutting concerns like authentication, rate limiting, and routing"
+    characteristics:
+      - "Aggregates multiple backend services behind unified API surface"
+      - "Handles authentication, authorization, rate limiting, and throttling"
+      - "Provides request/response transformation and protocol translation"
+      - "Enables API versioning, canary releases, and A/B testing"
+    capabilities:
+      - capability: "Traffic Management"
+        description: "Load balancing, circuit breaking, rate limiting, request routing"
+      - capability: "Security"
+        description: "OAuth token validation, API key management, IP allowlisting, WAF integration"
+      - capability: "Observability"
+        description: "Request logging, distributed tracing, metrics collection, alerting"
+      - capability: "Developer Experience"
+        description: "API catalog, interactive documentation, SDK generation, sandbox environments"
+
+  service_mesh:
+    full_name: "Service Mesh Pattern"
+    source_url: "https://www.cncf.io/blog/2024/05/service-mesh-explained/"
+    description: "Infrastructure layer handling service-to-service communication with sidecar proxies managing traffic, security, and observability"
+    characteristics:
+      - "Sidecar proxy (Envoy, Linkerd) intercepts all network traffic"
+      - "Mutual TLS encryption between services without application code changes"
+      - "Traffic splitting, canary deployments, and fault injection for testing"
+      - "Distributed tracing and metrics collection at infrastructure level"
+    when_to_use:
+      - "Microservices architectures with complex inter-service communication"
+      - "Zero-trust security requirements between partner-operated services"
+      - "Need for infrastructure-level observability without application instrumentation"
+    when_to_avoid:
+      - "Simple architectures with fewer than 10 services"
+      - "Teams without Kubernetes operational expertise"
+      - "Latency-sensitive workloads where proxy overhead is unacceptable"
+
+api_design_principles:
+
+  rest:
+    full_name: "Representational State Transfer (REST)"
+    source_url: "https://cloud.google.com/apis/design"
+    description: "Resource-oriented API design using HTTP verbs, status codes, and URI conventions for predictable, cacheable interactions"
+    core_principles:
+      - principle: "Resource-Oriented Design"
+        description: "Model APIs around resources (nouns), not actions (verbs). Use HTTP methods to express operations"
+      - principle: "Uniform Interface"
+        description: "Consistent URI patterns, standard HTTP methods (GET, POST, PUT, PATCH, DELETE), standard status codes"
+      - principle: "Statelessness"
+        description: "Each request contains all information needed to process it, no server-side session state"
+      - principle: "HATEOAS"
+        description: "Responses include links to related resources and available actions, enabling client navigation"
+    best_practices:
+      - "Use plural nouns for collection endpoints: /partners, /integrations"
+      - "Nest sub-resources to express relationships: /partners/{id}/integrations"
+      - "Return appropriate HTTP status codes: 201 Created, 404 Not Found, 429 Too Many Requests"
+      - "Support filtering, sorting, and pagination on collection endpoints"
+      - "Use ETags for conditional requests and optimistic concurrency"
+
+  graphql:
+    full_name: "GraphQL"
+    source_url: "https://graphql.org/learn/best-practices/"
+    description: "Query language and runtime allowing clients to request exactly the data they need in a single request"
+    characteristics:
+      - "Client-specified queries eliminate over-fetching and under-fetching"
+      - "Strongly typed schema serves as API contract and documentation"
+      - "Single endpoint handles all operations (queries, mutations, subscriptions)"
+      - "Introspection enables tooling, code generation, and schema validation"
+    partner_integration_considerations:
+      - "Schema stitching or federation enables composing APIs across partner boundaries"
+      - "Complexity limits and query depth restrictions prevent abuse"
+      - "Persisted queries reduce attack surface and improve cacheability"
+      - "Subscription support enables real-time data push to partner systems"
+
+  grpc:
+    full_name: "gRPC Remote Procedure Call"
+    source_url: "https://grpc.io/docs/what-is-grpc/core-concepts/"
+    description: "High-performance RPC framework using Protocol Buffers for binary serialization and HTTP/2 for transport"
+    characteristics:
+      - "Binary Protocol Buffer serialization: smaller payload, faster parsing than JSON"
+      - "HTTP/2 transport: multiplexing, header compression, bidirectional streaming"
+      - "Strongly typed service definitions generate client/server code in multiple languages"
+      - "Supports unary, server-streaming, client-streaming, and bidirectional streaming"
+    when_to_use:
+      - "High-throughput internal service communication between co-located systems"
+      - "Polyglot environments requiring consistent client libraries across languages"
+      - "Real-time streaming data exchange between partner platforms"
+    when_to_avoid:
+      - "Browser-facing APIs (limited native browser support)"
+      - "Partners requiring human-readable payloads for debugging"
+      - "Environments where HTTP/2 is not supported by intermediary infrastructure"
+
+  webhook_patterns:
+    full_name: "Webhook Event Notification Patterns"
+    source_url: "https://webhooks.fyi/best-practices/webhook-providers"
+    description: "Push-based notification mechanism where a source system sends HTTP callbacks to registered endpoints when events occur"
+    best_practices:
+      - practice: "Signature Verification"
+        description: "Sign payloads with HMAC-SHA256, include signature in header for recipient verification"
+      - practice: "Idempotency"
+        description: "Include unique event ID, recipients must handle duplicate deliveries gracefully"
+      - practice: "Retry with Backoff"
+        description: "Retry failed deliveries with exponential backoff: 1s, 5s, 30s, 5m, 30m, 2h"
+      - practice: "Payload Minimization"
+        description: "Send event type and resource ID, let recipient fetch full details via API"
+      - practice: "Subscription Management"
+        description: "Provide API for registering, updating, listing, and deleting webhook subscriptions"
+      - practice: "Event Catalog"
+        description: "Publish documented list of all event types with payload schemas and example payloads"
+
+data_mapping_patterns:
+
+  etl:
+    full_name: "Extract, Transform, Load (ETL)"
+    source_url: "https://aws.amazon.com/what-is/etl/"
+    description: "Data is extracted from sources, transformed in a staging area, then loaded into the target system"
+    characteristics:
+      - "Transformation happens before loading: data enters target clean and structured"
+      - "Batch-oriented: typically runs on schedule (hourly, daily, weekly)"
+      - "Requires dedicated transformation infrastructure (ETL server, compute cluster)"
+      - "Well-suited for structured data with predictable transformation rules"
+    partner_use_cases:
+      - "Nightly sync of partner CRM data into vendor data warehouse"
+      - "Scheduled export of usage metrics for partner billing reconciliation"
+      - "Periodic consolidation of partner-reported pipeline data"
+
+  elt:
+    full_name: "Extract, Load, Transform (ELT)"
+    source_url: "https://cloud.google.com/learn/what-is-elt"
+    description: "Raw data is loaded into target system first, then transformed in-place using target system compute"
+    characteristics:
+      - "Leverages target system processing power (Snowflake, BigQuery, Redshift)"
+      - "Raw data preserved: enables re-transformation without re-extraction"
+      - "Faster ingestion: no transformation bottleneck during loading"
+      - "Schema-on-read flexibility for evolving partner data formats"
+    partner_use_cases:
+      - "Ingesting partner telemetry data for later analysis and dashboard creation"
+      - "Loading marketplace transaction data for flexible reporting"
+      - "Consolidating multi-partner data with varying schemas into unified analytics"
+
+  cdc:
+    full_name: "Change Data Capture (CDC)"
+    source_url: "https://www.confluent.io/learn/change-data-capture/"
+    description: "Captures and propagates data changes (inserts, updates, deletes) from source systems in near real-time"
+    characteristics:
+      - "Log-based CDC reads database transaction logs for minimal source impact"
+      - "Near real-time propagation: changes available in seconds, not hours"
+      - "Preserves change history and ordering for audit and replay"
+      - "Supports both streaming (Kafka Connect, Debezium) and batch delivery"
+    partner_use_cases:
+      - "Real-time synchronization of shared customer records across vendor and partner CRMs"
+      - "Streaming partner inventory updates to vendor marketplace"
+      - "Propagating product catalog changes to partner reseller platforms"
+
+  real_time_sync:
+    full_name: "Real-Time Bidirectional Synchronization"
+    source_url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs"
+    description: "Continuous two-way data synchronization between systems with conflict resolution and consistency guarantees"
+    characteristics:
+      - "Bidirectional: changes flow in both directions between systems"
+      - "Conflict resolution strategy required: last-write-wins, merge, manual review"
+      - "Eventual consistency model with configurable consistency windows"
+      - "Requires idempotent operations and distributed transaction management"
+    conflict_resolution_strategies:
+      - strategy: "Last Write Wins"
+        description: "Most recent timestamp takes precedence, simple but can lose data"
+      - strategy: "Field-Level Merge"
+        description: "Non-conflicting field changes merged automatically, conflicts flagged for review"
+      - strategy: "Source of Truth"
+        description: "Designated authoritative system wins conflicts for specific data domains"
+      - strategy: "Manual Review"
+        description: "Conflicts queued for human resolution, suitable for critical business data"
+
+authentication_flows:
+
+  oauth2:
+    full_name: "OAuth 2.0 Authorization Framework"
+    source_url: "https://oauth.net/2/"
+    description: "Industry-standard protocol for authorization, enabling third-party applications to access resources without sharing credentials"
+    grant_types:
+      - grant: "Authorization Code + PKCE"
+        use_case: "User-facing partner portal integrations, interactive SSO"
+        security_level: "High"
+      - grant: "Client Credentials"
+        use_case: "Server-to-server partner API integration, automated data sync"
+        security_level: "High (with proper secret management)"
+      - grant: "Device Code"
+        use_case: "CLI tools, IoT devices used in partner technical workflows"
+        security_level: "Medium"
+    best_practices:
+      - "Use short-lived access tokens (15-60 minutes) with refresh token rotation"
+      - "Implement scope-based authorization limiting partner access to required resources"
+      - "Store client secrets in vault services, never in application code or config files"
+      - "Validate JWT tokens on every request: signature, expiration, issuer, audience"
+
+  saml:
+    full_name: "Security Assertion Markup Language 2.0"
+    source_url: "https://docs.oasis-open.org/security/saml/v2.0/"
+    description: "XML-based standard for exchanging authentication and authorization data between identity provider and service provider"
+    characteristics:
+      - "Enterprise SSO standard: widely supported by corporate identity providers"
+      - "XML-based assertions with digital signatures for integrity verification"
+      - "SP-initiated and IdP-initiated flows for different access patterns"
+      - "Attribute-based access control via SAML assertions"
+    partner_integration_considerations:
+      - "Federation enables partner users to access vendor systems with their corporate credentials"
+      - "Metadata exchange automates trust establishment between partner and vendor IdPs"
+      - "Attribute mapping translates partner directory attributes to vendor role assignments"
+
+  api_key:
+    full_name: "API Key Authentication"
+    source_url: "https://cloud.google.com/docs/authentication/api-keys"
+    description: "Simple authentication mechanism using a unique key string passed with each API request"
+    characteristics:
+      - "Low implementation complexity: key passed as header or query parameter"
+      - "Identifies the calling application, not individual users"
+      - "No built-in expiration or scope mechanism without custom implementation"
+      - "Suitable for server-to-server calls with additional IP allowlisting"
+    security_considerations:
+      - "Always transmit over HTTPS, never in URL query parameters for logged systems"
+      - "Implement key rotation policy with overlap period for zero-downtime rotation"
+      - "Rate limit per key to prevent abuse and enable per-partner usage tracking"
+      - "Use API keys for identification, pair with OAuth for authorization"
+
+  mutual_tls:
+    full_name: "Mutual TLS (mTLS) Authentication"
+    source_url: "https://www.cloudflare.com/learning/access-management/what-is-mutual-tls/"
+    description: "Both client and server present X.509 certificates, establishing bidirectional identity verification at the transport layer"
+    characteristics:
+      - "Strongest transport-level authentication: both parties cryptographically verified"
+      - "Certificate management overhead: issuance, renewal, revocation, CRL/OCSP"
+      - "Network-level enforcement: connection rejected before application code executes"
+      - "Common in financial services, healthcare, and high-security partner integrations"
+    implementation_requirements:
+      - "Certificate Authority (CA) trust chain management between partner organizations"
+      - "Automated certificate lifecycle: issuance, renewal 30 days before expiry, revocation"
+      - "Certificate pinning for additional protection against CA compromise"
+      - "Fallback authentication mechanism for certificate renewal transition periods"
+
+error_handling_patterns:
+
+  circuit_breaker:
+    full_name: "Circuit Breaker Pattern"
+    source_url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker"
+    description: "Prevents cascading failures by monitoring for consecutive errors and temporarily stopping requests to a failing service"
+    states:
+      - state: "Closed"
+        behavior: "Requests flow normally, failure counter tracks errors"
+      - state: "Open"
+        behavior: "Requests immediately fail without calling downstream, preventing resource exhaustion"
+      - state: "Half-Open"
+        behavior: "Limited probe requests test if downstream has recovered"
+    configuration_parameters:
+      - "Failure threshold: number of consecutive failures before opening (e.g., 5)"
+      - "Recovery timeout: duration circuit stays open before half-open probe (e.g., 30 seconds)"
+      - "Success threshold: consecutive successes in half-open before closing (e.g., 3)"
+      - "Monitored exceptions: which error types count as failures (timeouts, 5xx, connection refused)"
+
+  retry_with_backoff:
+    full_name: "Retry with Exponential Backoff and Jitter"
+    source_url: "https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/"
+    description: "Automatically retries failed requests with increasing delay intervals and random jitter to prevent thundering herd"
+    strategy:
+      base_delay: "1 second"
+      multiplier: "2x (exponential)"
+      max_delay: "60 seconds"
+      max_retries: "5"
+      jitter: "Full jitter: random value between 0 and calculated delay"
+    best_practices:
+      - "Add jitter to prevent synchronized retry storms from multiple partner integrations"
+      - "Set maximum retry count to prevent infinite loops on permanent failures"
+      - "Use idempotency keys to safely retry mutating operations"
+      - "Log each retry attempt with correlation ID for distributed tracing"
+      - "Distinguish retryable errors (429, 503, timeout) from permanent failures (400, 401, 404)"
+
+  dead_letter_queue:
+    full_name: "Dead Letter Queue (DLQ) Pattern"
+    source_url: "https://aws.amazon.com/what-is/dead-letter-queue/"
+    description: "Messages that cannot be processed after exhausting retry attempts are moved to a separate queue for investigation and reprocessing"
+    characteristics:
+      - "Prevents poison messages from blocking the main processing queue"
+      - "Preserves failed messages with full context for debugging and audit"
+      - "Supports manual review, automated re-drive, and alerting workflows"
+      - "Enables SLA tracking: time-in-DLQ metrics for partner integration health"
+    operational_procedures:
+      - procedure: "Monitoring"
+        description: "Alert when DLQ depth exceeds threshold, track message age and volume trends"
+      - procedure: "Triage"
+        description: "Classify failures: data format errors, authentication failures, downstream outages, business rule violations"
+      - procedure: "Re-drive"
+        description: "After root cause fix, replay messages from DLQ back to main queue in controlled batches"
+      - procedure: "Purge"
+        description: "Remove messages confirmed as permanently unprocessable, archive for compliance if required"
+
+sources:
+  - name: "Enterprise Integration Patterns"
+    author: "Gregor Hohpe, Bobby Woolf"
+    url: "https://www.enterpriseintegrationpatterns.com/"
+    relevance: "Foundational catalog of messaging and integration patterns"
+  - name: "Martin Fowler - Event-Driven Architecture"
+    url: "https://martinfowler.com/articles/201701-event-driven.html"
+    relevance: "Definitive taxonomy of event-driven patterns and their tradeoffs"
+  - name: "AWS Well-Architected Framework"
+    url: "https://aws.amazon.com/architecture/well-architected/"
+    relevance: "Cloud-native integration patterns, reliability, and operational excellence"
+  - name: "Microsoft Cloud Design Patterns"
+    url: "https://learn.microsoft.com/en-us/azure/architecture/patterns/"
+    relevance: "Comprehensive catalog of cloud design patterns with implementation guidance"
+  - name: "CNCF Cloud Native Landscape"
+    url: "https://landscape.cncf.io/"
+    relevance: "Service mesh, API gateway, and event streaming technology landscape"
