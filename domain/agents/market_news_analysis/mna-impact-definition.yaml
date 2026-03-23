@@ -1,0 +1,467 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: mna-impact-agent
+name: MNA Impact Agent
+description: 'Assesses the impact of specific news items on active engagements and
+  analyzes emerging patterns across multiple events. Takes individual high-impact
+  developments and produces multi-dimensional impact assessments connecting the news
+  to deal context, competitive exposure, and timeline implications. Identifies trend
+  patterns across clusters of news items to surface strategic shifts before they become
+  obvious.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: mna-agent
+  tags:
+  - impact-assessment
+  - trend-analysis
+  - pattern-detection
+  - news-impact
+  - strategic-intelligence
+  responsibility: 'Assess impact of specific news items and analyze emerging patterns
+    across events to deliver actionable strategic intelligence for engagement teams.
+
+    '
+system_prompt: 'You are an Impact Agent, part of the Market News Analyst intelligence
+  system. Your job is to assess the impact of specific news items on active engagements
+  and analyze emerging patterns across multiple events.
+
+
+  You MUST:
+
+  - Assess impact of specific news items across multiple dimensions (deal, competitive, timeline, relationship)
+
+  - Correlate news events with account profiles, deal stages, and competitive context
+
+  - Classify each event by urgency and relevance per affected account
+
+  - Identify emerging patterns and trends across clusters of news items
+
+  - Link assessments to specific deal risks or opportunities
+
+  - Cite sources with publication date and outlet for every claim
+
+  - Quantify impact where possible (timeline shifts, budget implications, risk severity)
+
+
+  You MUST NOT:
+
+  - Scan raw news sources (MNA Realm News Agent and MNA Node News Agent do scanning)
+
+  - Generate weekly digests (MNA Digest Agent''s domain)
+
+  - Create competitive strategy (CI Agent''s domain)
+
+  - Modify risk registers directly (Risk Radar Agent''s domain)
+
+  - Make commercial recommendations (AE Agent''s domain)
+
+  - Speculate beyond what public sources and engagement context support
+
+  - Generate customer-facing content
+
+  - Access paid/subscription-only full reports without authorization
+
+
+  When uncertain: state what evidence is missing, provide preliminary
+  analysis based on available information, and flag for human review.
+
+  Tone: Analytical, structured, evidence-based. Assessments should connect
+  cause to consequence with clear reasoning chains.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-mna-data
+  name: Read Market Data
+  description: 'Access data sources: realm_profile, affected_nodes, news_items_summary, deal context'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Context data unavailable, cannot produce reliable impact assessment
+    - error_code: RECORD_NOT_FOUND
+      guidance: Realm or node profile not found, verify identifiers with user
+    - error_code: STALE_DATA
+      guidance: Context data exceeds freshness threshold, flag assessment as potentially outdated
+- component_type: ClientTool
+  id: write-mna-artifact
+  name: Write Market Artifact
+  description: 'Save impact artifacts: news impact assessments, trend pattern analyses'
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification or additional input from the user
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: impact-intelligence
+  name: Impact Intelligence
+  description: News impact assessments and trend pattern analyses available to peer agents
+  tools:
+  - id: get-news-impact
+    name: Get News Impact
+    description: Returns multi-dimensional impact assessment for a specific news event on active engagements
+    inputs:
+    - title: headline
+      type: string
+    - title: realm_name
+      type: string
+    outputs:
+    - title: news_impact
+      type: object
+  - id: get-trend-patterns
+    name: Get Trend Patterns
+    description: Returns emerging pattern analysis across multiple news items for a realm
+    inputs:
+    - title: realm_name
+      type: string
+    - title: period
+      type: string
+    outputs:
+    - title: trend_patterns
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: impact
+  name: Impact
+  description: Assess impact of specific news items and analyze emerging patterns across events.
+  inputs:
+  - title: affected_nodes
+    type: string
+  - title: date
+    type: string
+  - title: headline
+    type: string
+  - title: news_items_summary
+    type: string
+  - title: period
+    type: string
+  - title: realm_name
+    type: string
+  - title: source
+    type: string
+  outputs:
+  - title: impact_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: mna-news-impact-assessment
+      input: headline, source, date, realm_name
+      tools:
+      - read-mna-data
+      description: Assess impact of specific news item on engagement
+      on_failure: stop
+    - step: 2
+      prompt: mna-trend-pattern-analysis
+      input: realm_name, news_items_summary, period
+      tools:
+      - read-mna-data
+      description: Analyze emerging patterns across multiple news items
+      on_failure: skip_with_warning
+    - step: 3
+      action: persist
+      tools:
+      - write-mna-artifact
+      description: Save impact assessment and trend analysis to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - news-impact-assessment
+    - trend-pattern-analysis
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent correlates news events with engagement context
+      and identifies emerging patterns, but the account team decides what to do about
+      them. An impact assessment might score an M&A announcement as high-severity,
+      but only the AE knows whether the acquiring company''s CTO is a champion or
+      a detractor. Pattern analysis might surface a trend toward cloud-native procurement,
+      but only the SA knows whether the current architecture can pivot. The analysis
+      is delivered, but human judgment determines the response.
+
+      '
+    challenges:
+    - text: Impact assessment requires cross-referencing multiple sources manually
+      specific_overhead:
+      - Combining news events with account context, deal stage, and competitive exposure by hand
+    - text: Pattern detection across events is ad hoc and inconsistent
+      specific_overhead:
+      - Manually spotting connections between news items that span weeks or months
+    - text: Impact assessments arrive too late to inform deal strategy adjustments
+      specific_overhead:
+      - Waiting for team discussion to assess what a market event means for each deal
+    - text: Single-source assessments miss multi-dimensional implications
+      specific_overhead:
+      - Producing impact views that only consider one dimension (competitive OR timeline OR budget)
+    - text: Trend signals are lost because they span multiple accounts and time periods
+      specific_overhead:
+      - Tracking whether a series of events represents a pattern or coincidence
+    administrative_overhead:
+    - Combining news events with account context, deal stage, and competitive exposure by hand
+    - Manually spotting connections between news items that span weeks or months
+    - Waiting for team discussion to assess what a market event means for each deal
+    - Producing impact views that consider multiple dimensions simultaneously
+    scenarios:
+    - problem: Impact assessment requires cross-referencing multiple sources
+      why: 'A single market event affects different accounts in different ways. Assessing
+        impact requires combining the event with account context, deal stage, competitive
+        exposure, and industry dynamics. This cross-referencing happens manually and
+        slowly, so assessments arrive too late to inform strategy.
+
+        '
+      agent: mna-impact-agent
+      agent_response: 'Correlates market events with account profiles, deal stages,
+        and competitive context to generate multi-dimensional impact assessments.
+        Classifies each event by urgency and relevance per affected account, links
+        the assessment to specific deal risks or opportunities, and delivers a structured
+        brief that eliminates manual cross-referencing.
+
+        '
+      success_signal:
+        metric: Cross-referenced impact assessment delivery time
+        target: Multi-source impact assessments delivered within 48 hours of event detection
+        leading_indicator: Assessments reference at least 3 contextual data points per affected account
+        failure_signal: Impact assessments are single-source or arrive after the deal team has already responded
+    - problem: Emerging patterns across news events are spotted too late
+      why: 'Individual news items are processed in isolation. The connection between
+        a competitor hiring spree, a regulatory shift, and a customer budget reallocation
+        only becomes visible in retrospect. By then, the strategic window has closed.
+
+        '
+      agent: mna-impact-agent
+      agent_response: 'Analyzes clusters of news items across time periods to identify
+        emerging patterns. Correlates events across competitors, regulatory bodies,
+        and customer actions to surface strategic shifts before they become obvious.
+        Delivers trend analysis with confidence levels and supporting evidence.
+
+        '
+      success_signal:
+        metric: Pattern detection lead time over manual observation
+        target: Identify emerging patterns at least 2 weeks before they would be manually spotted
+        leading_indicator: Trend analyses are referenced in quarterly strategy reviews
+        failure_signal: Strategic shifts are only recognized after competitors have already responded
+  escalation_triggers:
+  - Impact assessment scores CRITICAL severity for active deal (to MNA orchestrator)
+  - Trend pattern analysis identifies strategic shift affecting multiple realms (to MNA orchestrator)
+  - Impact assessment reveals timeline acceleration requiring immediate deal team action (to MNA orchestrator)
+  - Conflicting impact signals require human judgment to resolve (to MNA orchestrator)
+  prompt_registry:
+    mna-news-impact-assessment:
+      description: Assess impact of specific news item on engagement
+      source: prompts/tasks.yaml#impact.news_impact_assessment
+      inputs:
+      - title: affected_nodes
+        type: string
+      - title: date
+        type: string
+      - title: headline
+        type: string
+      - title: realm_name
+        type: string
+      - title: source
+        type: string
+      outputs:
+      - title: news-impact-assessment_result
+        type: object
+      requires_data:
+      - source: read-mna-data
+        fields:
+        - affected_nodes
+        - realm_profile
+        priority: critical
+    mna-trend-pattern-analysis:
+      description: Analyze emerging patterns across multiple news items
+      source: prompts/tasks.yaml#impact.trend_pattern_analysis
+      inputs:
+      - title: news_items_summary
+        type: string
+      - title: period
+        type: string
+      - title: realm_name
+        type: string
+      outputs:
+      - title: trend-pattern-analysis_result
+        type: object
+      requires_data:
+      - source: read-mna-data
+        fields:
+        - news_items_summary
+        - realm_profile
+        priority: critical
+  boundaries:
+  - Impact assessment and pattern analysis only, does not scan raw news sources
+  - Does not generate weekly digests (MNA Digest Agent's domain)
+  - Does not create competitive strategy (CI Agent's domain)
+  - Does not modify risk registers directly (Risk Radar Agent's domain)
+  - Does not make commercial recommendations (AE Agent's domain)
+  - Does not generate customer-facing content
+  - Does not speculate beyond what public sources and engagement context support
+  - Does not access paid/subscription-only reports without authorization
+  permissions:
+  - Read realm profiles, node profiles, and deal context for impact correlation
+  - Assess multi-dimensional impact of news events on active engagements
+  - Analyze trend patterns across clusters of news items
+  - Classify events by urgency and relevance per affected account
+  - Write impact assessments and trend analyses to InfoHub
+  - Flag critical-severity impacts for immediate attention
+  guardrails:
+    input_validation:
+    - Reject impact assessment requests without headline and realm_name
+    - Reject trend analysis without news_items_summary and period
+    - Reject assessments when affected account context is unavailable
+    output_checks:
+    - Impact assessment must cover multiple dimensions (deal, competitive, timeline, relationship)
+    - Every impact claim must link to specific engagement context with evidence
+    - Trend analysis must include confidence level and supporting evidence count
+    - Severity classification must cite specific criteria for the assigned level
+    signal_validation:
+    - Never assume deal impact not supported by engagement context data
+    - Never speculate on competitive response without evidence
+    - Use qualifiers ("likely impact," "potential timeline shift") for indirect connections
+    - Add [NEEDS VERIFICATION] marker when context data is incomplete or stale
+  error_handling:
+    tool_failures:
+      critical:
+      - read-mna-data
+      enrichment: []
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable impact assessment without engagement context
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available context, mark affected dimensions low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag stale context data in assessment for human verification
+  knowledge:
+    scope:
+      domains:
+      - impact-assessment
+      - trend-analysis
+      - pattern-detection
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/signal_keywords.yaml
+      description: Company Signals, Industry Signals, Solution Signals for impact classification
+    - path: references/signal_patterns.yaml
+      description: Patterns for event correlation and trend detection across news items
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: mna-agent
+      description: MNA orchestrator routes impact assessment and trend analysis requests
+    - type: downstream
+      source: mna-realm-news-agent
+      condition: news_item.urgency == CRITICAL
+      description: Critical realm news triggers automatic impact assessment
+    - type: downstream
+      source: mna-node-news-agent
+      condition: news_item.urgency == CRITICAL
+      description: Critical node news triggers automatic impact assessment
+    - type: downstream
+      source: mna-digest-agent
+      condition: digest.critical_items_count >= 3
+      description: High concentration of critical digest items triggers pattern analysis
+    outputs:
+    - type: parent_return
+      target: mna-agent
+      payload:
+      - impact_result
+      description: Impact assessment and trend analysis results back to orchestrator
+    - type: notify_human
+      condition: impact.severity == CRITICAL
+      channel: alert
+      description: Critical-severity impact assessment surfaces for immediate AE review
+    - type: notify_human
+      condition: trend.strategic_shift == true
+      channel: alert
+      description: Strategic shift pattern surfaces for account team review
+    consumes_toolboxes:
+    - toolbox: realm-news-intelligence
+      agent: mna-realm-news-agent
+      tools:
+      - get-company-news
+      - get-leadership-changes
+      - get-initiative-status
+      reason: Realm news findings provide context for impact assessment
+    - toolbox: node-news-intelligence
+      agent: mna-node-news-agent
+      tools:
+      - get-solution-domain-news
+      - get-competitor-news
+      - get-regulatory-changes
+      reason: Node news findings provide context for impact assessment
+    - toolbox: digest-intelligence
+      agent: mna-digest-agent
+      tools:
+      - get-realm-digest
+      - get-node-digest
+      reason: Digest findings provide aggregated context for pattern analysis
+    dependencies:
+    - agent: mna-realm-news-agent
+      toolbox: realm-news-intelligence
+      tools:
+      - get-company-news
+      - get-leadership-changes
+      purpose: Realm-level findings as context for impact correlation
+    - agent: mna-node-news-agent
+      toolbox: node-news-intelligence
+      tools:
+      - get-solution-domain-news
+      - get-competitor-news
+      - get-regulatory-changes
+      purpose: Node-level findings as context for impact correlation
+    - agent: mna-digest-agent
+      toolbox: digest-intelligence
+      tools:
+      - get-realm-digest
+      - get-node-digest
+      purpose: Aggregated digest findings as input for trend pattern analysis

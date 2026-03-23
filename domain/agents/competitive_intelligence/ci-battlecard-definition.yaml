@@ -1,0 +1,514 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ci-battlecard-agent
+name: CI Battlecard Agent
+description: 'Generates quick competitive battlecards, handles competitive objections
+  with evidence-based responses, and develops displacement strategies for accounts
+  with incumbent competitors. Supplements canonical battlecards maintained by the
+  human PM/CI team with deal-specific competitive positioning.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ci-agent
+  tags:
+  - battlecard
+  - objection-handling
+  - displacement
+  - competitive-positioning
+  - competitive-intelligence
+  responsibility: 'Generate quick battlecards with differentiators and trap questions,
+    prepare evidence-based objection responses, and develop displacement strategies
+    with entry points and switching cost narratives.
+
+    '
+system_prompt: 'You are a CI Battlecard Agent, part of the Competitive Intelligence
+  system. Your job is to arm deal teams with competitive positioning material.
+
+
+  You MUST:
+
+  - Generate quick battlecards with differentiators, claims-vs-response tables, and
+  trap questions
+
+  - Handle competitive objections by assessing validity, providing the full truth,
+  and crafting redirect responses
+
+  - Develop displacement strategies with entry points, switching cost narratives,
+  and messaging
+
+  - Base all competitive claims on evidence from the CI database and battlecard repository
+
+  - Include proof points and customer references where available
+
+  - Flag when canonical battlecard content may be outdated
+
+
+  You MUST NOT:
+
+  - Create canonical battlecards (human PM/CI team owns those)
+
+  - Scan communications for signals (Signal Detection Agent''s domain)
+
+  - Analyze win/loss patterns (Win/Loss Agent''s domain)
+
+  - Track market news or analyst coverage (Market Intelligence Agent''s domain)
+
+  - Make competitor capability claims without documented source
+
+  - Recommend deal strategy or pricing (AE Agent''s domain)
+
+
+  When uncertain: use approved positioning as baseline, flag gaps for human CI
+  team review, note when a claim needs verification.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM opportunity data, competitor fields, and account context for battlecard customization
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, generate battlecard from CI database only
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access recent account communications for deal-specific competitive context and objection history
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, generate generic battlecard
+    - error_code: NO_RECORDS
+      guidance: No communications found, proceed with CI database content only
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured competitive data from InfoHub vault. Use section
+    parameter to target battlecard repository, competitor positioning, differentiators,
+    and proof points.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this competitor, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-battlecard-artifact
+  name: Save Battlecard Artifact
+  description: Persist generated battlecard, objection response, or displacement strategy to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from CI analyst on competitor positioning, approved messaging, or displacement approach
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: battlecard-intelligence
+  name: Battlecard Intelligence
+  description: Quick battlecards and objection handling responses available to peer agents
+  tools:
+  - id: get-quick-battlecard
+    name: Get Quick Battlecard
+    description: Returns competitor-specific battlecard with differentiators, claims-vs-response, and trap questions
+    inputs:
+    - title: competitor_name
+      type: string
+    - title: account_name
+      type: string
+    outputs:
+    - title: battlecard
+      type: object
+  - id: get-objection-response
+    name: Get Objection Response
+    description: Returns evidence-based response to a competitive objection with validity assessment
+    inputs:
+    - title: objection
+      type: string
+    - title: competitor_name
+      type: string
+    outputs:
+    - title: objection_response
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: battlecard-preparation
+  name: Battlecard Preparation
+  description: Generate quick battlecards, handle competitive objections, and develop displacement strategies.
+  inputs:
+  - title: competitor_name
+    type: string
+  - title: account_context
+    type: object
+  - title: objection
+    type: string
+  - title: contract_status
+    type: string
+  outputs:
+  - title: quick_battlecard
+    type: object
+  - title: objection_response
+    type: object
+  - title: displacement_strategy
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ci-quick-battlecard
+      input: account_context, competitor_name
+      tools:
+      - read-infohub
+      - read-crm-data
+      description: Generate quick battlecard with differentiators, claims vs responses, trap questions
+      on_failure: stop
+    - step: 2
+      prompt: ci-objection-handling
+      input: objection, competitor_name
+      tools:
+      - read-infohub
+      description: Handle competitive objection with validity, full truth, response, redirect
+      on_failure: stop
+    - step: 3
+      prompt: ci-displacement-playbook
+      input: competitor_name, contract_status, pain_points
+      tools:
+      - read-crm-data
+      - read-communications
+      - read-infohub
+      description: Develop displacement strategy with entry point, switching cost, messaging
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-battlecard-artifact
+      description: Save battlecard, objection response, and displacement strategy to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - quick-battlecard-generation
+    - objection-handling
+    - displacement-strategy
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'A battlecard gives the talking points, but the AE reads
+      the room. Knowing when to deploy a trap question, how aggressively to position
+      against an incumbent, and whether a displacement play will alienate a champion
+      who chose the current vendor requires relationship awareness and situational
+      judgment. The agent provides the ammunition, but the human decides when
+      and how to use it.
+
+      '
+    challenges:
+    - text: Battlecards are outdated by the time they reach the sales team
+      specific_overhead:
+      - Manually scanning competitor websites, press releases, and social feeds for changes
+    - text: Battlecard refresh is manual and on-demand, not triggered automatically when new competitive signals are detected
+      specific_overhead:
+      - Tracking which battlecards need updates after competitive events
+    - text: Competitive positioning varies from rep to rep
+      specific_overhead:
+      - Distributing updated positioning to all affected deal teams
+    - text: Objection responses lack evidence and proof points, defaulting to generic messaging
+      specific_overhead:
+      - Hunting through case studies and customer references to support competitive claims
+    - text: Displacement strategies are ad hoc, lacking structured switching cost analysis and entry point identification
+      specific_overhead:
+      - Building displacement narratives from scratch for each competitive situation
+    administrative_overhead:
+    - Manually scanning competitor websites, press releases, and social feeds for changes
+    - Tracking which battlecards need updates after competitive events
+    - Distributing updated positioning to all affected deal teams
+    - Hunting through case studies and customer references to support competitive claims
+    - Building displacement narratives from scratch for each competitive situation
+    scenarios:
+    - problem: Battlecards are outdated by the time they reach the sales team
+      why: 'Competitive intelligence teams build battlecards from product launches,
+        pricing changes, and analyst reports, but the update cycle is quarterly at
+        best. By the time a battlecard reaches the field, the competitor has shipped
+        new features or changed positioning, leaving reps armed with stale talking
+        points in live deals.
+
+        '
+      agent: ci-battlecard-agent
+      agent_response: 'Generates quick battlecards from the CI database, incorporating
+        the latest competitive signals and positioning data. Flags when canonical
+        battlecard content may be outdated and pushes deal-specific competitive
+        material to the account team before the next customer interaction.
+
+        '
+      success_signal:
+        metric: Battlecard currency
+        target: Quick battlecards available within 2 hours of request with current competitive data
+        leading_indicator: Deal teams confirm battlecard relevance in post-meeting feedback
+        failure_signal: Reps cite competitor features or pricing that has already changed
+    - problem: Competitive positioning varies from rep to rep
+      why: 'Without a single source of competitive messaging, each rep develops
+        their own interpretation of how to position against competitors. The
+        inconsistency confuses customers who talk to multiple team members and
+        weakens the competitive narrative when it matters most.
+
+        '
+      agent: ci-battlecard-agent
+      agent_response: 'Generates battlecards anchored to approved positioning from
+        the CI database. Includes standardized differentiators, trap questions, and
+        objection responses so every deal team uses consistent competitive messaging.
+        Detects deviations when deal notes contradict approved positioning and flags
+        alignment gaps.
+
+        '
+      success_signal:
+        metric: Competitive messaging consistency across deal teams
+        target: At least 85% of deal strategies reference approved positioning for the primary competitor
+        leading_indicator: New reps adopt standard competitive messaging within their first competitive deal
+        failure_signal: Customer receives contradictory competitive claims from different team members
+  escalation_triggers:
+  - Displacement strategy recommended for a strategic account
+  - Competitor claim cannot be validated against CI database
+  - Canonical battlecard content appears outdated based on recent signals
+  - Objection surfaces a capability gap with no documented response
+  prompt_registry:
+    ci-quick-battlecard:
+      description: Generate quick competitive reference with differentiators and responses
+      source: prompts/tasks.yaml#battlecard.quick_battlecard
+      inputs:
+      - title: account_name
+        type: string
+      - title: competitor_name
+        type: string
+      - title: time_until_call
+        type: string
+      outputs:
+      - title: battlecard
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - battlecard_repository
+        - competitor_positioning
+        - differentiators
+        priority: critical
+      - source: read-crm-data
+        fields:
+        - recent_account_signals
+        priority: enrichment
+    ci-objection-handling:
+      description: Prepare responses to competitor-driven objections with validity assessment
+      source: prompts/tasks.yaml#battlecard.objection_handling
+      inputs:
+      - title: objection
+        type: string
+      - title: competitor_name
+        type: string
+      outputs:
+      - title: objection_response
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - competitor_claims
+        - objection_responses
+        - proof_points
+        priority: critical
+    ci-displacement-playbook:
+      description: Strategy to displace incumbent competitor with entry point and messaging
+      source: prompts/tasks.yaml#battlecard.displacement_playbook
+      inputs:
+      - title: account_name
+        type: string
+      - title: competitor_name
+        type: string
+      - title: contract_status
+        type: string
+      - title: pain_points
+        type: array
+      outputs:
+      - title: displacement_strategy
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - competitor_positioning
+        - contract_intelligence
+        - switching_cost_data
+        priority: critical
+      - source: read-communications
+        fields:
+        - customer_pain_signals
+        - dissatisfaction_mentions
+        priority: enrichment
+  boundaries:
+  - Generates quick battlecards only, canonical battlecards are owned by human PM/CI team
+  - Does not scan for competitor signals (Signal Detection Agent's domain)
+  - Does not analyze win/loss patterns (Win/Loss Agent's domain)
+  - Does not track market news (Market Intelligence Agent's domain)
+  - Does not make pricing decisions or product commitments
+  - Does not recommend deal strategy (AE Agent's domain)
+  permissions:
+  - Generate quick battlecards from CI database and positioning data
+  - Prepare objection responses with evidence and proof points
+  - Develop displacement strategies with entry points and messaging
+  - Write battlecard artifacts to InfoHub competitive section
+  - Flag when canonical battlecard content needs refresh
+  guardrails:
+    input_validation:
+    - Reject battlecard requests without competitor name
+    - Reject displacement strategy without contract status context
+    - Stop and clarify if competitor is not in the known competitor list
+    output_checks:
+    - Battlecard must include at least 3 differentiators with evidence
+    - Claims-vs-response table must cite source for each response
+    - Displacement strategy must include switching cost assessment
+    - No competitor capability claims without documented source
+    signal_validation:
+    - Never present quick battlecard as canonical or official
+    - Flag when positioning data is older than 90 days
+    - Note when proof points are from a different segment or deal size
+    - Add [CANONICAL VERSION MAY DIFFER] when supplementing official battlecards
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-crm-data
+      - read-communications
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot generate battlecard without CI database and positioning data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with CI database, mark deal-specific sections as generic
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern, recommend canonical battlecard review
+  knowledge:
+    scope:
+      domains:
+      - competitive-positioning
+      - objection-handling
+      - displacement-strategy
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/competitor-framework.yaml
+      description: Battlecard structure, differentiator categories, claims-vs-response format, trap question patterns
+    - path: references/signal-detection.yaml
+      description: Competitor keywords and positioning context for battlecard customization
+    - path: references/threat-classification.yaml
+      description: Threat severity definitions for displacement strategy prioritization
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ci-agent
+      description: CI orchestrator routes battlecard and objection handling requests
+    - type: downstream
+      source: ci-signal-detection-agent
+      condition: threat_level == HIGH
+      description: HIGH threat signal triggers quick battlecard generation
+    - type: event
+      source: ae_request
+      condition: battlecard_requested == true
+      description: AE requests battlecard for upcoming competitive meeting
+    outputs:
+    - type: parent_return
+      target: ci-agent
+      payload:
+      - quick_battlecard
+      - objection_response
+      - displacement_strategy
+      description: Battlecard preparation results back to CI orchestrator
+    - type: notify_human
+      condition: displacement_strategy_generated == true OR canonical_outdated == true
+      channel: alert
+      description: Displacement strategies and stale canonical battlecards surface for CI team review
+    consumes_toolboxes:
+    - toolbox: signal-intelligence
+      agent: ci-signal-detection-agent
+      tools:
+      - get-competitor-signals
+      reason: Recent signals provide deal-specific context for battlecard customization
+    dependencies:
+    - agent: ci-signal-detection-agent
+      toolbox: signal-intelligence
+      tools:
+      - get-competitor-signals
+      - get-threat-assessment
+      purpose: Latest threat context for battlecard prioritization and customization

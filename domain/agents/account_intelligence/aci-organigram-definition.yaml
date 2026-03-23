@@ -1,0 +1,511 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: aci-organigram-agent
+name: ACI Organigram Agent
+description: 'Builds organizational hierarchies by business line with leadership mapping,
+  department structure, and decision chains. Extracts C-suite and senior leadership
+  from public sources, maps reporting relationships, and maintains organigrams that
+  reflect current organizational structure with source attribution and confidence scoring.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: aci-agent
+  tags:
+  - organigram
+  - organizational-hierarchy
+  - leadership-mapping
+  - decision-chains
+  - department-structure
+  responsibility: 'Build and maintain organizational hierarchies by business line with
+    leadership extraction, department mapping, and decision chain identification from
+    public sources.
+
+    '
+system_prompt: 'You are an Organigram Agent, part of the Account Intelligence system.
+  Your job is to build organizational hierarchies organized by business lines with
+  leadership mapping, department structure, and decision chains.
+
+
+  You MUST:
+
+  - Extract C-suite and senior leadership from public sources (LinkedIn, press releases, corporate websites)
+
+  - Map leadership to business lines and build department structure
+
+  - Identify reporting relationships and decision chains
+
+  - Track leadership changes and organizational restructuring
+
+  - Organize hierarchies by business line, not just by title seniority
+
+  - Score confidence levels on all organizational claims
+
+  - Register all sources in shared source registry for cluster-wide reuse
+
+
+  You MUST NOT:
+
+  - Research company financials or business strategy (Company Research Agent''s domain)
+
+  - Identify business opportunities or map vendor capabilities (Opportunity Agent''s domain)
+
+  - Monitor ongoing news feeds (MNA Agent''s job)
+
+  - Analyze competitive positioning (CI Agent''s job)
+
+  - Invent organizational relationships without source evidence
+
+  - Access internal HR systems or confidential employee data
+
+  - Assume reporting lines not stated in public sources
+
+
+  When uncertain: state what evidence is missing, mark relationships as [INFERRED]
+  when based on indirect signals, and flag for human review.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-public-profiles
+  name: Read Public Profiles
+  description: Access public leadership data from LinkedIn, corporate websites, press releases, and board filings
+  requires_confirmation: false
+  inputs:
+  - title: company_name
+    type: string
+  - title: search_scope
+    type: string
+  outputs:
+  - title: profile_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Source unavailable, try alternative public profile sources
+    - error_code: NO_RECORDS
+      guidance: No leadership profiles found, expand search scope or note gap
+- component_type: ClientTool
+  id: read-aci-data
+  name: Read Account Data
+  description: Access existing organigram, realm profile, and business line data
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with public sources only, flag output as incomplete
+    - error_code: STALE_DATA
+      guidance: Existing organigram exceeds freshness threshold, flag for verification
+- component_type: ClientTool
+  id: write-organigram
+  name: Write Organigram
+  description: Save organizational hierarchy and leadership mapping to realm intelligence store
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification about organizational scope, business line focus, or leadership identification
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: organigram-intelligence
+  name: Organigram Intelligence
+  description: Organizational hierarchies and leadership mapping available to peer agents
+  tools:
+  - id: get-organigram
+    name: Get Organigram
+    description: Returns organizational hierarchy by business line with leadership, departments, and decision chains
+    inputs:
+    - title: company_name
+      type: string
+    outputs:
+    - title: organigram
+      type: object
+  - id: get-decision-chain
+    name: Get Decision Chain
+    description: Returns decision-making chain for a specific business line or initiative
+    inputs:
+    - title: company_name
+      type: string
+    - title: business_line
+      type: string
+    outputs:
+    - title: decision_chain
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: organigram-building
+  name: Organigram Building
+  description: Build an organizational hierarchy organized by business lines with leadership mapping, department structure, and decision chains
+  inputs:
+  - title: required
+    type: string
+  - title: optional
+    type: string
+  outputs:
+  - name: organigram
+    type: object
+    format: yaml
+    description: 'Organizational hierarchy: ceo, business_lines with departments, corporate_functions, decision_chains'
+    path: '{realm}/intelligence/account_intelligence/organigram.yaml'
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: aci-organigram-building-analyze
+      input: context
+      tools:
+      - read-public-profiles
+      - read-aci-data
+      description: Analyze input
+      on_failure: stop
+    - step: 2
+      prompt: aci-organigram-building-synthesize
+      input: analysis
+      description: Synthesize findings
+      on_failure: stop
+    - step: 3
+      prompt: aci-organigram-building-output
+      input: synthesis
+      tools:
+      - write-organigram
+      description: Generate output
+      on_failure: stop
+- component_type: Flow
+  id: organigram
+  name: Organigram
+  description: Flow for organigram tasks.
+  inputs:
+  - title: business_lines
+    type: string
+  - title: company_name
+    type: string
+  - title: company_website_url
+    type: string
+  - title: existing_organigram
+    type: string
+  - title: leaders_list
+    type: string
+  - title: realm_id
+    type: string
+  outputs:
+  - title: organigram_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: aci-leadership-extraction
+      input: company_name, realm_id, company_website_url, existing_organigram
+      tools:
+      - read-public-profiles
+      - read-aci-data
+      description: Extract C-suite and senior leadership from public sources
+      on_failure: stop
+    - step: 2
+      prompt: aci-org-hierarchy-mapping
+      input: company_name, realm_id, leaders_list, business_lines
+      tools:
+      - write-organigram
+      description: Map leadership to business lines and build department structure
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - organigram-building
+    - leadership-extraction
+    - hierarchy-mapping
+    - decision-chain-analysis
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Org charts show reporting lines, but the AE knows who actually holds
+      power. Public sources reveal titles and formal structure, but informal influence
+      networks, internal politics, and the difference between a decision-maker and
+      a decision-influencer require human relationship knowledge. The agent maps the
+      formal structure, the human fills in the political reality.
+
+      '
+    challenges:
+    - text: Organizational structures change faster than public sources reflect
+      specific_overhead:
+      - Tracking executive appointments and departures across corporate announcements
+    - text: Business line reorganizations create ambiguous reporting relationships
+      specific_overhead:
+      - Cross-referencing press releases, LinkedIn, and annual reports to resolve conflicting org data
+    - text: Decision chains are rarely documented in public sources
+      specific_overhead:
+      - Inferring decision authority from title patterns and organizational placement
+    - text: Leadership data is scattered across LinkedIn, press releases, and corporate websites
+      specific_overhead:
+      - Manually searching multiple sources to build a single leadership view
+    - text: Org changes discovered after the fact misalign engagement strategies
+      specific_overhead:
+      - Rebuilding stakeholder maps when key contacts leave or change roles
+    administrative_overhead:
+    - Tracking executive appointments and departures across corporate announcements
+    - Cross-referencing press releases, LinkedIn, and annual reports to resolve conflicting org data
+    - Manually searching multiple sources to build a single leadership view
+    scenarios:
+    - problem: Org changes are discovered too late to adjust engagement strategy
+      why: 'Executive departures, reorganizations, and new hires reshape decision-making
+        authority within accounts. When these changes are caught weeks later through
+        a failed meeting or a cold contact, the engagement strategy is already misaligned.
+
+        '
+      agent: aci-organigram-agent
+      agent_response: 'The agent monitors public org signals including LinkedIn role
+        changes, press releases, and corporate announcements for tracked accounts.
+        It flags leadership transitions, reports new decision-makers with context on
+        their background, and updates the organigram before the next touchpoint.
+
+        '
+      success_signal:
+        metric: Org change detection latency
+        target: Detect and surface executive changes within 5 business days of public signal
+        leading_indicator: Engagement plans are updated to reflect new stakeholders before next scheduled meeting
+        failure_signal: Account team discovers org change during a customer call or through a bounced email
+    - problem: Decision chains are unknown, leading to engagement with wrong stakeholders
+      why: 'Without a mapped decision chain, account teams engage at the wrong level
+        or with the wrong function. Deals stall because the actual decision-maker was
+        never reached, and budget holders were not part of the conversation.
+
+        '
+      agent: aci-organigram-agent
+      agent_response: 'The agent maps decision chains by business line, identifying
+        who owns budget, who influences technical decisions, and who approves procurement.
+        It flags gaps where decision authority is unclear and recommends verification
+        steps.
+
+        '
+      success_signal:
+        metric: Decision chain completeness per target business line
+        target: Decision chains mapped for all active business lines with at least 70% confidence
+        leading_indicator: Stakeholder engagement plans reference mapped decision chains
+        failure_signal: Deals stall because the decision-maker was not identified or engaged
+  escalation_triggers:
+  - Major organizational restructuring detected affecting active engagement
+  - Key decision-maker departure in an account with open opportunities
+  - Conflicting leadership data from multiple public sources
+  - Organigram data exceeds 60-day freshness threshold for active accounts
+  prompt_registry:
+    aci-leadership-extraction:
+      description: Extract C-suite and senior leadership from public sources
+      source: prompts/tasks.yaml#organigram.leadership_extraction
+      inputs:
+      - title: company_name
+        type: string
+      - title: company_website_url
+        type: string
+      - title: existing_organigram
+        type: string
+      - title: realm_id
+        type: string
+      outputs:
+      - title: leadership-extraction_result
+        type: object
+      requires_data:
+      - source: read-aci-data
+        fields:
+        - existing_organigram
+        - realm_profile
+        priority: enrichment
+    aci-org-hierarchy-mapping:
+      description: Map leadership to business lines and build department structure
+      source: prompts/tasks.yaml#organigram.org_hierarchy_mapping
+      inputs:
+      - title: business_lines
+        type: string
+      - title: company_name
+        type: string
+      - title: leaders_list
+        type: string
+      - title: realm_id
+        type: string
+      outputs:
+      - title: org-hierarchy-mapping_result
+        type: object
+      requires_data:
+      - source: read-aci-data
+        fields:
+        - leaders_list
+        - business_lines
+        - realm_profile
+        priority: critical
+    aci-organigram-building-analyze:
+      description: Analyze input
+      source: skills/organigram_building.yaml#step-1
+      inputs:
+      - title: context
+        type: string
+      outputs:
+      - title: result
+        type: object
+      requires_data:
+      - source: read-aci-data
+        fields:
+        - account_profile
+        - existing_organigram
+        - intelligence_data
+        priority: critical
+    aci-organigram-building-synthesize:
+      description: Synthesize findings
+      source: skills/organigram_building.yaml#step-2
+      inputs:
+      - title: analysis
+        type: string
+      outputs:
+      - title: result
+        type: object
+    aci-organigram-building-output:
+      description: Generate output
+      source: skills/organigram_building.yaml#step-3
+      inputs:
+      - title: synthesis
+        type: string
+      outputs:
+      - title: result
+        type: object
+  boundaries:
+  - Does not research company financials or business strategy (Company Research Agent's domain)
+  - Does not identify business opportunities (Opportunity Agent's domain)
+  - Does not monitor ongoing news feeds (MNA Agent's job)
+  - Does not analyze competitive positioning (CI Agent's job)
+  - Does not access internal HR systems or confidential employee data
+  - Does not fabricate organizational relationships without source evidence
+  permissions:
+  - Extract C-suite and senior leadership from public sources
+  - Build organizational hierarchies by business line
+  - Map reporting relationships and decision chains
+  - Track leadership changes and organizational restructuring
+  - Register sources in shared source registry
+  - Update organigrams with verified leadership data
+  guardrails:
+    input_validation:
+    - Reject organigram requests without company name or realm context
+    - Reject requests for internal HR or confidential employee data
+    output_checks:
+    - Every leadership claim must cite a specific public source with date
+    - Reporting relationships must be marked as [CONFIRMED] or [INFERRED]
+    - Confidence scores required on all organizational claims
+    - Decision chains must trace to evidence of authority or title patterns
+    signal_validation:
+    - Never invent reporting relationships not stated in public sources
+    - Never assume titles imply specific decision authority without evidence
+    - Mark inferred relationships with [INFERRED] and confidence level
+    - Add [NEEDS VERIFICATION] marker when sources conflict on reporting lines
+  error_handling:
+    tool_failures:
+      critical:
+      - read-public-profiles
+      - read-aci-data
+      enrichment:
+      - write-organigram
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable organigram without leadership data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - organizational-design
+      - leadership-analysis
+      - decision-chain-mapping
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/research_sources.yaml
+      description: Primary Sources (LinkedIn, corporate websites, press releases), Secondary Sources (board filings, news)
+    - path: references/org-hierarchy-patterns.yaml
+      description: Common organizational patterns by company size, industry-specific hierarchy norms, business line structures
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: aci-agent
+      description: ACI orchestrator routes organigram building and leadership extraction requests
+    - type: event
+      source: leadership_signal
+      condition: leadership_change.detected == true
+      description: Auto-updates organigram when leadership change signal is received
+    - type: downstream
+      source: aci-company-research-agent
+      condition: company_profile.business_lines.changed == true
+      description: Business line changes trigger organigram restructuring review
+    outputs:
+    - type: parent_return
+      target: aci-agent
+      payload:
+      - organigram
+      - organigram_result
+      description: Organigram results back to orchestrator
+    - type: trigger_agent
+      target: aci-opportunity-agent
+      condition: organigram.decision_chains.changed == true
+      payload:
+      - organigram
+      - decision_chains
+      description: Decision chain changes trigger opportunity re-evaluation
+    - type: notify_human
+      condition: leadership_change.key_stakeholder == true
+      channel: alert
+      description: Key stakeholder departure or arrival surfaces for AE review
+    consumes_toolboxes:
+    - toolbox: company-intelligence
+      agent: aci-company-research-agent
+      tools:
+      - get-business-lines
+      reason: Business line structure needed to organize leadership by division
+    dependencies:
+    - agent: aci-company-research-agent
+      toolbox: company-intelligence
+      tools:
+      - get-business-lines
+      purpose: Current business line mapping to align organigram structure

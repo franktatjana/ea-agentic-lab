@@ -1,0 +1,520 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ci-market-intel-agent
+name: CI Market Intelligence Agent
+description: 'Analyzes competitor news, product launches, and market moves for their
+  impact on active deals and overall positioning. Updates market positioning by
+  segment, correlates market events with the deal pipeline, and prepares teams
+  for analyst interactions with evidence-based messaging.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ci-agent
+  tags:
+  - market-intelligence
+  - competitor-news
+  - market-positioning
+  - analyst-prep
+  - competitive-intelligence
+  responsibility: 'Analyze competitor news for field impact, update market positioning
+    by segment, correlate market events with active deals, and prepare analyst
+    interaction materials with key messages and proof points.
+
+    '
+system_prompt: 'You are a CI Market Intelligence Agent, part of the Competitive
+  Intelligence system. Your job is to connect market events to deal-level impact.
+
+
+  You MUST:
+
+  - Analyze competitor news for opportunity/threat implications and field messaging
+
+  - Update market positioning with competitor moves, differentiation gaps, and evolution
+
+  - Correlate market events with the active deal pipeline to identify affected opportunities
+
+  - Prepare analyst interaction materials with key messages, proof points, and anticipated
+  Q&A
+
+  - Distinguish between confirmed market moves and speculation
+
+  - Include source attribution for all market intelligence
+
+
+  You MUST NOT:
+
+  - Scan deal communications for competitor mentions (Signal Detection Agent''s domain)
+
+  - Generate battlecards or displacement strategies (Battlecard Agent''s domain)
+
+  - Analyze win/loss patterns (Win/Loss Agent''s domain)
+
+  - Make product commitments or pricing decisions
+
+  - Speculate about competitor strategy without evidence
+
+  - Recommend sales strategies (AE Agent''s domain)
+
+
+  When uncertain: distinguish confirmed from speculated, note source reliability,
+  flag for human CI team verification before distribution to field teams.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM pipeline data to correlate market events with active competitive deals
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, analyze market event without deal correlation
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access market feeds, news aggregations, and internal discussions about competitor announcements
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access market feeds, analyze from provided news summary only
+    - error_code: NO_RECORDS
+      guidance: No market communications found, proceed with direct input
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured competitive data from InfoHub vault. Use section
+    parameter to target current positioning, competitor landscape, market segment
+    data, and proof points.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this segment, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-market-intel-artifact
+  name: Save Market Intel Artifact
+  description: Persist market intelligence analysis, positioning update, or analyst prep to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from CI analyst on market events, positioning strategy, or analyst context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: market-intelligence
+  name: Market Intelligence
+  description: Market positioning updates and competitor news analysis available to peer agents
+  tools:
+  - id: get-market-positioning
+    name: Get Market Positioning
+    description: Returns current competitive positioning for a market segment with differentiation gaps
+    inputs:
+    - title: segment
+      type: string
+    outputs:
+    - title: market_positioning
+      type: object
+  - id: get-competitor-news-impact
+    name: Get Competitor News Impact
+    description: Returns analysis of recent competitor news with deal pipeline impact assessment
+    inputs:
+    - title: competitor_name
+      type: string
+    outputs:
+    - title: news_impact
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: market-intelligence
+  name: Market Intelligence
+  description: Analyze competitor news, update market positioning, and prepare for analyst interactions.
+  inputs:
+  - title: market_context
+    type: object
+  - title: competitor_name
+    type: string
+  - title: news_summary
+    type: string
+  - title: analyst_name
+    type: string
+  outputs:
+  - title: news_analysis
+    type: object
+  - title: positioning_update
+    type: object
+  - title: analyst_prep
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ci-competitor-news
+      input: competitor_name, news_summary
+      tools:
+      - read-communications
+      - read-infohub
+      description: Analyze competitor news implications, opportunity/threat, field messaging
+      on_failure: stop
+    - step: 2
+      prompt: ci-market-positioning
+      input: segment, competitor_list
+      tools:
+      - read-infohub
+      - read-crm-data
+      description: Update market positioning with evolution, competitor moves, differentiation
+      on_failure: stop
+    - step: 3
+      prompt: ci-analyst-prep
+      input: analyst_name, topic, current_position
+      tools:
+      - read-infohub
+      description: Prepare for analyst interaction with key messages, proof points, anticipated Q&A
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-market-intel-artifact
+      description: Save news analysis, positioning update, and analyst prep to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - competitor-news-analysis
+    - market-positioning-update
+    - analyst-preparation
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Market events are facts, but their strategic implications
+      require human interpretation. A competitor acquisition could be a threat or a
+      distraction. An analyst report could shift buyer perception or go unnoticed.
+      The agent correlates events with deals and prepares positioning materials,
+      but the CI lead and leadership decide the strategic response and messaging
+      adjustments.
+
+      '
+    challenges:
+    - text: Market moves aren't connected to active deal strategies
+      specific_overhead:
+      - Manually mapping competitor announcements to affected pipeline deals
+    - text: CI outputs stay in InfoHub and never reach reps in their daily tools (Slack, CRM, enablement platforms)
+      specific_overhead:
+      - Distributing competitive updates to the right deal teams at the right time
+    - text: Market events are analyzed in isolation without correlating to the active deal pipeline to identify affected opportunities
+      specific_overhead:
+      - Cross-referencing market events with CRM data to find impacted deals
+    - text: Analyst preparation is ad hoc, lacking structured proof points and anticipated Q&A
+      specific_overhead:
+      - Assembling analyst briefing materials from scattered competitive data
+    - text: Market positioning updates lag behind competitor moves, leaving field teams with stale differentiation narratives
+      specific_overhead:
+      - Tracking competitor product releases, pricing changes, and partnership announcements across multiple channels
+    administrative_overhead:
+    - Manually mapping competitor announcements to affected pipeline deals
+    - Distributing competitive updates to the right deal teams at the right time
+    - Cross-referencing market events with CRM data to find impacted deals
+    - Assembling analyst briefing materials from scattered competitive data
+    - Tracking competitor product releases, pricing changes, and partnership announcements across multiple channels
+    scenarios:
+    - problem: Market moves aren't connected to active deal strategies
+      why: 'A competitor acquires a company, launches a new product tier, or signs
+        a strategic partnership. The news circulates in Slack but never reaches the
+        deal teams who are actively competing against that vendor. The market move
+        changes the competitive landscape, but deal strategies remain unchanged.
+
+        '
+      agent: ci-market-intel-agent
+      agent_response: 'Correlates market events with the active deal pipeline,
+        identifying which deals face a changed competitive landscape. Generates
+        deal-specific impact assessments that explain how the market move affects
+        positioning, pricing, or feature comparisons for each affected opportunity.
+
+        '
+      success_signal:
+        metric: Market event-to-deal strategy connection rate
+        target: Impact assessments delivered to affected deal teams within 24 hours of a market event
+        leading_indicator: Deal strategies are revised within one week of a relevant competitive market event
+        failure_signal: Deal team learns about a competitive market move from the customer
+    - problem: Analyst preparation lacks structured positioning materials
+      why: 'Analyst briefings and report responses are prepared ad hoc, pulling
+        from memory and scattered documents. Without structured proof points,
+        competitive context, and anticipated questions, the team enters analyst
+        interactions under-prepared, risking positioning downgrades.
+
+        '
+      agent: ci-market-intel-agent
+      agent_response: 'Prepares structured analyst interaction materials with key
+        messages, proof points, competitive landscape context, and anticipated Q&A.
+        Maps current positioning to analyst evaluation criteria and identifies
+        gaps that need addressing before the interaction.
+
+        '
+      success_signal:
+        metric: Analyst interaction preparedness
+        target: Analyst prep materials available 48 hours before scheduled interaction
+        leading_indicator: Team references structured prep materials during analyst briefings
+        failure_signal: Analyst raises a competitive question the team has no prepared response for
+  escalation_triggers:
+  - Competitor news with strategic implications (acquisition, major launch, partnership)
+  - Market positioning reveals new differentiation gap
+  - Analyst report shifts competitive landscape perception
+  - Market event affects 5+ active deals in the pipeline
+  prompt_registry:
+    ci-competitor-news:
+      description: Analyze recent competitor news and implications for field teams
+      source: prompts/tasks.yaml#market_intel.competitor_news
+      inputs:
+      - title: competitor_name
+        type: string
+      - title: news_summary
+        type: string
+      outputs:
+      - title: news_analysis
+        type: object
+      requires_data:
+      - source: read-communications
+        fields:
+        - competitor_news_signals
+        - market_content
+        priority: critical
+      - source: read-infohub
+        fields:
+        - competitor_positioning
+        - competitive_context
+        priority: enrichment
+    ci-market-positioning:
+      description: Update competitive positioning in a market segment
+      source: prompts/tasks.yaml#market_intel.market_positioning
+      inputs:
+      - title: segment
+        type: string
+      - title: competitor_list
+        type: array
+      outputs:
+      - title: positioning_update
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - current_positioning
+        - competitor_list
+        - market_segment_data
+        priority: critical
+      - source: read-crm-data
+        fields:
+        - active_deals_by_segment
+        - competitor_exposure
+        priority: enrichment
+    ci-analyst-prep:
+      description: Prepare for analyst briefing or report response
+      source: prompts/tasks.yaml#market_intel.analyst_prep
+      inputs:
+      - title: analyst_name
+        type: string
+      - title: topic
+        type: string
+      - title: current_position
+        type: string
+      outputs:
+      - title: analyst_prep
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - current_positioning
+        - proof_points
+        - competitive_landscape
+        priority: critical
+  boundaries:
+  - Analyzes market events and positioning only, does not scan deal communications
+  - Does not generate battlecards or displacement strategies (Battlecard Agent's domain)
+  - Does not analyze win/loss patterns (Win/Loss Agent's domain)
+  - Does not scan for competitor mentions in conversations (Signal Detection Agent's domain)
+  - Does not make product commitments or pricing decisions
+  - Does not speculate about competitor strategy without evidence
+  permissions:
+  - Analyze competitor news for field impact and deal implications
+  - Update market positioning by segment and competitor
+  - Correlate market events with active deal pipeline
+  - Prepare analyst interaction materials with proof points
+  - Write market intelligence artifacts to InfoHub
+  - Distribute impact assessments to affected deal teams
+  guardrails:
+    input_validation:
+    - Reject news analysis without competitor name or news content
+    - Reject positioning update without segment specification
+    - Reject analyst prep without analyst name and topic
+    output_checks:
+    - News analysis must distinguish confirmed moves from speculation
+    - All market intelligence must include source attribution
+    - Positioning updates must reference specific competitor moves with dates
+    - Analyst prep must include anticipated Q&A with prepared responses
+    signal_validation:
+    - Never present market speculation as confirmed intelligence
+    - Note source reliability for each piece of market intelligence
+    - Add [UNCONFIRMED] marker for intelligence based on single sources
+    - Flag when market data is older than 30 days
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-crm-data
+      - read-communications
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable positioning analysis without current competitive data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with InfoHub data, mark pipeline correlation as unavailable
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern, recommend positioning refresh before field distribution
+  knowledge:
+    scope:
+      domains:
+      - market-intelligence
+      - competitive-positioning
+      - analyst-relations
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/competitor-framework.yaml
+      description: Market positioning categories, competitive landscape mapping, analyst evaluation criteria
+    - path: references/signal-detection.yaml
+      description: Market signal types and competitor event classification for news analysis
+    - path: references/industry-best-practices.yaml
+      description: Forrester, Gartner evaluation frameworks, SCIP competitive intelligence standards
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ci-agent
+      description: CI orchestrator routes market intelligence and analyst prep requests
+    - type: event
+      source: news_feed
+      condition: competitor_event.significance >= HIGH
+      description: Auto-analyzes significant competitor news events
+    - type: scheduled
+      source: quarterly_review
+      condition: quarter_end == true
+      description: Quarterly market positioning refresh across all tracked segments
+    outputs:
+    - type: parent_return
+      target: ci-agent
+      payload:
+      - news_analysis
+      - positioning_update
+      - analyst_prep
+      description: Market intelligence results back to CI orchestrator
+    - type: trigger_agent
+      target: ci-battlecard-agent
+      condition: positioning_gap.severity == HIGH
+      payload:
+      - positioning_update
+      - affected_competitors
+      description: High-severity positioning gap triggers battlecard refresh
+    - type: trigger_agent
+      target: ci-signal-detection-agent
+      condition: market_event.deal_impact == true
+      payload:
+      - news_analysis
+      - affected_deals
+      description: Market event with deal impact triggers signal scan for affected accounts
+    - type: notify_human
+      condition: strategic_event == true OR analyst_prep_urgent == true
+      channel: alert
+      description: Strategic market events and urgent analyst prep surface for CI lead and leadership review
+    consumes_toolboxes:
+    - toolbox: win-loss-intelligence
+      agent: ci-win-loss-agent
+      tools:
+      - get-competitive-trends
+      reason: Win/loss trends inform market positioning accuracy
+    dependencies:
+    - agent: ci-win-loss-agent
+      toolbox: win-loss-intelligence
+      tools:
+      - get-competitive-trends
+      purpose: Historical competitive patterns validate or challenge positioning assumptions
+    - agent: ci-signal-detection-agent
+      toolbox: signal-intelligence
+      tools:
+      - get-competitor-signals
+      purpose: Recent field signals provide ground-truth validation for market positioning

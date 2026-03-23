@@ -1,0 +1,476 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: mna-node-news-agent
+name: MNA Node News Agent
+description: 'Scans public news sources for solution-domain, competitor, and regulatory
+  developments relevant to active nodes. Monitors industry-specific technology shifts,
+  competitor product announcements, partnership changes, and regulatory updates that
+  affect a node''s operating environment. Each finding is scored for relevance against
+  the node''s domain, competitive landscape, and compliance requirements.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: mna-agent
+  tags:
+  - node-news
+  - solution-domain
+  - competitor-news
+  - regulatory-impact
+  - intelligence-gathering
+  responsibility: 'Scan solution domain and competitor news, monitor regulatory changes
+    at node level to keep node profiles current with verified public developments.
+
+    '
+system_prompt: 'You are a Node News Agent, part of the Market News Analyst intelligence
+  system. Your job is to scan solution-domain, competitor, and regulatory news relevant
+  to specific nodes and deliver structured, evidence-based intelligence.
+
+
+  You MUST:
+
+  - Scan industry and solution news relevant to specific nodes and their operating domains
+
+  - Monitor competitor product announcements, partnerships, and strategic moves
+
+  - Detect regulatory changes affecting a node''s solution domain and compliance posture
+
+  - Score each news item for relevance against node context, domain, and competitive landscape
+
+  - Cite sources with publication date and outlet for every claim
+
+  - Flag high-impact developments (competitor acquisitions, major regulatory shifts) for immediate alert
+
+  - Link findings to specific node profiles and competitive context
+
+
+  You MUST NOT:
+
+  - Scan realm-level company news (MNA Realm News Agent''s domain)
+
+  - Generate weekly digests (MNA Digest Agent''s domain)
+
+  - Assess cross-event impact or pattern analysis (MNA Impact Agent''s domain)
+
+  - Create competitive strategy (CI Agent''s domain)
+
+  - Conduct industry-level analysis (Industry Intelligence Agent''s domain)
+
+  - Analyze job postings for tech signals (Technology Scout Scanner''s domain)
+
+  - Speculate beyond what public sources support
+
+  - Access paid/subscription-only full reports without authorization
+
+
+  When uncertain: state what evidence is missing, provide preliminary
+  analysis based on available information, and flag for human review.
+
+  Tone: Factual, concise, evidence-based. Every insight links to a source.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-mna-data
+  name: Read Market Data
+  description: 'Access data sources: node_profile, domain_context, competitors, compliance_requirements'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: News source unavailable, cannot proceed with scan
+    - error_code: RECORD_NOT_FOUND
+      guidance: Node profile not found, verify node_id with user
+- component_type: ClientTool
+  id: write-mna-artifact
+  name: Write Market Artifact
+  description: 'Save node news artifacts: solution domain scan results, competitor news, regulatory alerts'
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification or additional input from the user
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: node-news-intelligence
+  name: Node News Intelligence
+  description: Solution-domain news, competitor scan results, and regulatory change alerts available to peer agents
+  tools:
+  - id: get-solution-domain-news
+    name: Get Solution Domain News
+    description: Returns recent solution-domain news items scored for relevance against node context
+    inputs:
+    - title: node_name
+      type: string
+    - title: node_id
+      type: string
+    outputs:
+    - title: solution_domain_news
+      type: object
+  - id: get-competitor-news
+    name: Get Competitor News
+    description: Returns recent competitor news including product launches, partnerships, and strategic moves
+    inputs:
+    - title: node_name
+      type: string
+    - title: primary_competitor
+      type: string
+    outputs:
+    - title: competitor_news
+      type: object
+  - id: get-regulatory-changes
+    name: Get Regulatory Changes
+    description: Returns detected regulatory changes affecting the node's solution domain
+    inputs:
+    - title: domain
+      type: string
+    - title: industry
+      type: string
+    outputs:
+    - title: regulatory_changes
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: node-news
+  name: Node News
+  description: Scan solution domain and competitor news, monitor regulatory changes at node level.
+  inputs:
+  - title: competitive_summary
+    type: string
+  - title: competitors
+    type: string
+  - title: compliance_requirements
+    type: string
+  - title: domain
+    type: string
+  - title: industry
+    type: string
+  - title: node_id
+    type: string
+  - title: node_name
+    type: string
+  - title: operating_mode
+    type: string
+  outputs:
+  - title: node_news_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: mna-solution-domain-scan
+      input: node_name, node_id, domain, operating_mode
+      tools:
+      - read-mna-data
+      description: Scan industry and solution news relevant to a specific node
+      on_failure: stop
+    - step: 2
+      prompt: mna-competitor-news-scan
+      input: node_name, primary_competitor, secondary_competitors, competitive_summary
+      tools:
+      - read-mna-data
+      description: Focused scan on competitors active in a node
+      on_failure: stop
+    - step: 3
+      prompt: mna-regulatory-impact-scan
+      input: domain, industry, region, compliance_requirements
+      tools:
+      - read-mna-data
+      description: Scan for regulatory changes affecting node's solution domain
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - write-mna-artifact
+      description: Save node news results to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - solution-domain-scan
+    - competitor-news-scan
+    - regulatory-impact-scan
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent scans solution-domain and competitor news systematically,
+      but only the account team understands which competitor moves are genuine threats
+      versus noise, and which regulatory changes will actually affect the customer''s
+      buying timeline. A competitor partnership announcement might be irrelevant or
+      deal-breaking depending on relationship context. The news is surfaced with scoring,
+      but human judgment decides the response.
+
+      '
+    challenges:
+    - text: Competitor product announcements affecting active nodes are discovered too late
+      specific_overhead:
+      - Monitoring competitor press releases and product blogs across multiple vendors
+    - text: Regulatory changes impacting solution domains are missed until customers raise them
+      specific_overhead:
+      - Tracking regulatory body announcements across jurisdictions relevant to active deals
+    - text: Solution-domain technology shifts are buried in industry publications nobody reads
+      specific_overhead:
+      - Scanning analyst reports and industry publications for technology trend shifts
+    - text: Node-level competitive context requires combining news from multiple fragmented sources
+      specific_overhead:
+      - Cross-referencing competitor news against specific node competitive landscapes
+    - text: Compliance requirement changes invalidate solution positioning without warning
+      specific_overhead:
+      - Mapping new regulatory requirements against current solution compliance posture
+    administrative_overhead:
+    - Monitoring competitor press releases and product blogs across multiple vendors
+    - Tracking regulatory body announcements across jurisdictions relevant to active deals
+    - Scanning analyst reports and industry publications for technology trend shifts
+    - Cross-referencing competitor news against specific node competitive landscapes
+    scenarios:
+    - problem: Competitor product announcements affecting active nodes are discovered too late
+      why: 'Competitors announce new products, partnerships, and pricing changes through
+        channels the account team does not monitor consistently. By the time the team
+        learns about a competitive move, the customer has already received the competitor''s
+        pitch and formed initial impressions.
+
+        '
+      agent: mna-node-news-agent
+      agent_response: 'Continuously scans competitor news sources for product announcements,
+        partnerships, and strategic moves relevant to active nodes. Scores each finding
+        against the node''s competitive landscape and flags high-impact moves for
+        immediate review with source citation and competitive context.
+
+        '
+      success_signal:
+        metric: Competitor news detection latency at node level
+        target: Detect competitor product announcements within 48 hours of publication
+        leading_indicator: Account teams reference competitor moves in strategy discussions proactively
+        failure_signal: Customer mentions competitor announcement before internal alert reaches the team
+    - problem: Regulatory changes impacting solution domains are missed until customers raise them
+      why: 'Regulatory bodies publish updates across multiple jurisdictions and domains.
+        Without systematic scanning, compliance-relevant changes surface only when
+        customers ask about them, putting the team in a reactive position that undermines
+        credibility.
+
+        '
+      agent: mna-node-news-agent
+      agent_response: 'Scans regulatory body publications and industry compliance
+        sources for changes affecting the node''s solution domain. Maps changes against
+        current compliance requirements and flags gaps that affect solution positioning
+        or deal timelines.
+
+        '
+      success_signal:
+        metric: Regulatory change detection coverage for active node domains
+        target: Detect 100% of published regulatory changes in active node domains within one scan cycle
+        leading_indicator: Compliance impact assessments proactively inform deal positioning
+        failure_signal: Regulatory changes are first raised by the customer during deal discussions
+  escalation_triggers:
+  - Competitor acquisition in active node domain (to MNA orchestrator)
+  - Major regulatory change affecting active node compliance posture (to MNA orchestrator)
+  - Competitor product launch directly competing with active node solution (to MNA orchestrator)
+  - Multiple competitor moves detected in same node within 48 hours (to MNA orchestrator)
+  prompt_registry:
+    mna-solution-domain-scan:
+      description: Scan industry and solution news relevant to a specific node
+      source: prompts/tasks.yaml#node_news.solution_domain_scan
+      inputs:
+      - title: competitors
+        type: string
+      - title: domain
+        type: string
+      - title: node_id
+        type: string
+      - title: node_name
+        type: string
+      - title: operating_mode
+        type: string
+      - title: scan_days
+        type: string
+      outputs:
+      - title: solution-domain-scan_result
+        type: object
+      requires_data:
+      - source: read-mna-data
+        fields:
+        - node_profile
+        - domain_context
+        - competitors
+        priority: critical
+    mna-competitor-news-scan:
+      description: Focused scan on competitors active in a node
+      source: prompts/tasks.yaml#node_news.competitor_news_scan
+      inputs:
+      - title: competitive_summary
+        type: string
+      - title: node_name
+        type: string
+      - title: primary_competitor
+        type: string
+      - title: secondary_competitors
+        type: string
+      outputs:
+      - title: competitor-news-scan_result
+        type: object
+      requires_data:
+      - source: read-mna-data
+        fields:
+        - competitive_summary
+        - primary_competitor
+        - secondary_competitors
+        priority: critical
+    mna-regulatory-impact-scan:
+      description: Scan for regulatory changes affecting node's solution domain
+      source: prompts/tasks.yaml#node_news.regulatory_impact_scan
+      inputs:
+      - title: compliance_requirements
+        type: string
+      - title: domain
+        type: string
+      - title: industry
+        type: string
+      - title: region
+        type: string
+      outputs:
+      - title: regulatory-impact-scan_result
+        type: object
+      requires_data:
+      - source: read-mna-data
+        fields:
+        - compliance_requirements
+        - node_profile
+        priority: critical
+  boundaries:
+  - Node-level solution-domain and competitor news only, does not scan realm-level company news
+  - Does not generate weekly digests (MNA Digest Agent's domain)
+  - Does not assess cross-event impact or patterns (MNA Impact Agent's domain)
+  - Does not create competitive strategy (CI Agent's domain)
+  - Does not conduct industry-level analysis (Industry Intelligence Agent's domain)
+  - Does not analyze job postings for tech signals (Technology Scout Scanner's domain)
+  - Does not speculate beyond what public sources support
+  - Does not access paid/subscription-only reports without authorization
+  permissions:
+  - Scan public news sources for solution-domain developments
+  - Monitor competitor product announcements, partnerships, and strategic moves
+  - Detect regulatory changes affecting node solution domains
+  - Score news items for relevance against node context and competitive landscape
+  - Write node news artifacts to InfoHub
+  - Flag high-impact competitor and regulatory developments for immediate alert
+  guardrails:
+    input_validation:
+    - Reject solution domain scan requests without node_name or node_id
+    - Reject competitor scan without at least one competitor identifier
+    - Reject regulatory scan without domain and industry
+    output_checks:
+    - Every news item must cite source with publication date and outlet
+    - Competitor news must reference specific node competitive context
+    - Regulatory changes must map to specific compliance requirements
+    - Relevance scores must reference node domain and operating mode
+    signal_validation:
+    - Never assume competitor intent not stated in source content
+    - Never speculate on regulatory enforcement timelines without official guidance
+    - Use qualifiers ("reportedly") when source is secondary
+    - Add [NEEDS VERIFICATION] marker when evidence is indirect
+  error_handling:
+    tool_failures:
+      critical:
+      - read-mna-data
+      enrichment: []
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without node profile data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - solution-domain-news
+      - competitor-monitoring
+      - regulatory-tracking
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/signal_keywords.yaml
+      description: Solution Signals, Industry Signals for node-level news scanning
+    - path: references/signal_patterns.yaml
+      description: Patterns for competitor event detection and regulatory change classification
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: mna-agent
+      description: MNA orchestrator routes node news scan requests
+    - type: scheduled
+      source: cron
+      condition: daily_scan_schedule
+      description: Daily scan of solution-domain and competitor news for all active nodes
+    - type: event
+      source: node_update
+      condition: node.competitor_change OR node.domain_change
+      description: Node competitive or domain changes trigger targeted news rescan
+    outputs:
+    - type: parent_return
+      target: mna-agent
+      payload:
+      - node_news_result
+      description: Node news scan results back to orchestrator
+    - type: trigger_agent
+      target: mna-impact-agent
+      condition: news_item.urgency == CRITICAL
+      payload:
+      - critical_news_item
+      - affected_node
+      description: Critical node news triggers immediate impact assessment
+    - type: trigger_agent
+      target: mna-digest-agent
+      condition: scan_complete == true
+      payload:
+      - node_news_result
+      description: Completed scan results feed into digest generation
+    - type: notify_human
+      condition: news_item.urgency == CRITICAL
+      channel: alert
+      description: Critical node news surfaces for immediate AE review
+    consumes_toolboxes: []
+    dependencies: []

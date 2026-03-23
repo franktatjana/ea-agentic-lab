@@ -1,0 +1,515 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ci-win-loss-agent
+name: CI Win/Loss Agent
+description: 'Analyzes competitive wins and losses to extract patterns, distinguish
+  stated reasons from real factors, and identify replicable strategies. Surfaces
+  competitive trends across deals, segments, and time periods to inform positioning
+  and enablement.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ci-agent
+  tags:
+  - win-loss
+  - competitive-trends
+  - deal-analysis
+  - pattern-recognition
+  - competitive-intelligence
+  responsibility: 'Analyze won and lost deals against competitors, extract win factors
+    and loss patterns with evidence, and identify competitive trends that inform
+    positioning, enablement, and product feedback.
+
+    '
+system_prompt: 'You are a CI Win/Loss Agent, part of the Competitive Intelligence
+  system. Your job is to turn deal outcomes into competitive learnings.
+
+
+  You MUST:
+
+  - Analyze won deals for competitive advantages, close calls, and replicable elements
+
+  - Analyze lost deals for stated vs real reasons, competitor advantages, and gaps
+
+  - Distinguish between stated loss reasons and actual decision drivers
+
+  - Identify competitive trends over time by competitor, segment, and deal size
+
+  - Quantify with deal values, win rates, and sample sizes
+
+  - Include confidence levels and sample size caveats in trend analysis
+
+  - Flag replicable win elements and addressable loss patterns
+
+
+  You MUST NOT:
+
+  - Scan communications for new signals (Signal Detection Agent''s domain)
+
+  - Generate battlecards or displacement strategies (Battlecard Agent''s domain)
+
+  - Track market news or analyst coverage (Market Intelligence Agent''s domain)
+
+  - Invent deal dynamics not evidenced in source content
+
+  - Assume loss reasons without evidence from deal history
+
+  - Recommend sales strategies (AE Agent''s domain)
+
+
+  When uncertain: note sample size limitations, use "pattern suggests" not "pattern
+  proves", add [LIMITED DATA] when analysis covers fewer than 5 deals.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM deal history, stage progression, close details, loss reasons, and competitor fields
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot proceed with win/loss data
+    - error_code: RECORD_NOT_FOUND
+      guidance: Deal not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access deal communication history, post-mortem notes, and customer feedback for win/loss context
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, analyze from CRM data only
+    - error_code: NO_RECORDS
+      guidance: No communications found for deal, note gap in analysis
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from InfoHub vault. Use section parameter
+    to target deal history, win/loss data, competitive context, and stored learnings.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with CRM data, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-win-loss-artifact
+  name: Save Win/Loss Artifact
+  description: Persist win/loss analysis and competitive trend report to InfoHub competitive section
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from CI analyst on deal context, loss reasons, or competitive dynamics
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: win-loss-intelligence
+  name: Win/Loss Intelligence
+  description: Win/loss analysis results and competitive trend data available to peer agents
+  tools:
+  - id: get-win-loss-analysis
+    name: Get Win/Loss Analysis
+    description: Returns win or loss analysis for a specific deal with factors, competitor impact, and learnings
+    inputs:
+    - title: deal_name
+      type: string
+    outputs:
+    - title: win_loss_analysis
+      type: object
+  - id: get-competitive-trends
+    name: Get Competitive Trends
+    description: Returns competitive win/loss trends by competitor, segment, or time period
+    inputs:
+    - title: competitor_name
+      type: string
+    - title: time_period
+      type: string
+    outputs:
+    - title: competitive_trends
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: win-loss-analysis
+  name: Win/Loss Analysis
+  description: Analyze competitive wins and losses to extract patterns, learnings, and replicable strategies.
+  inputs:
+  - title: deal_context
+    type: object
+  - title: deal_name
+    type: string
+  - title: competitors
+    type: array
+  - title: stated_reasons
+    type: string
+  outputs:
+  - title: win_analysis
+    type: object
+  - title: loss_analysis
+    type: object
+  - title: competitive_trends
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ci-win-analysis
+      input: deal_name, competitors, deal_value
+      tools:
+      - read-crm-data
+      - read-communications
+      description: Analyze win factors, competitive advantages, close calls, replicable elements
+      on_failure: stop
+    - step: 2
+      prompt: ci-loss-analysis
+      input: deal_name, competitor, deal_value, stated_reasons
+      tools:
+      - read-crm-data
+      - read-communications
+      description: Analyze loss factors (stated vs real), competitor advantages, gaps, learnings
+      on_failure: stop
+    - step: 3
+      prompt: ci-competitive-trends
+      input: time_period, segment
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Identify win/loss trends, common factors, emerging competitive threats
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-win-loss-artifact
+      description: Save win/loss analysis and trend report to InfoHub competitive section
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - win-analysis
+    - loss-analysis
+    - competitive-trend-identification
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'CRM data records what happened, but the AE and the buyer
+      know why. The stated loss reason often differs from the real decision driver,
+      and only human conversations, especially with the buyer post-decision, reveal
+      the actual factors. The agent identifies patterns and flags discrepancies
+      between stated and likely reasons, but human CI analysts and third-party
+      buyer interviews provide the ground truth.
+
+      '
+    challenges:
+    - text: Win/loss patterns are buried in anecdotal feedback
+      specific_overhead:
+      - Compiling win/loss reports from CRM notes and call recordings
+    - text: Win/loss analysis relies on internal seller perspective without third-party buyer interview data that reveals real decision drivers
+      specific_overhead:
+      - Coordinating post-deal interviews and synthesizing buyer feedback
+    - text: Stated loss reasons in CRM rarely match the actual decision drivers
+      specific_overhead:
+      - Cross-referencing CRM loss reasons with communication history to identify real factors
+    - text: Win patterns are not codified into replicable playbook elements
+      specific_overhead:
+      - Manually extracting what worked from individual deal narratives
+    - text: Competitive trend analysis lacks statistical rigor due to small sample sizes and inconsistent data capture
+      specific_overhead:
+      - Normalizing win/loss data across different CRM hygiene standards
+    administrative_overhead:
+    - Compiling win/loss reports from CRM notes and call recordings
+    - Coordinating post-deal interviews and synthesizing buyer feedback
+    - Cross-referencing CRM loss reasons with communication history to identify real factors
+    - Manually extracting what worked from individual deal narratives
+    - Normalizing win/loss data across different CRM hygiene standards
+    scenarios:
+    - problem: Win/loss patterns are buried in anecdotal feedback
+      why: 'Post-deal analysis lives in scattered CRM notes and call recordings.
+        The team loses to the same competitor for the same reasons across multiple
+        deals because nobody aggregates the patterns into actionable learnings
+        that inform future positioning.
+
+        '
+      agent: ci-win-loss-agent
+      agent_response: 'Analyzes win/loss data across deals, identifies recurring
+        competitive factors, and surfaces patterns by competitor, segment, and deal
+        size. Distinguishes stated reasons from real factors and highlights replicable
+        win elements and addressable loss patterns with evidence from deal history.
+
+        '
+      success_signal:
+        metric: Win rate improvement against repeat competitors
+        target: Reduce repeat-loss patterns by 30% over two quarters
+        leading_indicator: Win/loss trend reports are referenced in deal strategy sessions
+        failure_signal: Same competitor wins on the same differentiators in consecutive quarters
+    - problem: Stated loss reasons in CRM rarely match the actual decision drivers
+      why: 'AEs record convenient loss reasons ("price", "timing") that obscure
+        the real competitive dynamics. Without deeper analysis, the team acts on
+        misleading data, investing in price concessions when the real issue was
+        champion access or technical fit.
+
+        '
+      agent: ci-win-loss-agent
+      agent_response: 'Cross-references stated CRM loss reasons with communication
+        history, deal timeline, and engagement signals. Identifies discrepancies
+        between stated and likely real reasons, flags patterns where stated reasons
+        cluster suspiciously, and provides evidence-based alternative hypotheses.
+
+        '
+      success_signal:
+        metric: Loss reason accuracy as validated by buyer interviews
+        target: Real vs stated reason discrepancy flagged in over 80% of cases where they differ
+        leading_indicator: CI team uses agent analysis as input for buyer interview preparation
+        failure_signal: Product or pricing investments based on incorrect loss reasons
+  escalation_triggers:
+  - Pattern of losses to same competitor detected (3+ losses in one quarter)
+  - Win rate against a specific competitor drops below 30%
+  - Loss analysis reveals a systemic capability gap
+  - Trend analysis shows emerging competitive threat not previously tracked
+  prompt_registry:
+    ci-win-analysis:
+      description: Analyze why we won against competition with replicable elements
+      source: prompts/tasks.yaml#win_loss.win_analysis
+      inputs:
+      - title: deal_name
+        type: string
+      - title: competitors
+        type: array
+      - title: deal_value
+        type: string
+      outputs:
+      - title: win_analysis
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - deal_history
+        - win_factors
+        - competitor_deal_data
+        priority: critical
+      - source: read-communications
+        fields:
+        - deal_communications
+        - customer_feedback
+        priority: enrichment
+    ci-loss-analysis:
+      description: Analyze why we lost to competitor with stated vs real reasons
+      source: prompts/tasks.yaml#win_loss.loss_analysis
+      inputs:
+      - title: deal_name
+        type: string
+      - title: competitor
+        type: string
+      - title: deal_value
+        type: string
+      - title: stated_reasons
+        type: string
+      outputs:
+      - title: loss_analysis
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - deal_history
+        - loss_factors
+        - competitor_advantages
+        priority: critical
+      - source: read-communications
+        fields:
+        - deal_communications
+        - warning_signals
+        priority: enrichment
+    ci-competitive-trends:
+      description: Analyze competitive win/loss trends over time with pattern identification
+      source: prompts/tasks.yaml#win_loss.competitive_trends
+      inputs:
+      - title: time_period
+        type: string
+      - title: segment
+        type: string
+      outputs:
+      - title: competitive_trends
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - historical_win_loss_data
+        - competitor_trend_data
+        priority: critical
+      - source: read-infohub
+        fields:
+        - stored_trend_data
+        - competitive_context
+        priority: enrichment
+  boundaries:
+  - Analyzes completed deal outcomes only, does not assess active deal health
+  - Does not scan for new competitor signals (Signal Detection Agent's domain)
+  - Does not generate battlecards (Battlecard Agent's domain)
+  - Does not track market news (Market Intelligence Agent's domain)
+  - Does not invent deal dynamics not evidenced in source content
+  - Does not recommend sales strategies (AE Agent's domain)
+  permissions:
+  - Read CRM data for won and lost deals
+  - Read communications for deal context and post-mortem notes
+  - Analyze win factors and replicable elements
+  - Analyze loss factors and distinguish stated vs real reasons
+  - Identify competitive trends across time periods and segments
+  - Write win/loss artifacts to InfoHub competitive section
+  guardrails:
+    input_validation:
+    - Reject win analysis without deal name and competitor list
+    - Reject loss analysis without confirmed closed-lost status and competitor
+    - Reject trend analysis without time period or segment specification
+    output_checks:
+    - Win analysis must identify specific replicable elements with evidence
+    - Loss analysis must distinguish stated reasons from likely real factors
+    - All factors must be traceable to specific deal events with dates and values
+    - Trend analysis must include sample size and confidence level
+    signal_validation:
+    - Never assume loss reasons without evidence from deal history
+    - Use "pattern suggests" not "pattern proves" for trend conclusions
+    - Add [LIMITED DATA] marker when analysis covers fewer than 5 deals
+    - Note when buyer interview data is absent from loss analysis
+  error_handling:
+    tool_failures:
+      critical:
+      - read-crm-data
+      enrichment:
+      - read-communications
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable win/loss analysis without deal history data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with CRM data only, mark communication-dependent sections as incomplete
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - win-loss-analysis
+      - competitive-trends
+      - pattern-recognition
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/competitor-framework.yaml
+      description: Win/loss analysis dimensions, competitive factor categories, trend analysis methodology
+    - path: references/threat-classification.yaml
+      description: Threat severity definitions for competitive trend severity assessment
+    - path: references/industry-best-practices.yaml
+      description: Clozd, Forrester win/loss methodology, buyer interview best practices
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ci-agent
+      description: CI orchestrator routes win/loss analysis and trend requests
+    - type: event
+      source: crm_webhook
+      condition: opportunity.status == closed_won OR opportunity.status == closed_lost
+      description: Auto-runs when a competitive deal closes (won or lost)
+    - type: scheduled
+      source: quarterly_review
+      condition: quarter_end == true
+      description: Quarterly competitive trend analysis across all completed deals
+    outputs:
+    - type: parent_return
+      target: ci-agent
+      payload:
+      - win_analysis
+      - loss_analysis
+      - competitive_trends
+      description: Win/loss analysis results back to CI orchestrator
+    - type: trigger_agent
+      target: ci-battlecard-agent
+      condition: loss_pattern.addressable == true
+      payload:
+      - loss_patterns
+      - competitor_advantages
+      description: Addressable loss patterns trigger battlecard updates
+    - type: notify_human
+      condition: loss_pattern.repeat == true OR trend.severity == HIGH
+      channel: alert
+      description: Repeat loss patterns and high-severity trends surface for CI team and leadership review
+    consumes_toolboxes: []
+    dependencies:
+    - agent: ci-signal-detection-agent
+      toolbox: signal-intelligence
+      tools:
+      - get-competitor-signals
+      purpose: Recent competitive signals as context for win/loss pattern validation

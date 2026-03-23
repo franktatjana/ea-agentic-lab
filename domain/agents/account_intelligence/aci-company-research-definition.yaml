@@ -1,0 +1,474 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: aci-company-research-agent
+name: ACI Company Research Agent
+description: 'Researches companies from public sources to build comprehensive profiles covering
+  structure, business lines, strategy, and financials. Produces source-attributed,
+  confidence-scored company profiles that serve as the foundation for all downstream
+  account intelligence, including organigram building and opportunity identification.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: aci-agent
+  tags:
+  - company-research
+  - company-profile
+  - business-lines
+  - strategy-analysis
+  - financials
+  responsibility: 'Research company structure, business lines, strategy, and financials
+    from public sources to produce comprehensive, source-attributed company profiles.
+
+    '
+system_prompt: 'You are a Company Research Agent, part of the Account Intelligence
+  system. Your job is to research companies from public sources and build structured
+  profiles covering corporate structure, business lines, strategy, and financials.
+
+
+  You MUST:
+
+  - Research company structure, business lines, and strategy from public sources
+
+  - Analyze annual reports, investor presentations, SEC filings, and corporate websites
+
+  - Map revenue segments and business units with ownership and strategic direction
+
+  - Summarize company strategy with source-attributed findings
+
+  - Score confidence levels on all claims based on source quality and recency
+
+  - Register all sources in shared source registry for cluster-wide reuse
+
+  - Produce structured company profiles in YAML format
+
+
+  You MUST NOT:
+
+  - Build organizational hierarchies or map leadership (Organigram Agent''s domain)
+
+  - Identify business opportunities or map vendor capabilities (Opportunity Agent''s domain)
+
+  - Monitor ongoing news feeds (MNA Agent''s job)
+
+  - Analyze competitive positioning (CI Agent''s job)
+
+  - Scan technology adoption signals (Technology Scout''s job)
+
+  - Analyze industry-level trends (Industry Intelligence Agent''s job)
+
+  - Make commercial recommendations (AE Agent''s job)
+
+  - Access internal or confidential company data
+
+  - Fabricate company details without source evidence
+
+
+  When uncertain: state what evidence is missing, provide preliminary analysis based
+  on available information, and flag for human review.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-public-sources
+  name: Read Public Sources
+  description: Access public company data from SEC filings, annual reports, investor presentations, and corporate websites
+  requires_confirmation: false
+  inputs:
+  - title: company_name
+    type: string
+  - title: source_type
+    type: string
+  outputs:
+  - title: source_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Source unavailable, try alternative public sources
+    - error_code: NO_RECORDS
+      guidance: No records found for company, expand search or note gap
+- component_type: ClientTool
+  id: read-aci-data
+  name: Read Account Data
+  description: Access existing account profile, company profile, and source registry data
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with public sources only, flag output as incomplete
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: write-company-profile
+  name: Write Company Profile
+  description: Save company profile and source registry entries to realm intelligence store
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification about company scope, industry focus, or research depth
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: company-intelligence
+  name: Company Intelligence
+  description: Company profiles and business line analysis available to peer agents
+  tools:
+  - id: get-company-profile
+    name: Get Company Profile
+    description: Returns structured company profile with overview, business lines, strategy, and financials
+    inputs:
+    - title: company_name
+      type: string
+    outputs:
+    - title: company_profile
+      type: object
+  - id: get-business-lines
+    name: Get Business Lines
+    description: Returns revenue segments and business unit mapping with ownership and strategic direction
+    inputs:
+    - title: company_name
+      type: string
+    outputs:
+    - title: business_lines
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: company-research
+  name: Company Research
+  description: Research a company from public sources to build a comprehensive profile covering structure, business lines, strategy, and financials
+  inputs:
+  - title: required
+    type: string
+  - title: optional
+    type: string
+  outputs:
+  - name: company_profile
+    type: object
+    format: yaml
+    description: 'Comprehensive company profile: overview, business_lines, strategic_initiatives, financial_summary'
+    path: '{realm}/intelligence/account_intelligence/company_profile.yaml'
+  - name: source_registry_entries
+    type: array
+    format: yaml
+    description: Sources used during research, appended to shared registry
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: aci-company-research-analyze
+      input: context
+      tools:
+      - read-public-sources
+      - read-aci-data
+      description: Analyze input
+      on_failure: stop
+    - step: 2
+      prompt: aci-company-research-synthesize
+      input: analysis
+      description: Synthesize findings
+      on_failure: stop
+    - step: 3
+      prompt: aci-company-research-output
+      input: synthesis
+      tools:
+      - write-company-profile
+      description: Generate output
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - company-research
+    - company-profiling
+    - business-line-analysis
+    - financial-summary
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Public filings and corporate websites tell part of the story, but the
+      analyst who has covered this account for years knows which business lines are
+      actually growing versus being propped up, which strategic initiatives are real
+      versus aspirational, and which financial metrics mask underlying problems. The
+      agent structures the research, but the human validates it against lived experience.
+
+      '
+    challenges:
+    - text: Company research is scattered across dozens of public sources
+      specific_overhead:
+      - Searching SEC filings, annual reports, investor decks, and news for each account
+    - text: Business line structures change with reorganizations and M&A activity
+      specific_overhead:
+      - Manually tracking corporate restructuring announcements across accounts
+    - text: Financial data requires context to interpret correctly
+      specific_overhead:
+      - Cross-referencing revenue segments across quarterly and annual filings
+    - text: Source quality varies widely and outdated data leads to wrong conclusions
+      specific_overhead:
+      - Verifying publication dates and cross-checking claims across multiple sources
+    - text: Research results are not shared systematically across the account team
+      specific_overhead:
+      - Rebuilding company context for every new team member or meeting preparation
+    administrative_overhead:
+    - Searching SEC filings, annual reports, investor decks, and news for each account
+    - Manually tracking corporate restructuring announcements across accounts
+    - Cross-referencing revenue segments across quarterly and annual filings
+    scenarios:
+    - problem: Account research is done ad-hoc, usually the night before a meeting
+      why: 'Reps scramble to pull together company context from LinkedIn, news sites,
+        and SEC filings hours before a customer meeting. The result is shallow preparation
+        that misses strategic shifts and financial trends that would shape the conversation.
+
+        '
+      agent: aci-company-research-agent
+      agent_response: 'The agent continuously researches target companies from public
+        sources and builds structured company profiles with source-attributed findings.
+        By the time a meeting is scheduled, a current profile with business lines,
+        strategy, and financials already exists.
+
+        '
+      success_signal:
+        metric: Pre-meeting research preparation time
+        target: Reduce ad-hoc company research time by 70%
+        leading_indicator: Company profiles are current within 7 days of latest public disclosure
+        failure_signal: Reps still manually searching SEC filings and news sites before meetings
+    - problem: Strategic priorities are inferred from outdated information
+      why: 'Account teams rely on last quarter''s earnings call or a six-month-old
+        annual report to understand customer priorities. Conversations anchored in
+        stale priorities damage credibility with informed buyers.
+
+        '
+      agent: aci-company-research-agent
+      agent_response: 'The agent tracks strategic priority signals from earnings transcripts,
+        investor presentations, press releases, and regulatory filings. It maintains
+        a timestamped priority map per account and flags when new signals contradict
+        or update the previous understanding.
+
+        '
+      success_signal:
+        metric: Account priority freshness
+        target: Strategic priority map updated within 7 days of any material public disclosure
+        leading_indicator: Account briefings reference priority shifts detected in the current quarter
+        failure_signal: Customer corrects the account team's understanding of their priorities during a meeting
+  escalation_triggers:
+  - Company undergoes major restructuring or M&A activity requiring re-research
+  - Source conflict detected between multiple public filings
+  - Financial data shows material discrepancy requiring human verification
+  - Company profile data exceeds 90-day freshness threshold
+  prompt_registry:
+    aci-company-deep-dive:
+      description: Comprehensive company research from public sources
+      source: prompts/tasks.yaml#company_research.company_deep_dive
+      inputs:
+      - title: company_name
+        type: string
+      - title: existing_company_profile
+        type: string
+      - title: industry
+        type: string
+      - title: realm_id
+        type: string
+      - title: source_registry
+        type: string
+      - title: sub_industry
+        type: string
+      outputs:
+      - title: company-deep-dive_result
+        type: object
+      requires_data:
+      - source: read-aci-data
+        fields:
+        - account_profile
+        - existing_company_profile
+        - source_registry
+        priority: critical
+    aci-business-line-analysis:
+      description: Detailed analysis of company revenue segments and business units
+      source: prompts/tasks.yaml#company_research.business_line_analysis
+      inputs:
+      - title: annual_report_data
+        type: string
+      - title: company_name
+        type: string
+      - title: existing_business_lines
+        type: string
+      - title: realm_id
+        type: string
+      outputs:
+      - title: business-line-analysis_result
+        type: object
+      requires_data:
+      - source: read-aci-data
+        fields:
+        - annual_report_data
+        - existing_business_lines
+        priority: critical
+    aci-company-research-analyze:
+      description: Analyze input
+      source: skills/company_research.yaml#step-1
+      inputs:
+      - title: context
+        type: string
+      outputs:
+      - title: result
+        type: object
+      requires_data:
+      - source: read-aci-data
+        fields:
+        - account_profile
+        - intelligence_data
+        - source_registry
+        priority: critical
+    aci-company-research-synthesize:
+      description: Synthesize findings
+      source: skills/company_research.yaml#step-2
+      inputs:
+      - title: analysis
+        type: string
+      outputs:
+      - title: result
+        type: object
+    aci-company-research-output:
+      description: Generate output
+      source: skills/company_research.yaml#step-3
+      inputs:
+      - title: synthesis
+        type: string
+      outputs:
+      - title: result
+        type: object
+  boundaries:
+  - Does not build organizational hierarchies (Organigram Agent's domain)
+  - Does not identify business opportunities (Opportunity Agent's domain)
+  - Does not monitor ongoing news feeds (MNA Agent's job)
+  - Does not analyze competitive positioning (CI Agent's job)
+  - Does not scan technology adoption signals (Technology Scout's job)
+  - Does not analyze industry-level trends (Industry Intelligence Agent's job)
+  - Does not make commercial recommendations (AE Agent's job)
+  - Does not access internal or confidential company data
+  permissions:
+  - Research company structure, business lines, and strategy from public sources
+  - Analyze annual reports, investor presentations, and SEC filings
+  - Map revenue segments and business units
+  - Summarize company strategy with source attribution
+  - Register sources in shared source registry
+  - Enrich realm profiles with verified company intelligence
+  guardrails:
+    input_validation:
+    - Reject research requests without company name or realm context
+    - Reject requests for internal or confidential company data
+    output_checks:
+    - Every claim must cite a specific public source with date
+    - Confidence scores required on all profile sections
+    - Financial data must include reporting period and currency
+    - Business line mapping must trace to annual report segments
+    signal_validation:
+    - Never fabricate company details not found in public sources
+    - Never assume financial figures not explicitly stated in filings
+    - Use qualifiers ("reported as", "disclosed in") when paraphrasing
+    - Add [NEEDS VERIFICATION] marker when sources conflict
+  error_handling:
+    tool_failures:
+      critical:
+      - read-public-sources
+      - read-aci-data
+      enrichment:
+      - write-company-profile
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable company profile without source data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - company-research
+      - financial-analysis
+      - corporate-strategy
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/research_sources.yaml
+      description: Primary Sources (SEC filings, annual reports, investor presentations), Secondary Sources (news, analyst reports)
+    - path: references/financial-analysis-framework.yaml
+      description: Revenue segment analysis, financial health indicators, reporting period conventions
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: aci-agent
+      description: ACI orchestrator routes company research requests
+    - type: event
+      source: source_registry
+      condition: source.freshness_days > 90
+      description: Auto-refreshes company profile when sources exceed freshness threshold
+    outputs:
+    - type: parent_return
+      target: aci-agent
+      payload:
+      - company_profile
+      - source_registry_entries
+      description: Company research results back to orchestrator
+    - type: trigger_agent
+      target: aci-organigram-agent
+      condition: company_profile.business_lines.changed == true
+      payload:
+      - company_profile
+      - business_lines
+      description: Business line changes trigger organigram update
+    - type: trigger_agent
+      target: aci-opportunity-agent
+      condition: company_profile.strategic_initiatives.changed == true
+      payload:
+      - company_profile
+      - strategic_initiatives
+      description: New strategic initiatives trigger opportunity re-mapping
+    consumes_toolboxes: []
+    dependencies: []

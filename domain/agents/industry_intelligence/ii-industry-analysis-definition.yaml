@@ -1,0 +1,477 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ii-industry-analysis-agent
+name: II Industry Analysis Agent
+description: 'Markets have structure that shapes every customer conversation. This agent
+  maps industry dynamics, competitive forces, market sizing, and sector benchmarks
+  to build comprehensive profiles that ground engagement teams in the realities of
+  each vertical. When a rep walks into a meeting, they carry sector-level context
+  that matches the buyer''s own understanding of their market.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ii-agent
+  tags:
+  - industry-analysis
+  - market-dynamics
+  - sector-benchmarks
+  - competitive-landscape
+  responsibility: 'Deliver comprehensive industry structure analysis and company benchmarking
+    against sector peers with cited evidence from analyst reports and public data.
+
+    '
+system_prompt: 'You are an Industry Analysis Agent, part of the Industry Intelligence
+  system. Your job is to build comprehensive industry profiles and benchmark companies
+  against sector peers.
+
+
+  You MUST:
+
+  - Analyze industry structure including market size, growth rates, and key players
+
+  - Map competitive forces (Porter''s Five Forces) with evidence from analyst reports
+
+  - Extract sector benchmarks (financial, operational, digital maturity) from public data
+
+  - Compare company positioning against industry peers across consistent dimensions
+
+  - Cite every claim with source, date, and specific data point
+
+  - Produce structured profiles that downstream agents can reference
+
+
+  You MUST NOT:
+
+  - Research individual company organizational structure (Account Intelligence Agent''s domain)
+
+  - Monitor daily news feeds (MNA Agent''s domain)
+
+  - Analyze competitor-specific product positioning (CI Agent''s domain)
+
+  - Scan technology adoption at company level (Technology Scout''s domain)
+
+  - Generate customer-facing content or pitch materials
+
+  - Access paid full-text analyst reports without authorization
+
+  - State market size or growth without citing the source and methodology
+
+
+  When uncertain: use "estimated" or "approximate", cite the basis for estimation,
+  and add [NEEDS VERIFICATION] for data points that could not be triangulated across
+  sources.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-ii-data
+  name: Read Industry Data
+  description: 'Access data sources: realm_data, source_registry, industry_context,
+    company_profile, industry_benchmarks'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Industry data source unavailable, flag gap and proceed with available sources
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section
+    parameter to target specific data: industry_profile, competitive, context, or
+    frameworks.'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: write-ii-artifact
+  name: Write Industry Artifact
+  description: Save industry analysis artifacts (profiles, benchmarks) to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: save-industry-intelligence
+  name: Save Industry Intelligence
+  description: Persist industry analysis to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: industry
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification about industry scope, sub-industry focus, or benchmark dimensions
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: industry-profile-intelligence
+  name: Industry Profile Intelligence
+  description: Industry structure profiles and sector benchmarks available to peer agents
+  tools:
+  - id: get-industry-profile
+    name: Get Industry Profile
+    description: Returns structured industry profile with market dynamics, competitive forces, and key players
+    inputs:
+    - title: industry
+      type: string
+    - title: sub_industry
+      type: string
+    outputs:
+    - title: industry_profile
+      type: object
+  - id: get-sector-benchmarks
+    name: Get Sector Benchmarks
+    description: Returns industry benchmarks (financial, operational, digital maturity) for peer comparison
+    inputs:
+    - title: industry
+      type: string
+    - title: company_name
+      type: string
+    outputs:
+    - title: benchmarks
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: industry-analysis
+  name: Industry Analysis
+  playbook_refs:
+  - PB_II_001
+  description: Comprehensive industry structure analysis and company benchmarking against sector peers.
+  inputs:
+  - title: company_name
+    type: string
+  - title: company_profile
+    type: string
+  - title: industry
+    type: string
+  - title: industry_benchmarks
+    type: string
+  - title: realm_id
+    type: string
+  - title: regions
+    type: string
+  - title: source_registry
+    type: string
+  - title: sub_industry
+    type: string
+  outputs:
+  - title: industry_analysis_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ii-industry-deep-dive
+      input: industry, sub_industry, realm_id, company_name
+      tools:
+      - read-ii-data
+      - read-infohub
+      description: Comprehensive industry structure and dynamics analysis
+      on_failure: stop
+    - step: 2
+      prompt: ii-sector-comparison
+      input: company_name, industry, company_profile, industry_benchmarks
+      tools:
+      - read-ii-data
+      - read-infohub
+      description: Compare company positioning against industry benchmarks
+      on_failure: stop
+    - step: 3
+      action: persist
+      tools:
+      - save-industry-intelligence
+      - write-ii-artifact
+      description: Save industry profile and benchmark analysis to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - industry-structure-analysis
+    - sector-benchmarking
+    - competitive-landscape-mapping
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent maps industry structure from public data, but
+      the analyst brings contextual judgment. Knowing that a market is consolidating
+      is data. Understanding which consolidation moves signal opportunity versus threat
+      for a specific customer requires industry intuition built over years of sector
+      engagement. The agent structures, the analyst interprets.
+
+      '
+    challenges:
+    - text: Industry profiles are built manually from scattered analyst reports
+      specific_overhead:
+      - Reading and synthesizing multiple analyst reports to extract relevant sector data
+    - text: Benchmark comparisons lack consistent dimensions across verticals
+      specific_overhead:
+      - Normalizing financial and operational metrics across different industry reporting standards
+    administrative_overhead:
+    - Reading and synthesizing multiple analyst reports to extract relevant sector data
+    - Normalizing financial and operational metrics across different industry reporting standards
+    scenarios:
+    - problem: Industry profiles are built manually from scattered analyst reports
+      why: 'Building a comprehensive industry profile means reading Gartner, Forrester,
+        and IDC reports, extracting relevant data, and synthesizing it into a usable
+        structure. Each vertical requires hours of research, and the results are rarely
+        maintained or shared.
+
+        '
+      agent: ii-industry-analysis-agent
+      agent_response: 'Produces structured industry profiles covering market size,
+        growth trajectory, competitive forces, key players, and sector dynamics. Extracts
+        and normalizes data from analyst report summaries and public filings into a
+        consistent format that any team member can reference.
+
+        '
+      success_signal:
+        metric: Time to produce a structured industry profile
+        target: Comprehensive industry profile available within 1 hour of request
+        leading_indicator: Team members reference agent-built profiles in engagement planning
+        failure_signal: Reps spend more than 3 hours manually building industry context
+    - problem: Benchmark comparisons lack consistent dimensions across verticals
+      why: 'Comparing a customer against industry peers requires consistent metrics,
+        but every analyst report uses different scales, timeframes, and definitions.
+        Without normalization, benchmarks mislead rather than inform.
+
+        '
+      agent: ii-industry-analysis-agent
+      agent_response: 'Normalizes benchmarks across financial performance, operational
+        efficiency, and digital maturity dimensions using consistent methodology.
+        Produces side-by-side comparisons with source citations so reviewers can validate
+        the normalization.
+
+        '
+      success_signal:
+        metric: Benchmark accuracy validated by industry expert
+        target: Benchmark comparisons accepted without manual correction in 90% of reviews
+        leading_indicator: Engagement teams use benchmark data in customer-facing discussions
+        failure_signal: Benchmark data requires manual rework before use
+  escalation_triggers:
+  - Industry profile reveals market disruption affecting active engagements
+  - Benchmark data shows customer significantly below sector average on key metrics
+  - Source data conflicts across analyst reports requiring expert resolution
+  - Industry structure change detected (M&A, new entrant, regulatory disruption)
+  prompt_registry:
+    ii-industry-deep-dive:
+      description: Comprehensive industry structure and dynamics analysis
+      source: prompts/tasks.yaml#industry_analysis.industry_deep_dive
+      inputs:
+      - title: company_name
+        type: string
+      - title: industry
+        type: string
+      - title: realm_id
+        type: string
+      - title: regions
+        type: string
+      - title: source_registry
+        type: string
+      - title: sub_industry
+        type: string
+      outputs:
+      - title: industry-deep-dive_result
+        type: object
+      requires_data:
+      - source: read-ii-data
+        fields:
+        - realm_profile
+        - source_registry
+        - industry_context
+        priority: critical
+      - source: read-infohub
+        fields:
+        - industry_profile
+        - competitive_landscape
+        priority: enrichment
+    ii-sector-comparison:
+      description: Compare company positioning against industry benchmarks
+      source: prompts/tasks.yaml#industry_analysis.sector_comparison
+      inputs:
+      - title: company_name
+        type: string
+      - title: company_profile
+        type: string
+      - title: industry
+        type: string
+      - title: industry_benchmarks
+        type: string
+      outputs:
+      - title: sector-comparison_result
+        type: object
+      requires_data:
+      - source: read-ii-data
+        fields:
+        - company_profile
+        - industry_benchmarks
+        priority: critical
+      - source: read-infohub
+        fields:
+        - financial_data
+        - operational_metrics
+        priority: enrichment
+  boundaries:
+  - Sector-level analysis only, does not research individual company organizational structure
+  - Does not monitor daily news feeds or breaking developments
+  - Does not analyze competitor-specific product positioning
+  - Does not scan technology adoption at company level
+  - Does not generate customer-facing content
+  - Does not access paid full-text analyst reports without authorization
+  permissions:
+  - Read industry analyst report summaries and public data
+  - Analyze market structure, dynamics, and competitive forces
+  - Extract and normalize sector benchmarks across dimensions
+  - Produce structured industry profiles for realm context
+  - Register sources in shared source registry
+  guardrails:
+    input_validation:
+    - Reject industry analysis without specified industry or sub-industry
+    - Reject sector comparison without company profile or benchmark data
+    output_checks:
+    - Market size claims must cite source, date, and methodology
+    - Benchmark comparisons must use consistent dimensions with normalization notes
+    - Competitive force assessments must reference specific evidence
+    - All profiles must include data freshness indicators
+    signal_validation:
+    - Never state market size without citing the source and methodology
+    - Never assume growth rates without supporting data
+    - Use qualifiers ("estimated", "approximate") when triangulation is incomplete
+    - Add [NEEDS VERIFICATION] for single-source data points
+  error_handling:
+    tool_failures:
+      critical:
+      - read-ii-data
+      enrichment:
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without industry data sources
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - industry-analysis
+      - market-dynamics
+      - sector-benchmarking
+      archetypes:
+      - enterprise
+      - regulated-industries
+    references:
+    - path: references/research_sources.yaml
+      description: Primary and secondary research sources for industry analysis
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ii-agent
+      description: II orchestrator routes industry analysis requests
+    - type: event
+      source: analyst_report_feed
+      condition: new_report.industry IN active_industries
+      description: Auto-triggers profile refresh when new analyst reports cover active industries
+    - type: schedule
+      cadence: monthly
+      window: first_monday
+      description: Monthly refresh of industry profiles for all active verticals
+    - type: downstream
+      source: PB_II_001
+      signal: SIG_II_PROFILE_REFRESH
+      condition: profile_age > 30_days
+      description: Stale profile triggers re-analysis
+    outputs:
+    - type: parent_return
+      target: ii-agent
+      payload:
+      - industry_analysis_result
+      description: Industry analysis results back to orchestrator
+    - type: trigger_agent
+      target: ii-trends-agent
+      condition: market_disruption_detected == true
+      payload:
+      - disruption_signal
+      - affected_industry
+      description: Market disruption triggers trend impact assessment
+    - type: notify_human
+      condition: benchmark_gap.severity >= HIGH OR market_disruption == true
+      channel: alert
+      description: Significant benchmark gaps and market disruptions surface for analyst review
+    consumes_toolboxes:
+    - toolbox: trend-intelligence
+      agent: ii-trends-agent
+      tools:
+      - get-trend-assessment
+      reason: Active trends provide context for industry profile analysis
+    dependencies: []

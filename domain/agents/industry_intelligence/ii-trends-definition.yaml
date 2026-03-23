@@ -1,0 +1,493 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ii-trends-agent
+name: II Trends Agent
+description: 'Trends move through predictable stages, from emerging signal to mainstream
+  adoption, and the engagement opportunity is different at each stage. This agent
+  identifies industry trends from analyst reports, news digests, and conference themes,
+  classifies them by maturity and vendor relevance, and then analyzes how specific
+  trends affect active engagements. The result is trend-aware positioning that helps
+  deal teams speak to where the customer''s industry is heading, not where it has been.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ii-agent
+  tags:
+  - trend-identification
+  - trend-impact
+  - maturity-classification
+  - vendor-relevance
+  responsibility: 'Identify and classify industry trends by maturity stage and vendor
+    relevance, then analyze trend impact on active engagements with actionable positioning
+    guidance.
+
+    '
+system_prompt: 'You are a Trends Agent, part of the Industry Intelligence system.
+  Your job is to identify industry trends and analyze their impact on active engagements.
+
+
+  You MUST:
+
+  - Identify industry trends from analyst reports, news digests, and conference themes
+
+  - Classify trends by maturity stage (Emerging, Growing, Mainstream, Declining)
+
+  - Assess vendor relevance for each trend (HIGH/MEDIUM/LOW) with rationale
+
+  - Analyze how specific trends affect active engagements and deal positioning
+
+  - Track trend evolution against previous assessments to detect acceleration or stalls
+
+  - Cite sources for every trend identification with evidence strength
+
+
+  You MUST NOT:
+
+  - Research individual company technology adoption (Technology Scout''s domain)
+
+  - Monitor daily news feeds beyond trend-relevant signals (MNA Agent''s domain)
+
+  - Analyze competitor-specific trend responses (CI Agent''s domain)
+
+  - Predict exact market timing or adoption dates
+
+  - Generate customer-facing trend reports or thought leadership content
+
+  - Conflate industry trends with company-specific initiatives
+
+
+  When uncertain: classify evidence strength as STRONG (multiple analyst sources),
+  MODERATE (single analyst + supporting data), or WEAK (inference from signals).
+  Add [NEEDS VERIFICATION] for trends identified from single sources.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-ii-data
+  name: Read Industry Data
+  description: 'Access data sources: industry_profile, previous_trends, recent_news_digest,
+    company_profile, trend_details'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Trend data source unavailable, flag gap and proceed with available sources
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section
+    parameter to target specific data: trends, industry_profile, context, or engagement_status.'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: write-ii-artifact
+  name: Write Trend Artifact
+  description: Save trend analysis artifacts (trend profiles, impact assessments) to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: save-trend-intelligence
+  name: Save Trend Intelligence
+  description: Persist trend assessment to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: industry
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification about trend scope, industry focus, or engagement context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: trend-intelligence
+  name: Trend Intelligence
+  description: Industry trend classifications and impact assessments available to peer agents
+  tools:
+  - id: get-trend-assessment
+    name: Get Trend Assessment
+    description: Returns classified industry trends with maturity stage, vendor relevance, and evidence strength
+    inputs:
+    - title: industry
+      type: string
+    - title: maturity_filter
+      type: string
+    outputs:
+    - title: trends
+      type: array
+  - id: get-trend-impact
+    name: Get Trend Impact
+    description: Returns impact analysis of a specific trend on active engagements
+    inputs:
+    - title: trend_name
+      type: string
+    - title: realm_id
+      type: string
+    outputs:
+    - title: impact_analysis
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: trends
+  name: Trends
+  playbook_refs:
+  - PB_II_002
+  description: Identify and classify industry trends, then analyze trend impact on active engagements.
+  inputs:
+  - title: active_nodes
+    type: string
+  - title: company_profile
+    type: string
+  - title: industry
+    type: string
+  - title: industry_profile
+    type: string
+  - title: previous_trends
+    type: string
+  - title: realm_id
+    type: string
+  - title: recent_news_digest
+    type: string
+  - title: trend_details
+    type: string
+  outputs:
+  - title: trends_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ii-trend-identification
+      input: industry, realm_id, recent_news_digest, previous_trends
+      tools:
+      - read-ii-data
+      - read-infohub
+      description: Identify and classify industry trends
+      on_failure: stop
+    - step: 2
+      prompt: ii-trend-impact-analysis
+      input: trend_name, realm_id, trend_details, company_profile
+      tools:
+      - read-ii-data
+      - read-infohub
+      description: Deep analysis of a specific trend's impact on engagement
+      on_failure: stop
+    - step: 3
+      action: persist
+      tools:
+      - save-trend-intelligence
+      - write-ii-artifact
+      description: Save trend assessment and impact analysis to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - trend-identification
+    - trend-maturity-classification
+    - trend-impact-analysis
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent identifies and classifies trends from public
+      sources, but the analyst determines which trends are noise and which signal
+      genuine industry inflection. A trend classified as "Emerging" by analyst reports
+      may already be mainstream in one sub-vertical and irrelevant in another. That
+      contextual judgment, knowing which trends actually change customer behavior
+      and which remain conference talking points, requires human expertise built from
+      years of vertical engagement. The agent tracks, the analyst prioritizes.
+
+      '
+    challenges:
+    - text: Trend identification relies on manual analyst report reading
+      specific_overhead:
+      - Scanning multiple analyst reports, conference agendas, and industry publications for trend signals
+    - text: Trend impact on engagements is assessed inconsistently across the team
+      specific_overhead:
+      - Manually connecting industry trends to active engagement positioning and customer priorities
+    administrative_overhead:
+    - Scanning multiple analyst reports, conference agendas, and industry publications for trend signals
+    - Manually connecting industry trends to active engagement positioning and customer priorities
+    scenarios:
+    - problem: Trend identification relies on manual analyst report reading
+      why: 'Industry trends emerge across multiple sources: analyst reports, conference
+        keynotes, trade press, and regulatory signals. Manually scanning these sources
+        means trends are identified late or inconsistently, and different team members
+        cite different maturity stages for the same trend.
+
+        '
+      agent: ii-trends-agent
+      agent_response: 'Systematically identifies trends from multiple source types,
+        classifies them by maturity stage (Emerging/Growing/Mainstream/Declining)
+        and vendor relevance (HIGH/MEDIUM/LOW), and tracks evolution against previous
+        assessments. Produces a consistent trend landscape per vertical that any
+        team member can reference.
+
+        '
+      success_signal:
+        metric: Trend identification coverage and consistency
+        target: All material industry trends classified within 2 weeks of first analyst mention
+        leading_indicator: Team members reference consistent trend classifications in engagement planning
+        failure_signal: Different reps cite different maturity stages for the same trend
+    - problem: Trend impact on engagements is assessed inconsistently across the team
+      why: 'Understanding how an industry trend affects a specific customer requires
+        connecting the trend to the customer''s profile, active engagements, and
+        vendor capabilities. Without structured impact analysis, engagement teams
+        either overstate or understate trend relevance.
+
+        '
+      agent: ii-trends-agent
+      agent_response: 'Analyzes specific trends against customer profiles and active
+        engagement context, producing impact assessments that quantify relevance,
+        identify affected deal positioning, and suggest trend-aware talk tracks.
+        Connects trend dynamics to vendor capabilities for immediate use.
+
+        '
+      success_signal:
+        metric: Trend-aware positioning adoption in deal preparation
+        target: Engagement teams reference trend impact assessments in 80% of deals in trend-affected verticals
+        leading_indicator: Deal preparation notes include trend-based positioning material
+        failure_signal: Engagement teams use generic trend references without customer-specific impact context
+  escalation_triggers:
+  - Emerging trend accelerating faster than previous assessment predicted
+  - Trend directly affecting 3+ active engagements simultaneously
+  - Trend maturity reclassification with engagement impact (e.g., Emerging to Growing)
+  - Conflicting trend signals from multiple analyst sources
+  prompt_registry:
+    ii-trend-identification:
+      description: Identify and classify industry trends
+      source: prompts/tasks.yaml#trends.trend_identification
+      inputs:
+      - title: industry
+        type: string
+      - title: industry_profile
+        type: string
+      - title: previous_trends
+        type: string
+      - title: realm_id
+        type: string
+      - title: recent_news_digest
+        type: string
+      outputs:
+      - title: trend-identification_result
+        type: object
+      requires_data:
+      - source: read-ii-data
+        fields:
+        - industry_profile
+        - previous_trends
+        - recent_news_digest
+        priority: critical
+      - source: read-infohub
+        fields:
+        - industry_context
+        - trend_history
+        priority: enrichment
+    ii-trend-impact-analysis:
+      description: Deep analysis of a specific trend's impact on engagement
+      source: prompts/tasks.yaml#trends.trend_impact_analysis
+      inputs:
+      - title: active_nodes
+        type: string
+      - title: company_profile
+        type: string
+      - title: realm_id
+        type: string
+      - title: trend_details
+        type: string
+      - title: trend_name
+        type: string
+      outputs:
+      - title: trend-impact-analysis_result
+        type: object
+      requires_data:
+      - source: read-ii-data
+        fields:
+        - company_profile
+        - trend_details
+        - active_nodes
+        priority: critical
+      - source: read-infohub
+        fields:
+        - engagement_context
+        - vendor_capabilities
+        priority: enrichment
+  boundaries:
+  - Industry-level trend analysis only, does not track company-specific technology adoption
+  - Does not monitor daily news feeds beyond trend-relevant signals
+  - Does not analyze competitor-specific trend responses or positioning
+  - Does not predict exact market timing or adoption dates
+  - Does not generate customer-facing trend reports or thought leadership
+  - Does not conflate industry trends with company-specific initiatives
+  permissions:
+  - Read analyst reports, news digests, and conference themes for trend signals
+  - Identify and classify trends by maturity stage and vendor relevance
+  - Track trend evolution against previous assessments
+  - Analyze trend impact on active engagements
+  - Produce structured trend landscapes per vertical
+  - Register sources in shared source registry
+  guardrails:
+    input_validation:
+    - Reject trend identification without specified industry or source data
+    - Reject impact analysis without trend details or company profile
+    output_checks:
+    - Every trend must include maturity classification with supporting evidence
+    - Vendor relevance ratings must cite specific capability alignment
+    - Impact assessments must connect to specific engagements or deal positioning
+    - Trend evolution tracking must reference previous assessment for comparison
+    signal_validation:
+    - Never predict exact adoption dates or market timing
+    - Classify evidence strength as STRONG, MODERATE, or WEAK
+    - Distinguish industry trends from company-specific initiatives
+    - Add [NEEDS VERIFICATION] for trends identified from single sources
+  error_handling:
+    tool_failures:
+      critical:
+      - read-ii-data
+      enrichment:
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without trend data sources
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - industry-trends
+      - trend-impact-analysis
+      - maturity-classification
+      archetypes:
+      - enterprise
+      - regulated-industries
+    references:
+    - path: references/research_sources.yaml
+      description: Industry analyst reports, conference themes, trade association publications
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ii-agent
+      description: II orchestrator routes trend analysis requests
+    - type: event
+      source: analyst_report_feed
+      condition: new_report.contains_trend_signals == true
+      description: Auto-triggers when analyst reports mention trend-relevant content
+    - type: schedule
+      cadence: bi-weekly
+      window: monday_09:00
+      description: Bi-weekly trend landscape refresh across active verticals
+    - type: downstream
+      source: PB_II_002
+      signal: SIG_II_TREND_REFRESH
+      condition: trend_assessment_age > 14_days
+      description: Stale trend assessment triggers re-analysis
+    outputs:
+    - type: parent_return
+      target: ii-agent
+      payload:
+      - trends_result
+      description: Trend analysis results back to orchestrator
+    - type: trigger_agent
+      target: ii-industry-analysis-agent
+      condition: trend.maturity_change == true AND trend.industry_impact >= HIGH
+      payload:
+      - trend_details
+      - affected_industry
+      description: Major trend maturity shift triggers industry profile update
+    - type: trigger_agent
+      target: ii-regulatory-agent
+      condition: trend.regulatory_driver == true
+      payload:
+      - trend_details
+      - regulatory_connection
+      description: Regulation-driven trend triggers regulatory impact reassessment
+    - type: notify_human
+      condition: trend.acceleration_detected == true OR trend.impacts_active_engagements >= 3
+      channel: alert
+      description: Accelerating trends and multi-engagement impacts surface for analyst review
+    consumes_toolboxes:
+    - toolbox: industry-profile-intelligence
+      agent: ii-industry-analysis-agent
+      tools:
+      - get-industry-profile
+      reason: Industry context needed to assess trend significance within sector
+    - toolbox: regulatory-intelligence
+      agent: ii-regulatory-agent
+      tools:
+      - get-regulatory-landscape
+      reason: Regulatory landscape context for regulation-driven trends
+    dependencies: []

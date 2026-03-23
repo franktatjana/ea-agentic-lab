@@ -1,0 +1,471 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: mna-digest-agent
+name: MNA Digest Agent
+description: 'Aggregates news intelligence from realm and node scans into structured
+  weekly digests. Generates realm-level digests covering company developments across
+  all active nodes, and node-level digests covering solution-domain, competitor, and
+  regulatory developments for specific engagement contexts. Each digest highlights
+  top findings, connects them to active deal context, and surfaces items requiring
+  attention.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: mna-agent
+  tags:
+  - digests
+  - weekly-digest
+  - realm-digest
+  - node-digest
+  - intelligence-aggregation
+  responsibility: 'Generate weekly realm and node digests aggregating news intelligence
+    into structured, actionable summaries for account teams.
+
+    '
+system_prompt: 'You are a Digest Agent, part of the Market News Analyst intelligence
+  system. Your job is to aggregate news intelligence into structured weekly digests
+  that connect findings to active engagement context.
+
+
+  You MUST:
+
+  - Generate weekly realm digests covering company developments across all active nodes
+
+  - Generate weekly node digests covering solution-domain, competitor, and regulatory news
+
+  - Prioritize findings by relevance and urgency to active engagements
+
+  - Compare current digest against previous highlights to surface what changed
+
+  - Connect each finding to specific deal context (stage, competitive position, timeline)
+
+  - Cite sources with publication date and outlet for every claim
+
+  - Flag items requiring immediate attention separately from routine intelligence
+
+
+  You MUST NOT:
+
+  - Scan raw news sources (MNA Realm News Agent and MNA Node News Agent do scanning)
+
+  - Assess cross-event impact or deep pattern analysis (MNA Impact Agent''s domain)
+
+  - Create competitive strategy (CI Agent''s domain)
+
+  - Make commercial recommendations (AE Agent''s domain)
+
+  - Speculate beyond what source scans support
+
+  - Generate customer-facing content
+
+  - Access paid/subscription-only full reports without authorization
+
+
+  When uncertain: state what evidence is missing, provide preliminary
+  analysis based on available information, and flag for human review.
+
+  Tone: Factual, concise, structured. Digests should be scannable in under 2 minutes.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-mna-data
+  name: Read Market Data
+  description: 'Access data sources: realm_profile, node_profile, active_nodes, previous_highlights, competitors, deal_stage'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: News scan data unavailable, cannot generate digest
+    - error_code: RECORD_NOT_FOUND
+      guidance: Realm or node profile not found, verify identifiers with user
+    - error_code: STALE_DATA
+      guidance: Scan data exceeds freshness threshold, flag digest as potentially incomplete
+- component_type: ClientTool
+  id: write-mna-artifact
+  name: Write Market Artifact
+  description: 'Save digest artifacts: weekly realm digests, weekly node digests'
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification or additional input from the user
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: digest-intelligence
+  name: Digest Intelligence
+  description: Weekly realm and node digest summaries available to peer agents
+  tools:
+  - id: get-realm-digest
+    name: Get Realm Digest
+    description: Returns the latest weekly realm digest with prioritized findings and attention items
+    inputs:
+    - title: realm_name
+      type: string
+    - title: realm_id
+      type: string
+    outputs:
+    - title: realm_digest
+      type: object
+  - id: get-node-digest
+    name: Get Node Digest
+    description: Returns the latest weekly node digest with domain, competitor, and regulatory findings
+    inputs:
+    - title: node_name
+      type: string
+    - title: node_id
+      type: string
+    outputs:
+    - title: node_digest
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: digests
+  name: Digests
+  description: Generate weekly realm and node digests aggregating news intelligence.
+  inputs:
+  - title: active_nodes
+    type: string
+  - title: competitors
+    type: string
+  - title: deal_stage
+    type: string
+  - title: domain
+    type: string
+  - title: end_date
+    type: string
+  - title: industry
+    type: string
+  - title: node_id
+    type: string
+  - title: node_name
+    type: string
+  outputs:
+  - title: digests_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: mna-weekly-realm-digest
+      input: realm_name, realm_id, industry, active_nodes
+      tools:
+      - read-mna-data
+      description: Generate weekly news digest for a realm
+      on_failure: stop
+    - step: 2
+      prompt: mna-weekly-node-digest
+      input: node_name, node_id, domain, operating_mode
+      tools:
+      - read-mna-data
+      description: Generate weekly solution-domain digest for a node
+      on_failure: stop
+    - step: 3
+      action: persist
+      tools:
+      - write-mna-artifact
+      description: Save digest artifacts to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - weekly-realm-digest
+    - weekly-node-digest
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent aggregates and prioritizes news findings into
+      scannable digests, but the AE and account team decide which items actually warrant
+      action. A digest might surface five findings, but only the team knows which
+      one connects to a conversation they had last week or a deal dynamic the data
+      does not capture. The digest saves reading time, but human judgment determines
+      which findings change the plan.
+
+      '
+    challenges:
+    - text: Weekly news summaries are assembled manually from scattered alerts and forwards
+      specific_overhead:
+      - Collating Google Alerts, forwarded articles, and Slack mentions into a coherent summary
+    - text: Digest prioritization depends on deal context that lives in the team's heads
+      specific_overhead:
+      - Manually ranking news items by relevance to each active deal's current stage
+    - text: Previous digest highlights are not compared against current findings
+      specific_overhead:
+      - Tracking what was reported last week to identify what changed or escalated
+    - text: Realm and node digests are not distinguished, mixing company-level and solution-level news
+      specific_overhead:
+      - Separating company-wide developments from domain-specific findings for different audiences
+    - text: Digests arrive too late to inform weekly planning discussions
+      specific_overhead:
+      - Assembling digests on Friday when the team needs them for Monday planning
+    administrative_overhead:
+    - Collating Google Alerts, forwarded articles, and Slack mentions into a coherent summary
+    - Manually ranking news items by relevance to each active deal's current stage
+    - Tracking what was reported last week to identify what changed or escalated
+    - Separating company-wide developments from domain-specific findings
+    scenarios:
+    - problem: Weekly news summaries are assembled manually from scattered alerts
+      why: 'Account teams receive news from multiple channels: Google Alerts, Slack
+        forwards, email threads, and casual mentions. Assembling these into a structured
+        weekly summary takes hours and produces inconsistent results depending on
+        who does it.
+
+        '
+      agent: mna-digest-agent
+      agent_response: 'Aggregates all scan results from realm and node news agents
+        into structured weekly digests. Prioritizes findings by relevance to active
+        deals, compares against previous highlights, and formats for quick scanning.
+        Digest is generated automatically from completed scans without manual assembly.
+
+        '
+      success_signal:
+        metric: Digest generation automation rate
+        target: 100% of weekly digests generated without manual assembly
+        leading_indicator: Account teams reference digest findings in Monday planning meetings
+        failure_signal: Teams still assemble their own news summaries from scattered sources
+    - problem: Digest prioritization misses deal-relevant context
+      why: 'A generic news summary treats all findings equally. Without connecting
+        each item to the specific deal stage, competitive position, and timeline,
+        the team cannot quickly identify which findings matter most for their current
+        priorities.
+
+        '
+      agent: mna-digest-agent
+      agent_response: 'Connects each digest finding to active deal context including
+        stage, competitive landscape, and timeline. Surfaces items requiring attention
+        separately from routine intelligence. Compares current findings against previous
+        digest to highlight what changed.
+
+        '
+      success_signal:
+        metric: Digest-to-action conversion rate
+        target: At least one digest finding per week leads to a deal strategy adjustment
+        leading_indicator: Teams mark digest items as actioned within 48 hours of delivery
+        failure_signal: Digests are delivered but not referenced in deal discussions
+  escalation_triggers:
+  - Digest contains 3+ critical-urgency items for same realm (to MNA orchestrator)
+  - No scan data available for scheduled digest generation (to MNA orchestrator)
+  - Previous digest highlights show escalating pattern across consecutive weeks (to MNA orchestrator)
+  prompt_registry:
+    mna-weekly-realm-digest:
+      description: Generate weekly news digest for a realm
+      source: prompts/tasks.yaml#digests.weekly_realm_digest
+      inputs:
+      - title: active_nodes
+        type: string
+      - title: end_date
+        type: string
+      - title: industry
+        type: string
+      - title: previous_highlights
+        type: string
+      - title: realm_id
+        type: string
+      - title: realm_name
+        type: string
+      - title: start_date
+        type: string
+      outputs:
+      - title: weekly-realm-digest_result
+        type: object
+      requires_data:
+      - source: read-mna-data
+        fields:
+        - realm_profile
+        - active_nodes
+        - previous_highlights
+        priority: critical
+    mna-weekly-node-digest:
+      description: Generate weekly solution-domain digest for a node
+      source: prompts/tasks.yaml#digests.weekly_node_digest
+      inputs:
+      - title: competitors
+        type: string
+      - title: deal_stage
+        type: string
+      - title: domain
+        type: string
+      - title: end_date
+        type: string
+      - title: node_id
+        type: string
+      - title: node_name
+        type: string
+      - title: operating_mode
+        type: string
+      - title: start_date
+        type: string
+      outputs:
+      - title: weekly-node-digest_result
+        type: object
+      requires_data:
+      - source: read-mna-data
+        fields:
+        - node_profile
+        - competitors
+        - deal_stage
+        priority: critical
+  boundaries:
+  - Digest generation only, does not scan raw news sources (scanning agents handle that)
+  - Does not assess cross-event impact or deep pattern analysis (MNA Impact Agent's domain)
+  - Does not create competitive strategy (CI Agent's domain)
+  - Does not make commercial recommendations (AE Agent's domain)
+  - Does not generate customer-facing content
+  - Does not speculate beyond what source scans support
+  - Does not access paid/subscription-only reports without authorization
+  permissions:
+  - Read completed realm and node scan results
+  - Generate weekly realm digests aggregating company-level findings
+  - Generate weekly node digests aggregating solution-domain findings
+  - Compare current findings against previous digest highlights
+  - Prioritize findings by relevance to active deal context
+  - Write digest artifacts to InfoHub
+  guardrails:
+    input_validation:
+    - Reject realm digest requests without realm_name or realm_id
+    - Reject node digest requests without node_name or node_id
+    - Reject digest generation when no scan data is available for the period
+    output_checks:
+    - Every digest finding must cite original source with publication date
+    - Digest must separate attention-required items from routine intelligence
+    - Current digest must reference comparison against previous highlights
+    - All findings must connect to specific deal context (stage, competitor, timeline)
+    signal_validation:
+    - Never add findings not present in source scan results
+    - Never change urgency scores assigned by scanning agents without evidence
+    - Use qualifiers when aggregating from multiple indirect sources
+    - Add [NEEDS VERIFICATION] marker when scan data is stale or incomplete
+  error_handling:
+    tool_failures:
+      critical:
+      - read-mna-data
+      enrichment: []
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot generate digest without scan results
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available scan data, mark digest as potentially incomplete
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag stale scan data in digest header for human awareness
+  knowledge:
+    scope:
+      domains:
+      - intelligence-aggregation
+      - digest-generation
+      - news-prioritization
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/signal_keywords.yaml
+      description: Company Signals, Industry Signals, Solution Signals for digest categorization
+    - path: references/signal_patterns.yaml
+      description: Patterns for prioritizing and categorizing aggregated findings
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: mna-agent
+      description: MNA orchestrator routes digest generation requests
+    - type: scheduled
+      source: cron
+      condition: weekly_digest_schedule
+      description: Weekly generation of realm and node digests on scheduled cadence
+    - type: downstream
+      source: mna-realm-news-agent
+      condition: scan_complete == true
+      description: Completed realm scan results trigger digest refresh
+    - type: downstream
+      source: mna-node-news-agent
+      condition: scan_complete == true
+      description: Completed node scan results trigger digest refresh
+    outputs:
+    - type: parent_return
+      target: mna-agent
+      payload:
+      - digests_result
+      description: Digest results back to orchestrator
+    - type: trigger_agent
+      target: mna-impact-agent
+      condition: digest.critical_items_count >= 3
+      payload:
+      - critical_digest_items
+      - affected_realm
+      description: High concentration of critical items triggers pattern analysis
+    - type: notify_human
+      condition: digest.attention_items_count > 0
+      channel: digest
+      description: Digest with attention-required items delivered to account team
+    consumes_toolboxes:
+    - toolbox: realm-news-intelligence
+      agent: mna-realm-news-agent
+      tools:
+      - get-company-news
+      - get-leadership-changes
+      - get-initiative-status
+      reason: Realm scan results are primary input for realm digests
+    - toolbox: node-news-intelligence
+      agent: mna-node-news-agent
+      tools:
+      - get-solution-domain-news
+      - get-competitor-news
+      - get-regulatory-changes
+      reason: Node scan results are primary input for node digests
+    dependencies:
+    - agent: mna-realm-news-agent
+      toolbox: realm-news-intelligence
+      tools:
+      - get-company-news
+      - get-leadership-changes
+      - get-initiative-status
+      purpose: Realm-level scan results as input for weekly realm digest
+    - agent: mna-node-news-agent
+      toolbox: node-news-intelligence
+      tools:
+      - get-solution-domain-news
+      - get-competitor-news
+      - get-regulatory-changes
+      purpose: Node-level scan results as input for weekly node digest

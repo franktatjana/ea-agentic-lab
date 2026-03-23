@@ -1,0 +1,550 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: aci-opportunity-agent
+name: ACI Opportunity Agent
+description: 'Identifies business opportunities by mapping company strategic initiatives
+  to vendor capabilities, finding unengaged business lines, and tracking changes over
+  time. Produces opportunity maps with type classification, confidence scoring, and
+  estimated potential, while detecting deltas between research cycles to surface new
+  or shifted opportunities.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: aci-agent
+  tags:
+  - opportunity-identification
+  - whitespace-analysis
+  - vendor-mapping
+  - strategic-initiatives
+  - refresh-delta
+  responsibility: 'Identify business opportunities by mapping company initiatives to
+    vendor capabilities, track changes over time, and surface whitespace in unengaged
+    business lines.
+
+    '
+system_prompt: 'You are an Opportunity Agent, part of the Account Intelligence system.
+  Your job is to identify business opportunities by mapping company strategic initiatives
+  to vendor capabilities, finding unengaged business lines, and tracking what has changed
+  since the last research cycle.
+
+
+  You MUST:
+
+  - Map company strategic initiatives to vendor capabilities and offerings
+
+  - Identify unengaged business lines through organigram and company profile analysis
+
+  - Classify opportunities by type (whitespace, expansion, displacement, new initiative)
+
+  - Score confidence levels on all opportunity claims based on source quality
+
+  - Estimate potential value with clear assumptions and evidence basis
+
+  - Track deltas between research cycles to surface new or changed opportunities
+
+  - Link every opportunity to specific company evidence (filings, announcements, initiatives)
+
+
+  You MUST NOT:
+
+  - Research company structure or financials (Company Research Agent''s domain)
+
+  - Build organizational hierarchies or map leadership (Organigram Agent''s domain)
+
+  - Monitor ongoing news feeds (MNA Agent''s job)
+
+  - Analyze competitive positioning (CI Agent''s job)
+
+  - Make commercial recommendations or pricing decisions (AE Agent''s job)
+
+  - Fabricate opportunities without supporting company evidence
+
+  - Estimate potential without stating assumptions
+
+
+  When uncertain: state what evidence is missing, classify opportunity as [PRELIMINARY],
+  and flag for human validation before sharing with account team.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-strategic-data
+  name: Read Strategic Data
+  description: Access company strategic initiatives, vendor offerings catalog, and active engagement nodes
+  requires_confirmation: false
+  inputs:
+  - title: company_name
+    type: string
+  - title: data_type
+    type: string
+  outputs:
+  - title: strategic_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Strategic data unavailable, cannot proceed with opportunity mapping
+    - error_code: NO_RECORDS
+      guidance: No strategic initiatives found, expand search scope or note gap
+- component_type: ClientTool
+  id: read-aci-data
+  name: Read Account Data
+  description: Access company profiles, organigram summaries, previous research, and intelligence data
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with available data, flag output as incomplete
+    - error_code: STALE_DATA
+      guidance: Previous research exceeds freshness threshold, flag for verification
+- component_type: ClientTool
+  id: write-opportunity-map
+  name: Write Opportunity Map
+  description: Save opportunity map and refresh delta results to realm intelligence store
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification about vendor capabilities, engagement scope, or opportunity classification
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: opportunity-intelligence
+  name: Opportunity Intelligence
+  description: Opportunity maps and whitespace analysis available to peer agents
+  tools:
+  - id: get-opportunity-map
+    name: Get Opportunity Map
+    description: Returns identified opportunities with type, confidence, estimated potential, and business line mapping
+    inputs:
+    - title: company_name
+      type: string
+    outputs:
+    - title: opportunity_map
+      type: object
+  - id: get-refresh-delta
+    name: Get Refresh Delta
+    description: Returns changes detected since last research cycle with new, changed, and closed opportunities
+    inputs:
+    - title: company_name
+      type: string
+    - title: since_date
+      type: string
+    outputs:
+    - title: refresh_delta
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: opportunity-identification
+  name: Opportunity Identification
+  description: Identify business opportunities by mapping company strategic initiatives to vendor capabilities and finding unengaged business lines
+  inputs:
+  - title: required
+    type: string
+  - title: optional
+    type: string
+  outputs:
+  - name: opportunity_map
+    type: object
+    format: yaml
+    description: Identified opportunities with type, confidence, estimated_potential, and business_line mapping
+    path: '{realm}/intelligence/account_intelligence/opportunity_map.yaml'
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: aci-opportunity-identification-analyze
+      input: context
+      tools:
+      - read-strategic-data
+      - read-aci-data
+      description: Analyze input
+      on_failure: stop
+    - step: 2
+      prompt: aci-opportunity-identification-synthesize
+      input: analysis
+      description: Synthesize findings
+      on_failure: stop
+    - step: 3
+      prompt: aci-opportunity-identification-output
+      input: synthesis
+      tools:
+      - write-opportunity-map
+      description: Generate output
+      on_failure: stop
+- component_type: Flow
+  id: opportunities
+  name: Opportunities
+  description: Flow for opportunities tasks.
+  inputs:
+  - title: active_nodes
+    type: string
+  - title: company_name
+    type: string
+  - title: last_refresh_date
+    type: string
+  - title: organigram_summary
+    type: string
+  - title: previous_organigram
+    type: string
+  - title: previous_profile
+    type: string
+  - title: realm_id
+    type: string
+  - title: recent_news
+    type: string
+  outputs:
+  - title: opportunities_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: aci-opportunity-mapping
+      input: company_name, realm_id, strategic_initiatives, organigram_summary
+      tools:
+      - read-strategic-data
+      - read-aci-data
+      description: Map company strategy to vendor capabilities and identify opportunities
+      on_failure: stop
+    - step: 2
+      prompt: aci-refresh-delta
+      input: company_name, realm_id, previous_profile, previous_organigram
+      tools:
+      - read-aci-data
+      - write-opportunity-map
+      description: Identify what has changed since last research cycle
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - opportunity-identification
+    - whitespace-analysis
+    - vendor-capability-mapping
+    - refresh-delta-detection
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/yaml
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'Mapping initiatives to vendor capabilities is mechanical, but knowing
+      which opportunity is real requires market instinct. The agent identifies whitespace
+      and matches vendor offerings to company needs, but the AE knows which initiatives
+      have budget behind them, which business line leaders are open to change, and
+      which opportunities are worth pursuing given competitive dynamics and relationship
+      strength.
+
+      '
+    challenges:
+    - text: Whitespace opportunities are discovered too late for competitive advantage
+      specific_overhead:
+      - Manually scanning annual reports and press releases for new initiatives
+    - text: Vendor capability mapping is done inconsistently across account teams
+      specific_overhead:
+      - Each AE maps offerings to customer needs differently with no standard framework
+    - text: Changes between research cycles go undetected until customer meetings
+      specific_overhead:
+      - Comparing previous research to current state manually to find what shifted
+    - text: Opportunity classification lacks consistent methodology
+      specific_overhead:
+      - Subjective assessment of opportunity type and potential without evidence basis
+    - text: Unengaged business lines are invisible without systematic organigram analysis
+      specific_overhead:
+      - Cross-referencing engagement records against full organizational structure
+    administrative_overhead:
+    - Manually scanning annual reports and press releases for new initiatives
+    - Comparing previous research to current state manually to find what shifted
+    - Cross-referencing engagement records against full organizational structure
+    scenarios:
+    - problem: Whitespace opportunities are discovered too late
+      why: 'Unengaged business lines and new strategic initiatives at target accounts
+        go unnoticed because nobody systematically maps company initiatives to vendor
+        capabilities. Opportunities surface only when a customer mentions them, by
+        which point competitors may already be engaged.
+
+        '
+      agent: aci-opportunity-agent
+      agent_response: 'The agent maps company strategic initiatives to vendor capabilities
+        and identifies unengaged business lines through organigram analysis. It surfaces
+        whitespace opportunities with confidence scores and source evidence, giving
+        account teams a proactive view of where to expand.
+
+        '
+      success_signal:
+        metric: Proactively identified whitespace opportunities per account
+        target: Surface at least 2 net-new opportunities per account per quarter
+        leading_indicator: Opportunity maps are generated within 48 hours of new strategic initiative detection
+        failure_signal: New business lines are only discovered when customers raise them in meetings
+    - problem: Research cycle changes go undetected
+      why: 'Between research cycles, companies announce new initiatives, restructure
+        business lines, and shift strategic priorities. Without systematic delta detection,
+        the account team works from stale intelligence and misses time-sensitive opportunities.
+
+        '
+      agent: aci-opportunity-agent
+      agent_response: 'The agent compares current company intelligence against previous
+        research cycle data, identifying what has changed in strategic initiatives,
+        organizational structure, and business line focus. It surfaces deltas with
+        timestamps and evidence, flagging opportunities that are new, changed, or
+        no longer valid.
+
+        '
+      success_signal:
+        metric: Delta detection coverage between research cycles
+        target: Identify 90% of material changes within one research cycle
+        leading_indicator: Account teams reference refresh deltas in engagement planning
+        failure_signal: Account team discovers changes during customer meetings that should have been caught
+  escalation_triggers:
+  - High-confidence opportunity identified in strategic account requiring immediate engagement
+  - Material delta detected that invalidates current engagement strategy
+  - Vendor capability gap identified that blocks a high-potential opportunity
+  - Opportunity confidence drops below threshold due to conflicting signals
+  prompt_registry:
+    aci-opportunity-mapping:
+      description: Map company strategy to vendor capabilities and identify opportunities
+      source: prompts/tasks.yaml#opportunities.opportunity_mapping
+      inputs:
+      - title: active_nodes
+        type: string
+      - title: company_name
+        type: string
+      - title: organigram_summary
+        type: string
+      - title: realm_id
+        type: string
+      - title: strategic_initiatives
+        type: string
+      - title: vendor_offerings
+        type: string
+      outputs:
+      - title: opportunity-mapping_result
+        type: object
+      requires_data:
+      - source: read-aci-data
+        fields:
+        - strategic_initiatives
+        - organigram_summary
+        - active_nodes
+        - vendor_offerings
+        priority: critical
+    aci-refresh-delta:
+      description: Identify what has changed since last research cycle
+      source: prompts/tasks.yaml#opportunities.refresh_delta
+      inputs:
+      - title: company_name
+        type: string
+      - title: last_refresh_date
+        type: string
+      - title: previous_organigram
+        type: string
+      - title: previous_profile
+        type: string
+      - title: realm_id
+        type: string
+      - title: recent_news
+        type: string
+      outputs:
+      - title: refresh-delta_result
+        type: object
+      requires_data:
+      - source: read-aci-data
+        fields:
+        - previous_profile
+        - previous_organigram
+        - recent_news
+        priority: critical
+    aci-opportunity-identification-analyze:
+      description: Analyze input
+      source: skills/opportunity_identification.yaml#step-1
+      inputs:
+      - title: context
+        type: string
+      outputs:
+      - title: result
+        type: object
+      requires_data:
+      - source: read-aci-data
+        fields:
+        - account_profile
+        - strategic_initiatives
+        - intelligence_data
+        priority: critical
+    aci-opportunity-identification-synthesize:
+      description: Synthesize findings
+      source: skills/opportunity_identification.yaml#step-2
+      inputs:
+      - title: analysis
+        type: string
+      outputs:
+      - title: result
+        type: object
+    aci-opportunity-identification-output:
+      description: Generate output
+      source: skills/opportunity_identification.yaml#step-3
+      inputs:
+      - title: synthesis
+        type: string
+      outputs:
+      - title: result
+        type: object
+  boundaries:
+  - Does not research company structure or financials (Company Research Agent's domain)
+  - Does not build organizational hierarchies (Organigram Agent's domain)
+  - Does not monitor ongoing news feeds (MNA Agent's job)
+  - Does not analyze competitive positioning (CI Agent's job)
+  - Does not make commercial recommendations or pricing decisions (AE Agent's job)
+  - Does not fabricate opportunities without supporting company evidence
+  permissions:
+  - Map company strategic initiatives to vendor capabilities
+  - Identify unengaged business lines through organigram analysis
+  - Classify opportunities by type with confidence scoring
+  - Estimate opportunity potential with stated assumptions
+  - Track deltas between research cycles
+  - Register sources in shared source registry
+  guardrails:
+    input_validation:
+    - Reject opportunity mapping without company name and strategic initiative data
+    - Reject refresh delta without previous research cycle data
+    - Reject vendor mapping without vendor offerings catalog
+    output_checks:
+    - Every opportunity must link to specific company evidence
+    - Confidence scores required on all opportunity claims
+    - Estimated potential must include explicit assumptions
+    - Opportunity type classification must follow standard taxonomy (whitespace, expansion, displacement, new initiative)
+    - Refresh deltas must include timestamps and change classification
+    signal_validation:
+    - Never fabricate opportunities without company evidence
+    - Never estimate potential without stating assumptions
+    - Classify as [PRELIMINARY] when evidence is indirect
+    - Add [NEEDS VERIFICATION] marker when opportunity depends on unconfirmed initiative
+  error_handling:
+    tool_failures:
+      critical:
+      - read-strategic-data
+      - read-aci-data
+      enrichment:
+      - write-opportunity-map
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable opportunity map without strategic initiative data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected opportunities low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - opportunity-identification
+      - whitespace-analysis
+      - vendor-capability-mapping
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/research_sources.yaml
+      description: Primary Sources (annual reports, investor presentations, filings), Secondary Sources (news, analyst reports)
+    - path: references/opportunity-classification.yaml
+      description: Opportunity types (whitespace, expansion, displacement, new initiative), scoring criteria, potential estimation methods
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: aci-agent
+      description: ACI orchestrator routes opportunity identification and refresh requests
+    - type: downstream
+      source: aci-company-research-agent
+      condition: company_profile.strategic_initiatives.changed == true
+      description: New strategic initiatives trigger opportunity re-mapping
+    - type: downstream
+      source: aci-organigram-agent
+      condition: organigram.decision_chains.changed == true
+      description: Decision chain changes trigger opportunity re-evaluation
+    - type: event
+      source: refresh_schedule
+      condition: days_since_last_refresh > 30
+      description: Auto-runs refresh delta when research cycle exceeds 30 days
+    outputs:
+    - type: parent_return
+      target: aci-agent
+      payload:
+      - opportunity_map
+      - opportunities_result
+      description: Opportunity results back to orchestrator
+    - type: notify_human
+      condition: opportunity.confidence >= HIGH AND opportunity.type == whitespace
+      channel: alert
+      description: High-confidence whitespace opportunities surface for AE review
+    - type: trigger_agent
+      target: ae-agent
+      condition: opportunity.estimated_potential >= SIGNIFICANT
+      payload:
+      - opportunity_map
+      - business_line_context
+      description: Significant opportunities forwarded to AE for commercial evaluation
+    consumes_toolboxes:
+    - toolbox: company-intelligence
+      agent: aci-company-research-agent
+      tools:
+      - get-company-profile
+      - get-business-lines
+      reason: Company profile and business line data needed for opportunity mapping
+    - toolbox: organigram-intelligence
+      agent: aci-organigram-agent
+      tools:
+      - get-organigram
+      - get-decision-chain
+      reason: Organizational structure needed to identify unengaged business lines
+    dependencies:
+    - agent: aci-company-research-agent
+      toolbox: company-intelligence
+      tools:
+      - get-company-profile
+      - get-business-lines
+      purpose: Company profile and strategic initiatives as foundation for opportunity identification
+    - agent: aci-organigram-agent
+      toolbox: organigram-intelligence
+      tools:
+      - get-organigram
+      purpose: Organizational structure to identify unengaged business lines and decision chains

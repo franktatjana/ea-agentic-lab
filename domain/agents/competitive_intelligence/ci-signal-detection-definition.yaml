@@ -1,0 +1,508 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: ci-signal-detection-agent
+name: CI Signal Detection Agent
+description: 'Scans customer communications, market content, and CI databases for
+  competitor mentions. Classifies threat levels with evidence, analyzes competitive
+  bake-offs, and surfaces signals before they become surprises in live deals.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: ci-agent
+  tags:
+  - signal-detection
+  - competitor-mention
+  - threat-assessment
+  - bake-off
+  - competitive-intelligence
+  responsibility: 'Detect competitor mentions in communications, classify threat levels
+    (HIGH/MEDIUM/LOW) with evidence, and analyze competitive evaluations to give deal
+    teams early warning of competitive dynamics.
+
+    '
+system_prompt: 'You are a CI Signal Detection Agent, part of the Competitive Intelligence
+  system. Your job is to find competitor signals before they become surprises.
+
+
+  You MUST:
+
+  - Scan communications for competitor mentions with exact context and sentiment
+
+  - Classify threat levels as HIGH, MEDIUM, or LOW with specific evidence
+
+  - Distinguish between evaluation (exploring options) and decision (committed to
+  competitor)
+
+  - Quote exact customer statements about competitors
+
+  - Assess competitive bake-offs with criteria matrices and win strategies
+
+  - Flag urgency based on deal stage and signal severity
+
+
+  You MUST NOT:
+
+  - Generate battlecards or displacement strategies (Battlecard Agent''s domain)
+
+  - Analyze win/loss patterns (Win/Loss Agent''s domain)
+
+  - Track market news or analyst coverage (Market Intelligence Agent''s domain)
+
+  - Make claims about competitor capabilities without evidence from scanned content
+
+  - Assume competitive positioning without explicit mention
+
+  - Recommend sales strategies (AE Agent''s domain)
+
+
+  When uncertain: classify as potential rather than confirmed, flag for human CI team
+  review, use "customer mentioned" not "customer chose".
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-crm-data
+  name: Read CRM Data
+  description: Access CRM opportunity data, deal stage, and competitor fields for signal context
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: crm_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: CRM unavailable, cannot enrich signals with deal context
+    - error_code: RECORD_NOT_FOUND
+      guidance: Record not found in CRM, verify identifiers with user
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, meeting notes, and call recordings for competitor signal scanning
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as data gap in signal scan
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section
+    parameter to target competitive signals, known competitors, and prior threat assessments.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: save-signal-assessment
+  name: Save Signal Assessment
+  description: Persist competitor signal scan and threat assessment to InfoHub competitive section
+  requires_confirmation: true
+  inputs:
+  - title: assessment
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from CI analyst or account team on ambiguous competitor signals
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: signal-intelligence
+  name: Signal Intelligence
+  description: Competitor signal scans and threat assessments available to peer agents
+  tools:
+  - id: get-competitor-signals
+    name: Get Competitor Signals
+    description: Returns detected competitor mentions with context, sentiment, and threat classification
+    inputs:
+    - title: account_name
+      type: string
+    - title: time_period
+      type: string
+    outputs:
+    - title: competitor_signals
+      type: object
+  - id: get-threat-assessment
+    name: Get Threat Assessment
+    description: Returns competitive threat level (HIGH/MEDIUM/LOW) per competitor with evidence
+    inputs:
+    - title: opportunity_name
+      type: string
+    outputs:
+    - title: threat_assessment
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: competitive-signal-detection
+  name: Competitive Signal Detection
+  description: Scan communications for competitor mentions, assess threat levels, and analyze competitive bake-offs.
+  inputs:
+  - title: account_context
+    type: object
+  - title: time_period
+    type: string
+  - title: opportunity_name
+    type: string
+  - title: competitor_list
+    type: array
+  outputs:
+  - title: competitor_signals
+    type: object
+  - title: threat_assessment
+    type: object
+  - title: bake_off_analysis
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: ci-competitor-mention-scan
+      input: account_context, time_period
+      tools:
+      - read-communications
+      - read-infohub
+      description: Scan communications for competitor mentions, context, sentiment, threat level
+      on_failure: stop
+    - step: 2
+      prompt: ci-threat-assessment
+      input: opportunity_name, deal_value, deal_stage, competitor_list
+      tools:
+      - read-crm-data
+      - read-infohub
+      description: Assess competitive threat per competitor with position, strengths, win probability
+      on_failure: stop
+    - step: 3
+      prompt: ci-bake-off-analysis
+      input: competitors, evaluation_criteria, timeline
+      tools:
+      - read-crm-data
+      - read-communications
+      description: Analyze competitive evaluation with criteria matrix and win strategy
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-signal-assessment
+      condition: threat_level == HIGH triggers immediate save
+      description: Save signal scan and threat assessment to InfoHub competitive section
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - competitor-signal-scanning
+    - threat-level-classification
+    - bake-off-analysis
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'A competitor mention is a data point, not a verdict. The
+      agent detects and classifies signals, but only the account team knows whether
+      the mention was exploratory posturing, a negotiation tactic, or a genuine competitive
+      threat. The signal is surfaced with evidence, but human judgment decides
+      urgency and response.
+
+      '
+    challenges:
+    - text: Competitor mention in a live deal goes unclassified
+      specific_overhead:
+      - Manually reviewing meeting notes and emails for competitor references
+    - text: Competitive signals in call recordings never reach CI because no conversation intelligence integration exists
+      specific_overhead:
+      - Listening to call recordings to extract competitor mentions manually
+    - text: Signal taxonomy covers direct mentions but misses leading indicators like hiring surges, funding rounds, patent filings, and tech stack changes
+      specific_overhead:
+      - Scanning multiple external data sources for indirect competitive signals
+    - text: Deal teams discover competitive threats only at deal review or after a loss
+      specific_overhead:
+      - Aggregating scattered signals across channels into a coherent threat picture
+    - text: Bake-off evaluations lack structured criteria tracking, making it unclear where positioning gaps exist
+      specific_overhead:
+      - Building evaluation matrices manually from customer conversations
+    administrative_overhead:
+    - Manually reviewing meeting notes and emails for competitor references
+    - Listening to call recordings to extract competitor mentions manually
+    - Scanning multiple external data sources for indirect competitive signals
+    - Aggregating scattered signals across channels into a coherent threat picture
+    - Building evaluation matrices manually from customer conversations
+    scenarios:
+    - problem: Competitor mention in a live deal goes unclassified
+      why: 'A customer casually references evaluating a competitor during a call,
+        but the signal gets buried in meeting notes. Without immediate classification,
+        the deal team does not know whether this is exploratory posturing or a serious
+        threat requiring a different engagement strategy.
+
+        '
+      agent: ci-signal-detection-agent
+      agent_response: 'Scans communications for competitor mentions, classifies the
+        threat level as HIGH, MEDIUM, or LOW with evidence, and surfaces the signal
+        with exact customer quotes and context. The deal team gets competitive awareness
+        before the next customer interaction.
+
+        '
+      success_signal:
+        metric: Time from competitor mention to deal team awareness
+        target: Competitive signals classified and surfaced within 4 hours of detection
+        leading_indicator: Deal teams adjust strategy based on detected signals before next customer meeting
+        failure_signal: Competitive threats are discovered only at deal review or after a loss
+    - problem: Bake-off evaluation lacks structured competitive analysis
+      why: 'When a customer runs a formal evaluation with multiple vendors, the
+        team scrambles to understand evaluation criteria, competitor positioning,
+        and win strategy. Without a structured bake-off analysis, positioning is
+        reactive rather than strategic.
+
+        '
+      agent: ci-signal-detection-agent
+      agent_response: 'Analyzes the competitive evaluation with a criteria matrix,
+        maps competitor strengths and weaknesses per criterion, identifies positioning
+        gaps, and recommends focus areas for the win strategy. The analysis gives
+        the deal team a structured view of the competitive landscape.
+
+        '
+      success_signal:
+        metric: Bake-off win rate with structured analysis vs without
+        target: Analysis available within 24 hours of bake-off notification
+        leading_indicator: Deal teams reference criteria matrix in evaluation planning
+        failure_signal: Team enters bake-off without knowing competitor positioning on evaluation criteria
+  escalation_triggers:
+  - High-severity competitive threat detected (competitor chosen as preferred vendor)
+  - Multiple HIGH signals detected for the same account in a short period
+  - Competitive bake-off identified with unclear positioning on key criteria
+  - Information uncertainty requiring human CI team verification
+  prompt_registry:
+    ci-competitor-mention-scan:
+      description: Scan communications for competitor mentions, context, sentiment, and threat level
+      source: prompts/tasks.yaml#signal_detection.competitor_mention_scan
+      inputs:
+      - title: account_name
+        type: string
+      - title: time_period
+        type: string
+      outputs:
+      - title: competitor_signals
+        type: object
+      requires_data:
+      - source: read-communications
+        fields:
+        - communication_signals
+        - competitor_mentions
+        priority: critical
+      - source: read-infohub
+        fields:
+        - known_competitors
+        - competitor_keywords
+        priority: enrichment
+    ci-threat-assessment:
+      description: Assess competitive threat level per competitor in a specific opportunity
+      source: prompts/tasks.yaml#signal_detection.threat_assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: opportunity_name
+        type: string
+      - title: deal_value
+        type: string
+      - title: deal_stage
+        type: string
+      - title: competitor_list
+        type: array
+      outputs:
+      - title: threat_assessment
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - competitor_positioning
+        - threat_classification_criteria
+        priority: critical
+      - source: read-communications
+        fields:
+        - deal_signals
+        - competitor_mentions
+        priority: enrichment
+    ci-bake-off-analysis:
+      description: Analyze competitive evaluation or POC with criteria matrix and win strategy
+      source: prompts/tasks.yaml#signal_detection.bake_off_analysis
+      inputs:
+      - title: account_name
+        type: string
+      - title: vendor
+        type: string
+      - title: competitors
+        type: array
+      - title: criteria
+        type: array
+      - title: timeline
+        type: string
+      outputs:
+      - title: bake_off_analysis
+        type: object
+      requires_data:
+      - source: read-crm-data
+        fields:
+        - competitor_capabilities
+        - battlecard_repository
+        priority: critical
+      - source: read-communications
+        fields:
+        - evaluation_signals
+        - criteria_mentions
+        priority: enrichment
+  boundaries:
+  - Scans and classifies signals only, does not generate battlecards or strategies
+  - Does not analyze win/loss patterns or historical trends
+  - Does not track market news or analyst coverage
+  - Does not make claims about competitor capabilities without evidence
+  - Does not recommend sales strategies or next moves
+  permissions:
+  - Scan communications and market content for competitor mentions
+  - Classify competitive threat levels with evidence
+  - Analyze competitive bake-off evaluations
+  - Write signal assessments to InfoHub competitive section
+  - Request clarification on ambiguous competitor references
+  guardrails:
+    input_validation:
+    - Reject signal scan requests without account context or content source
+    - Stop and clarify if competitor names are ambiguous or unrecognized
+    - Reject threat assessment without opportunity name or deal context
+    output_checks:
+    - Every signal must include threat level classification with evidence citation
+    - Customer statements about competitors must be quoted verbatim
+    - Distinguish between evaluation (exploring) and decision (committed)
+    - Bake-off analysis must include criteria matrix with per-competitor assessment
+    signal_validation:
+    - Never classify a casual mention as a confirmed threat
+    - Use "customer mentioned" not "customer chose" when evidence is indirect
+    - Add [NEEDS VERIFICATION] marker when signal context is ambiguous
+    - Classify as potential rather than confirmed when uncertain
+  error_handling:
+    tool_failures:
+      critical:
+      - read-communications
+      enrichment:
+      - read-crm-data
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot scan for signals without communication content
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - signal-detection
+      - threat-classification
+      - competitive-evaluation
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/signal-detection.yaml
+      description: Competitor keywords (direct and indirect), competitive risk levels (HIGH/MEDIUM/LOW), market signals
+    - path: references/threat-classification.yaml
+      description: Threat severity definitions, response criteria timelines, escalation thresholds
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: ci-agent
+      description: CI orchestrator routes signal detection and threat assessment requests
+    - type: event
+      source: communication_webhook
+      condition: new_meeting_notes OR new_email_thread
+      description: Auto-scans when new communications arrive for monitored accounts
+    - type: downstream
+      source: ae-agent
+      condition: competitor_mentioned_in_deal
+      description: AE flags competitor mention for detailed signal analysis
+    outputs:
+    - type: parent_return
+      target: ci-agent
+      payload:
+      - competitor_signals
+      - threat_assessment
+      - bake_off_analysis
+      description: Signal detection results back to CI orchestrator
+    - type: trigger_agent
+      target: ci-battlecard-agent
+      condition: threat_level == HIGH
+      payload:
+      - threat_assessment
+      - competitor_name
+      description: HIGH threat triggers quick battlecard generation
+    - type: notify_human
+      condition: threat_level == HIGH OR bake_off_detected == true
+      channel: alert
+      description: HIGH threats and bake-off detections surface for CI team review
+    consumes_toolboxes: []
+    dependencies: []

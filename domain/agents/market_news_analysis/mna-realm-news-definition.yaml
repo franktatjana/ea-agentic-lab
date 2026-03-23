@@ -1,0 +1,465 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: mna-realm-news-agent
+name: MNA Realm News Agent
+description: 'Scans public news sources for company-level developments relevant to active engagements.
+  Monitors M&A activity, earnings announcements, strategic initiative progress, and
+  leadership changes at realm-associated companies. Classifies each finding by relevance
+  and urgency, linking it to specific realm profiles so downstream agents receive
+  contextualized intelligence rather than raw headlines.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: mna-agent
+  tags:
+  - realm-news
+  - company-news
+  - leadership-monitoring
+  - strategic-initiatives
+  - intelligence-gathering
+  responsibility: 'Scan company news, track strategic initiatives, and detect leadership
+    changes at realm level to keep realm profiles current with verified public developments.
+
+    '
+system_prompt: 'You are a Realm News Agent, part of the Market News Analyst intelligence
+  system. Your job is to scan company-level news for realm-associated companies and
+  deliver structured, evidence-based intelligence.
+
+
+  You MUST:
+
+  - Scan public news sources for company developments tied to specific realms
+
+  - Track progress of known strategic initiatives against last-known status
+
+  - Detect leadership changes including new hires, departures, and reorgs
+
+  - Score each news item for relevance and urgency against active engagement context
+
+  - Cite sources with publication date and outlet for every claim
+
+  - Flag high-impact developments (M&A, CEO change, major restructuring) for immediate alert
+
+  - Link findings to specific realm profiles and active nodes
+
+
+  You MUST NOT:
+
+  - Scan node-level or solution-domain news (MNA Node News Agent''s domain)
+
+  - Generate weekly digests (MNA Digest Agent''s domain)
+
+  - Assess cross-event impact or pattern analysis (MNA Impact Agent''s domain)
+
+  - Create competitive strategy (CI Agent''s domain)
+
+  - Research company structure or org charts (Account Intelligence Agent''s domain)
+
+  - Speculate beyond what public sources support
+
+  - Access paid/subscription-only full reports without authorization
+
+
+  When uncertain: state what evidence is missing, provide preliminary
+  analysis based on available information, and flag for human review.
+
+  Tone: Factual, concise, evidence-based. Every insight links to a source.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-mna-data
+  name: Read Market Data
+  description: 'Access data sources: realm_profile, strategic_initiatives, stakeholder_names, key_relationships'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: News source unavailable, cannot proceed with scan
+    - error_code: RECORD_NOT_FOUND
+      guidance: Realm profile not found, verify realm_id with user
+- component_type: ClientTool
+  id: write-mna-artifact
+  name: Write Market Artifact
+  description: 'Save realm news artifacts: company news scan results, initiative tracking, leadership alerts'
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification or additional input from the user
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: realm-news-intelligence
+  name: Realm News Intelligence
+  description: Company-level news scan results, initiative tracking, and leadership change alerts available to peer agents
+  tools:
+  - id: get-company-news
+    name: Get Company News
+    description: Returns recent company news items scored for relevance and urgency against realm context
+    inputs:
+    - title: company_name
+      type: string
+    - title: realm_id
+      type: string
+    outputs:
+    - title: company_news
+      type: object
+  - id: get-leadership-changes
+    name: Get Leadership Changes
+    description: Returns detected leadership changes at realm-associated companies with impact assessment
+    inputs:
+    - title: company_name
+      type: string
+    outputs:
+    - title: leadership_changes
+      type: object
+  - id: get-initiative-status
+    name: Get Initiative Status
+    description: Returns tracked strategic initiative progress against last-known status
+    inputs:
+    - title: company_name
+      type: string
+    outputs:
+    - title: initiative_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: realm-news
+  name: Realm News
+  description: Scan company news, track strategic initiatives, and detect leadership changes at realm level.
+  inputs:
+  - title: company_name
+    type: string
+  - title: industry
+    type: string
+  - title: key_relationships
+    type: string
+  - title: last_updated
+    type: string
+  - title: realm_id
+    type: string
+  - title: region
+    type: string
+  - title: scan_days
+    type: string
+  - title: stakeholder_names
+    type: string
+  outputs:
+  - title: realm_news_result
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: mna-company-news-scan
+      input: company_name, realm_id, industry, sub_industry
+      tools:
+      - read-mna-data
+      description: Scan news sources for realm-associated company developments
+      on_failure: stop
+    - step: 2
+      prompt: mna-strategic-initiative-tracking
+      input: company_name, strategic_initiatives_list, last_updated
+      tools:
+      - read-mna-data
+      description: Track progress of known company strategic initiatives
+      on_failure: stop
+    - step: 3
+      prompt: mna-leadership-monitoring
+      input: company_name, stakeholder_names, key_relationships
+      tools:
+      - read-mna-data
+      description: Detect leadership changes at realm companies
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - write-mna-artifact
+      description: Save realm news results to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - company-news-scan
+    - strategic-initiative-tracking
+    - leadership-monitoring
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent detects company events and tracks initiative
+      progress, but only the AE and account team understand what a leadership change
+      or strategic pivot actually means for the relationship. A new CTO might be a
+      threat or an opportunity depending on history the agent cannot access. The news
+      is surfaced with context, but human judgment decides whether it changes the engagement.
+
+      '
+    challenges:
+    - text: M&A activity at a target account is noticed days late
+      specific_overhead:
+      - Setting up and maintaining Google Alerts for every target account
+    - text: Strategic initiative progress is tracked manually across scattered sources
+      specific_overhead:
+      - Comparing current news mentions against known initiative roadmaps
+    - text: Leadership changes are discovered from customer mentions rather than proactive monitoring
+      specific_overhead:
+      - Manually checking LinkedIn and press releases for executive movements
+    - text: News relevance scoring depends on context the team carries in their heads
+      specific_overhead:
+      - Forwarding news articles to deal teams with manual context annotations
+    - text: Earnings call signals are buried in hours of transcripts nobody reads
+      specific_overhead:
+      - Scanning earnings call transcripts for technology-relevant mentions
+    administrative_overhead:
+    - Setting up and maintaining Google Alerts for every target account
+    - Comparing current news mentions against known initiative roadmaps
+    - Manually checking LinkedIn and press releases for executive movements
+    - Forwarding news articles to deal teams with manual context annotations
+    scenarios:
+    - problem: M&A activity at a target account is noticed days late
+      why: 'Mergers, acquisitions, and divestitures reshape buying authority, budget
+        allocation, and technology strategy overnight. When the account team learns
+        about it from a customer mention rather than proactive monitoring, they lose
+        the window to reposition the engagement.
+
+        '
+      agent: mna-realm-news-agent
+      agent_response: 'Continuously scans public news sources for company developments,
+        scores them for relevance and urgency against active engagements, and triggers
+        immediate alerts for high-impact events like M&A activity. The deal team
+        receives a structured finding with source citation before the next customer
+        interaction.
+
+        '
+      success_signal:
+        metric: High-impact realm news detection latency
+        target: Alert deal teams within 24 hours of public M&A or leadership announcements
+        leading_indicator: Account teams adjust engagement strategy based on news alerts
+        failure_signal: Deal teams learn about major account events from customers rather than internal alerts
+    - problem: Strategic initiative tracking requires manual cross-referencing
+      why: 'Companies announce initiatives in earnings calls, press releases, and
+        investor days. Tracking whether those initiatives are on schedule, delayed,
+        or cancelled requires checking multiple sources over time, which nobody has
+        bandwidth to do consistently.
+
+        '
+      agent: mna-realm-news-agent
+      agent_response: 'Tracks known strategic initiatives against their last-known
+        status, scanning for progress updates, delays, or cancellations. Delivers
+        a structured comparison showing what changed since last scan with source
+        evidence.
+
+        '
+      success_signal:
+        metric: Initiative tracking coverage for active realms
+        target: Track 100% of known strategic initiatives with weekly status updates
+        leading_indicator: Initiative status changes detected within one scan cycle
+        failure_signal: Initiative delays discovered only when customer mentions them
+  escalation_triggers:
+  - M&A announcement detected at active realm (to MNA orchestrator)
+  - CEO or CTO departure detected at active realm (to MNA orchestrator)
+  - Strategic initiative cancellation affecting active engagement (to MNA orchestrator)
+  - Multiple high-impact events detected at same realm within 48 hours (to MNA orchestrator)
+  prompt_registry:
+    mna-company-news-scan:
+      description: Scan news sources for realm-associated company developments
+      source: prompts/tasks.yaml#realm_news.company_news_scan
+      inputs:
+      - title: company_name
+        type: string
+      - title: industry
+        type: string
+      - title: realm_id
+        type: string
+      - title: region
+        type: string
+      - title: scan_days
+        type: string
+      - title: strategic_initiatives
+        type: string
+      - title: sub_industry
+        type: string
+      outputs:
+      - title: company-news-scan_result
+        type: object
+      requires_data:
+      - source: read-mna-data
+        fields:
+        - realm_profile
+        - strategic_initiatives
+        priority: critical
+    mna-strategic-initiative-tracking:
+      description: Track progress of known company strategic initiatives
+      source: prompts/tasks.yaml#realm_news.strategic_initiative_tracking
+      inputs:
+      - title: company_name
+        type: string
+      - title: last_updated
+        type: string
+      - title: strategic_initiatives_list
+        type: string
+      outputs:
+      - title: strategic-initiative-tracking_result
+        type: object
+      requires_data:
+      - source: read-mna-data
+        fields:
+        - strategic_initiatives_list
+        - realm_profile
+        priority: critical
+    mna-leadership-monitoring:
+      description: Detect leadership changes at realm companies
+      source: prompts/tasks.yaml#realm_news.leadership_monitoring
+      inputs:
+      - title: company_name
+        type: string
+      - title: key_relationships
+        type: string
+      - title: stakeholder_names
+        type: string
+      outputs:
+      - title: leadership-monitoring_result
+        type: object
+      requires_data:
+      - source: read-mna-data
+        fields:
+        - stakeholder_names
+        - key_relationships
+        priority: critical
+  boundaries:
+  - Realm-level company news only, does not scan node-level or solution-domain news
+  - Does not generate weekly digests (MNA Digest Agent's domain)
+  - Does not assess cross-event impact or patterns (MNA Impact Agent's domain)
+  - Does not create competitive strategy (CI Agent's domain)
+  - Does not research company structure or org charts (Account Intelligence Agent's domain)
+  - Does not speculate beyond what public sources support
+  - Does not access paid/subscription-only reports without authorization
+  permissions:
+  - Scan public news sources for company-level developments
+  - Track strategic initiative progress against last-known status
+  - Detect leadership changes including hires, departures, and reorgs
+  - Score news items for relevance and urgency against realm context
+  - Write realm news artifacts to InfoHub
+  - Flag high-impact developments for immediate alert
+  guardrails:
+    input_validation:
+    - Reject news scan requests without company_name or realm_id
+    - Reject initiative tracking without strategic_initiatives_list
+    - Reject leadership monitoring without stakeholder_names
+    output_checks:
+    - Every news item must cite source with publication date and outlet
+    - Relevance and urgency scores must reference specific engagement context
+    - Initiative tracking must compare current status against last-known status
+    - Leadership changes must include role, name, and source evidence
+    signal_validation:
+    - Never assume leadership sentiment not stated in source content
+    - Never speculate on M&A terms not publicly disclosed
+    - Use qualifiers ("reportedly") when source is secondary
+    - Add [NEEDS VERIFICATION] marker when evidence is indirect
+  error_handling:
+    tool_failures:
+      critical:
+      - read-mna-data
+      enrichment: []
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without realm profile data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - company-news
+      - strategic-initiatives
+      - leadership-monitoring
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/signal_keywords.yaml
+      description: Company Signals, Industry Signals for realm-level news scanning
+    - path: references/signal_patterns.yaml
+      description: Patterns for company-level event detection and classification
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: mna-agent
+      description: MNA orchestrator routes realm news scan requests
+    - type: scheduled
+      source: cron
+      condition: daily_scan_schedule
+      description: Daily scan of public news for all active realms
+    - type: event
+      source: realm_update
+      condition: realm.profile_change OR realm.new_node_added
+      description: Realm profile changes trigger targeted news rescan
+    outputs:
+    - type: parent_return
+      target: mna-agent
+      payload:
+      - realm_news_result
+      description: Realm news scan results back to orchestrator
+    - type: trigger_agent
+      target: mna-impact-agent
+      condition: news_item.urgency == CRITICAL
+      payload:
+      - critical_news_item
+      - affected_realm
+      description: Critical realm news triggers immediate impact assessment
+    - type: trigger_agent
+      target: mna-digest-agent
+      condition: scan_complete == true
+      payload:
+      - realm_news_result
+      description: Completed scan results feed into digest generation
+    - type: notify_human
+      condition: news_item.urgency == CRITICAL
+      channel: alert
+      description: Critical realm news surfaces for immediate AE review
+    consumes_toolboxes: []
+    dependencies: []
