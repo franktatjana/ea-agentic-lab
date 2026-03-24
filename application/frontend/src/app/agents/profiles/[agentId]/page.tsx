@@ -69,7 +69,8 @@ function toTitleWithAbbreviations(str: string): string {
   return toTitleCase(str);
 }
 
-function formatAgentId(id: string): string {
+function formatAgentId(id: string | undefined): string {
+  if (!id) return "";
   return id
     .replace(/-agent$/, "")
     .replace(/^ae-/, "")
@@ -111,10 +112,11 @@ function stakeholderAgent(entry: StakeholderEntry): string | undefined {
   return typeof entry === "string" ? undefined : entry.connected_via;
 }
 
-function AgentBadge({ agentId }: { agentId: string }) {
+function AgentBadge({ agentId }: { agentId: string | undefined }) {
+  if (!agentId) return null;
   return (
     <Link
-      href={`/agents/definitions?agent=${agentId}`}
+      href={`/agents/profiles/${agentId}`}
       className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-purple-400/10 text-purple-400 hover:bg-purple-400/20 transition-colors whitespace-nowrap shrink-0"
       onClick={(e) => e.stopPropagation()}
     >
@@ -608,29 +610,48 @@ export default function AgentProfileDetailPage({
               {activityMap && activityMap.domains.length > 0 && (
                 <Card>
                   <CardContent className="p-7">
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-5">
-                      Key Responsibilities
-                    </h3>
+                    <div className="flex items-center justify-between mb-5">
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Key Responsibilities
+                      </h3>
+                      {subAgents.length > 0 && (
+                        <span className="text-xs text-purple-400/70">
+                          {subAgents.length} sub-agents
+                        </span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                      {activityMap.domains.map((d) => (
-                        <Link
-                          key={d.domain}
-                          href={`/agents/definitions?agent=${d.agent}`}
-                          className="block"
-                        >
-                          <div className="rounded-lg border border-border/50 p-4 hover:border-border hover:bg-muted/30 transition-colors h-full">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className={`h-2 w-2 rounded-full ${dotColor} shrink-0`} />
-                              <span className="text-sm font-medium text-foreground">
-                                {d.domain}
-                              </span>
+                      {activityMap.domains.map((d) => {
+                        const isSubAgent = d.agent !== agentId;
+                        const agentName = isSubAgent
+                          ? subAgentLookup[d.agent]?.name?.replace(/ Agent$/, "") ?? d.agent
+                          : undefined;
+                        return (
+                          <Link
+                            key={d.domain}
+                            href={`/agents/definitions?agent=${d.agent}`}
+                            className="block"
+                          >
+                            <div className="rounded-lg border border-border/50 p-4 hover:border-border hover:bg-muted/30 transition-colors h-full">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className={`h-2 w-2 rounded-full ${dotColor} shrink-0`} />
+                                <span className="text-sm font-medium text-foreground">
+                                  {d.domain}
+                                </span>
+                              </div>
+                              <p className="text-xs leading-relaxed text-muted-foreground">
+                                {d.why}
+                              </p>
+                              {agentName && (
+                                <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-border/30">
+                                  <Bot className="h-3 w-3 text-purple-400 shrink-0" />
+                                  <span className="text-[11px] text-purple-400">{agentName}</span>
+                                </div>
+                              )}
                             </div>
-                            <p className="text-xs leading-relaxed text-muted-foreground">
-                              {d.why}
-                            </p>
-                          </div>
-                        </Link>
-                      ))}
+                          </Link>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
