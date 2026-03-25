@@ -8,6 +8,7 @@ import {
   Network,
   BookOpen,
   FileCode2,
+  FileText,
   ArrowRight,
   ChevronRight,
   Presentation,
@@ -20,6 +21,7 @@ import { HelpPopover } from "@/components/help-popover";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { LucideIcon } from "lucide-react";
+import type { HandoffEdge } from "@/types";
 
 interface HandoffStep {
   from: string;
@@ -34,71 +36,64 @@ interface HandoffFlow {
   steps: HandoffStep[];
 }
 
-const KNOWN_ACRONYMS = new Set(["sa", "ae", "ca", "pm", "ve", "ci", "rfp", "poc", "pov", "csp", "ii", "aci", "mna", "adr", "qbr", "ebr", "nps", "csat", "sm", "ps"]);
+const AGENT_SHORT_NAMES: Record<string, string> = {
+  ae: "AE", sa: "SA", ca: "CA", pm: "PM", ve: "VE",
+  ci: "CI", ii: "II", aci: "ACI", mna: "MNA", ti: "TI",
+  rfp: "RFP", poc: "POC", ps: "PS", sm: "SM",
+  ham: "HAM", aa: "AA", fcto: "FCTO",
+  delivery: "Delivery", partner: "Partner",
+  infosec: "InfoSec", retrospective: "Retro",
+  "revops-director": "RevOps", "senior-manager": "SM",
+  "vp-sales": "VP Sales", "product-team": "PM",
+  "cro-ceo": "CRO",
+  "infohub-curator": "InfoHub",
+  "bda-specialist": "BDA", "csa-specialist": "CSA",
+  "dba-specialist": "DBA", "de-specialist": "DE",
+  "devops-specialist": "DevOps", "mig-specialist": "MIG",
+  "net-specialist": "NET", "pa-specialist": "PA",
+  "sd-specialist": "SD", "security-specialist": "SEC",
+  "observability-specialist": "OBS",
+};
 
-function agentKeyToShortName(key: string): string {
-  const name = key.replace(/_agent$/, "").replace(/_/g, " ");
-  const words = name.split(" ");
-  if (words.length === 1) {
-    const w = words[0].toLowerCase();
-    if (KNOWN_ACRONYMS.has(w)) return w.toUpperCase();
-    return words[0].charAt(0).toUpperCase() + words[0].slice(1);
-  }
+function agentIdToShortName(id: string): string {
+  const stem = id.replace(/-agent$/, "");
+  if (AGENT_SHORT_NAMES[stem]) return AGENT_SHORT_NAMES[stem];
+  const words = stem.split("-");
+  if (words.length === 1) return stem.charAt(0).toUpperCase() + stem.slice(1);
   return words.map(w => w.charAt(0).toUpperCase()).join("");
 }
 
-function buildPreSalesFlows(
-  deferTo: Record<string, unknown> | undefined,
-): HandoffStep[] {
-  if (!deferTo) return [];
-  const steps: HandoffStep[] = [];
-  for (const [agentKey, entry] of Object.entries(deferTo)) {
-    const to = agentKeyToShortName(agentKey);
-    const e = entry as Record<string, unknown> | undefined;
-    const scenarios = e?.scenarios as Array<Record<string, string>> | undefined;
-    if (!scenarios) continue;
-    for (const s of scenarios) {
-      steps.push({
-        from: "AE",
-        to,
-        trigger: s.trigger,
-        description: `${s.trigger}. AE passes ${s.context_passed?.toLowerCase() ?? "context"} for ${s.receiver_action?.toLowerCase() ?? "processing"}.`,
-      });
-    }
+interface FlowBuildResult {
+  phases: Record<string, HandoffStep[]>;
+  nameMap: Record<string, string>;
+}
+
+function buildFlowsFromEdges(edges: HandoffEdge[]): FlowBuildResult {
+  const phases: Record<string, HandoffStep[]> = {
+    "Pre-Sales": [],
+    "Post-Sales": [],
+  };
+  const nameMap: Record<string, string> = {};
+  for (const edge of edges) {
+    const from = agentIdToShortName(edge.from_id);
+    const to = agentIdToShortName(edge.to_id);
+    const fromFull = edge.from_name.replace(/ Agent$/, "");
+    const toFull = edge.to_name.replace(/ Agent$/, "");
+    if (!nameMap[from]) nameMap[from] = fromFull;
+    if (!nameMap[to]) nameMap[to] = toFull;
+    if (edge.direction !== "defer_to") continue;
+    const ctx = edge.context_passed ? edge.context_passed.toLowerCase() : "context";
+    const action = edge.receiver_action ? edge.receiver_action.toLowerCase() : "processing";
+    const description = `${edge.trigger}. ${from} passes ${ctx} for ${action}.`;
+    const bucket = phases[edge.phase] ?? phases["Pre-Sales"];
+    bucket.push({ from, to, trigger: edge.trigger, description });
   }
-  return steps;
-}
-
-// TODO: Move post-sales and governance handoff chains to YAML specs
-// and fetch via API. Currently static until playbook-level handoffs are specced.
-function buildPostSalesFlows(defs: Array<{ id: string; name: string }> | undefined): HandoffStep[] {
-  if (!defs) return [];
-  const has = (id: string) => defs.some(d => d.id === id);
-  const steps: HandoffStep[] = [];
-  if (has("delivery-agent")) steps.push({ from: "AE", to: "Delivery", trigger: "Contract signed", description: "Deal closes. AE hands off deal context (commitments, SLAs, stakeholder map) to Delivery for implementation planning." });
-  if (has("delivery-agent") && has("ps-agent")) steps.push({ from: "Delivery", to: "PS", trigger: "Implementation start", description: "Delivery agent engages Professional Services for hands-on implementation and resource allocation." });
-  if (has("delivery-agent") && has("ca-agent")) steps.push({ from: "Delivery", to: "CA", trigger: "Go-live complete", description: "System is live. Customer Architect takes over for adoption tracking, health monitoring, and expansion." });
-  return steps;
-}
-
-function buildGovernanceFlows(defs: Array<{ id: string; name: string }> | undefined): HandoffStep[] {
-  if (!defs) return [];
-  const gov = defs.filter(d => d.name?.toLowerCase().includes("meeting notes") || d.name?.toLowerCase().includes("task shepherd") || d.name?.toLowerCase().includes("decision") || d.name?.toLowerCase().includes("risk radar") || d.name?.toLowerCase().includes("nudger") || d.name?.toLowerCase().includes("senior manager"));
-  if (gov.length === 0) return [];
-  const steps: HandoffStep[] = [];
-  const has = (substr: string) => gov.some(d => d.name?.toLowerCase().includes(substr));
-  if (has("meeting notes") && has("task shepherd")) steps.push({ from: "Meeting Notes", to: "Task Shepherd", trigger: "Actions extracted", description: "Meeting Notes agent extracts action items. Task Shepherd ensures each has owner, due date, and done-criteria." });
-  if (has("meeting notes") && has("decision")) steps.push({ from: "Meeting Notes", to: "Decision Registrar", trigger: "Decisions extracted", description: "Decisions from meetings are captured with context, rationale, and alternatives considered." });
-  if (has("meeting notes") && has("risk radar")) steps.push({ from: "Meeting Notes", to: "Risk Radar", trigger: "Risks identified", description: "New risks are classified by severity, assigned owners, and evaluated for escalation." });
-  if (has("risk radar") && has("nudger")) steps.push({ from: "Risk Radar", to: "Nudger", trigger: "Escalations", description: "Overdue risk mitigations trigger targeted reminders (max 1 per action per day)." });
-  if (has("nudger") && has("senior manager")) steps.push({ from: "Nudger", to: "SM", trigger: "Overdue > 5 days", description: "Unresolved actions after 5 days escalate to Senior Manager to intervene." });
-  return steps;
+  return { phases, nameMap };
 }
 
 const FLOW_COLORS: Record<string, string> = {
   "Pre-Sales": "text-blue-500 dark:text-blue-400",
   "Post-Sales": "text-teal-500 dark:text-teal-400",
-  "Governance": "text-green-500 dark:text-green-400",
 };
 
 function HandoffColumn({ flow, fromFilter, toFilter }: { flow: HandoffFlow; fromFilter: string; toFilter: string }) {
@@ -156,7 +151,7 @@ function HandoffColumn({ flow, fromFilter, toFilter }: { flow: HandoffFlow; from
   );
 }
 
-function InteractionMap({ flows }: { flows: HandoffFlow[] }) {
+function InteractionMap({ flows, nameMap }: { flows: HandoffFlow[]; nameMap: Record<string, string> }) {
   const [fromFilter, setFromFilter] = useState<string>("all");
   const [toFilter, setToFilter] = useState<string>("all");
 
@@ -195,24 +190,24 @@ function InteractionMap({ flows }: { flows: HandoffFlow[] }) {
 
       <div className="flex items-center gap-3 mb-4">
         <Select value={fromFilter} onValueChange={setFromFilter}>
-          <SelectTrigger className="w-[160px] h-8 text-xs">
+          <SelectTrigger className="w-[240px] h-8 text-xs">
             <SelectValue placeholder="From role" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All sources</SelectItem>
-            {roles.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+            {roles.map((r) => <SelectItem key={r} value={r}>{nameMap[r] && nameMap[r] !== r ? `${nameMap[r]} (${r})` : r}</SelectItem>)}
           </SelectContent>
         </Select>
 
         <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
 
         <Select value={toFilter} onValueChange={setToFilter}>
-          <SelectTrigger className="w-[160px] h-8 text-xs">
+          <SelectTrigger className="w-[240px] h-8 text-xs">
             <SelectValue placeholder="To role" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All targets</SelectItem>
-            {roles.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+            {roles.map((r) => <SelectItem key={r} value={r}>{nameMap[r] && nameMap[r] !== r ? `${nameMap[r]} (${r})` : r}</SelectItem>)}
           </SelectContent>
         </Select>
 
@@ -230,7 +225,7 @@ function InteractionMap({ flows }: { flows: HandoffFlow[] }) {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {flows.map((flow) => (
           <HandoffColumn key={flow.label} flow={flow} fromFilter={fromFilter} toFilter={toFilter} />
         ))}
@@ -250,24 +245,23 @@ export default function AgentsHubPage() {
     queryFn: () => api.listDefinitions(),
   });
 
-  const { data: aeDefinition } = useQuery({
-    queryKey: ["definition", "ae-agent"],
-    queryFn: () => api.getDefinition("ae-agent"),
+  const { data: handoffEdges } = useQuery({
+    queryKey: ["handoffs"],
+    queryFn: () => api.listHandoffs(),
   });
 
-  const handoffFlows = useMemo<HandoffFlow[]>(() => {
-    const ext = aeDefinition?.["x-ea-agent"] as Record<string, unknown> | undefined;
-    const handoffs = ext?.handoffs as Record<string, unknown> | undefined;
-    const deferTo = handoffs?.defer_to as Record<string, unknown> | undefined;
-    const preSalesSteps = buildPreSalesFlows(deferTo);
-    const postSalesSteps = buildPostSalesFlows(definitions);
-    const governanceSteps = buildGovernanceFlows(definitions);
-    return [
-      { label: "Pre-Sales", color: "text-blue-400", steps: preSalesSteps },
-      { label: "Post-Sales", color: "text-teal-400", steps: postSalesSteps },
-      { label: "Governance", color: "text-green-400", steps: governanceSteps },
-    ];
-  }, [aeDefinition, definitions]);
+  const { handoffFlows, handoffNameMap } = useMemo(() => {
+    const { phases, nameMap } = handoffEdges
+      ? buildFlowsFromEdges(handoffEdges)
+      : { phases: { "Pre-Sales": [], "Post-Sales": [] }, nameMap: {} };
+    return {
+      handoffFlows: [
+        { label: "Pre-Sales", color: "text-blue-400", steps: phases["Pre-Sales"] },
+        { label: "Post-Sales", color: "text-teal-400", steps: phases["Post-Sales"] },
+      ] as HandoffFlow[],
+      handoffNameMap: nameMap,
+    };
+  }, [handoffEdges]);
 
   const subAgentIds = useMemo(() => {
     if (!definitions) return new Set<string>();
@@ -347,6 +341,22 @@ export default function AgentsHubPage() {
         <p className="text-muted-foreground mt-1">
           {profileCount > 0 ? `${profileCount} roles, ${totalAgentCount} agents.` : "Loading..."} Each role is a digital twin of a human function, owning runbooks, tools, and playbook contributions.
         </p>
+        <div className="flex flex-wrap gap-3 mt-2">
+          <Link
+            href="/docs?path=architecture/system/domain-model.md"
+            className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+          >
+            <BookOpen className="h-3 w-3" />
+            Domain model
+          </Link>
+          <Link
+            href="/docs?path=architecture/agents/agent-architecture.md"
+            className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+          >
+            <FileText className="h-3 w-3" />
+            Agent architecture
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -371,7 +381,7 @@ export default function AgentsHubPage() {
 
       <Separator />
 
-      <InteractionMap flows={handoffFlows} />
+      <InteractionMap flows={handoffFlows} nameMap={handoffNameMap} />
     </div>
   );
 }

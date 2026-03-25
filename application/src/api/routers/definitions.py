@@ -18,6 +18,14 @@ async def list_definitions(
     return svc.list_definitions()
 
 
+@router.get("/definitions/handoffs")
+async def list_handoffs(
+    svc: DefinitionsService = Depends(get_definitions_service),
+):
+    """Return aggregated handoff edges across all agent definitions."""
+    return svc.list_handoffs()
+
+
 @router.get("/definitions/{agent_id}")
 async def get_definition(
     agent_id: str,

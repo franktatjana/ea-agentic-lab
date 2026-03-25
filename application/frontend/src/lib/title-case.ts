@@ -1,6 +1,6 @@
 const ABBREVIATIONS = new Set([
   // Roles
-  "AE", "SA", "CA", "PM", "VE", "CI", "ACI", "II", "MNA", "PS", "FCTO", "CTO", "AA", "HAM", "ISV", "VP", "REVOPS",
+  "AE", "SA", "CA", "PM", "VE", "CI", "ACI", "II", "MNA", "PS", "FCTO", "CTO", "AA", "HAM", "ISV", "VP", "REVOPS", "TI", "INFOSEC",
   // Deal / sales
   "MEDDPICC", "RFP", "POC", "POV", "QBR", "EBR", "ARR", "MRR", "ACV",
   "ROI", "TCO", "SLA", "NPS", "CSAT",

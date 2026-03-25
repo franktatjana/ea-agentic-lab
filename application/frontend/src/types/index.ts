@@ -412,6 +412,99 @@ export interface DashboardSummary {
   nodes: DashboardNode[];
 }
 
+export interface HandoffEdge {
+  from_id: string;
+  from_name: string;
+  to_id: string;
+  to_name: string;
+  direction: "defer_to" | "provide_to";
+  trigger: string;
+  context_passed: string;
+  receiver_action: string;
+  scope: string;
+  phase: "Pre-Sales" | "Post-Sales" | "Governance";
+}
+
+// Orchestration
+export interface ProcessSummary {
+  process_id: string;
+  name: string;
+  description: string;
+  status: string;
+  trigger_event: string;
+  owner_agent: string;
+  owner_agent_id: string;
+  step_count: number;
+  agent_count: number;
+  agent_ids: string[];
+  playbook_refs: string[];
+  deadline: string | null;
+  tags: string[];
+  version: number;
+  created_at: string;
+}
+
+export interface ProcessStep {
+  step_id: string;
+  name: string;
+  owner: string;
+  action: string;
+  playbook_ref?: string;
+  description?: string;
+  condition?: Record<string, unknown>;
+  depends_on?: string[];
+  outputs?: Array<{ artifact: string }>;
+  deadline?: { duration: string };
+}
+
+export interface ProcessConflict {
+  type: string;
+  severity: string;
+  processes: string[];
+  description: string;
+  resolution: string;
+}
+
+export interface ProcessGap {
+  severity: string;
+  description: string;
+}
+
+export interface ProcessAgentRole {
+  agent_id: string;
+  agent_name: string;
+  role: string;
+}
+
+export interface ProcessAnalysis {
+  process: ProcessSummary;
+  steps: ProcessStep[];
+  conflicts: ProcessConflict[];
+  gaps: ProcessGap[];
+  artifacts: {
+    agents: ProcessAgentRole[];
+    playbooks: string[];
+  };
+}
+
+export interface ProcessRegistryStats {
+  total: number;
+  by_status: Record<string, number>;
+  conflict_count: number;
+}
+
+export interface TraceabilityRow {
+  process_id: string;
+  process_name: string;
+  step_id: string;
+  step_name: string;
+  agent_id: string;
+  playbook_ref: string | null;
+  action: string;
+  has_condition: boolean;
+  depends_on: string[];
+}
+
 // Data Source Panel
 export interface DataSourcePlaybook {
   playbook_id: string;
@@ -520,6 +613,7 @@ export interface ActivityMap {
 export interface ChallengeItem {
   text: string;
   solved_by?: string;
+  category?: string;
   specific_overhead?: string[];
 }
 

@@ -299,6 +299,9 @@ export const api = {
   listDefinitions: () =>
     fetchApi<import("@/types").AgentDefinitionSummary[]>("/definitions"),
 
+  listHandoffs: () =>
+    fetchApi<import("@/types").HandoffEdge[]>("/definitions/handoffs"),
+
   getDefinition: (agentId: string) =>
     fetchApi<import("@/types").AgentDefinition>(`/definitions/${agentId}`),
 
@@ -307,4 +310,17 @@ export const api = {
 
   getAgentPersonality: (agentId: string) =>
     fetchApi<Record<string, unknown>>(`/definitions/${agentId}/personality`),
+
+  // Orchestration
+  listProcesses: () =>
+    fetchApi<import("@/types").ProcessSummary[]>("/orchestration/processes"),
+
+  getProcessRegistryStats: () =>
+    fetchApi<import("@/types").ProcessRegistryStats>("/orchestration/stats"),
+
+  analyzeProcess: (processId: string) =>
+    fetchApi<import("@/types").ProcessAnalysis>(`/orchestration/processes/${processId}/analyze`),
+
+  getTraceability: () =>
+    fetchApi<import("@/types").TraceabilityRow[]>("/orchestration/traceability"),
 };

@@ -43,6 +43,28 @@ class DefinitionsService:
     def __init__(self, agents_path: Path):
         self.agents_path = agents_path
 
+    # Aliases for YAML keys that don't match the canonical agent ID
+    _AGENT_KEY_ALIASES = {
+        "ai-agent": "aci-agent",
+        "cloud-specialist-agent": "csa-specialist-agent",
+        "big-data-architect-agent": "bda-specialist-agent",
+        "platform-architect-agent": "pa-specialist-agent",
+        "data-engineer-specialist-agent": "de-specialist-agent",
+    }
+
+    # Generic placeholders that aren't real agents
+    _GENERIC_TARGETS = {
+        "all-agents-agent", "product-team-agent", "marketing-team-agent",
+        "sales-leadership-agent", "cro-ceo-agent",
+    }
+
+    def _resolve_agent_key(self, key: str) -> str:
+        """Convert a YAML handoff key to a canonical agent ID."""
+        agent_id = key.replace("_", "-")
+        if not agent_id.endswith("-agent"):
+            agent_id += "-agent"
+        return self._AGENT_KEY_ALIASES.get(agent_id, agent_id)
+
     def _derive_category(self, def_file: Path) -> str:
         rel = def_file.relative_to(self.agents_path)
         top_dir = rel.parts[0] if rel.parts else ""
@@ -123,6 +145,98 @@ class DefinitionsService:
                 parent["flow_count"] = parent.get("flow_count", 0) + entry.get("flow_count", 0)
 
         return definitions
+
+    def list_handoffs(self) -> list[dict]:
+        """Aggregate handoff edges (defer_to / provide_to) across all definitions."""
+        if not self.agents_path.is_dir():
+            return []
+
+        agents: dict[str, dict] = {}
+        raw_edges: list[dict] = []
+
+        for def_file in sorted(self.agents_path.rglob("*-definition.yaml")):
+            try:
+                data = yaml.safe_load(def_file.read_text(encoding="utf-8"))
+                if not isinstance(data, dict):
+                    continue
+
+                agent_id = data.get("id", "")
+                agent_name = data.get("name", "")
+                category = self._derive_category(def_file)
+                agents[agent_id] = {"name": agent_name, "category": category}
+
+                ext = data.get("x-ea-agent", {})
+
+                # Collect handoff sections from both locations:
+                # 1. x-ea-agent.handoffs (standard path)
+                # 2. x-ea-agent.profile.collaboration (used by intelligence, specialist agents)
+                handoff_sources = []
+                handoffs_root = ext.get("handoffs", {})
+                if isinstance(handoffs_root, dict):
+                    handoff_sources.append(handoffs_root)
+                profile = ext.get("profile", {})
+                if isinstance(profile, dict):
+                    collab = profile.get("collaboration", {})
+                    if isinstance(collab, dict):
+                        handoff_sources.append(collab)
+
+                for handoffs in handoff_sources:
+                    for direction in ("defer_to", "provide_to"):
+                        section = handoffs.get(direction, {})
+                        if not isinstance(section, dict):
+                            continue
+                        for target_key, entry in section.items():
+                            if not isinstance(entry, dict):
+                                continue
+                            target_id = self._resolve_agent_key(target_key)
+                            for scenario in entry.get("scenarios", []):
+                                if not isinstance(scenario, dict):
+                                    continue
+                                raw_edges.append({
+                                    "from_id": agent_id,
+                                    "to_id": target_id,
+                                    "direction": direction,
+                                    "trigger": scenario.get("trigger", ""),
+                                    "context_passed": scenario.get("context_passed", ""),
+                                    "receiver_action": scenario.get("receiver_action", ""),
+                                    "scope": entry.get("scope", ""),
+                                })
+            except Exception:
+                continue
+
+        POST_SALES_IDS = {"ca-agent", "retrospective-agent"}
+        result: list[dict] = []
+        for edge in raw_edges:
+            if edge["to_id"] in self._GENERIC_TARGETS:
+                continue
+            from_info = agents.get(edge["from_id"], {})
+            to_info = agents.get(edge["to_id"], {})
+            from_cat = from_info.get("category", "Other")
+            to_cat = to_info.get("category", "Other")
+
+            if from_cat == "Governance" or to_cat == "Governance":
+                phase = "Governance"
+            elif edge["from_id"] in POST_SALES_IDS or edge["to_id"] in POST_SALES_IDS:
+                phase = "Post-Sales"
+            elif from_cat in ("Delivery", "Operations") or to_cat in ("Delivery", "Operations"):
+                phase = "Post-Sales"
+            else:
+                phase = "Pre-Sales"
+
+            result.append({
+                "from_id": edge["from_id"],
+                "from_name": from_info.get("name", edge["from_id"]),
+                "to_id": edge["to_id"],
+                "to_name": to_info.get("name", edge["to_id"]),
+                "direction": edge["direction"],
+                "trigger": edge["trigger"],
+                "context_passed": edge["context_passed"],
+                "receiver_action": edge["receiver_action"],
+                "scope": edge["scope"],
+                "phase": phase,
+            })
+
+        return result
 
     def get_definition(self, agent_id: str) -> Optional[dict]:
         """Load full definition by agent ID.

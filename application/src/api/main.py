@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .routers import nodes, health, risks, actions, decisions, profile, widgets, tech_radar, playbooks, blueprints, docs, vault, knowledge, canvas, dashboard, intelligence, data_sources, definitions
+from .routers import nodes, health, risks, actions, decisions, profile, widgets, tech_radar, playbooks, blueprints, docs, vault, knowledge, canvas, dashboard, intelligence, data_sources, definitions, orchestration
 
 settings = get_settings()
 settings.validate_production()
@@ -47,6 +47,7 @@ app.include_router(dashboard.router, prefix=settings.api_prefix, tags=["Dashboar
 app.include_router(intelligence.router, prefix=settings.api_prefix, tags=["Intelligence"])
 app.include_router(data_sources.router, prefix=settings.api_prefix, tags=["Data Sources"])
 app.include_router(definitions.router, prefix=settings.api_prefix, tags=["Definitions"])
+app.include_router(orchestration.router, prefix=settings.api_prefix, tags=["Orchestration"])
 
 
 @app.get("/")
