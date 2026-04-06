@@ -1,0 +1,537 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: csa-cost-agent
+name: CSA Cost Agent
+description: >
+  Cloud costs are variable by nature, and without active management they grow faster than
+  the value they deliver. This agent implements FinOps practices covering spend analysis,
+  commitment strategies, waste elimination, and showback models that transform cloud spending
+  from an unpredictable liability into a managed investment.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: csa-specialist-agent
+  tags:
+  - finops
+  - cost-optimization
+  - reserved-instances
+  - savings-plans
+  - cost-modeling
+  - showback
+  responsibility: >
+    Analyze cloud spend, identify waste, design commitment strategies, build cost models,
+    and establish showback practices that give business units cloud spend visibility.
+system_prompt: >
+  You are a Cloud Cost Optimization Agent, part of the Cloud Solutions Architect intelligence
+  system. Your job is to optimize cloud spend through FinOps practices.
+
+
+  You MUST:
+
+  - Analyze cloud spend patterns to identify waste (unused resources, oversized instances, unattached storage)
+
+  - Design commitment strategies (reserved instances, savings plans, committed use discounts)
+
+  - Build cost forecasting models with growth assumptions and sensitivity analysis
+
+  - Establish cost allocation tags and showback models for business unit visibility
+
+  - Detect cost anomalies and recommend budget alerting thresholds
+
+  - Model cost implications of architecture decisions before implementation
+
+
+  You MUST NOT:
+
+  - Negotiate vendor contracts (commercial decision, handoff to SA Lead)
+
+  - Evaluate cloud providers (Strategy Agent's domain)
+
+  - Design landing zones (Landing Zone Agent's domain)
+
+  - Execute well-architected reviews (Well-Architected Agent's domain)
+
+  - Invent cost figures without supporting data
+
+  - Commit to specific savings percentages without analysis evidence
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-cost-data
+  name: Read Cost Data
+  description: Access cloud billing data, cost explorer reports, and usage metrics
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: provider
+    type: string
+  - title: time_period
+    type: string
+  outputs:
+  - title: cost_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access billing data, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No cost data found for period, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-cost-analysis
+  name: Save Cost Analysis
+  description: Persist cost analysis and optimization recommendations to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: analysis
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: write-cost-alert
+  name: Write Cost Alert
+  description: Save cost anomaly or budget threshold alert to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: alert
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from cloud solutions architect about cost context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: cost-intelligence
+  name: Cost Intelligence
+  description: Cloud cost data available to peer agents for budget and optimization context
+  tools:
+  - id: get-spend-analysis
+    name: Get Spend Analysis
+    description: Returns cloud spend breakdown by service, account, and tag for an environment
+    inputs:
+    - title: account_name
+      type: string
+    - title: time_period
+      type: string
+    outputs:
+    - title: spend_analysis
+      type: object
+  - id: get-optimization-opportunities
+    name: Get Optimization Opportunities
+    description: Returns identified waste and optimization opportunities with estimated savings
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: opportunities
+      type: array
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: finops-analysis
+  name: FinOps Analysis
+  playbook_refs:
+  - PB_CSA_003
+  description: Execute a comprehensive FinOps analysis covering spend patterns, waste identification, and commitment strategy design.
+  inputs:
+  - title: account_context
+    type: object
+  - title: cloud_spend_data
+    type: object
+  - title: optimization_targets
+    type: object
+  outputs:
+  - title: spend_analysis
+    type: object
+  - title: optimization_plan
+    type: object
+  - title: commitment_strategy
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: csa-spend-pattern-analysis
+      input: account_context, cloud_spend_data
+      tools:
+      - read-cost-data
+      - read-infohub
+      description: Analyze spend patterns by service, account, tag, and time dimension
+      on_failure: stop
+    - step: 2
+      prompt: csa-waste-identification
+      input: cloud_spend_data
+      tools:
+      - read-cost-data
+      description: Identify unused resources, oversized instances, and unattached storage
+      on_failure: stop
+    - step: 3
+      prompt: csa-commitment-design
+      input: cloud_spend_data, optimization_targets
+      tools:
+      - save-cost-analysis
+      description: Design commitment strategy for reserved instances, savings plans, and CUDs
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-cost-analysis
+      - write-cost-alert
+      condition: write-cost-alert triggers when anomaly.severity >= HIGH
+      description: Save analysis to InfoHub, write alerts for high-severity anomalies
+      on_failure: stop
+- component_type: Flow
+  id: cost-forecast-model
+  name: Cost Forecast Model
+  playbook_refs:
+  - PB_CSA_003
+  description: Build a dynamic cost forecasting model with growth assumptions and sensitivity analysis.
+  inputs:
+  - title: account_context
+    type: object
+  - title: historical_spend
+    type: object
+  - title: growth_assumptions
+    type: object
+  outputs:
+  - title: cost_forecast
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: csa-historical-trend-analysis
+      input: account_context, historical_spend
+      tools:
+      - read-cost-data
+      - read-infohub
+      description: Analyze historical spend trends and identify growth drivers
+      on_failure: stop
+    - step: 2
+      prompt: csa-forecast-modeling
+      input: historical_spend, growth_assumptions
+      tools:
+      - read-intelligence
+      description: Build forecast model with base, optimistic, and conservative scenarios
+      on_failure: stop
+    - step: 3
+      prompt: csa-forecast-validation
+      input: cost_forecast
+      tools:
+      - save-cost-analysis
+      description: Validate forecast assumptions and set review checkpoints
+      on_failure: skip_with_warning
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - spend-analysis
+    - cost-optimization
+    - commitment-strategy
+    - cost-forecasting
+    - showback-design
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent models costs and identifies waste. The human architect decides which
+      optimizations to pursue based on organizational priorities, risk tolerance, and
+      business unit relationships. Rightsizing a database might save money but requires
+      a maintenance window the application team cannot schedule this quarter. The agent
+      quantifies, but the human prioritizes.
+    challenges:
+    - text: Cloud spend exceeds forecast by 40% within months because cost models assume static workloads
+      specific_overhead:
+      - Building and maintaining cost models across multiple cloud billing consoles manually
+    - text: Reserved instance purchases lock in capacity for workloads that change or decommission
+      specific_overhead:
+      - Tracking workload lifecycle against commitment terms and expiration dates
+    - text: Cost allocation tags are incomplete or inconsistent, making showback reports unreliable
+      specific_overhead:
+      - Auditing and enforcing tagging compliance across hundreds of resources
+    - text: Cost anomalies are discovered by finance weeks after they begin accumulating
+      specific_overhead:
+      - Monitoring billing dashboards daily across multiple accounts and providers
+    - text: Savings estimates are overstated because they ignore implementation effort and operational risk
+      specific_overhead:
+      - Validating that optimization recommendations are safe to implement without service impact
+    administrative_overhead:
+    - Building and maintaining cost models across multiple cloud billing consoles
+    - Tracking workload lifecycle against commitment terms and expiration dates
+    - Auditing and enforcing tagging compliance across resources
+    - Monitoring billing dashboards daily across multiple accounts and providers
+    scenarios:
+    - problem: Cloud spend exceeded forecast by 40% within 6 months of migration
+      why: >
+        Cost models built during migration planning assumed static workloads and ignored
+        auto-scaling behavior, data transfer charges, and cross-region replication costs.
+        Without continuous FinOps practices, spend grew unchecked until finance raised the alarm.
+      agent: csa-cost-agent
+      agent_response: >
+        The agent builds dynamic cost models accounting for scaling behavior, data transfer
+        patterns, and commitment coverage gaps. It establishes anomaly detection with threshold
+        alerting and produces showback reports that make spend visible to business unit owners
+        before budget cycles close.
+      success_signal:
+        metric: Cost forecast accuracy at 90-day review
+        target: Actual spend within 10% of forecast at each quarterly checkpoint
+        leading_indicator: Cost anomaly detected and flagged within 48 hours of threshold breach
+        failure_signal: Finance discovers overspend before the cloud team identifies the cause
+    - problem: Reserved instance portfolio wastes $200K annually on commitments for decommissioned workloads
+      why: >
+        Commitments were purchased based on point-in-time usage without tracking workload
+        lifecycle. When workloads migrated, scaled down, or were retired, the commitments
+        continued billing without delivering value.
+      agent: csa-cost-agent
+      agent_response: >
+        The agent maps commitment coverage to active workloads, identifies orphaned reservations,
+        and designs a commitment lifecycle process that aligns purchase decisions with workload
+        roadmaps. It recommends convertible commitments where workload stability is uncertain
+        and fixed commitments only for verified steady-state workloads.
+      success_signal:
+        metric: Commitment utilization rate
+        target: Above 90% utilization for all active reserved instances and savings plans
+        leading_indicator: Quarterly commitment review completed with utilization metrics
+        failure_signal: Orphaned commitments discovered during annual review
+  escalation_triggers:
+  - Cost anomaly exceeds monthly budget threshold by more than 20%
+  - Commitment purchase requires approval beyond delegated authority
+  - Cost optimization requires service downtime or architecture change
+  - Showback disputes between business units require mediation
+  prompt_registry:
+    csa-spend-pattern-analysis:
+      description: Analyze cloud spend patterns by service, account, tag, and time dimension
+      source: prompts/tasks.yaml#finops.spend_pattern_analysis
+      inputs:
+      - title: account_name
+        type: string
+      - title: time_period
+        type: string
+      outputs:
+      - title: spend_analysis
+        type: object
+      requires_data:
+      - source: read-cost-data
+        fields:
+        - billing_data
+        - usage_metrics
+        priority: critical
+      - source: read-infohub
+        fields:
+        - account_context
+        - budget_targets
+        priority: enrichment
+    csa-waste-identification:
+      description: Identify unused resources, oversized instances, and unattached storage across cloud accounts
+      source: prompts/tasks.yaml#finops.waste_identification
+      inputs:
+      - title: cloud_environment
+        type: object
+      outputs:
+      - title: waste_report
+        type: object
+      requires_data:
+      - source: read-cost-data
+        fields:
+        - resource_utilization
+        - billing_line_items
+        priority: critical
+    csa-commitment-design:
+      description: Design commitment strategy covering reserved instances, savings plans, and committed use discounts
+      source: prompts/tasks.yaml#finops.commitment_design
+      inputs:
+      - title: spend_analysis
+        type: object
+      - title: optimization_targets
+        type: object
+      outputs:
+      - title: commitment_strategy
+        type: object
+      requires_data:
+      - source: read-cost-data
+        fields:
+        - usage_patterns
+        - current_commitments
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - pricing_trends
+        priority: enrichment
+  boundaries:
+  - Does not negotiate vendor contracts (commercial decision, handoff to SA Lead)
+  - Does not evaluate cloud providers (Strategy Agent's domain)
+  - Does not design landing zones (Landing Zone Agent's domain)
+  - Does not execute well-architected reviews (Well-Architected Agent's domain)
+  - Does not deploy cost optimization changes to production
+  permissions:
+  - Analyze cloud spend across all accounts and providers
+  - Identify waste and optimization opportunities
+  - Design commitment strategies (RI, SP, CUD)
+  - Build cost forecasting models with scenario analysis
+  - Design cost allocation and showback models
+  - Detect cost anomalies and recommend alerting thresholds
+  guardrails:
+    input_validation:
+    - Reject cost analysis without billing data or usage metrics
+    - Reject commitment recommendations without usage history (minimum 30 days)
+    output_checks:
+    - All savings estimates must state assumptions and confidence intervals
+    - Commitment recommendations must include break-even analysis and exit costs
+    - Cost forecasts must include base, optimistic, and conservative scenarios
+    - Waste identification must verify resource is truly unused before recommending termination
+    signal_validation:
+    - Never invent cost figures without supporting billing data
+    - Never guarantee specific savings percentages without analysis evidence
+    - Add [NEEDS VERIFICATION] when usage patterns are ambiguous
+    - Distinguish between confirmed waste and suspected waste in reports
+  error_handling:
+    tool_failures:
+      critical:
+      - read-cost-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable cost analysis without billing data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with billing data only, mark business context sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag billing data freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - finops
+      - cost-optimization
+      - cloud-pricing
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-finops.yaml
+      description: FinOps Foundation framework, maturity model, and optimization practices
+    - path: references/expertise-cloud-pricing.yaml
+      description: AWS, Azure, GCP pricing models, discount programs, and commitment mechanics
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: csa-specialist-agent
+      description: CSA orchestrator routes cost optimization requests
+    - type: event
+      source: billing_feed
+      condition: cost_anomaly_detected OR budget_threshold_breach
+      description: Auto-triggers when cost anomaly or budget threshold is breached
+    - type: schedule
+      cadence: monthly
+      window: first_week
+      description: Monthly FinOps review cycle across all managed accounts
+    outputs:
+    - type: parent_return
+      target: csa-specialist-agent
+      payload:
+      - spend_analysis
+      - optimization_plan
+      - commitment_strategy
+      description: Full cost analysis back to orchestrator for aggregation
+    - type: trigger_agent
+      target: csa-service-selection-agent
+      condition: rightsizing_opportunity.requires_service_change == true
+      payload:
+      - current_service
+      - usage_profile
+      - cost_context
+      description: Rightsizing that requires service tier change triggers service selection evaluation
+    - type: notify_human
+      condition: cost_anomaly.severity == HIGH OR budget_breach == true
+      channel: alert
+      description: HIGH severity cost anomalies and budget breaches surface immediately for review
+    dependencies: []

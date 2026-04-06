@@ -1,0 +1,512 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: pm-feedback-agent
+name: PM Feedback Synthesis Agent
+description: 'Customer feedback arrives through support tickets, sales notes, CS QBRs, NPS surveys, CAB sessions, and Slack threads, but without automated aggregation these signals stay siloed and
+  product leadership makes prioritization decisions without knowing what customers actually need. This agent collects feedback from all channels, clusters it into themes,
+  classifies by persona, and runs sentiment analysis so the PM has a unified view of customer voice grounded in evidence rather than anecdote.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: pm-agent
+  tags:
+  - customer-feedback
+  - feedback-synthesis
+  - theme-clustering
+  - persona-classification
+  - sentiment-analysis
+  responsibility: 'Aggregate customer feedback from all channels, cluster into actionable themes, classify by persona, and produce sentiment analysis to give product leadership a unified customer voice.
+
+    '
+system_prompt: 'You are a Customer Feedback Synthesis Agent, part of the Product Manager
+
+  intelligence system. Your job is to aggregate, classify, and synthesize customer
+
+  feedback from all channels into actionable intelligence.
+
+
+  You MUST:
+
+  - Collect feedback from all channels (support tickets, sales notes, CS QBRs, NPS, CAB sessions, Slack, email)
+
+  - Cluster feedback into themes using semantic similarity, not just keyword matching
+
+  - Classify each feedback item by persona type (economic buyer, technical evaluator, end user, procurement)
+
+  - Run sentiment analysis with evidence citations for sentiment shifts
+
+  - Produce weekly feedback synthesis reports with theme rankings and trend indicators
+
+  - Tag feedback by product area, account segment, and deal stage
+
+  - Distinguish between feature requests (route to Feature Gap Agent) and satisfaction signals (retain)
+
+
+  You MUST NOT:
+
+  - Track feature gaps or manage the gap register (Feature Gap Agent''s domain)
+
+  - Prioritize features or set roadmap direction (Roadmap Alignment Agent''s domain)
+
+  - Build competitive analyses from feedback mentions (Competitive Intelligence Agent''s domain)
+
+  - Prepare release communications or field enablement content (Release Communication Agent''s domain)
+
+  - Make commercial decisions based on sentiment data (AE Agent''s domain)
+
+
+  Every feedback item must cite the source channel, account, date, and original text.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: feedback_records, support_tickets, nps_scores, customer_health.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile), industry (trends, regulatory).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, CRM notes, meeting notes, and support tickets for feedback extraction
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  - title: time_period
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: save-feedback-synthesis
+  name: Save Feedback Synthesis
+  description: Persist feedback synthesis report and theme clusters to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: synthesis_report
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from PM about feedback context or persona classification
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: feedback-intelligence
+  name: Feedback Intelligence
+  description: Customer feedback data available to peer agents for product context enrichment
+  tools:
+  - id: get-feedback-themes
+    name: Get Feedback Themes
+    description: Returns clustered feedback themes with frequency, sentiment, and persona distribution
+    inputs:
+    - title: account_name
+      type: string
+    - title: time_period
+      type: string
+    outputs:
+    - title: themes
+      type: array
+  - id: get-sentiment-trends
+    name: Get Sentiment Trends
+    description: Returns sentiment trends by account, product area, or persona over time
+    inputs:
+    - title: filter_by
+      type: string
+    - title: time_period
+      type: string
+    outputs:
+    - title: sentiment_data
+      type: array
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: feedback-synthesis
+  name: Feedback Synthesis
+  playbook_refs:
+  - PB_PM_003
+  description: Aggregate customer feedback from all channels, cluster into themes, classify by persona, and produce actionable synthesis report.
+  inputs:
+  - title: account_name
+    type: string
+  - title: time_period
+    type: string
+  - title: channels
+    type: array
+  outputs:
+  - title: synthesis_report
+    type: object
+  - title: theme_clusters
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pm-feedback-collection
+      input: account_name, time_period, channels
+      tools:
+      - read-communications
+      - read-infohub
+      description: Collect feedback items from all specified channels with source metadata
+      on_failure: stop
+    - step: 2
+      prompt: pm-theme-clustering
+      input: feedback_items
+      tools:
+      - read-infohub
+      description: Cluster feedback into themes using semantic similarity, rank by frequency and severity
+      on_failure: stop
+    - step: 3
+      prompt: pm-persona-classification
+      input: theme_clusters
+      description: Classify each feedback item by persona type with confidence scores
+      on_failure: skip_with_warning
+    - step: 4
+      prompt: pm-sentiment-analysis
+      input: theme_clusters, account_name
+      description: Analyze sentiment per theme and per account, flag shifts from prior period
+      on_failure: skip_with_warning
+    - step: 5
+      action: persist
+      tools:
+      - save-feedback-synthesis
+      description: Save synthesis report with themes, persona classification, and sentiment analysis
+      on_failure: stop
+- component_type: Flow
+  id: enhancement-request-packaging
+  name: Enhancement Request Packaging
+  playbook_refs:
+  - PB_PM_003
+  description: Document customer enhancement requests formally with business context, deal impact, and priority classification.
+  inputs:
+  - title: account_name
+    type: string
+  - title: enhancement_description
+    type: string
+  - title: business_context
+    type: string
+  outputs:
+  - title: enhancement_package
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pm-enhancement-request
+      input: account_name, enhancement_description, business_context
+      tools:
+      - read-infohub
+      description: Document enhancement with business context, urgency, and deal impact
+      on_failure: stop
+    - step: 2
+      action: persist
+      tools:
+      - save-feedback-synthesis
+      description: Save packaged enhancement request to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - feedback-aggregation
+    - theme-clustering
+    - persona-classification
+    - sentiment-analysis
+    - enhancement-request-packaging
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent aggregates and clusters every piece of feedback. The PM decides which themes represent real product direction signals versus situational noise,
+      and which persona voices carry strategic weight for the current planning cycle. Data is structured, but the PM interprets priority.
+
+      '
+    challenges:
+    - text: Customer feedback arrives through 5+ disconnected channels (support tickets, sales notes, CS QBRs, NPS, CAB sessions), and without automated aggregation PMs miss patterns because the same complaint expressed differently in two channels is never connected
+      specific_overhead:
+      - Manually copying feedback from each channel into a unified tracker
+      - Reading through raw text to identify thematic overlap across channels
+    - text: Persona-specific feedback gets flattened into a single voice when aggregated manually, causing PMs to optimize for end-user requests while missing that economic buyers have a different set of concerns driving actual purchase decisions
+      specific_overhead:
+      - Tagging each feedback item by persona type from context clues in the source text
+      - Building separate feedback views per persona without automated classification
+    - text: Sentiment shifts between quarters go undetected because feedback synthesis happens only when someone manually reviews the accumulated items, by which point the trend that started weeks ago has already compounded into churn risk
+      specific_overhead:
+      - Manually comparing feedback tone across time periods to detect shifts
+      - Building sentiment trend charts from unstructured text data
+    - text: Enhancement requests submitted without business context, deal value, or urgency classification sit in backlog purgatory because product teams cannot compare their relative priority against other work items
+      specific_overhead:
+      - Chasing field teams for business justification after initial request submission
+      - Reformatting requests into a standardized template for product intake
+    scenarios:
+    - problem: Product leadership makes prioritization decisions without knowing what customers actually need
+      why: 'Feedback is scattered across channels, never aggregated. Product teams see individual tickets and anecdotes but never the unified signal showing which themes appear
+        across many accounts and personas, so priorities reflect internal assumptions rather than customer reality.
+
+        '
+      agent: pm-feedback-agent
+      agent_response: 'The agent collects feedback from all channels, clusters it into ranked themes, and classifies by persona type. Product leadership receives a synthesis report
+        showing theme frequency, sentiment trends, and persona distribution so prioritization reflects actual customer voice.
+
+        '
+      success_signal:
+        metric: Feedback synthesis turnaround
+        target: Synthesized actionable summary within 48 hours of collection
+        leading_indicator: Product team references feedback synthesis in planning sessions
+        failure_signal: Product priorities set without awareness of customer feedback patterns
+    - problem: Negative sentiment trends compound silently until they surface as churn
+      why: 'Without continuous sentiment tracking, declining satisfaction in a product area accumulates across accounts until a critical mass of customers raises the issue simultaneously,
+        at which point the damage is already done.
+
+        '
+      agent: pm-feedback-agent
+      agent_response: 'The agent runs sentiment analysis across all feedback channels, flags shifts from prior periods, and surfaces downward trends before they reach critical levels.
+        The PM receives early warning with evidence so intervention happens while recovery is still possible.
+
+        '
+      success_signal:
+        metric: Sentiment shift detection lead time
+        target: Negative sentiment trends surfaced within one week of onset
+        leading_indicator: PM investigates flagged sentiment shifts proactively
+        failure_signal: Sentiment issues discovered only after customer escalation or churn
+  escalation_triggers:
+  - Negative sentiment trend detected across 3+ accounts in same product area
+  - NPS score drops more than 10 points in a quarter for a segment
+  - Enhancement request linked to deal-blocking scenario
+  - CAB member raises issue previously untracked in feedback system
+  prompt_registry:
+    pm-feedback-collection:
+      description: Collect feedback items from all specified channels with source metadata
+      source: prompts/tasks.yaml#product_feedback.feedback_collection
+      inputs:
+      - title: account_name
+        type: string
+      - title: time_period
+        type: string
+      - title: channels
+        type: array
+      outputs:
+      - title: feedback_items
+        type: array
+      requires_data:
+      - source: read-communications
+        fields:
+        - support_tickets
+        - sales_notes
+        - qbr_notes
+        - nps_responses
+        - cab_notes
+        - slack_threads
+        priority: critical
+    pm-theme-clustering:
+      description: Cluster feedback into themes using semantic similarity
+      source: prompts/tasks.yaml#product_feedback.theme_clustering
+      inputs:
+      - title: feedback_items
+        type: array
+      outputs:
+      - title: theme_clusters
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - prior_themes
+        - product_areas
+        priority: enrichment
+    pm-enhancement-request:
+      description: Document customer enhancement request with business context and priority classification
+      source: prompts/tasks.yaml#product_feedback.enhancement_request
+      inputs:
+      - title: account_name
+        type: string
+      - title: enhancement_description
+        type: string
+      - title: business_context
+        type: string
+      outputs:
+      - title: enhancement_package
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - existing_enhancement_requests
+        - roadmap_items
+        priority: enrichment
+  boundaries:
+  - Does not track feature gaps or manage gap register (Feature Gap Agent)
+  - Does not prioritize features or set roadmap direction (Roadmap Alignment Agent)
+  - Does not build competitive analyses from feedback (Competitive Intelligence Agent)
+  - Does not prepare release communications (Release Communication Agent)
+  permissions:
+  - Collect feedback from all customer communication channels
+  - Cluster feedback into themes and classify by persona
+  - Run sentiment analysis and flag trends
+  - Package enhancement requests with business context
+  - Write feedback synthesis reports to InfoHub
+  guardrails:
+    input_validation:
+    - Reject feedback synthesis without specified time period or channels
+    - Reject enhancement packaging without business context
+    output_checks:
+    - Every feedback item must cite source channel, account, date, and original text
+    - Theme clusters must show member count and representative quotes
+    - Sentiment scores must cite evidence for classification
+    - Enhancement packages must include business justification and urgency
+    signal_validation:
+    - Never infer sentiment not supported by source text
+    - Add [NEEDS VERIFICATION] when persona classification is ambiguous
+    - Distinguish between solicited and unsolicited feedback in output
+  error_handling:
+    tool_failures:
+      critical:
+      - read-communications
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable feedback synthesis without communication data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - customer-feedback
+      - sentiment-analysis
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/feedback-synthesis-framework.yaml
+      description: Theme clustering methodology, persona classification taxonomy, sentiment scoring criteria
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: pm-agent
+      description: PM orchestrator routes feedback synthesis requests
+    - type: schedule
+      cadence: weekly
+      window: Monday 08:00-09:00
+      description: Weekly feedback synthesis across all active accounts
+    - type: event
+      source: nps_system
+      condition: nps_score_change.magnitude > 10
+      description: Significant NPS change triggers immediate feedback review
+    outputs:
+    - type: parent_return
+      target: pm-agent
+      payload:
+      - synthesis_report
+      - theme_clusters
+      - sentiment_trends
+      description: Full feedback synthesis back to orchestrator for aggregation
+    - type: trigger_agent
+      target: pm-feature-gap-agent
+      condition: feedback_item.type == feature_request
+      payload:
+      - feature_request_details
+      - account_context
+      description: Feature requests extracted from feedback routed to Feature Gap Agent
+    - type: trigger_agent
+      target: pm-stakeholder-agent
+      condition: sentiment.trend == negative AND sentiment.magnitude > threshold
+      payload:
+      - sentiment_data
+      - affected_accounts
+      description: Negative sentiment trends trigger trust health review
+    - type: notify_human
+      condition: sentiment.critical_shift == true
+      channel: alert
+      description: Critical sentiment shifts surface immediately for PM review
+    dependencies: []

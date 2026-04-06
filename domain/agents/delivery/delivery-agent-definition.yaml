@@ -2,59 +2,72 @@ agentspec_version: 26.1.0
 component_type: Agent
 id: delivery-agent
 name: Delivery Agent
-description: The Delivery Agent tracks delivery progress from Jira, status reports, and customer escalations, then flags risks and generates health summaries for account teams. It bridges the gap between
-  delivery execution and account awareness, ensuring that project blockers, milestone slips, and go-live risks are visible to the broader team before they become surprises.
+description: >
+  Digital twin of the Delivery Manager role. Orchestrates implementation continuity across
+  delivery risk monitoring, go-live readiness, commitment tracking, and stakeholder communication
+  through 4 specialized sub-agents.
 metadata:
-  definition_version: 0.1.0
+  definition_version: 0.2.0
   disclaimer: This agent specification is a reference design for educational and demonstration purposes. It is not a production system. All examples, case studies, and scenarios are fictional.
   tags:
   - delivery
   - delivery-progress
   - delivery-risks
   - status-updates-to-account-team
-  responsibility: Maintain continuity between delivery & account teams
-system_prompt: 'You are a Delivery Agent. Your job is to maintain continuity between delivery & account teams.
+  - commitment-tracking
+  - go-live-readiness
+  - stakeholder-communication
+  responsibility: 'Route delivery requests to the correct sub-agent, aggregate cross-domain signals when needed, and escalate to human when conditions are met.
+
+    '
+system_prompt: 'You are a Delivery Orchestrator. You do not execute domain tasks directly.
+  You route each request to the appropriate sub-agent.
 
 
-  You MUST:
+  ROUTING RULES:
 
-  - Track delivery progress signals from notes/status
+  - Jira signals, blocker detection, risk flags, health summaries → Risk Monitoring Agent
 
-  - Flag delivery risks (blocked, rescoped, delayed)
+  - Milestone tracking, go-live readiness, dependency checks → Readiness Agent
 
-  - Generate health summaries for account teams
+  - SOW extraction, SLA alignment, commitment register, handoff validation → Commitment Agent
 
-  - Connect delivery status to account context
+  - Status reports, escalation routing, cross-team communication → Stakeholder Agent
+
+
+  CROSS-DOMAIN REQUESTS:
+
+  When a request spans multiple domains (e.g., "assess go-live readiness and prepare stakeholder update"),
+  route to each relevant sub-agent and aggregate the results.
+
+
+  ESCALATION:
+
+  - Critical blocker with no viable mitigation path → Delivery Manager (within 4h)
+
+  - Go-live date at risk → Delivery Manager + AE (within 24h)
+
+  - Customer escalation arrives before internal detection → Delivery Manager + Senior Manager
+
+  - Commitment dispute between sales and delivery → Delivery Manager (within 24h)
+
+  - Security or compliance blocker mid-implementation → InfoSec + SA
 
 
   You MUST NOT:
 
-  - Manage delivery execution
+  - Execute domain tasks yourself (always delegate)
 
-  - Assign delivery tasks
+  - Assign delivery tasks or manage execution
 
   - Make scope decisions
 
+  - Set or negotiate SLAs (AE + Delivery Manager domain)
 
-  Delivery Risks (keywords): blocked, rescope, delayed, resource constraint, milestone slip, escalation.
-
-  Delivery Status (positive): on track, milestone achieved, completed, deployed.
-
-  Delivery Status (at_risk): behind schedule, issues identified, dependencies.
-
-  Delivery Status (critical): blocked, major delay, escalated.
-
-
-  When uncertain: state what evidence is missing, provide preliminary
-
-  analysis based on available information, and flag for human review.
-
-
-  Output format: markdown with evidence-based structure. Use tables for
-
-  structured comparisons. Bold key findings. Quote sources verbatim.
+  - Fabricate delivery status without evidence
 
   '
+
 human_in_the_loop: true
 llm_configuration:
   model_id: null
@@ -137,6 +150,74 @@ tools:
   x-ea-agent:
     risk: low
     resolver: inline
+- component_type: ClientTool
+  id: invoke-risk-monitoring
+  name: Invoke Risk Monitoring Agent
+  description: Route Jira signal scanning, blocker detection, risk flagging, and health summary requests
+  requires_confirmation: false
+  inputs:
+  - title: task
+    type: string
+  - title: context
+    type: object
+  outputs:
+  - title: result
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: agent-registry
+    target_agent: delivery-risk-monitoring-agent
+- component_type: ClientTool
+  id: invoke-readiness
+  name: Invoke Readiness Agent
+  description: Route milestone tracking, go-live readiness assessment, and dependency check requests
+  requires_confirmation: false
+  inputs:
+  - title: task
+    type: string
+  - title: context
+    type: object
+  outputs:
+  - title: result
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: agent-registry
+    target_agent: delivery-readiness-agent
+- component_type: ClientTool
+  id: invoke-commitment
+  name: Invoke Commitment Agent
+  description: Route SOW extraction, SLA alignment, commitment register, and handoff validation requests
+  requires_confirmation: false
+  inputs:
+  - title: task
+    type: string
+  - title: context
+    type: object
+  outputs:
+  - title: result
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: agent-registry
+    target_agent: delivery-commitment-agent
+- component_type: ClientTool
+  id: invoke-stakeholder
+  name: Invoke Stakeholder Agent
+  description: Route status report generation, escalation routing, and cross-team communication requests
+  requires_confirmation: false
+  inputs:
+  - title: task
+    type: string
+  - title: context
+    type: object
+  outputs:
+  - title: result
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: agent-registry
+    target_agent: delivery-stakeholder-agent
 toolboxes: []
 specialized_agents:
 - component_type: SpecializedAgent
@@ -316,10 +397,13 @@ a2a:
   agent_card:
     protocol_version: '0.1'
     capabilities:
-    - project-health
-    - blocker-management
-    - handoff
-    - risk-issue
+    - delivery-risk-monitoring
+    - go-live-readiness
+    - commitment-tracking
+    - stakeholder-communication
+    - blocker-analysis
+    - sla-alignment
+    - handoff-validation
     input_modes:
     - text/plain
     - application/json
@@ -330,10 +414,72 @@ a2a:
     - text/plain
 x-ea-agent:
   profile:
+    why: 'Delivery signal is scattered across Jira, Slack, email threads, and status calls that the Delivery Manager monitors manually every day. By the time a risk surfaces in a report, the window
+      for low-cost mitigation has already closed. Commitment drift starts at deal close when SOW language is vague and sales context isn''t transferred, then compounds with every missed SLA conversation.
+      Stakeholder communication happens reactively, after something breaks, rather than proactively when there is still time to act. This agent gives the Delivery Manager a system that monitors continuously,
+      tracks commitments from the moment the deal closes, and surfaces the right information to the right stakeholder before a problem becomes a relationship issue.
+
+      '
+    human_matters_summary: 'Delivery data tells you what happened; the Delivery Manager decides what it means. The agent aggregates signals, flags risks, and generates status reports, but the
+      experienced manager reads the political context behind an escalation, knows when a stakeholder needs a phone call instead of a written update, and decides which risks are real versus noise.
+      Implementation trust is earned in how the Delivery Manager responds under pressure, and that judgment no agent can replicate.
+
+      '
+    human_matters_goal: 'Every risk is visible before it becomes a surprise, every commitment is tracked, but implementations succeed because the Delivery Manager brought the right judgment at the right moment.
+
+      '
+    role_tab_intro: 'A Delivery Manager translates deal promises into working software and maintains trust across the implementation lifecycle. The challenges below are where commitment drift begins,
+      risks stay hidden too long, and stakeholder confidence erodes before anyone acts.
+
+      '
+    goals_summary: 'The Delivery Manager succeeds when every implementation runs with full risk visibility, go-live dates are met because readiness was assessed early, commitments from the deal are
+      tracked without exception, and stakeholders receive proactive communication before they need to ask.
+
+      '
+    goals:
+    - Every implementation has a commitment register created within 48 hours of deal close
+    - Delivery risks flagged at least 5 business days before they reach the customer
+    - Go-live readiness assessments completed at least 14 days before target date
+    - SLA alignment report reviewed by both sales and delivery before kickoff
+    - Zero untracked commitments raised by customers in the first 30 days of implementation
+    - Blocker-to-resolution time reduced by 40% through early detection and structured analysis
+    - Weekly status reports generated automatically for every active implementation
+    - Escalation briefs prepared within 4 hours of a critical issue classification
+    - Dependency register maintained with ownership and resolution status current within 48 hours
+    - Handoff brief with stakeholder profiles delivered for every implementation kickoff
+    - Post-implementation review completed within 2 weeks of go-live for every project
+    - Go-live dates met without last-minute scope changes on at least 80% of implementations
     role_context: 'The Delivery Manager ensures what was sold matches what gets built. They translate deal commitments, SLAs, and stakeholder expectations into implementation plans that engineering can
       execute. The gap between sales promises and delivery reality is where most customer friction originates.
 
+      Implementation projects generate risk signals continuously: blocked Jira tickets, dependency delays, resource conflicts, and scope creep discussions that never reach the account team until
+      a customer escalation forces the issue. The Delivery Manager is the connective tissue between the execution layer and the relationship layer. This agent routes each domain to the right sub-agent
+      so risk detection, readiness assessment, commitment tracking, and stakeholder communication operate continuously rather than episodically.
+
       '
+    key_responsibilities:
+    - 'Risk Monitoring: scan Jira tickets, Slack threads, and status notes for early warning signals using severity keywords and pattern recognition'
+    - 'Blocker Analysis: assess blocker impact on project timeline, identify resolution paths, and escalate when no viable mitigation exists'
+    - 'Health Summaries: generate delivery health reports connecting project status to account context for the broader team'
+    - 'Go-Live Readiness: aggregate milestone completion, testing status, open blockers, and dependency state into structured readiness assessments'
+    - 'Dependency Tracking: maintain a live dependency register with ownership, status, and projected resolution dates'
+    - 'Commitment Extraction: parse SOWs, proposal decks, and meeting notes to build a consolidated commitment register within 48 hours of deal close'
+    - 'SLA Alignment: cross-reference contract SLAs against informal commitments from pre-sales conversations and flag discrepancies before kickoff'
+    - 'Handoff Validation: verify that all deal context, stakeholder profiles, and commitment details transfer completely from sales to delivery'
+    - 'Status Reporting: generate weekly status updates tailored per stakeholder audience (executive summary, technical detail, operational update)'
+    - 'Escalation Routing: classify issues by severity, prepare escalation briefs, and route to the appropriate stakeholder with resolution context'
+    - 'Cross-Team Communication: coordinate delivery updates across engineering, product, customer success, and account teams'
+    - 'Phase Transition Documentation: capture deliverables, open items, and acceptance criteria at each implementation phase boundary'
+    - 'Customer Impact Assessment: evaluate the downstream effect of delivery issues on customer operations and SLA performance'
+    - 'Post-Implementation Review: capture lessons learned and delivery quality metrics after go-live for process improvement'
+    key_metrics:
+    - 'Risk detection lead time: business days between internal risk flag and customer-reported escalation (target >= 5 days)'
+    - 'Commitment register coverage: percentage of active implementations with a complete commitment register at kickoff (target 100%)'
+    - 'Go-live readiness lead: days before target go-live that a structured readiness assessment is completed (target >= 14 days)'
+    - 'SLA alignment rate: percentage of implementations with zero SLA discrepancies reported in the first 60 days post-kickoff'
+    - 'Blocker resolution time: average days from blocker detection to resolution (track trend, target 40% reduction)'
+    - 'Status report timeliness: percentage of weekly status reports delivered on schedule without manual follow-up (target >= 95%)'
+    - 'Escalation brief accuracy: percentage of escalation briefs rated complete and actionable by receiving stakeholder (target >= 90%)'
     scenarios:
     - problem: Delivery risks surface as surprises to the account team
       why: 'Project blockers and milestone slips are discussed in Jira tickets and delivery stand-ups but never reach the account team until a customer escalation forces it. The disconnect between delivery
@@ -411,30 +557,121 @@ x-ea-agent:
         leading_indicator: Delivery leads reference handoff context in their first customer interaction
         failure_signal: Delivery team asks the customer to re-explain priorities already shared during the sales cycle
     challenges:
-    - text: Deal commitments aren't always documented with enough precision
+    - text: Delivery risks stay invisible until they become customer escalations because no one is continuously monitoring Jira for early warning signals
+      solved_by: delivery-risk-monitoring-agent
+      category: Delivery Risk Monitoring
       specific_overhead:
-      - Extracting commitments from SOWs, emails, and meeting notes
-    - text: SLA expectations drift between the sale and implementation kickoff
+      - Manually reviewing Jira board every morning to spot blocked tickets before stand-up
+      - Correlating Slack mentions of "blocked" or "delayed" with open issues to determine severity
+    - text: Blocker analysis happens ad hoc, producing inconsistent severity ratings that under-communicate timeline impact to account teams
+      solved_by: delivery-risk-monitoring-agent
+      category: Blocker Analysis and Escalation
       specific_overhead:
-      - Building implementation plans from scattered deal documentation
-    - text: Stakeholder handoffs lose critical context about customer priorities
+      - Writing blocker impact summaries from scratch for each issue with no standard format
+      - Estimating timeline impact without access to the dependency chain across workstreams
+    - text: Health summaries are written manually for each account team update, creating inconsistent information across concurrent implementations
+      solved_by: delivery-risk-monitoring-agent
+      category: Stakeholder Status Reporting
       specific_overhead:
-      - Coordinating handoff meetings between sales and delivery teams
-    - Delivery risks surface as surprises to the account team
-    - Go-live readiness is assessed too late
+      - Synthesizing status from Jira, Slack, and email into a single narrative for each project
+      - Reformatting the same information for engineering leads versus account team audiences
+    - text: Go-live readiness is assessed informally, without a structured view of what is open and what the acceptance criteria are
+      solved_by: delivery-readiness-agent
+      category: Go-Live Readiness
+      specific_overhead:
+      - Manually checking milestone completion across multiple project tracking tools before each readiness call
+      - Building go-live checklists from memory or prior project templates that may be outdated
+    - text: Dependency tracking is reactive, discovered when a downstream team reports they are blocked rather than proactively monitored
+      solved_by: delivery-readiness-agent
+      category: Dependency and Phase Tracking
+      specific_overhead:
+      - Scheduling dependency review calls across teams because there is no shared dependency register
+      - Updating a spreadsheet dependency tracker after each stand-up rather than having a live view
+    - text: Deal commitments made during the sales cycle are scattered across SOWs, emails, and slide decks with no single consolidated reference
+      solved_by: delivery-commitment-agent
+      category: Commitment Extraction
+      specific_overhead:
+      - Reading through full SOW documents and proposal decks to extract commitment language before kickoff
+      - Building a commitment register manually from notes taken across multiple pre-sales meetings
+    - text: SLA expectations drift between the sales cycle and implementation kickoff because informal verbal commitments are never reconciled with the contract
+      solved_by: delivery-commitment-agent
+      category: SLA Alignment and Handoff Validation
+      specific_overhead:
+      - Comparing contract SLA terms against pre-sales email threads to identify discrepancies before kickoff
+      - Coordinating SLA alignment meetings between sales and delivery to reconcile informal commitments
+    - text: Handoff from sales to delivery loses stakeholder context, priorities, and political dynamics that took months to build during the sales cycle
+      solved_by: delivery-commitment-agent
+      category: SLA Alignment and Handoff Validation
+      specific_overhead:
+      - Compiling stakeholder profiles from CRM notes and meeting summaries into a handoff document
+      - Scheduling multiple transition calls because the first handoff meeting covered logistics, not relationship context
+    - text: Status reports are written from scratch each week for every active project, consuming several hours without adding analytical value
+      solved_by: delivery-stakeholder-agent
+      category: Stakeholder Status Reporting
+      specific_overhead:
+      - Aggregating status from Jira, email, and Slack into a formatted report for each stakeholder audience
+      - Adjusting language and detail level per audience (executive summary versus engineering update) manually
+    - text: Escalation briefs are delayed because there is no standard structure, requiring time to frame the issue, impact, and recommended action under pressure
+      solved_by: delivery-stakeholder-agent
+      category: Blocker Analysis and Escalation
+      specific_overhead:
+      - Writing escalation narratives from scratch under time pressure when a critical issue surfaces
+      - Identifying the right escalation recipient and routing path without a defined decision matrix
+    - text: Cross-team coordination for shared dependencies produces duplicate communication threads with no single source of truth
+      solved_by: delivery-stakeholder-agent
+      category: Cross-Team Communication and Post-Implementation Review
+      specific_overhead:
+      - Sending separate update emails to each team about the same dependency issue with slightly different context
+      - Following up individually with each stakeholder to confirm they received and understood the escalation
+    - text: Phase transition documentation is incomplete, leaving open items and acceptance criteria ambiguous at the boundary between implementation phases
+      solved_by: delivery-readiness-agent
+      category: Dependency and Phase Tracking
+      specific_overhead:
+      - Drafting phase completion summaries from scratch at the end of each project phase
+      - Chasing sign-off from customer stakeholders without a clear acceptance criteria checklist
     administrative_overhead:
-    - Extracting commitments from SOWs, emails, and meeting notes
-    - Building implementation plans from scattered deal documentation
-    - Coordinating handoff meetings between sales and delivery teams
+    - text: Reviewing Jira boards daily to identify blocked tickets and risk signals across concurrent implementations
+      automated_by: delivery-risk-monitoring-agent
+    - text: Writing project health summaries that translate delivery status into account-team-readable format
+      automated_by: delivery-risk-monitoring-agent
+    - text: Building and updating go-live readiness checklists by aggregating milestone and testing status from multiple systems
+      automated_by: delivery-readiness-agent
+    - text: Maintaining the dependency register with current ownership, status, and resolution dates
+      automated_by: delivery-readiness-agent
+    - text: Extracting commitments from SOWs, proposals, and meeting notes to create the commitment register at deal close
+      automated_by: delivery-commitment-agent
+    - text: Cross-referencing contract SLA terms against informal pre-sales commitments to produce an alignment report before kickoff
+      automated_by: delivery-commitment-agent
+    - text: Generating weekly status reports tailored to each stakeholder audience across all active implementations
+      automated_by: delivery-stakeholder-agent
+    - text: Preparing escalation briefs with issue classification, impact analysis, and routing recommendation under time pressure
+      automated_by: delivery-stakeholder-agent
     capabilities:
-    - Commitment and SLA translation
-    - Implementation planning
-    - Stakeholder handoff management
-    - Delivery risk tracking
-    human_matters_summary: 'Delivery status is data; delivery health is judgment. The agent extracts progress signals from notes and flags risks, but the account leader understands which risks are real
-      blockers, how to communicate concerns without alarming the customer, and when escalation is required. The status is visible, but human judgment decides how serious it is and what to do.
-
-      '
+    - Delivery risk signal detection and early warning
+    - Blocker impact analysis and resolution path assessment
+    - Project health summary generation
+    - Go-live readiness assessment with structured criteria
+    - Dependency register maintenance and tracking
+    - Commitment extraction from deal artifacts
+    - SLA alignment and discrepancy reporting
+    - Handoff brief and stakeholder profile compilation
+    - Automated weekly status report generation
+    - Escalation brief preparation and routing
+    - Cross-team dependency communication
+    - Phase transition documentation
+    stakeholder_landscape:
+      customer_side:
+      - "Project Sponsor: executive accountable for implementation success, approves milestone sign-offs and go-live decisions"
+      - "Technical Lead: customer-side architect owning integration, data migration, and testing readiness"
+      - "Business Process Owner: defines acceptance criteria, validates that delivered solution meets operational requirements"
+      - "End Users: adoption group whose readiness and feedback determine whether go-live is viable"
+      - "IT Operations: owns infrastructure, access provisioning, and production environment handoff"
+      internal_team:
+      - "Solution Architect: architecture decisions and design authority during implementation, consulted on technical blockers"
+      - "Account Executive: commercial relationship owner, leads scope change negotiations and customer expectation management"
+      - "Customer Architect: post-go-live handoff recipient, receives implementation summary and adoption baseline"
+      - "Professional Services: specialist resources providing implementation expertise for complex workstreams"
+      - "Product Manager: product limitation guidance, bug prioritization, and release coordination for implementation blockers"
     playbook_raci:
       context: >
         The Delivery Manager owns 7 implementation lifecycle playbooks and contributes
@@ -503,6 +740,180 @@ x-ea-agent:
           scope: Receives value realization status for implementation quality tracking
           team: value_engineering
           file: PB_VE_006_value_realization.yaml
+    with_this_agent:
+    - domain: Delivery Risk Monitoring
+      items:
+      - 'Risk Scanning: Continuously scan Jira tickets, Slack threads, and status notes for early warning signals using severity keywords and pattern matching'
+      - 'Health Summaries: Generate delivery health reports that connect project status to account context for the broader team with evidence-backed claims'
+    - domain: Blocker Analysis and Escalation
+      items:
+      - 'Blocker Analysis: Assess each blocker for timeline impact, identify resolution paths, and classify severity so the account team has an actionable summary'
+      - 'Escalation Briefs: Prepare structured escalation briefs with issue classification, timeline impact, and routing recommendation within 4 hours of critical issue detection'
+      - 'Customer Impact Assessment: Evaluate the downstream effect of delivery issues on customer operations and SLA performance'
+    - domain: Go-Live Readiness
+      items:
+      - 'Milestone Tracking: Aggregate milestone completion rates, testing status, and acceptance criteria gaps into a structured readiness dashboard'
+      - 'Readiness Assessment: Produce go-live readiness reports at least 14 days before target date with a clear list of open items and owners'
+    - domain: Dependency and Phase Tracking
+      items:
+      - 'Dependency Register: Maintain a live dependency register with ownership, resolution status, and projected completion dates'
+      - 'Phase Transitions: Document deliverables, open items, and acceptance criteria at each implementation phase boundary'
+    - domain: Commitment Extraction
+      items:
+      - 'SOW Parsing: Parse SOWs, proposal decks, and pre-sales meeting notes to build a consolidated commitment register within 48 hours of deal close'
+      - 'Commitment Gap Detection: Identify discrepancies between sales scope and the delivery plan before the first milestone'
+    - domain: SLA Alignment and Handoff Validation
+      items:
+      - 'SLA Alignment: Cross-reference contract SLAs against informal commitments from pre-sales conversations and flag discrepancies before kickoff'
+      - 'Handoff Brief: Compile structured handoff documentation including stakeholder profiles, communication preferences, and deal context for the delivery team'
+      - 'Handoff Validation: Verify that all deal context, stakeholder profiles, and commitment details transfer completely from sales to delivery'
+    - domain: Stakeholder Status Reporting
+      items:
+      - 'Status Reports: Generate weekly status updates tailored per stakeholder audience (executive summary, technical detail, operational update) for every active implementation'
+      - 'Audience Tailoring: Adapt report structure and detail level to each stakeholder group so every update is immediately actionable'
+    - domain: Cross-Team Communication and Post-Implementation Review
+      items:
+      - 'Cross-Team Coordination: Draft and distribute cross-team dependency updates with a single source of truth to eliminate duplicate communication threads'
+      - 'Post-Implementation Review: Facilitate lessons learned capture and delivery quality metrics within 2 weeks of go-live for every project'
+    activity_map:
+      purpose: 'The Delivery Manager exists to ensure what was sold gets built on time and to the agreed standard, with every risk visible before it becomes a customer surprise.
+        The orchestrator routes requests to 4 specialized sub-agents covering eight domains of the implementation lifecycle. Risk signal detection and blocker escalation are
+        the early-warning layer. Readiness assessment and dependency tracking are the verification layer. Commitment extraction and SLA alignment are the trust foundation.
+        Stakeholder reporting and cross-team communication are the accountability layer. Together, they give the Delivery Manager continuous coverage without manual aggregation.
+
+        '
+      domains:
+      - domain: Delivery Risk Monitoring
+        why: 'Undetected risks compound silently. A Jira ticket marked blocked on Monday becomes a customer escalation by Friday if no one is continuously scanning the signal stream.
+          Early detection gives the Delivery Manager days of lead time instead of hours.
+
+          '
+        agent: delivery-risk-monitoring-agent
+        activities:
+        - Continuous Jira scanning for blocked, escalated, and at-risk tickets
+        - Slack and status note monitoring for severity keywords and risk signals
+        - Health summary generation connecting delivery status to account context
+        - Early warning alerts routed to account team before signals reach the customer
+        cadence: continuous monitoring, health summaries weekly, alerts on detection
+      - domain: Blocker Analysis and Escalation
+        why: 'Detecting a blocker is not enough. Without structured impact analysis and a routed escalation brief, the same blocker sits unresolved across stand-ups until the customer
+          reports the delay first. Analysis without routing leaves risk at the detection layer.
+
+          '
+        agent: delivery-risk-monitoring-agent
+        activities:
+        - Blocker impact analysis with timeline and dependency chain assessment
+        - Severity classification against project milestones and contractual commitments
+        - Escalation brief preparation with resolution options and routing recommendation within 4 hours
+        - Customer impact assessment for active delivery issues
+        - Resolution path tracking until blocker is closed
+        cadence: blocker analysis on detection, escalation briefs within 4 hours of critical classification
+      - domain: Go-Live Readiness
+        why: 'Go-live failures are rarely surprises on the day. They are surprises only because nobody aggregated the warning signs early enough. Structured readiness assessment forces
+          an honest view of what is open with enough lead time to act.
+
+          '
+        agent: delivery-readiness-agent
+        activities:
+        - Milestone completion tracking across all active implementation workstreams
+        - Go-live readiness assessment against defined criteria at least 14 days before target
+        - Testing status and acceptance criteria gap analysis
+        - Open items resolution tracking between readiness assessment and go-live date
+        cadence: readiness assessment at T-14 and T-7, milestone status updated weekly
+      - domain: Dependency and Phase Tracking
+        why: 'Dependencies missed before go-live and deliverables not captured at phase boundaries are the two most common sources of scope disputes. A live register with clear ownership
+          removes the ambiguity that generates those disputes.
+
+          '
+        agent: delivery-readiness-agent
+        activities:
+        - Dependency register maintenance with ownership, status, and projected resolution dates
+        - Phase transition documentation with deliverables and acceptance criteria
+        - Cross-workstream dependency conflict detection
+        - Phase exit criteria verification before transition approval
+        cadence: dependency register updated bi-weekly, phase transitions documented at each gate
+      - domain: Commitment Extraction
+        why: 'Every commitment dispute at month three of an implementation was created at deal close when nobody consolidated what was promised. A commitment register built within 48 hours
+          of deal close eliminates the ambiguity before the first delivery stand-up.
+
+          '
+        agent: delivery-commitment-agent
+        activities:
+        - SOW extraction and commitment register creation within 48 hours of deal close
+        - Proposal deck and meeting note parsing for informal commitments
+        - Commitment gap detection between sales scope and delivery plan
+        - Commitment register version control as scope evolves
+        cadence: commitment register at deal close, updated on each scope change
+      - domain: SLA Alignment and Handoff Validation
+        why: 'Service level expectations evolve through negotiations and side conversations. By kickoff, the delivery team works from contract SLAs while the customer expects the informal
+          assurances the sales team made. Alignment before kickoff prevents disputes from becoming relationship damage.
+
+          '
+        agent: delivery-commitment-agent
+        activities:
+        - SLA cross-reference between contract terms and informal pre-sales commitments
+        - SLA alignment report generation for kickoff meeting review
+        - Handoff brief compilation with stakeholder profiles and deal context
+        - Handoff validation to confirm all context transfers completely from sales to delivery
+        cadence: SLA alignment report before kickoff, handoff brief for every implementation start
+        contributing_agents: ae-agent
+      - domain: Stakeholder Status Reporting
+        why: 'Stakeholders without a consistent update cadence fill the information gap with assumptions. Weekly status reports tailored per audience replace assumption with evidence
+          and keep every stakeholder aligned without consuming delivery capacity.
+
+          '
+        agent: delivery-stakeholder-agent
+        activities:
+        - Weekly status report generation tailored per stakeholder audience
+        - Executive summary, technical detail, and operational update variants per report cycle
+        - Report distribution tracking to confirm delivery and flag non-acknowledgement
+        - Status report quality review against completeness and actionability criteria
+        cadence: weekly for every active implementation
+      - domain: Cross-Team Communication and Post-Implementation Review
+        why: 'A delivery issue communicated clearly and early maintains trust. The same issue discovered by the customer first destroys it. Capturing lessons after go-live closes the
+          loop so the next implementation starts better than the last one ended.
+
+          '
+        agent: delivery-stakeholder-agent
+        activities:
+        - Cross-team dependency update distribution with single source of truth
+        - Duplicate communication thread elimination across engineering, product, and account teams
+        - Post-implementation review facilitation within 2 weeks of go-live
+        - Lessons learned capture and delivery quality metrics documentation
+        cadence: cross-team updates on dependency changes, post-implementation review within 2 weeks of go-live
+        contributing_agents: ae-agent, ca-agent
+    sub_agents:
+    - name: Risk Monitoring Agent
+      id: delivery-risk-monitoring-agent
+      purpose: Jira signal scanning, blocker detection and impact analysis, health summary generation, early warning routing
+    - name: Readiness Agent
+      id: delivery-readiness-agent
+      purpose: Milestone tracking, go-live readiness assessment, dependency register maintenance, phase transition documentation
+    - name: Commitment Agent
+      id: delivery-commitment-agent
+      purpose: SOW extraction, commitment register creation, SLA alignment reporting, handoff brief compilation
+    - name: Stakeholder Agent
+      id: delivery-stakeholder-agent
+      purpose: Status report generation, escalation brief preparation, cross-team communication, customer impact assessment
+    public_resources:
+    - title: PMI PMBOK Guide (Project Management Body of Knowledge)
+      url: https://www.pmi.org/pmbok-guide-standards/foundational/pmbok
+      context: Industry-standard framework for project risk management, milestone tracking, and delivery governance
+    - title: Scaled Agile Framework (SAFe) Delivery Management
+      url: https://scaledagileframework.com/release-train-engineer/
+      context: Agile delivery coordination patterns including risk escalation, dependency management, and PI planning
+    - title: ITIL 4 Service Transition and Delivery
+      url: https://www.axelos.com/certifications/itil-service-management/itil-4-foundation
+      context: Go-live readiness criteria, change management, and service transition practices relevant to enterprise implementations
+    - title: Project Management Institute - Pulse of the Profession Report
+      url: https://www.pmi.org/learning/thought-leadership/pulse
+      context: Annual benchmark data on project success rates, risk factors, and delivery performance by industry
+    - title: Gartner - IT Project and Program Management Research
+      url: https://www.gartner.com/en/information-technology/topics/project-management
+      context: Research on delivery failure patterns, escalation triggers, and PMO best practices for enterprise software implementations
+    - title: SOW Best Practices and Commitment Management
+      url: https://www.projectmanagement.com/articles/statement-of-work-best-practices
+      context: Statement of work structure, commitment precision standards, and handoff documentation patterns
   fallback_model: null
   prompt_registry:
     delivery-status-summary:
@@ -774,9 +1185,58 @@ x-ea-agent:
   - Generate health summaries for account teams
   - Connect delivery status to account context
   escalation_triggers:
-  - Critical delivery risk identification exceeding agent authority (to Delivery Manager)
+  - Critical blocker with no viable mitigation path identified by the agent (to Delivery Manager within 4 hours)
+  - Go-live date at risk based on readiness assessment with open critical items (to Delivery Manager + AE within 24 hours)
+  - Customer satisfaction signals drop below threshold during implementation (to CA + Senior Manager)
+  - Resource conflict between concurrent implementations flagged by dependency analysis (to PS + Delivery Manager)
+  - Security or compliance blocker discovered mid-implementation (to InfoSec + SA within 4 hours)
+  - Commitment dispute between sales and delivery scope detected in register (to Delivery Manager within 24 hours)
   handoffs:
     human_escalation: Delivery Manager
+    defer_to:
+      sa_agent:
+        scope: Architecture decisions and technical design changes required during implementation
+        scenarios:
+        - trigger: Implementation reveals an architecture constraint, integration failure, or design change needed to proceed
+          context_passed: Technical blocker details, implementation findings, proposed workarounds, timeline impact
+          receiver_action: Architecture decision, design revision, technical guidance with delivery timeline implications
+      ae_agent:
+        scope: Scope changes requiring commercial renegotiation or customer expectation management
+        scenarios:
+        - trigger: Implementation scope change impacts commercial terms, contractual deliverables, or agreed timeline
+          context_passed: Scope change description, original commitment reference, timeline and resource implications, customer impact
+          receiver_action: Customer communication, commercial negotiation, expectation management, SOW amendment if needed
+      pm_agent:
+        scope: Product limitations or defects that are blocking implementation progress
+        scenarios:
+        - trigger: Product issue discovered during implementation that blocks a milestone or go-live criteria
+          context_passed: Issue details, reproduction steps, customer impact assessment, workaround availability
+          receiver_action: Bug severity classification, hotfix prioritization, workaround guidance, release coordination
+      ps_agent:
+        scope: Resource gaps or specialist skills required for implementation workstreams
+        scenarios:
+        - trigger: Implementation workstream requires specialist expertise or additional resources beyond current allocation
+          context_passed: Skill gap description, timeline pressure, resource requirements, customer urgency level
+          receiver_action: Resource allocation decision, specialist engagement, capacity planning adjustment
+    provide_to:
+      ae_agent:
+        scope: Implementation status, delivery risks, go-live readiness, and milestone outcomes
+        scenarios:
+        - trigger: Delivery risk flagged, milestone reached, or go-live date confirmed
+          context_passed: Implementation progress summary, risk register, timeline status, open blockers, customer satisfaction signals
+          receiver_action: Customer communication, commercial follow-up, expansion opportunity identification, relationship management
+      ca_agent:
+        scope: Go-live readiness confirmation, implementation handoff package, and adoption baseline metrics
+        scenarios:
+        - trigger: Implementation nearing completion or post-go-live handoff point reached
+          context_passed: Implementation summary, configuration details, known issues log, SLA commitments, adoption metrics baseline, stakeholder profiles
+          receiver_action: Customer onboarding continuity, health monitoring setup, adoption guidance, QBR preparation
+      ve_agent:
+        scope: Implementation outcome data and value realization evidence for post-sale tracking
+        scenarios:
+        - trigger: Implementation milestone or go-live achieved with measurable outcomes
+          context_passed: Delivery outcomes, timeline performance against commitments, customer satisfaction, realized vs committed scope
+          receiver_action: Value hypothesis validation, realization tracking update, renewal justification evidence
   human_in_the_loop_conditions:
   - Review required before publishing analysis externally
   - Approval needed for strategic recommendations

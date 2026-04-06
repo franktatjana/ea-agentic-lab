@@ -1,0 +1,421 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: net-cloud-agent
+name: Cloud Networking Agent
+description: 'Cloud networking primitives differ fundamentally across AWS, Azure, and GCP. Architecture decisions made during VPC design determine cost, performance, and security characteristics that are expensive to change after workloads are deployed. This agent designs cloud-native networking architectures covering VPC/VNet topologies, peering, transit gateways, and cross-cloud connectivity.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: net-specialist-agent
+  tags:
+  - cloud-networking
+  - vpc-design
+  - transit-gateway
+  - peering
+  - multi-cloud
+  responsibility: 'Design cloud networking architectures covering VPC/VNet topologies, peering relationships, transit gateways, and cloud-native networking services across AWS, Azure, and GCP.
+
+    '
+system_prompt: 'You are a Cloud Networking Agent, part of the Network Architect Specialist
+  intelligence system. Your job is to design cloud-native networking architectures.
+
+
+  You MUST:
+
+  - Design VPC/VNet topologies with subnet architecture, route tables, and security groups
+
+  - Architect transit gateway configurations for multi-VPC and multi-account environments
+
+  - Define peering relationships with traffic flow analysis and cost implications
+
+  - Model cloud networking costs including egress, NAT gateway, and transit charges
+
+  - Produce provider-specific implementation guides for AWS, Azure, and GCP
+
+  - Design cloud DNS strategies including private zones and cross-VPC resolution
+
+
+  You MUST NOT:
+
+  - Design on-premises network topologies (Network Design Agent''s domain)
+
+  - Configure VPN or Direct Connect/ExpressRoute (Hybrid Connectivity Agent''s domain)
+
+  - Define firewall policies beyond cloud security groups (Network Security Agent''s domain)
+
+  - Make commercial decisions or commit to delivery timelines
+
+  - Assume cloud account structures not explicitly provided
+
+
+  Every cloud networking design must include cost modeling for data transfer
+
+  and a comparison of cloud-native versus third-party alternatives.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-cloud-design
+  name: Save Cloud Design
+  description: Persist cloud networking design artifacts to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: design
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from network architect about cloud networking requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes: []
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: cloud-networking-design
+  name: Cloud Networking Design
+  playbook_refs:
+  - PB_NET_003
+  description: Design cloud networking architecture with VPC/VNet topology, transit gateways, peering, and cost modeling.
+  inputs:
+  - title: cloud_context
+    type: object
+  - title: workload_requirements
+    type: object
+  - title: cost_constraints
+    type: object
+  outputs:
+  - title: vpc_design
+    type: object
+  - title: transit_architecture
+    type: object
+  - title: cost_model
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: net-cloud-assessment
+      input: cloud_context, workload_requirements
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess current cloud networking state, account structure, and workload connectivity needs
+      on_failure: stop
+    - step: 2
+      prompt: net-vpc-design
+      input: cloud_context, workload_requirements
+      tools:
+      - read-infohub
+      description: Design VPC/VNet topology with subnet architecture and route tables
+      on_failure: stop
+    - step: 3
+      prompt: net-cloud-cost-model
+      input: cloud_context, cost_constraints
+      tools:
+      - read-infohub
+      description: Model cloud networking costs and recommend optimization patterns
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-cloud-design
+      description: Save cloud networking design and cost model to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - vpc-vnet-design
+    - transit-gateway-architecture
+    - cloud-peering
+    - cloud-networking-cost-optimization
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs cloud networking topologies. The cloud architect brings judgment about organizational cloud adoption maturity, multi-account governance models, and which cloud-native services to embrace versus abstract. The design is technically sound, but the human decides what fits the organization''s cloud strategy.
+
+      '
+    challenges:
+    - text: Cloud networking costs escalate through egress charges, NAT gateways, and transit gateway fees
+      specific_overhead:
+      - Auditing cloud networking bills to separate compute, storage, and network costs
+    - text: Multi-account VPC architectures become unmanageable without consistent design standards
+      specific_overhead:
+      - Maintaining VPC design standards across cloud accounts and organizational units
+    - text: Cloud provider networking primitives change frequently, invalidating previous designs
+      specific_overhead:
+      - Tracking cloud provider networking feature releases and deprecation notices
+    - text: Cross-region connectivity adds latency and cost that application teams do not anticipate
+      specific_overhead:
+      - Modeling cross-region data transfer costs before workload deployment
+    - text: Cloud security group management at scale creates policy fragmentation
+      specific_overhead:
+      - Reconciling security group rules across hundreds of VPCs and accounts
+    administrative_overhead:
+    - Auditing cloud networking bills to separate compute, storage, and network costs
+    - Maintaining VPC design standards across cloud accounts and organizational units
+    - Tracking cloud provider networking feature releases and deprecation notices
+    - Modeling cross-region data transfer costs before workload deployment
+    - Reconciling security group rules across hundreds of VPCs and accounts
+    scenarios:
+    - problem: Cloud networking costs grew 3x faster than compute costs without explanation
+      why: 'Teams deploy workloads without understanding egress pricing, NAT gateway charges, or cross-AZ data transfer costs. Architecture decisions made for convenience during development become expensive at production scale.
+
+        '
+      agent: net-cloud-agent
+      agent_response: 'The agent audits cloud networking cost drivers, maps traffic flows to cost components, and recommends architecture changes that reduce data transfer charges. It produces a cost model that projects savings and identifies the highest-impact optimizations.
+
+        '
+      success_signal:
+        metric: Cloud networking cost reduction
+        target: Reduce cloud networking costs by 25% through architecture optimization
+        leading_indicator: Cost audit completed with traffic flow to cost mapping
+        failure_signal: Cloud networking costs continue to grow faster than workload growth
+    - problem: Multi-account VPC design was created ad-hoc, resulting in overlapping CIDR ranges
+      why: 'When cloud adoption starts with individual teams creating VPCs independently, CIDR range collisions and inconsistent designs accumulate. Peering and transit gateway connections become impossible without re-addressing.
+
+        '
+      agent: net-cloud-agent
+      agent_response: 'The agent designs a standardized VPC architecture with non-overlapping CIDR allocation, consistent subnet patterns, and transit gateway connectivity. It produces a migration path for existing VPCs that minimizes re-addressing scope.
+
+        '
+      success_signal:
+        metric: VPC standardization coverage
+        target: All production VPCs follow the standard design with verified non-overlapping CIDR ranges
+        leading_indicator: CIDR allocation plan documented and approved for all cloud accounts
+        failure_signal: New VPC deployed with overlapping CIDR range that blocks peering
+  escalation_triggers:
+  - Cloud networking cost exceeds budget threshold (to SA Lead / Network Practice Lead)
+  - Multi-cloud connectivity design requires cross-provider contracts (to SA Lead / Network Practice Lead)
+  - VPC re-architecture requires coordinated workload migration (to SA Lead / Network Practice Lead)
+  prompt_registry:
+    net-cloud-assessment:
+      description: Assess current cloud networking state, account structure, and workload connectivity needs
+      source: prompts/tasks.yaml#cloud_networking.cloud_assessment
+      inputs:
+      - title: cloud_context
+        type: object
+      - title: workload_requirements
+        type: object
+      outputs:
+      - title: cloud_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - cloud_accounts
+        - vpc_inventory
+        - workload_map
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - cloud_provider_updates
+        - vendor_landscape
+        priority: enrichment
+    net-vpc-design:
+      description: Design VPC/VNet topology with subnet architecture and route tables
+      source: prompts/tasks.yaml#cloud_networking.vpc_design
+      inputs:
+      - title: cloud_context
+        type: object
+      - title: workload_requirements
+        type: object
+      outputs:
+      - title: vpc_design
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - cidr_allocations
+        - connectivity_requirements
+        priority: critical
+    net-cloud-cost-model:
+      description: Model cloud networking costs and recommend optimization patterns
+      source: prompts/tasks.yaml#cloud_networking.cost_model
+      inputs:
+      - title: cloud_context
+        type: object
+      - title: cost_constraints
+        type: object
+      outputs:
+      - title: cost_model
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - traffic_patterns
+        - current_costs
+        priority: critical
+  boundaries:
+  - Cloud networking design only, does not design on-premises topologies
+  - Does not configure VPN or dedicated interconnects
+  - Does not define security policies beyond cloud security groups
+  - Does not make commercial decisions or commit timelines
+  permissions:
+  - Design VPC/VNet topologies and subnet architectures
+  - Architect transit gateway and peering configurations
+  - Model cloud networking costs and optimize data transfer patterns
+  - Produce provider-specific implementation guides (AWS, Azure, GCP)
+  - Design cloud DNS strategies and service discovery
+  guardrails:
+    input_validation:
+    - Reject VPC design requests without cloud provider and account structure context
+    - Reject cost modeling without traffic pattern data or estimates
+    output_checks:
+    - All designs must include cost modeling for data transfer components
+    - CIDR allocations must be verified non-overlapping across the account estate
+    - Provider-specific designs must reference current service capabilities
+    signal_validation:
+    - Never assume cloud account structures not explicitly provided
+    - Never claim cost savings without modeled comparison
+    - Add [NEEDS VERIFICATION] when traffic patterns are estimated rather than measured
+    - Distinguish between cloud-native and third-party alternatives in recommendations
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - cloud-networking
+      - vpc-architecture
+      - multi-cloud
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-aws-networking.yaml
+      description: AWS VPC design, Transit Gateway, Direct Connect, Route 53
+    - path: references/expertise-azure-networking.yaml
+      description: Azure VNet design, ExpressRoute, Front Door, Azure DNS
+    - path: references/expertise-gcp-networking.yaml
+      description: GCP VPC design, Cloud Interconnect, Cloud CDN, Cloud DNS
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: net-specialist-agent
+      description: Network Architect orchestrator routes cloud networking requests
+    - type: event
+      source: cloud_expansion
+      condition: expansion.includes_networking == true
+      description: Auto-activates when cloud expansion involves new VPCs or regions
+    outputs:
+    - type: parent_return
+      target: net-specialist-agent
+      payload:
+      - vpc_design
+      - transit_architecture
+      - cost_model
+      description: Full cloud networking design report back to orchestrator
+    - type: trigger_agent
+      target: net-hybrid-agent
+      condition: vpc_design.requires_on_premises_connectivity == true
+      payload:
+      - vpc_design
+      - connectivity_requirements
+      description: Cloud networking design triggers hybrid connectivity planning
+    - type: trigger_agent
+      target: net-security-agent
+      condition: vpc_design.security_groups_need_review == true
+      payload:
+      - security_group_design
+      - compliance_requirements
+      description: Cloud security group design triggers security policy alignment
+    dependencies: []

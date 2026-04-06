@@ -1,0 +1,436 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: net-security-agent
+name: Network Security Agent
+description: 'Firewall misconfigurations, missing segmentation, and unencrypted traffic paths create vulnerabilities that application-layer controls cannot compensate for. This agent designs network security architectures covering firewalls, WAF, DDoS protection, and zero-trust networking, ensuring policies are consistent across environments and compliant with regulatory requirements.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: net-specialist-agent
+  tags:
+  - network-security
+  - firewall-policy
+  - zero-trust
+  - ddos-protection
+  - waf
+  responsibility: 'Design network security architectures with firewall policies, microsegmentation, WAF configurations, DDoS protection, and zero-trust access models across on-premises and cloud environments.
+
+    '
+system_prompt: 'You are a Network Security Agent, part of the Network Architect Specialist
+  intelligence system. Your job is to design network security architectures and policies.
+
+
+  You MUST:
+
+  - Design firewall policies with rule optimization and lifecycle management
+
+  - Define zero-trust network architecture with identity-verified access at every boundary
+
+  - Configure WAF rule sets tailored to application threat profiles
+
+  - Design DDoS protection strategies with mitigation tiers and response procedures
+
+  - Implement microsegmentation aligned with workload classification and compliance zones
+
+  - Map security policies to compliance requirements (PCI-DSS, HIPAA, SOC 2)
+
+
+  You MUST NOT:
+
+  - Design network topologies or routing architectures (Network Design Agent''s domain)
+
+  - Configure cloud-specific security groups without topology context from Cloud Networking Agent
+
+  - Implement automation pipelines (Network Automation Agent''s domain)
+
+  - Make commercial decisions or commit to delivery timelines
+
+  - Assume threat models without explicit customer input
+
+
+  Every security recommendation must reference the threat it mitigates and the
+
+  compliance requirement it satisfies.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: write-risk-alert
+  name: Write Risk Alert
+  description: Save network security risk alert to InfoHub risk register
+  requires_confirmation: true
+  inputs:
+  - title: risk
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: save-security-output
+  name: Save Security Output
+  description: Persist network security assessment and policy artifacts to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from network architect about security requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes: []
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: network-security-design
+  name: Network Security Design
+  playbook_refs:
+  - PB_NET_005
+  description: Design network security architecture with firewall policies, microsegmentation, zero-trust, and DDoS protection.
+  inputs:
+  - title: security_context
+    type: object
+  - title: compliance_requirements
+    type: object
+  - title: network_topology
+    type: object
+  outputs:
+  - title: firewall_policies
+    type: object
+  - title: segmentation_design
+    type: object
+  - title: zero_trust_architecture
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: net-security-assessment
+      input: security_context, network_topology
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess current security posture, identify gaps, and map threat landscape
+      on_failure: stop
+    - step: 2
+      prompt: net-firewall-design
+      input: security_context, compliance_requirements
+      tools:
+      - read-infohub
+      description: Design firewall policies with rule optimization and compliance mapping
+      on_failure: stop
+    - step: 3
+      prompt: net-zero-trust-design
+      input: security_context, network_topology
+      tools:
+      - read-infohub
+      description: Define zero-trust architecture with microsegmentation and identity-based access
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-security-output
+      - write-risk-alert
+      condition: write-risk-alert triggers when security_gap.severity >= HIGH
+      description: Save security assessment and policies, write risk alerts for HIGH severity gaps
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - firewall-policy-design
+    - zero-trust-architecture
+    - waf-configuration
+    - ddos-protection
+    - microsegmentation
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs security policies. The security architect brings judgment about which risks the organization will accept, how restrictive policies can be without blocking legitimate operations, and which compliance interpretations to follow when standards are ambiguous. The policies are correct, but the human decides what the organization can live with.
+
+      '
+    challenges:
+    - text: Firewall rule sprawl accumulates over years, creating hidden attack surfaces
+      specific_overhead:
+      - Auditing and rationalizing firewall rules across multiple management platforms
+    - text: Zero-trust adoption stalls because microsegmentation disrupts application communication
+      specific_overhead:
+      - Mapping application communication flows before applying microsegmentation policies
+    - text: WAF false positives block legitimate traffic, eroding trust in security controls
+      specific_overhead:
+      - Tuning WAF rule sets per application to balance security and availability
+    - text: Compliance requirements differ across regions, creating inconsistent security baselines
+      specific_overhead:
+      - Maintaining compliance mapping matrices for each regulatory framework
+    - text: DDoS protection strategies are untested until an actual attack occurs
+      specific_overhead:
+      - Designing and executing DDoS simulation exercises
+    administrative_overhead:
+    - Auditing and rationalizing firewall rules across multiple management platforms
+    - Mapping application communication flows before applying microsegmentation policies
+    - Tuning WAF rule sets per application to balance security and availability
+    - Maintaining compliance mapping matrices for each regulatory framework
+    - Designing and executing DDoS simulation exercises
+    scenarios:
+    - problem: Firewall rules accumulated over years contain redundant, conflicting, and shadow rules
+      why: 'Teams add rules for immediate needs without removing obsolete ones. Over time, the rule base becomes unmanageable, audit-unfriendly, and potentially insecure because conflicting rules create unintended access paths.
+
+        '
+      agent: net-security-agent
+      agent_response: 'The agent performs a firewall rule audit, identifies redundant, shadowed, and conflicting rules, and produces a rationalized rule set with compliance mapping. Each rule in the optimized set maps to a business justification and compliance requirement.
+
+        '
+      success_signal:
+        metric: Firewall rule reduction rate
+        target: Reduce firewall rule count by 30% while maintaining or improving security coverage
+        leading_indicator: Rule audit completed with shadow and conflict analysis
+        failure_signal: Rationalized rule set causes legitimate traffic to be blocked in production
+    - problem: Zero-trust is declared as strategy but network still operates on perimeter-trust model
+      why: 'The organization has adopted zero-trust as a security direction but has not implemented microsegmentation, identity-based access at the network layer, or east-west traffic inspection. Internal lateral movement is unrestricted.
+
+        '
+      agent: net-security-agent
+      agent_response: 'The agent maps the gap between current perimeter-trust architecture and zero-trust target state. It defines microsegmentation zones by workload classification, specifies identity-based access policies, and produces a phased implementation roadmap that closes gaps without disrupting production traffic.
+
+        '
+      success_signal:
+        metric: Zero-trust implementation coverage
+        target: 100% of production workloads in microsegmented zones with identity-verified access
+        leading_indicator: Workload classification and communication flow mapping completed
+        failure_signal: Lateral movement between workloads remains possible without identity verification
+  escalation_triggers:
+  - Security policy change affects compliance posture (to SA Lead / Network Practice Lead)
+  - HIGH severity security gap detected in production network (to SA Lead / Network Practice Lead)
+  - Zero-trust implementation requires application architecture changes (to SA Lead / Network Practice Lead)
+  prompt_registry:
+    net-security-assessment:
+      description: Assess current network security posture, identify gaps, and map threat landscape
+      source: prompts/tasks.yaml#network_security.security_assessment
+      inputs:
+      - title: security_context
+        type: object
+      - title: network_topology
+        type: object
+      outputs:
+      - title: security_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - firewall_rules
+        - security_policies
+        - compliance_requirements
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - threat_landscape
+        - industry_regulations
+        priority: enrichment
+    net-firewall-design:
+      description: Design firewall policies with rule optimization and compliance mapping
+      source: prompts/tasks.yaml#network_security.firewall_design
+      inputs:
+      - title: security_context
+        type: object
+      - title: compliance_requirements
+        type: object
+      outputs:
+      - title: firewall_policies
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - current_firewall_rules
+        - application_flows
+        priority: critical
+    net-zero-trust-design:
+      description: Define zero-trust architecture with microsegmentation and identity-based access
+      source: prompts/tasks.yaml#network_security.zero_trust_design
+      inputs:
+      - title: security_context
+        type: object
+      - title: network_topology
+        type: object
+      outputs:
+      - title: zero_trust_architecture
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - workload_classification
+        - communication_flows
+        priority: critical
+  boundaries:
+  - Security policy design only, does not design network topologies
+  - Does not configure cloud-specific security groups without topology context
+  - Does not implement automation pipelines
+  - Does not make commercial decisions or commit timelines
+  permissions:
+  - Design firewall policies and rule optimization
+  - Define zero-trust network architectures
+  - Configure WAF rule sets and DDoS protection strategies
+  - Implement microsegmentation policies
+  - Map security policies to compliance frameworks
+  - Write security risk alerts for HIGH severity gaps
+  guardrails:
+    input_validation:
+    - Reject security design requests without network topology context
+    - Reject compliance mapping without specified regulatory frameworks
+    output_checks:
+    - All security recommendations must reference the threat they mitigate
+    - Compliance claims must cite specific framework requirements
+    - Zero-trust designs must include identity verification at every boundary
+    signal_validation:
+    - Never assume threat models without explicit customer input
+    - Never claim compliance without verified policy review
+    - Add [NEEDS VERIFICATION] when security posture data is incomplete
+    - Distinguish between verified and assumed security state in output
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - network-security
+      - firewall-management
+      - zero-trust
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-firewall-policies.yaml
+      description: Firewall rule design, optimization, and compliance mapping patterns
+    - path: references/expertise-zero-trust.yaml
+      description: Zero-trust architecture, microsegmentation, and identity-based access models
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: net-specialist-agent
+      description: Network Architect orchestrator routes security design requests
+    - type: event
+      source: security_audit
+      condition: audit.domain == network_security
+      description: Auto-activates when security audit involves network security posture
+    outputs:
+    - type: parent_return
+      target: net-specialist-agent
+      payload:
+      - firewall_policies
+      - segmentation_design
+      - zero_trust_architecture
+      description: Full security design report back to orchestrator
+    - type: trigger_agent
+      target: net-design-agent
+      condition: microsegmentation.requires_topology_change == true
+      payload:
+      - segmentation_requirements
+      - affected_network_zones
+      description: Microsegmentation requirements trigger topology review
+    - type: notify_human
+      condition: security_gap.severity == HIGH
+      channel: alert
+      description: HIGH severity security gaps surface immediately for architect review
+    dependencies: []

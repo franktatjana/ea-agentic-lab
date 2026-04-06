@@ -1,0 +1,482 @@
+# disclaimer
+# This playbook is part of a reference architecture
+# framework. It defines agent behavior specifications,
+# not production-ready operational procedures.
+# Framework references (event marketing, speaker bureau
+# management, etc.) are industry-standard methodologies
+# cited for educational context.
+
+# PLAYBOOK: Customer Speaker Pipeline Management
+# Framework operationalization for AI agents
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+playbook_id: "PB_CAD_006"
+framework_name: "Customer Speaker Pipeline Management"
+framework_source: "Event Marketing + Customer Marketing Speaker Programs"
+intended_agent_role: "cad-agent"
+secondary_agents: ["AE Agent", "Marketing Agent", "CA Agent"]
+playbook_mode: "PROACTIVE"
+playbook_category: "customer_enablement"
+
+primary_objective: "Manage a sustainable customer speaker pipeline by maintaining a pre-vetted speaker pool, aligning topics with advocate expertise and availability windows, matching speakers to events by audience and format, preparing briefing packages, rotating speakers to prevent over-exposure, and conducting readiness check-ins to ensure high-quality customer presentations"
+
+vault_routing:
+  primary_vault: "Internal Account Hub"
+  rationale: "Speaker pipeline data contains candidate assessments, readiness scores, availability schedules, fatigue tracking, rotation history, and internal event strategy. Speaker identities and preferences must be protected until confirmed and consented."
+  secondary_outputs:
+    - vault: "Customer InfoHub"
+      artifact: "Speaker briefing packages, confirmed talking points, and event logistics shared with participating speakers"
+    - vault: "Global Knowledge Vault"
+      artifact: "Anonymized speaker pipeline metrics, topic coverage patterns, and engagement best practices (quarterly aggregation)"
+
+flow_bindings:
+  description: "Maps playbook phases to the agent flows that execute them"
+  bindings:
+    - phase: "Pre-Vetted Speaker Pool Maintenance"
+      agent: cad-agent-proactive
+      flow: program-operations
+      context: "Maintain the standing speaker pool with current expertise tags, speaking experience levels, consent status, and availability windows"
+    - phase: "Topic Alignment and Availability Windows"
+      agent: cad-agent-analytical
+      flow: program-operations
+      context: "Map speaker expertise to event themes and topics, track availability windows and blackout periods per speaker"
+    - phase: "Event Matching"
+      agent: cad-agent-analytical
+      flow: program-operations
+      context: "Match speakers to events based on audience profile, event theme, session format, geographic requirements, and topic alignment score"
+    - phase: "Briefing Package Preparation"
+      agent: cad-agent
+      flow: program-operations
+      context: "Prepare event-specific briefing packages with key messages, talking points, audience profile, anticipated questions, topics to avoid, and logistics"
+    - phase: "Speaker Rotation Management"
+      agent: cad-agent-proactive
+      flow: program-operations
+      context: "Enforce rotation policies to prevent over-exposure, track cumulative commitments, and ensure balanced utilization across the speaker pool"
+    - phase: "Readiness Check-Ins"
+      agent: cad-agent
+      flow: program-operations
+      context: "Conduct pre-event readiness check-ins to confirm preparation status, address concerns, and verify logistics"
+
+when_not_to_use:
+  - "Event is internal-only with no customer speaker slots"
+  - "Event topic does not require customer perspective (product roadmap, internal training)"
+  - "Event is fewer than 14 days out with no speakers identified (too late for standard pipeline process)"
+  - "All customer speakers are pre-confirmed by event organizers (no matching needed)"
+  - "Customer has an active escalation or at-risk health score (resolve before speaker engagement)"
+
+raci:
+  responsible:
+    role: "CAD Agent"
+    agent: "cad_agent"
+    description: "Maintains speaker pool, matches speakers to events, prepares briefing packages, manages rotation, and conducts readiness check-ins"
+
+  accountable:
+    role: "Customer Advocacy Manager"
+    human_required: true
+    description: "Approves speaker assignments for marquee events, ensures speaker experience quality, and manages escalations and compensation requests"
+    approval_actions:
+      - "approve_assignment"
+      - "request_revision"
+      - "reassign"
+      - "override_rotation_limit"
+
+  consulted:
+    - role: "AE Agent"
+      on_steps: ["speaker_relationship_context", "account_sensitivity_check"]
+    - role: "Marketing Agent"
+      on_steps: ["event_theme_alignment", "messaging_consistency", "event_logistics"]
+    - role: "CA Agent"
+      on_steps: ["speaker_health_verification", "customer_sentiment_check"]
+
+  informed:
+    - role: "AE Agent"
+      notify_on: ["speaker_confirmed", "speaker_cancelled", "speaker_at_rotation_limit"]
+    - role: "CA Agent"
+      notify_on: ["speaker_activated", "speaker_fatigue_warning"]
+    - role: "Marketing Agent"
+      notify_on: ["speaker_confirmed_for_event", "event_unfilled"]
+    - role: "Customer Advocacy Manager"
+      notify_on: ["event_unfilled", "speaker_pool_thin", "rotation_limit_exceeded"]
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - event: "event_published"
+      description: "New event added to the calendar with customer speaker slot requirements"
+
+    - event: "speaker_slot_unfilled"
+      signal_filter: "days_until_event <= 45 AND speaker_confirmed == false"
+      description: "Event approaching with unfilled customer speaker slots"
+
+    - event: "quarterly_pipeline_review"
+      description: "Scheduled quarterly review of upcoming events, speaker pool readiness, and rotation balance"
+      timing: "Second week of each quarter"
+
+    - event: "speaker_cancellation"
+      description: "Confirmed speaker cancels, triggering replacement search"
+
+  manual:
+    - "Event organizer requests customer speaker for specific session"
+    - "Customer Advocacy Manager identifies speaking opportunity for advocate development"
+    - "AE recommends a customer for a speaking opportunity"
+
+  conditional:
+    - condition: "$.event.days_until <= 60 AND $.event.customer_speaker_slots > $.event.confirmed_speakers"
+      description: "Event within 60 days with open customer speaker slots"
+
+    - condition: "$.speaker_pool.available_speakers < $.upcoming_events.total_slots"
+      description: "Available speaker pool is smaller than upcoming event slot demand"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "Event calendar with session topics, formats, dates, audience profiles, and speaker slot requirements"
+      source: "Marketing Agent / Event Management System"
+      criticality: "HIGH"
+    - artifact: "Advocate registry with consent status, expertise tags, speaking history, and availability windows"
+      source: "Advocate Program Database"
+      criticality: "HIGH"
+    - artifact: "Speaker rotation history (cumulative events per advocate per quarter and annually)"
+      source: "CAD Agent / Speaker Tracking"
+      criticality: "HIGH"
+    - artifact: "Speaker slot requirements (topic, format, audience level, travel requirements)"
+      source: "Event Organizer / Marketing Agent"
+      criticality: "HIGH"
+
+  optional:
+    - artifact: "Speaker preference profiles (preferred formats, travel willingness, topic comfort zones)"
+      source: "Advocate Registry"
+      criticality: "MEDIUM"
+    - artifact: "Previous event recordings or session feedback scores"
+      source: "Event Management System"
+      criticality: "MEDIUM"
+    - artifact: "Current product messaging and key themes"
+      source: "Marketing Agent"
+      criticality: "LOW"
+    - artifact: "Account relationship maps for outreach coordination"
+      source: "Internal Account Hub"
+      criticality: "LOW"
+
+  minimum_data_threshold:
+    - "At least one upcoming event with customer speaker requirement"
+    - "Advocate registry current (synced within 14 days)"
+    - "At least 5 advocates with speaking consent in the pool"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  speaker_pool_health:
+    - "How many advocates are in the pre-vetted speaker pool with active consent?"
+    - "What is the distribution of speakers across expertise areas and industries?"
+    - "Which speakers are approaching or exceeding their quarterly rotation limit?"
+    - "Are there speakers who have not been activated in 6+ months despite availability?"
+    - "What is the mix of experienced vs. first-time speakers in the pool?"
+
+  event_matching:
+    - "What is the event topic, theme, audience profile, and session format?"
+    - "Which advocates have deployment stories relevant to the event topic?"
+    - "Which advocates match the audience profile (industry, role level, technical depth)?"
+    - "Is in-person attendance required, or is remote participation acceptable?"
+    - "Are there co-presentation requirements (speaking alongside vendor executive, analyst, partner)?"
+
+  rotation_management:
+    - "How many events has each speaker participated in this quarter and year-to-date?"
+    - "Are any speakers appearing at competing or overlapping events?"
+    - "Which speakers were most recently activated, and which are due for rotation?"
+    - "Is the same speaker being requested repeatedly for the same topic when alternatives exist?"
+
+  readiness_check:
+    - "Has the speaker reviewed and confirmed the briefing package?"
+    - "Does the speaker require presentation coaching or dry run support?"
+    - "Has the speaker's organization provided internal approval for this event?"
+    - "Are there any changes to the speaker's availability, travel plans, or talking points?"
+    - "Does the speaker have questions or concerns about the event format or audience?"
+
+  briefing_preparation:
+    - "What are the key messages the speaker should convey aligned with the event theme?"
+    - "What specific outcomes or metrics should the speaker reference?"
+    - "Are there topics the speaker should avoid (competitive mentions, unannounced features, NDA content)?"
+    - "What audience questions should the speaker be prepared for?"
+    - "What logistics does the speaker need (travel, rehearsal schedule, AV requirements)?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    # Strong match, speaker ready and within rotation limits
+    - id: "strong_speaker_match"
+      condition: "match_score >= 0.8 AND speaker_available == true AND quarterly_events < 3"
+      severity: "LOW"
+      output_type: "Speaker Assignment"
+      decision:
+        title: "Speaker match confirmed: {advocate_name} for {event_name}"
+        context: "Strong topic alignment, speaker is available, below rotation threshold, and has active consent"
+        recommendation: "Proceed with outreach and briefing preparation"
+        actions:
+          - "Initiate speaker outreach through CA Agent or direct contact"
+          - "Prepare event-specific briefing package with talking points"
+          - "Confirm logistics (travel, rehearsal, AV needs)"
+          - "Set preparation milestone checkpoints (briefing call, dry run, final prep)"
+          - "Update rotation tracker with new commitment"
+
+    # Good match but at rotation limit
+    - id: "match_at_rotation_limit"
+      condition: "match_score >= 0.7 AND speaker.quarterly_events >= 3"
+      severity: "MEDIUM"
+      output_type: "Rotation Warning + Alternative Search"
+      decision:
+        title: "Speaker rotation limit: {advocate_name} has {quarterly_events} events this quarter"
+        context: "Good topic match but speaker at quarterly rotation limit, over-exposure risk"
+        recommendation: "Seek alternative speakers first, escalate to manager for override only if no alternatives"
+        actions:
+          - "Search for alternative speakers with comparable topic alignment"
+          - "Present alternatives to event organizer with comparison"
+          - "If no alternatives: escalate to Customer Advocacy Manager for rotation override"
+          - "If override approved: schedule recognition activity for the over-utilized speaker"
+
+    # No matching speakers available
+    - id: "no_speakers_available"
+      condition: "matching_speakers.count == 0 AND days_until_event <= 45"
+      severity: "HIGH"
+      output_type: "Gap Alert + Alternative Recommendations"
+      decision:
+        title: "No customer speakers available for {event_name}"
+        context: "No advocates in the pool match the event requirements within timeline"
+        recommendation: "Escalate to manager and propose alternatives"
+        actions:
+          - "Notify Customer Advocacy Manager and event organizer"
+          - "Propose alternative formats: customer video testimonial, written case study presentation by vendor"
+          - "Expand search criteria (adjacent industries, related use cases)"
+          - "If event is strategic: consider expedited recruitment of a new advocate speaker"
+          - "Log gap for future pipeline planning"
+
+    # Speaker cancellation, replacement needed
+    - id: "speaker_cancellation_replacement"
+      condition: "speaker.status == 'cancelled' AND days_until_event <= 30"
+      severity: "HIGH"
+      output_type: "Urgent Replacement Search"
+      decision:
+        title: "Urgent speaker replacement needed for {event_name}"
+        context: "Confirmed speaker cancelled with {days_until_event} days to event"
+        recommendation: "Expedited replacement search with expanded criteria"
+        actions:
+          - "Search for replacement with relaxed matching criteria"
+          - "Contact top 3 candidates simultaneously for fastest confirmation"
+          - "Prepare condensed briefing package for accelerated onboarding"
+          - "If no replacement within 5 business days: propose format change to event organizer"
+          - "Document cancellation reason for future pipeline risk assessment"
+
+    # First-time speaker, needs development support
+    - id: "first_time_speaker_development"
+      condition: "speaker.previous_events == 0 AND match_score >= 0.6"
+      severity: "LOW"
+      output_type: "Speaker Development Plan"
+      decision:
+        title: "First-time speaker opportunity: {advocate_name} for {event_name}"
+        context: "Strong topic match but no prior external speaking experience"
+        recommendation: "Assign with enhanced preparation support and lower-pressure format preference"
+        actions:
+          - "Prefer lower-pressure format if possible (panel, fireside chat over keynote)"
+          - "Schedule presentation coaching session"
+          - "Arrange dry run with internal team"
+          - "Pair with experienced speaker or vendor co-presenter if format allows"
+          - "Prepare comprehensive briefing with anticipated questions and responses"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/advocacy/speakers/pipeline_{YYYY-Q}.md"
+    format: "markdown"
+    sections:
+      - executive_summary
+      - speaker_pool_dashboard
+      - event_coverage_map
+      - speaker_assignments
+      - rotation_dashboard
+      - readiness_tracker
+      - pipeline_metrics
+
+    schema:
+      executive_summary:
+        pool_size: "integer (pre-vetted speakers with active consent)"
+        upcoming_events_with_slots: "integer"
+        slots_filled: "integer"
+        slots_unfilled: "integer"
+        speakers_at_rotation_limit: "integer"
+        first_time_speakers_queued: "integer"
+
+      speaker_pool_dashboard:
+        type: "array"
+        items:
+          advocate_name: "string"
+          expertise_tags: "array[string]"
+          experience_level: "enum[first_time|developing|experienced|veteran]"
+          quarterly_events: "integer"
+          annual_events: "integer"
+          availability_status: "enum[available|busy|blackout|pending_confirmation]"
+          last_event_date: "date|null"
+          consent_status: "enum[active|pending|expired]"
+
+      event_coverage_map:
+        type: "array"
+        items:
+          event_name: "string"
+          event_date: "date"
+          topic: "string"
+          format: "enum[keynote|panel|fireside_chat|breakout|webinar|workshop]"
+          audience_profile: "string"
+          slots_required: "integer"
+          slots_filled: "integer"
+          confirmed_speakers: "array[string]"
+          backup_speakers: "array[string]"
+          status: "enum[CONFIRMED|PARTIALLY_FILLED|UNFILLED|AT_RISK]"
+
+      rotation_dashboard:
+        speakers_below_limit: "integer"
+        speakers_at_limit: "integer"
+        speakers_above_limit: "integer"
+        utilization_distribution:
+          top_10_percent_share: "float"
+          bottom_50_percent_share: "float"
+        most_utilized:
+          type: "array"
+          items:
+            advocate_name: "string"
+            quarterly_events: "integer"
+            annual_events: "integer"
+            last_rotation_date: "date"
+
+      readiness_tracker:
+        type: "array"
+        items:
+          advocate_name: "string"
+          event_name: "string"
+          readiness_status: "enum[not_started|briefing_scheduled|briefing_complete|dry_run_complete|ready|at_risk]"
+          check_in_date: "date|null"
+          concerns_flagged: "array[string]"
+
+  briefing_packages:
+    path: "{realm}/advocacy/speakers/briefings/{event_name}_{advocate_name}.md"
+    create_if: "speaker_confirmed == true"
+    sections:
+      - event_overview
+      - key_messages
+      - talking_points
+      - audience_profile
+      - anticipated_questions
+      - topics_to_avoid
+      - logistics
+
+  notifications:
+    - recipient: "Customer Advocacy Manager"
+      condition: "always"
+      message: "Speaker pipeline update: {slots_filled}/{total_slots} filled for upcoming events, {at_limit} speakers at rotation limit"
+
+    - recipient: "AE Agent"
+      condition: "speaker_confirmed == true"
+      message: "Customer speaker {advocate_name} confirmed for {event_name}, account coordination may be needed"
+
+    - recipient: "CA Agent"
+      condition: "speaker_activated == true OR speaker_rotation_warning == true"
+      message: "Speaker {advocate_name} {action}: monitor for customer satisfaction signals"
+
+    - recipient: "Marketing Agent"
+      condition: "event_unfilled == true AND days_until_event <= 30"
+      message: "URGENT: {event_name} in {days} days with no confirmed customer speaker"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "speaker_is_executive_at_strategic_account"
+      reason: "C-level speaker at a strategic account requires executive-level coordination"
+      action: "Route to Customer Advocacy Manager for personalized engagement through AE"
+
+    - condition: "speaker_requests_compensation"
+      reason: "Speaker asks for honorarium, travel budget, or other compensation beyond standard program"
+      action: "Route to Customer Advocacy Manager for policy review and budget approval"
+
+    - condition: "speaker_organization_blocks_participation"
+      reason: "Speaker's employer PR or legal team blocks external speaking"
+      action: "Customer Advocacy Manager to assess alternative approaches (anonymous case, co-branded content)"
+
+    - condition: "all_matching_speakers_at_rotation_limit"
+      reason: "Every matching speaker is at or above quarterly rotation threshold"
+      action: "Escalate to Customer Advocacy Manager for rotation override or format alternative"
+
+    - condition: "speaker_pool_below_minimum_for_quarter"
+      reason: "Fewer pre-vetted speakers available than upcoming event slots demand"
+      action: "Escalate to Customer Advocacy Manager for emergency recruitment or event prioritization"
+
+  insufficient_data:
+    - "Event details incomplete (no topic, no format, no date)"
+    - "Advocate speaking history not tracked (cannot assess experience or rotation status)"
+    - "Speaker consent records unavailable or expired"
+
+  ambiguity_signals:
+    - "Speaker expressed interest but has not confirmed availability"
+    - "Event format may change (in-person vs. virtual undecided)"
+    - "Speaker's organization is undergoing restructuring (commitment reliability uncertain)"
+    - "Multiple events on similar dates competing for the same speaker pool"
+
+  human_judgment_required:
+    - "Choosing between two equally qualified speakers for a single slot"
+    - "Deciding whether a first-time speaker is ready for a keynote format"
+    - "Assessing whether an event is strategic enough to justify overriding rotation threshold"
+    - "Evaluating whether a speaker cancellation pattern indicates relationship issues"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "Event calendar available with at least one upcoming event requiring customer speakers"
+    - "Advocate registry current with speaking consent, expertise tags, and history fields populated"
+    - "Rotation data available (quarterly and annual commitment counts per speaker)"
+    - "Speaker availability windows documented for upcoming quarter"
+
+  post_execution:
+    - "Every event with speaker requirements has at least one candidate identified or gap alert created"
+    - "All recommended speakers have active consent on file"
+    - "No recommended speaker exceeds quarterly rotation limit without manager override"
+    - "Briefing packages are event-specific with current messaging and audience-relevant content"
+    - "Readiness check-in schedule created for all confirmed speakers"
+    - "Rotation dashboard reflects current quarter actuals including new assignments"
+
+  output_quality:
+    - "Match scores reflect actual topic alignment and audience relevance, not inflated proximity"
+    - "Briefing talking points align with current corporate messaging and event theme"
+    - "Preparation milestones are realistic given time to event"
+    - "Rotation tracking includes all speaking activities, not just events managed by this playbook"
+    - "Speaker pool health assessment covers experience distribution, not just headcount"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "20-40 minutes (agent matching, rotation analysis, and briefing generation) + 2-5 hours (human coordination, speaker outreach, and readiness check-ins)"
+frequency: "Monthly pipeline review + triggered by event publication, cancellations, and quarterly pool assessment"
+human_review_required: true
+approval_workflow:
+  - reviewer: "CAD Agent"
+    approval_gate: "Validate speaker-topic match quality, rotation compliance, and briefing material accuracy"
+  - reviewer: "Customer Advocacy Manager"
+    condition: "event_is_marquee == true OR speaker_tier == 'strategic'"
+    approval_gate: "Approve speaker assignments for marquee events and strategic advocate activation"
+  - reviewer: "AE Agent"
+    condition: "speaker_account_is_strategic == true"
+    approval_gate: "Confirm account-level appropriateness and coordinate relationship support"
+
+last_updated: "2026-03-26"
+version: "1.0"
+status: "draft"

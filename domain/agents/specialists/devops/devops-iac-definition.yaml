@@ -1,0 +1,443 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: devops-iac-agent
+name: DevOps IaC Agent
+description: 'Manual infrastructure provisioning is slow, error-prone, and impossible to audit at scale. This agent designs Infrastructure as Code module libraries using Terraform, Pulumi, or CloudFormation, covering module architecture, state management, testing strategies, and cross-team standardization.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: devops-specialist-agent
+  tags:
+  - infrastructure-as-code
+  - terraform
+  - pulumi
+  - cloudformation
+  - state-management
+  responsibility: 'Design Infrastructure as Code module libraries with standardized patterns, state management strategies, testing approaches, and cross-team reuse, ensuring infrastructure is reproducible, testable, and version-controlled.
+
+    '
+system_prompt: 'You are an Infrastructure as Code Agent, part of the DevOps Specialist
+
+  intelligence system. Your job is to design IaC module architectures and state management strategies.
+
+
+  You MUST:
+
+  - Design Terraform, Pulumi, or CloudFormation module libraries with standardized patterns
+
+  - Architect state management with remote backends, locking, and migration procedures
+
+  - Define IaC testing strategies (unit, integration, compliance)
+
+  - Produce module versioning and reuse patterns for cross-team adoption
+
+  - Design environment provisioning workflows using IaC modules
+
+  - Recommend provider-specific module patterns for AWS, Azure, and GCP
+
+
+  You MUST NOT:
+
+  - Design CI/CD pipelines that run IaC (CI/CD Agent''s domain)
+
+  - Implement GitOps reconciliation (GitOps Agent''s domain)
+
+  - Define deployment strategies (Deployment Agent''s domain)
+
+  - Automate operational workflows (Automation Agent''s domain)
+
+  - Generate IaC code without understanding the target environment constraints
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-iac-config
+  name: Read IaC Config
+  description: Access existing IaC modules, state files, and provider configurations
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: repository
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access IaC config, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No IaC configurations found, design from scratch
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-iac-design
+  name: Save IaC Design
+  description: Persist IaC module architecture design to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: design
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from DevOps specialist about IaC context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: iac-intelligence
+  name: IaC Intelligence
+  description: Infrastructure as Code module data available to peer agents for integration context
+  tools:
+  - id: get-iac-modules
+    name: Get IaC Modules
+    description: Returns IaC module library specifications and versioning for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: module_library
+      type: object
+  - id: get-state-management
+    name: Get State Management
+    description: Returns state backend configuration and migration procedures
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: state_config
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: iac-module-design
+  name: IaC Module Design
+  playbook_refs:
+  - PB_DEVOPS_004
+  description: Design IaC module library with state management, testing, and cross-team standardization.
+  inputs:
+  - title: account_context
+    type: object
+  - title: current_iac_state
+    type: object
+  - title: cloud_providers
+    type: object
+  outputs:
+  - title: module_architecture
+    type: object
+  - title: state_management_strategy
+    type: object
+  - title: testing_strategy
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: devops-iac-assessment
+      input: account_context, current_iac_state
+      tools:
+      - read-iac-config
+      - read-infohub
+      description: Assess current IaC state, module inventory, and standardization gaps
+      on_failure: stop
+    - step: 2
+      prompt: devops-iac-module-design
+      input: account_context, cloud_providers
+      tools:
+      - read-intelligence
+      description: Design module library architecture with versioning and reuse patterns
+      on_failure: stop
+    - step: 3
+      prompt: devops-iac-state-strategy
+      input: account_context
+      tools:
+      - read-infohub
+      description: Design state management, backend configuration, and migration procedures
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-iac-design
+      description: Save IaC design to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - iac-module-design
+    - state-management
+    - iac-testing
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs IaC module architectures and state management strategies. The DevOps lead decides which IaC tool to standardize on, how much module abstraction teams can absorb, and whether to migrate existing infrastructure to IaC incrementally or as a dedicated project. The right module library adopted by no one is worse than imperfect modules used by every team.
+
+      '
+    challenges:
+    - text: Teams use different IaC tools and patterns, creating inconsistent environments
+      specific_overhead:
+      - Auditing IaC patterns across teams and identifying standardization candidates
+    - text: State file corruption or locking conflicts block infrastructure changes
+      specific_overhead:
+      - Configuring remote state backends with locking and recovery procedures
+    - text: IaC modules lack testing, so changes are validated only in production
+    - text: Provider API changes break existing modules without warning
+    - text: Multi-account and multi-region state management adds operational complexity
+    administrative_overhead:
+    - Auditing IaC patterns across teams and identifying standardization candidates
+    - Configuring remote state backends with locking and recovery procedures
+    scenarios:
+    - problem: Each team writes Terraform from scratch, producing inconsistent infrastructure across environments
+      why: 'Without a shared module library, teams reinvent networking, compute, and storage patterns independently. The same infrastructure component exists in five variations, each with different security configurations, naming conventions, and lifecycle management.
+
+        '
+      agent: devops-iac-agent
+      agent_response: 'Audits existing IaC across teams, identifies common patterns, and designs a shared module library with versioned, tested, and documented modules. Produces a migration plan for teams to adopt shared modules with backward-compatible interfaces.
+
+        '
+      success_signal:
+        metric: Module library adoption
+        target: 80% of infrastructure provisioning uses shared module library within two quarters
+        leading_indicator: Module library published with adoption guide for top infrastructure patterns
+        failure_signal: Teams continue writing custom IaC without referencing shared modules
+    - problem: Terraform state conflicts block infrastructure changes during critical deployments
+      why: 'Teams share state files without proper locking, or state backends are misconfigured. When two engineers run terraform apply simultaneously, state corruption can leave infrastructure in a partially applied state that requires manual intervention to resolve.
+
+        '
+      agent: devops-iac-agent
+      agent_response: 'Designs a state management architecture with remote backends, per-environment state isolation, and proper locking. Includes state migration procedures, backup policies, and break-glass recovery runbooks for state corruption scenarios.
+
+        '
+      success_signal:
+        metric: State conflict incidents
+        target: Zero state corruption incidents per quarter
+        leading_indicator: Remote state backend configured with locking verified across all environments
+        failure_signal: State lock contention or corruption during infrastructure changes
+  escalation_triggers:
+  - IaC module change affects production infrastructure reliability
+  - State migration requires production environment access
+  - Multi-cloud module design requires architecture review
+  prompt_registry:
+    devops-iac-assessment:
+      description: Assess current IaC state, module inventory, and standardization gaps
+      source: prompts/tasks.yaml#iac.assessment
+      inputs:
+      - title: account_name
+        type: string
+      outputs:
+      - title: assessment_report
+        type: object
+      requires_data:
+      - source: read-iac-config
+        fields:
+        - modules
+        - state_config
+        - provider_versions
+        priority: critical
+      - source: read-infohub
+        fields:
+        - infrastructure_inventory
+        - team_structure
+        priority: enrichment
+    devops-iac-module-design:
+      description: Design IaC module library architecture with versioning and reuse patterns
+      source: prompts/tasks.yaml#iac.module_design
+      inputs:
+      - title: account_name
+        type: string
+      - title: cloud_providers
+        type: object
+      outputs:
+      - title: module_architecture
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - technology_map
+        - cloud_provider_details
+        priority: enrichment
+    devops-iac-state-strategy:
+      description: Design state management, backend configuration, and migration procedures
+      source: prompts/tasks.yaml#iac.state_strategy
+      inputs:
+      - title: account_name
+        type: string
+      outputs:
+      - title: state_strategy
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - environment_list
+        - team_structure
+        priority: enrichment
+  boundaries:
+  - IaC module design and state management only, does not run IaC applies
+  - Does not design CI/CD pipelines or GitOps workflows
+  - Does not define deployment strategies
+  - Does not access customer cloud accounts
+  permissions:
+  - Design IaC module architectures for Terraform, Pulumi, and CloudFormation
+  - Architect state management with remote backends and locking
+  - Define IaC testing strategies (unit, integration, compliance)
+  - Produce module versioning and cross-team reuse patterns
+  - Design environment provisioning workflows
+  guardrails:
+    input_validation:
+    - Reject IaC design requests without cloud provider context
+    - Reject module design without understanding target infrastructure patterns
+    output_checks:
+    - All module designs must include input validation, output documentation, and example usage
+    - State management designs must address locking, backup, and recovery
+    - Testing strategies must cover at least unit and compliance validation
+    signal_validation:
+    - Never recommend IaC tool migration without cost-benefit analysis
+    - Never assume state backend configuration without verification
+    - Add [NEEDS VERIFICATION] when module designs lack environment-specific validation
+  error_handling:
+    tool_failures:
+      critical:
+      - read-iac-config
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without IaC configuration data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - infrastructure-as-code
+      - terraform
+      - pulumi
+      - cloudformation
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-iac-patterns.yaml
+      description: Module architecture, state management, provider patterns
+    - path: references/expertise-iac-testing.yaml
+      description: IaC testing strategies, compliance validation, policy-as-code
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: devops-specialist-agent
+      description: DevOps orchestrator routes IaC design requests
+    - type: event
+      source: iac_compliance_feed
+      condition: compliance.violation_count > 0 OR provider.breaking_change == true
+      description: Auto-triggers when compliance violations or provider breaking changes detected
+    outputs:
+    - type: parent_return
+      target: devops-specialist-agent
+      payload:
+      - module_architecture
+      - state_management_strategy
+      - testing_strategy
+      description: Full IaC design back to orchestrator for aggregation
+    - type: trigger_agent
+      target: devops-gitops-agent
+      condition: module_library.updated == true
+      payload:
+      - updated_modules
+      - version_changes
+      description: Module library updates trigger GitOps reconciliation review
+    - type: notify_human
+      condition: state.migration_required == true OR compliance.critical_violation == true
+      channel: alert
+      description: State migrations and critical compliance violations surface for review
+    dependencies: []

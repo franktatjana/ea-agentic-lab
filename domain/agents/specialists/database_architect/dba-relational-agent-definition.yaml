@@ -1,0 +1,428 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: dba-relational-agent
+name: DBA Relational Design Agent
+description: 'Relational databases remain the backbone of transactional systems. This agent designs normalized schemas, models referential integrity, evaluates PostgreSQL/MySQL/SQL Server tradeoffs,
+  and produces ERD documentation so the data layer supports application requirements without impedance mismatch or normalization debt.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: dba-specialist-agent
+  tags:
+  - relational-design
+  - postgresql
+  - mysql
+  - sql-server
+  - normalization
+  - schema-design
+  responsibility: 'Design relational database schemas with proper normalization, referential integrity, and engine-specific optimizations for PostgreSQL, MySQL, and SQL Server workloads.
+
+    '
+system_prompt: 'You are a Relational Database Design Agent, part of the Database Architect
+
+  Specialist intelligence system. Your job is to design relational schemas and evaluate
+
+  relational database engine tradeoffs.
+
+
+  You MUST:
+
+  - Design normalized schemas (3NF minimum, denormalize only with documented justification)
+
+  - Define primary keys, foreign keys, unique constraints, and check constraints
+
+  - Evaluate PostgreSQL, MySQL, and SQL Server capabilities against workload requirements
+
+  - Produce ERD documentation with relationship cardinality and optionality
+
+  - Specify data types with precision, considering storage and performance implications
+
+  - Document denormalization decisions with access pattern justification
+
+
+  You MUST NOT:
+
+  - Design NoSQL data models (NoSQL Selection Agent''s domain)
+
+  - Optimize query execution plans (Performance Agent''s domain)
+
+  - Design replication or failover topologies (HA/DR Agent''s domain)
+
+  - Make managed service selection decisions (Managed Services Agent''s domain)
+
+  - Assume data volumes without explicit input
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, technology, architecture, data-models,
+    or infrastructure.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, technology map), industry (profile, regulatory, trends), technology (current database map).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-schema-design
+  name: Save Schema Design
+  description: Persist relational schema design to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: design
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from the database architect about schema requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: relational-design-intelligence
+  name: Relational Design Intelligence
+  description: Relational schema designs available to peer agents for integration context
+  tools:
+  - id: get-schema-design
+    name: Get Schema Design
+    description: Returns relational schema design with ERD, constraints, and normalization analysis for an account
+    inputs:
+    - title: account_name
+      type: string
+    - title: schema_scope
+      type: string
+    outputs:
+    - title: schema_design
+      type: object
+  - id: get-engine-assessment
+    name: Get Engine Assessment
+    description: Returns relational engine evaluation with capability comparison and workload fit analysis
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: engine_assessment
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: relational-schema-design
+  name: Relational Schema Design
+  playbook_refs:
+  - PB_DBA_001
+  - PB_DBA_003
+  description: Design relational schemas with normalization analysis, constraint definition, and engine-specific optimizations.
+  inputs:
+  - title: account_context
+    type: object
+  - title: data_requirements
+    type: object
+  - title: access_patterns
+    type: object
+  outputs:
+  - title: schema_design
+    type: object
+  - title: engine_recommendation
+    type: object
+  - title: erd_documentation
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: dba-workload-characterization
+      input: data_requirements, access_patterns
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Characterize workload as OLTP, OLAP, or hybrid with read/write ratio and concurrency profile
+      on_failure: stop
+    - step: 2
+      prompt: dba-relational-schema-design
+      input: data_requirements, workload_profile
+      tools:
+      - read-infohub
+      description: Design normalized schema with constraints, data types, and relationship definitions
+      on_failure: stop
+    - step: 3
+      prompt: dba-engine-evaluation
+      input: workload_profile, schema_design
+      tools:
+      - read-intelligence
+      description: Evaluate PostgreSQL, MySQL, SQL Server fit based on workload and feature requirements
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-schema-design
+      description: Save schema design and engine evaluation to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - relational-schema-design
+    - normalization-analysis
+    - engine-evaluation
+    - erd-documentation
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs schemas that satisfy normalization rules and access patterns. The data architect understands which denormalization tradeoffs the application team can maintain,
+      which legacy conventions must be preserved for organizational reasons, and where schema purity matters less than developer productivity. The schema is correct, but the human decides where pragmatism
+      overrides theory.
+
+      '
+    challenges:
+    - text: Schema designs over-normalize, creating excessive joins that degrade read performance
+      specific_overhead:
+      - Analyzing query access patterns to identify justified denormalization opportunities
+    - text: Engine selection defaults to team familiarity rather than workload requirements
+      specific_overhead:
+      - Documenting workload characteristics and mapping them to engine capabilities
+    administrative_overhead:
+    - Analyzing query access patterns to identify justified denormalization opportunities
+    - Documenting workload characteristics and mapping them to engine capabilities
+    scenarios:
+    - problem: Schema designs over-normalize, creating excessive joins that degrade read performance
+      why: 'Strict normalization produces schemas with many small tables joined at query time. For read-heavy workloads, this creates performance bottlenecks as join count increases, leading to either
+        slow queries or ad-hoc denormalization that bypasses the original design intent.
+
+        '
+      agent: dba-relational-agent
+      agent_response: 'Analyzes access patterns to identify read-heavy paths where controlled denormalization improves performance. Documents each denormalization decision with justification, data
+        consistency implications, and the specific queries it optimizes, keeping the schema intentional rather than ad-hoc.
+
+        '
+      success_signal:
+        metric: Denormalization decisions documented with access pattern justification
+        target: Every denormalization has a corresponding access pattern analysis and consistency impact note
+        leading_indicator: Access pattern analysis completed before schema finalization
+        failure_signal: Denormalization applied without documented justification, discovered during schema review
+    - problem: Engine selection defaults to team familiarity rather than workload requirements
+      why: 'Teams choose PostgreSQL, MySQL, or SQL Server based on prior experience rather than workload fit. Features like PostgreSQL JSONB, MySQL replication simplicity, or SQL Server integration
+        with .NET are overlooked when the selection skips workload analysis.
+
+        '
+      agent: dba-relational-agent
+      agent_response: 'Evaluates workload characteristics (transaction patterns, concurrency needs, data types, extension requirements) against engine capabilities. Produces an engine comparison matrix
+        with weighted scoring based on workload-specific criteria rather than generic feature lists.
+
+        '
+      success_signal:
+        metric: Engine selection backed by workload analysis
+        target: 100% of relational engine selections include documented workload characterization
+        leading_indicator: Workload characterization template completed before engine comparison
+        failure_signal: Engine chosen based on team preference without workload analysis
+  escalation_triggers:
+  - Schema design impacts data integrity across multiple services
+  - Engine selection has significant vendor lock-in implications
+  - Denormalization decision affects data consistency guarantees
+  prompt_registry:
+    dba-workload-characterization:
+      description: Characterize database workload as OLTP, OLAP, or hybrid with detailed access pattern analysis
+      source: prompts/tasks.yaml#database.workload_characterization
+      inputs:
+      - title: data_requirements
+        type: object
+      - title: access_patterns
+        type: object
+      outputs:
+      - title: workload_profile
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - application_architecture
+        - data_requirements
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - technology_map
+        priority: enrichment
+    dba-relational-schema-design:
+      description: Design normalized relational schema with constraints, data types, and ERD documentation
+      source: prompts/tasks.yaml#database.relational_schema_design
+      inputs:
+      - title: data_requirements
+        type: object
+      - title: workload_profile
+        type: object
+      outputs:
+      - title: schema_design
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - data_models
+        - existing_schemas
+        priority: critical
+    dba-engine-evaluation:
+      description: Evaluate relational database engines against workload requirements with capability comparison
+      source: prompts/tasks.yaml#database.engine_evaluation
+      inputs:
+      - title: workload_profile
+        type: object
+      - title: schema_design
+        type: object
+      outputs:
+      - title: engine_recommendation
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - vendor_landscape
+        - technology_map
+        priority: enrichment
+  boundaries:
+  - Relational database design only, does not design NoSQL data models
+  - Does not optimize query execution plans or indexing strategies
+  - Does not design replication topologies or failover procedures
+  - Does not evaluate managed database service offerings
+  permissions:
+  - Design relational schemas with normalization analysis
+  - Define constraints (PK, FK, unique, check, exclusion)
+  - Evaluate PostgreSQL, MySQL, SQL Server capabilities
+  - Produce ERD documentation with relationship modeling
+  - Recommend data types with storage and performance considerations
+  guardrails:
+    input_validation:
+    - Reject schema design requests without data requirements or access pattern context
+    - Reject engine evaluation without workload characterization
+    output_checks:
+    - All schemas must include normalization level justification
+    - Denormalization decisions must cite specific access patterns
+    - Engine recommendations must reference workload fit, not generic preference
+    - Data type selections must consider storage and performance implications
+    signal_validation:
+    - Never assume data volumes not explicitly provided
+    - Never recommend engine features without version verification
+    - Add [NEEDS VERIFICATION] when access patterns are estimated
+    - Distinguish between design-time and production-validated recommendations
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable schema design without data requirements
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - relational-databases
+      - schema-design
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-relational-databases.yaml
+      description: PostgreSQL, MySQL, SQL Server architecture, normalization theory, constraint patterns
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: dba-specialist-agent
+      description: DBA orchestrator routes relational design requests
+    - type: downstream
+      source: PB_DBA_003
+      signal: SIG_DBA_SCHEMA_REVIEW
+      condition: schema_review.completed == true
+      description: Schema review completion triggers design validation
+    outputs:
+    - type: parent_return
+      target: dba-specialist-agent
+      payload:
+      - schema_design
+      - engine_recommendation
+      - erd_documentation
+      description: Full relational design report back to orchestrator for aggregation
+    - type: trigger_agent
+      target: dba-performance-agent
+      condition: schema_complexity.join_depth > 4
+      payload:
+      - schema_design
+      - access_patterns
+      description: Complex schema triggers proactive performance review
+    dependencies: []

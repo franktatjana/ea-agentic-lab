@@ -1,0 +1,430 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: de-pipeline-agent
+name: DE Pipeline Agent
+description: >
+  Data pipeline design, ETL/ELT pattern selection, batch orchestration, and DAG architecture.
+  This agent handles pipeline topology, dependency management, retry strategies, and SLA
+  monitoring for batch and micro-batch workloads.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: de-specialist-agent
+  tags:
+  - pipeline-design
+  - etl-elt
+  - batch-orchestration
+  - dag-architecture
+  responsibility: >
+    Design reliable data pipeline architectures with clear separation of ingestion, transformation,
+    and serving layers. Select appropriate ETL/ELT patterns and orchestration strategies based on
+    data volume, transformation complexity, and target platform capabilities.
+system_prompt: >
+  You are a Data Pipeline Agent, part of the Data Engineer Specialist system. Your job is to
+  design data pipeline architectures and orchestration strategies.
+
+
+  You MUST:
+
+  - Design batch and micro-batch pipeline architectures with separation of concerns
+
+  - Evaluate and recommend ETL vs. ELT approaches based on workload characteristics
+
+  - Design DAG-based orchestration workflows with dependency management and retry logic
+
+  - Specify SLA monitoring and freshness tracking for pipeline outputs
+
+  - Produce idempotent pipeline designs that support safe retries and backfill operations
+
+  - Identify pipeline bottlenecks and recommend partitioning, parallelization, or resource tuning
+
+
+  You MUST NOT:
+
+  - Design real-time streaming topologies (Streaming Agent's domain)
+
+  - Define data quality validation rules (Quality Agent's domain)
+
+  - Design data models or schema evolution (Modeling Agent's domain)
+
+  - Configure CDC or API connectors (Integration Agent's domain)
+
+  - Set up CI/CD or environment management (Ops Agent's domain)
+
+  - Make platform-level architecture decisions (Big Data Architect's domain)
+
+  - Invent throughput benchmarks without measurement data
+
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-pipeline-assessment
+  name: Save Pipeline Assessment
+  description: Persist pipeline architecture assessment to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from data engineer about pipeline context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: pipeline-intelligence
+  name: Pipeline Intelligence
+  description: Pipeline design data available to peer agents for cross-domain context
+  tools:
+  - id: get-pipeline-architecture
+    name: Get Pipeline Architecture
+    description: Returns pipeline architecture designs and DAG specifications for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: pipeline_designs
+      type: array
+  - id: get-pipeline-health
+    name: Get Pipeline Health
+    description: Returns pipeline reliability metrics and SLA compliance data
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: health_metrics
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: pipeline-architecture-design
+  name: Pipeline Architecture Design
+  playbook_refs:
+  - PB_DE_001
+  - PB_DE_006
+  description: Design data pipeline architecture with orchestration strategy, dependency management, and SLA framework.
+  inputs:
+  - title: account_context
+    type: object
+  - title: source_inventory
+    type: object
+  - title: consumer_requirements
+    type: object
+  outputs:
+  - title: pipeline_architecture
+    type: object
+  - title: orchestration_design
+    type: object
+  - title: sla_framework
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: de-pipeline-assessment
+      input: account_context, source_inventory
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess current pipeline landscape, identify patterns and gaps
+      on_failure: stop
+    - step: 2
+      prompt: de-pipeline-architecture
+      input: account_context, consumer_requirements
+      tools:
+      - read-infohub
+      description: Design pipeline topology with ingestion, transformation, and serving layers
+      on_failure: stop
+    - step: 3
+      prompt: de-orchestration-design
+      input: pipeline_architecture
+      tools:
+      - read-infohub
+      description: Design DAG orchestration with dependency management and retry logic
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-pipeline-assessment
+      description: Save pipeline architecture assessment to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - pipeline-architecture
+    - etl-elt-design
+    - batch-orchestration
+    - dag-design
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent designs pipeline architectures and orchestration patterns. The data engineering lead
+      understands which pipelines are business-critical, what SLA tolerances the organization can
+      accept, and which pipeline failures have the most business impact. The architecture is sound,
+      but the human leader prioritizes where reliability investment matters most.
+    challenges:
+    - text: Pipeline dependencies create cascading failures when upstream jobs fail
+      specific_overhead:
+      - Mapping and documenting pipeline dependency graphs per customer environment
+    - text: ETL vs. ELT decisions are made without considering target platform capabilities
+      specific_overhead:
+      - Benchmarking transformation performance across customer compute environments
+    administrative_overhead:
+    - Mapping and documenting pipeline dependency graphs per customer environment
+    - Benchmarking transformation performance across customer compute environments
+    scenarios:
+    - problem: Pipeline dependencies create cascading failures across the DAG
+      why: >
+        Complex DAG dependencies mean a single upstream failure can cascade through dozens of downstream
+        jobs. Without proper dependency isolation and retry strategies, recovery requires manual
+        intervention across the entire pipeline graph.
+      agent: de-pipeline-agent
+      agent_response: >
+        Designs pipeline architectures with dependency isolation, circuit-breaker patterns, and
+        idempotent stages that allow independent retry and backfill without reprocessing the
+        entire graph.
+      success_signal:
+        metric: Cascading failure blast radius
+        target: Upstream failures affect fewer than 3 downstream jobs on average
+        leading_indicator: Dependency isolation patterns implemented for all tier-1 pipelines
+        failure_signal: Single job failure still triggers full DAG re-execution
+    - problem: Pipeline SLAs are set without understanding actual processing time distributions
+      why: >
+        SLAs are defined based on estimates rather than measurement. Pipelines that usually complete
+        in 20 minutes occasionally take 3 hours due to data volume spikes or resource contention,
+        but the SLA was set at 30 minutes based on average-case assumptions.
+      agent: de-pipeline-agent
+      agent_response: >
+        Implements SLA monitoring based on percentile-based processing time distributions rather
+        than averages. Designs adaptive scheduling that accounts for volume variability and
+        produces SLA recommendations grounded in measured performance data.
+      success_signal:
+        metric: SLA violation rate
+        target: Reduce SLA violations by 60% through measurement-based SLA definitions
+        leading_indicator: Processing time distributions collected for all tier-1 pipelines
+        failure_signal: SLA violations remain unchanged because SLAs were not recalibrated
+  escalation_triggers:
+  - Pipeline architecture decision impacts production data SLAs
+  - Pipeline failure affects tier-1 data consumers
+  - Orchestration change requires cross-team coordination
+  prompt_registry:
+    de-pipeline-assessment:
+      description: Assess current pipeline landscape, identify patterns and gaps
+      source: prompts/tasks.yaml#pipeline.assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: source_inventory
+        type: object
+      outputs:
+      - title: pipeline_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - pipeline_inventory
+        - current_architecture
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - technology_map
+        priority: enrichment
+    de-pipeline-architecture:
+      description: Design pipeline topology with layered architecture
+      source: prompts/tasks.yaml#pipeline.architecture
+      inputs:
+      - title: account_name
+        type: string
+      - title: consumer_requirements
+        type: object
+      outputs:
+      - title: pipeline_architecture
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - source_inventory
+        - consumer_slas
+        priority: critical
+    de-orchestration-design:
+      description: Design DAG orchestration with dependency management and retry logic
+      source: prompts/tasks.yaml#pipeline.orchestration
+      inputs:
+      - title: pipeline_architecture
+        type: object
+      outputs:
+      - title: orchestration_design
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - pipeline_dependencies
+        - sla_requirements
+        priority: critical
+  boundaries:
+  - Pipeline architecture and orchestration only, does not handle streaming
+  - Does not define data quality rules or validation logic
+  - Does not design data models or schema evolution
+  - Does not configure connectors or CDC pipelines
+  permissions:
+  - Design batch and micro-batch pipeline architectures
+  - Select ETL vs. ELT patterns based on workload analysis
+  - Design DAG orchestration with Airflow or equivalent
+  - Define pipeline SLA monitoring and freshness tracking
+  - Optimize pipeline performance through partitioning and parallelization
+  guardrails:
+    input_validation:
+    - Reject pipeline design requests without source inventory or consumer requirements
+    - Reject orchestration design without pipeline dependency context
+    output_checks:
+    - All pipeline designs must specify idempotency strategy
+    - SLA recommendations must be grounded in measurement data or stated as estimates
+    - Orchestration designs must include retry and failure handling for every stage
+    signal_validation:
+    - Never claim throughput numbers without measurement data
+    - Add [NEEDS BENCHMARKING] when performance estimates lack measurement basis
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - pipeline-architecture
+      - batch-orchestration
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-pipeline-patterns.yaml
+      description: ETL/ELT patterns, DAG design, orchestration best practices
+    - path: references/expertise-airflow-patterns.yaml
+      description: Airflow DAG patterns, task dependencies, SLA monitoring
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: de-specialist-agent
+      description: Data Engineer orchestrator routes pipeline design requests
+    - type: event
+      source: pipeline_metadata
+      condition: pipeline_failure.count > threshold
+      description: Auto-triggers assessment when pipeline failure rates spike
+    outputs:
+    - type: parent_return
+      target: de-specialist-agent
+      payload:
+      - pipeline_architecture
+      - orchestration_design
+      - sla_framework
+      description: Full pipeline design back to orchestrator for aggregation
+    - type: trigger_agent
+      target: de-quality-agent
+      condition: pipeline_stage.needs_quality_gate == true
+      payload:
+      - stage_specification
+      - data_contract
+      description: Pipeline stages that need quality gates trigger quality agent
+    - type: trigger_agent
+      target: de-ops-agent
+      condition: pipeline.deployment_ready == true
+      payload:
+      - pipeline_specification
+      - orchestration_config
+      description: Completed pipeline designs trigger CI/CD setup
+    dependencies: []

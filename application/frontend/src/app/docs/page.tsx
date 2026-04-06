@@ -213,12 +213,12 @@ function collectDirPaths(entries: DocTreeEntry[]): string[] {
 function DocsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activePath = searchParams.get("path") || "README.md"; // Default to root README
+  const activePath = searchParams.get("path") || "START_HERE.md"; // Default to documentation spine
 
   const [search, setSearch] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(
-    new Set(["architecture", "reference", "guides", "operating-model", "decisions", "planning"])
+    new Set(["overview", "architecture", "reference", "guides", "operating-model", "decisions", "planning"])
   );
 
   // Auto-expand parent directories of the active document
@@ -296,10 +296,9 @@ function DocsPageContent() {
           <div className="flex items-center gap-2 mb-2">
             <h2 className="text-sm font-semibold">Documentation</h2>
             <HelpPopover title="Documentation browser">
-              Browse all project documentation organized by topic. Folders
-              group related docs together. Use the search bar to find
-              specific topics across all files. Click a document to view
-              its rendered content.
+              Start at <span className="font-mono text-[10px]">START_HERE.md</span> for reading
+              order. Folders group topics; search matches titles and paths.
+              Click a document to render it. Links under <span className="font-mono text-[10px]">docs/</span> navigate in-app.
             </HelpPopover>
             <button
               onClick={() => setSidebarOpen(false)}

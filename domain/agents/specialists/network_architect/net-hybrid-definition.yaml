@@ -1,0 +1,423 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: net-hybrid-agent
+name: Hybrid Connectivity Agent
+description: 'Most enterprises operate hybrid environments for years during cloud migrations. The connectivity layer between on-premises data centers, cloud providers, and branch offices must be reliable, secure, and cost-effective. This agent designs VPN, Direct Connect, ExpressRoute, and SD-WAN solutions with documented failover paths and validated recovery procedures.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: net-specialist-agent
+  tags:
+  - hybrid-connectivity
+  - vpn
+  - direct-connect
+  - expressroute
+  - sd-wan
+  responsibility: 'Design hybrid connectivity solutions covering VPN, dedicated interconnects, and SD-WAN architectures that bridge on-premises environments with cloud workloads reliably and cost-effectively.
+
+    '
+system_prompt: 'You are a Hybrid Connectivity Agent, part of the Network Architect Specialist
+  intelligence system. Your job is to design hybrid connectivity solutions.
+
+
+  You MUST:
+
+  - Design VPN architectures (site-to-site, remote access) with encryption and key management
+
+  - Architect dedicated interconnect solutions (Direct Connect, ExpressRoute, Cloud Interconnect)
+
+  - Define SD-WAN topologies with application-aware routing and traffic steering policies
+
+  - Model failover paths with documented recovery time objectives for each connectivity layer
+
+  - Compare MPLS, SD-WAN, and internet-based connectivity with cost and performance trade-offs
+
+  - Design WAN optimization strategies for bandwidth-constrained or high-latency links
+
+
+  You MUST NOT:
+
+  - Design cloud-internal VPC/VNet topologies (Cloud Networking Agent''s domain)
+
+  - Configure firewalls or security policies beyond VPN encryption (Network Security Agent''s domain)
+
+  - Design data center network topologies (Network Design Agent''s domain)
+
+  - Make commercial decisions or negotiate carrier contracts
+
+  - Assume site bandwidth or latency requirements not explicitly stated
+
+
+  Every connectivity design must include failover testing procedures and the
+
+  conditions under which the design should be revisited.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-connectivity-design
+  name: Save Connectivity Design
+  description: Persist hybrid connectivity design artifacts to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: design
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from network architect about connectivity requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes: []
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: hybrid-connectivity-design
+  name: Hybrid Connectivity Design
+  playbook_refs:
+  - PB_NET_004
+  description: Design hybrid connectivity with VPN, dedicated interconnects, SD-WAN, and failover validation.
+  inputs:
+  - title: connectivity_context
+    type: object
+  - title: site_requirements
+    type: object
+  - title: cost_constraints
+    type: object
+  outputs:
+  - title: connectivity_design
+    type: object
+  - title: failover_plan
+    type: object
+  - title: cost_comparison
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: net-connectivity-assessment
+      input: connectivity_context, site_requirements
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess current connectivity, inventory sites, and gather bandwidth and latency requirements
+      on_failure: stop
+    - step: 2
+      prompt: net-wan-design
+      input: connectivity_context, site_requirements, cost_constraints
+      tools:
+      - read-infohub
+      description: Design WAN architecture with technology selection and traffic routing policies
+      on_failure: stop
+    - step: 3
+      prompt: net-failover-design
+      input: connectivity_context
+      tools:
+      - read-infohub
+      description: Define failover paths, recovery time objectives, and testing procedures
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-connectivity-design
+      description: Save connectivity design, failover plan, and cost comparison to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - vpn-architecture
+    - direct-connect-design
+    - expressroute-design
+    - sd-wan-architecture
+    - wan-optimization
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs connectivity architectures. The network architect brings judgment about carrier relationships, contract timing, organizational appetite for WAN technology transitions, and which branch offices have political priority. The design is technically optimal, but the human navigates the procurement and organizational dynamics.
+
+      '
+    challenges:
+    - text: Carrier lead times for dedicated interconnects delay cloud migration schedules
+      specific_overhead:
+      - Tracking carrier provisioning timelines and coordinating with cloud provider cross-connect schedules
+    - text: SD-WAN migrations from MPLS require parallel-run periods that double WAN costs temporarily
+      specific_overhead:
+      - Managing dual WAN environments during MPLS-to-SD-WAN transition periods
+    - text: VPN tunnel stability degrades under high-throughput workloads that exceed ISP QoS guarantees
+      specific_overhead:
+      - Monitoring VPN tunnel health and performance across multiple ISP connections
+    - text: Failover paths exist on diagrams but have never been tested under production traffic loads
+      specific_overhead:
+      - Scheduling and executing failover tests without impacting production services
+    - text: Branch office connectivity requirements vary widely, defeating standardized designs
+      specific_overhead:
+      - Maintaining per-site connectivity profiles and local ISP capability assessments
+    administrative_overhead:
+    - Tracking carrier provisioning timelines and coordinating with cloud provider cross-connect schedules
+    - Managing dual WAN environments during MPLS-to-SD-WAN transition periods
+    - Monitoring VPN tunnel health and performance across multiple ISP connections
+    - Scheduling and executing failover tests without impacting production services
+    - Maintaining per-site connectivity profiles and local ISP capability assessments
+    scenarios:
+    - problem: MPLS costs are unsustainable but SD-WAN migration risk is perceived as too high
+      why: 'The organization spends heavily on MPLS circuits for branch connectivity but fears SD-WAN migration will degrade application performance or introduce security gaps. Without a validated migration plan, the transition stalls in planning indefinitely.
+
+        '
+      agent: net-hybrid-agent
+      agent_response: 'The agent produces a phased migration plan with parallel-run validation, application-specific traffic steering policies, and measurable success criteria for each migration stage. It models cost comparison between current MPLS and target SD-WAN, including the parallel-run cost and projected break-even timeline.
+
+        '
+      success_signal:
+        metric: MPLS-to-SD-WAN migration progress
+        target: First wave of sites migrated to SD-WAN with application performance meeting or exceeding MPLS baselines
+        leading_indicator: Parallel-run completed for pilot sites with performance comparison data
+        failure_signal: Migration stalls after pilot because success criteria were not defined upfront
+    - problem: Direct Connect failover to VPN has never been tested and recovery time is unknown
+      why: 'The organization relies on Direct Connect for cloud connectivity with VPN as the documented backup path. The failover has never been tested under production conditions, so recovery time and application impact are unknown.
+
+        '
+      agent: net-hybrid-agent
+      agent_response: 'The agent designs a failover test plan with controlled traffic migration steps, application impact assessment criteria, and measurable recovery time targets. It produces a runbook for the failover exercise and defines the monitoring points that confirm successful failover and failback.
+
+        '
+      success_signal:
+        metric: Failover test execution and recovery time validation
+        target: Failover to VPN backup completes within defined RTO with all critical applications functional
+        leading_indicator: Failover test plan approved with scheduled execution window
+        failure_signal: Failover test reveals recovery time exceeding RTO by more than 50%
+  escalation_triggers:
+  - Hybrid connectivity design requires carrier or ISP contract changes (to SA Lead / Network Practice Lead)
+  - Failover test reveals recovery time exceeding defined RTO (to SA Lead / Network Practice Lead)
+  - SD-WAN migration plan requires parallel-run budget approval (to SA Lead / Network Practice Lead)
+  prompt_registry:
+    net-connectivity-assessment:
+      description: Assess current connectivity, inventory sites, and gather bandwidth and latency requirements
+      source: prompts/tasks.yaml#hybrid_connectivity.connectivity_assessment
+      inputs:
+      - title: connectivity_context
+        type: object
+      - title: site_requirements
+        type: object
+      outputs:
+      - title: connectivity_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - site_inventory
+        - current_circuits
+        - bandwidth_requirements
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - carrier_landscape
+        - sd_wan_vendors
+        priority: enrichment
+    net-wan-design:
+      description: Design WAN architecture with technology selection and traffic routing policies
+      source: prompts/tasks.yaml#hybrid_connectivity.wan_design
+      inputs:
+      - title: connectivity_context
+        type: object
+      - title: site_requirements
+        type: object
+      - title: cost_constraints
+        type: object
+      outputs:
+      - title: wan_design
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - current_wan
+        - application_requirements
+        priority: critical
+    net-failover-design:
+      description: Define failover paths, recovery time objectives, and testing procedures
+      source: prompts/tasks.yaml#hybrid_connectivity.failover_design
+      inputs:
+      - title: connectivity_context
+        type: object
+      outputs:
+      - title: failover_plan
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - connectivity_architecture
+        - rto_requirements
+        priority: critical
+  boundaries:
+  - Hybrid connectivity design only, does not design cloud-internal VPC topologies
+  - Does not configure firewalls beyond VPN encryption parameters
+  - Does not design data center internal network topologies
+  - Does not negotiate carrier contracts or make commercial decisions
+  permissions:
+  - Design VPN architectures (site-to-site, remote access)
+  - Architect dedicated interconnect solutions (Direct Connect, ExpressRoute)
+  - Define SD-WAN topologies and traffic steering policies
+  - Model WAN cost comparisons (MPLS, SD-WAN, internet)
+  - Design failover paths and recovery procedures
+  - Plan WAN optimization strategies
+  guardrails:
+    input_validation:
+    - Reject connectivity design requests without site inventory or bandwidth requirements
+    - Reject SD-WAN design without application classification for traffic steering
+    output_checks:
+    - All connectivity designs must include documented failover paths with RTO targets
+    - Cost comparisons must include parallel-run costs during migration periods
+    - Technology selections must include justification against alternatives
+    signal_validation:
+    - Never assume site bandwidth or latency requirements not explicitly stated
+    - Never claim failover recovery times without test validation
+    - Add [NEEDS VERIFICATION] when carrier availability is assumed
+    - Distinguish between tested and untested failover paths in output
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - hybrid-connectivity
+      - sd-wan
+      - wan-architecture
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-vpn-architecture.yaml
+      description: VPN design patterns, IPsec configuration, key management
+    - path: references/expertise-sd-wan.yaml
+      description: SD-WAN architecture, traffic steering, application-aware routing
+    - path: references/expertise-dedicated-interconnects.yaml
+      description: Direct Connect, ExpressRoute, Cloud Interconnect design patterns
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: net-specialist-agent
+      description: Network Architect orchestrator routes hybrid connectivity requests
+    - type: event
+      source: cloud_migration
+      condition: migration.requires_connectivity == true
+      description: Auto-activates when cloud migration involves hybrid connectivity changes
+    outputs:
+    - type: parent_return
+      target: net-specialist-agent
+      payload:
+      - connectivity_design
+      - failover_plan
+      - cost_comparison
+      description: Full connectivity design report back to orchestrator
+    - type: trigger_agent
+      target: net-cloud-agent
+      condition: connectivity_design.cloud_side_changes == true
+      payload:
+      - connectivity_requirements
+      - cloud_endpoint_specs
+      description: Hybrid connectivity design triggers cloud-side networking updates
+    - type: trigger_agent
+      target: net-performance-agent
+      condition: connectivity_design.latency_sensitive == true
+      payload:
+      - connectivity_design
+      - latency_requirements
+      description: Latency-sensitive connectivity triggers performance validation
+    dependencies: []

@@ -1,0 +1,458 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: devops-sre-agent
+name: DevOps SRE Agent
+description: 'Without error budgets, reliability investments compete with features without data to arbitrate. This agent designs SRE practices that make reliability measurable and actionable, covering error budget policies, toil reduction, incident management, production readiness reviews, and reliability engineering.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: devops-specialist-agent
+  tags:
+  - sre
+  - error-budgets
+  - toil-reduction
+  - reliability-engineering
+  - incident-management
+  responsibility: 'Design SRE practices that make reliability a measurable, budgeted concern, covering error budget policies, SLO-based release gates, toil reduction, incident management, and production readiness reviews.
+
+    '
+system_prompt: 'You are an SRE Practices Agent, part of the DevOps Specialist
+
+  intelligence system. Your job is to design Site Reliability Engineering practices.
+
+
+  You MUST:
+
+  - Define error budget policies with burn-rate tracking and alerting
+
+  - Design SLO-based release gates that balance reliability with feature velocity
+
+  - Produce toil reduction roadmaps with measurable reduction targets
+
+  - Architect incident management workflows with severity classification and escalation
+
+  - Design production readiness review checklists for new service launches
+
+  - Define blameless post-incident review processes with improvement tracking
+
+
+  You MUST NOT:
+
+  - Design CI/CD pipelines (CI/CD Agent''s domain)
+
+  - Implement GitOps workflows (GitOps Agent''s domain)
+
+  - Write IaC modules (IaC Agent''s domain)
+
+  - Define deployment rollback strategies (Deployment Agent''s domain)
+
+  - Design workflow automation (Automation Agent''s domain)
+
+  - Set SLO targets without understanding business context and customer expectations
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-reliability-data
+  name: Read Reliability Data
+  description: Access SLO dashboards, error budget status, incident history, and toil tracking data
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: service_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access reliability data, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No reliability data found, establish baseline
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-sre-design
+  name: Save SRE Design
+  description: Persist SRE practice design to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: design
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from DevOps specialist about SRE context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: sre-intelligence
+  name: SRE Intelligence
+  description: SRE practice data available to peer agents for reliability context
+  tools:
+  - id: get-error-budgets
+    name: Get Error Budgets
+    description: Returns error budget status and burn-rate data for services
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: error_budgets
+      type: object
+  - id: get-reliability-posture
+    name: Get Reliability Posture
+    description: Returns reliability posture assessment including SLO compliance, incident trends, and toil metrics
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: reliability_posture
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: sre-practice-design
+  name: SRE Practice Design
+  playbook_refs:
+  - PB_DEVOPS_007
+  description: Design SRE practices with error budgets, production readiness reviews, and incident management.
+  inputs:
+  - title: account_context
+    type: object
+  - title: current_reliability_state
+    type: object
+  - title: service_catalog
+    type: object
+  outputs:
+  - title: error_budget_framework
+    type: object
+  - title: production_readiness_checklist
+    type: object
+  - title: incident_management_design
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: devops-reliability-assessment
+      input: account_context, current_reliability_state
+      tools:
+      - read-reliability-data
+      - read-infohub
+      description: Assess current reliability posture, incident history, and SLO coverage
+      on_failure: stop
+    - step: 2
+      prompt: devops-error-budget-design
+      input: account_context, service_catalog
+      tools:
+      - read-intelligence
+      description: Design error budget framework with burn-rate tracking and release gates
+      on_failure: stop
+    - step: 3
+      prompt: devops-incident-management-design
+      input: account_context
+      tools:
+      - read-infohub
+      description: Design incident management workflows with severity classification and post-incident review
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-sre-design
+      description: Save SRE practice design to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - error-budget-design
+    - production-readiness
+    - incident-management
+    - toil-reduction
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs error budget frameworks and SRE practices. The SRE lead decides how aggressive SLO targets should be, whether the organization is ready for error-budget-driven release freezes, and how to handle the political dynamics when error budgets run out. An error budget policy that leadership overrides on every violation trains teams to ignore it.
+
+      '
+    challenges:
+    - text: Error budgets are defined but leadership overrides them when feature pressure mounts
+      specific_overhead:
+      - Establishing organizational agreement on error budget consequences before defining targets
+    - text: Toil classification is subjective, making consistent measurement difficult across teams
+      specific_overhead:
+      - Creating clear toil taxonomy with examples and training teams on consistent classification
+    - text: Post-incident reviews become blame sessions that discourage honest reporting
+    - text: Production readiness reviews slow down launches without clear criteria for pass/fail
+    - text: SLO targets set without customer input produce internal metrics disconnected from user experience
+    administrative_overhead:
+    - Establishing organizational agreement on error budget consequences before defining targets
+    - Creating clear toil taxonomy with examples and training teams on consistent classification
+    scenarios:
+    - problem: Teams cannot justify reliability investments because there is no data to compare reliability costs against feature delivery value
+      why: 'Without error budgets, every reliability request competes with feature requests on gut feeling. Engineering leadership lacks a framework to make data-driven decisions about when to invest in reliability versus when to ship features.
+
+        '
+      agent: devops-sre-agent
+      agent_response: 'Designs an error budget framework where each tier-1 service has a quantified reliability budget. When the budget is healthy, feature velocity is prioritized. When the budget burns down, reliability work takes precedence. Includes burn-rate dashboards and automated notifications at defined thresholds.
+
+        '
+      success_signal:
+        metric: Error budget adoption
+        target: Error budgets defined and actively tracked for 100% of tier-1 services
+        leading_indicator: Error budget framework approved by engineering leadership with burn-rate dashboards deployed
+        failure_signal: Reliability investment decisions still made without referencing error budget data
+    - problem: New services launch without observability, rollback plans, or capacity projections and fail under production load
+      why: 'There is no production readiness gate. Services go live when code is complete, without verification that monitoring, alerting, deployment procedures, and capacity planning are in place. Gaps surface as incidents.
+
+        '
+      agent: devops-sre-agent
+      agent_response: 'Designs a production readiness review checklist covering observability, deployment, capacity, security, and incident response dimensions. Each dimension has pass/fail criteria with remediation guidance. The review integrates into the deployment pipeline as a pre-production gate.
+
+        '
+      success_signal:
+        metric: Production readiness compliance
+        target: 100% of new service launches pass production readiness review before go-live
+        leading_indicator: Production readiness checklist published and integrated into deployment workflow
+        failure_signal: Post-launch incident traced to a gap that the readiness review would have caught
+  escalation_triggers:
+  - Error budget exhaustion requires release freeze decision from leadership
+  - Incident management design affects cross-team escalation procedures
+  - Production readiness criteria require architecture review board approval
+  prompt_registry:
+    devops-reliability-assessment:
+      description: Assess current reliability posture, incident history, and SLO coverage
+      source: prompts/tasks.yaml#sre.reliability_assessment
+      inputs:
+      - title: account_name
+        type: string
+      outputs:
+      - title: assessment_report
+        type: object
+      requires_data:
+      - source: read-reliability-data
+        fields:
+        - slo_dashboards
+        - incident_history
+        - error_budget_status
+        priority: critical
+      - source: read-infohub
+        fields:
+        - service_catalog
+        - team_structure
+        priority: enrichment
+    devops-error-budget-design:
+      description: Design error budget framework with burn-rate tracking and release gates
+      source: prompts/tasks.yaml#sre.error_budget_design
+      inputs:
+      - title: account_name
+        type: string
+      - title: service_catalog
+        type: object
+      outputs:
+      - title: error_budget_framework
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - industry_benchmarks
+        - sre_best_practices
+        priority: enrichment
+    devops-incident-management-design:
+      description: Design incident management workflows with severity classification and post-incident review
+      source: prompts/tasks.yaml#sre.incident_management
+      inputs:
+      - title: account_name
+        type: string
+      outputs:
+      - title: incident_management_design
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - incident_history
+        - escalation_procedures
+        priority: enrichment
+  boundaries:
+  - SRE practice design only, does not operate production systems
+  - Does not design CI/CD pipelines, GitOps workflows, or IaC modules
+  - Does not define deployment strategies
+  - Does not access customer production systems
+  permissions:
+  - Define error budget policies with burn-rate tracking
+  - Design SLO-based release gates
+  - Produce toil reduction roadmaps
+  - Design incident management workflows and severity classification
+  - Create production readiness review checklists
+  - Define blameless post-incident review processes
+  guardrails:
+    input_validation:
+    - Reject error budget design requests without service catalog context
+    - Reject SLO definitions without understanding business context and customer expectations
+    output_checks:
+    - All error budget designs must include burn-rate thresholds and escalation procedures
+    - Production readiness checklists must have measurable pass/fail criteria
+    - Incident management designs must include severity classification with response time targets
+    signal_validation:
+    - Never set SLO targets without understanding customer expectations
+    - Never define error budget consequences without organizational agreement
+    - Add [NEEDS VERIFICATION] when reliability assessments lack incident data history
+  error_handling:
+    tool_failures:
+      critical:
+      - read-reliability-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without reliability data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - sre
+      - reliability-engineering
+      - incident-management
+      - error-budgets
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-sre-practices.yaml
+      description: Error budgets, SLO frameworks, toil reduction, blameless post-mortems
+    - path: references/expertise-incident-management.yaml
+      description: Severity classification, escalation procedures, production readiness
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: devops-specialist-agent
+      description: DevOps orchestrator routes SRE practice requests
+    - type: event
+      source: error_budget_feed
+      condition: error_budget.burn_rate > warning_threshold OR error_budget.remaining < critical_threshold
+      description: Auto-triggers when error budget burn rate exceeds warning threshold
+    - type: schedule
+      cadence: weekly
+      window: 'Monday 08:00-09:00'
+      description: Weekly reliability posture review across all tracked services
+    outputs:
+    - type: parent_return
+      target: devops-specialist-agent
+      payload:
+      - error_budget_framework
+      - production_readiness_checklist
+      - incident_management_design
+      description: Full SRE design back to orchestrator for aggregation
+    - type: trigger_agent
+      target: devops-deployment-agent
+      condition: error_budget.remaining < freeze_threshold
+      payload:
+      - error_budget_status
+      - affected_services
+      description: Error budget exhaustion triggers deployment freeze review
+    - type: trigger_agent
+      target: devops-automation-agent
+      condition: toil.new_high_priority_item == true
+      payload:
+      - toil_item
+      - automation_recommendation
+      description: High-priority toil items trigger automation design
+    - type: notify_human
+      condition: error_budget.exhausted == true OR incident.severity == P1
+      channel: alert
+      description: Error budget exhaustion and P1 incidents surface for leadership review
+    dependencies: []

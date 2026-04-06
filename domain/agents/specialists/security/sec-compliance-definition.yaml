@@ -1,0 +1,463 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sec-compliance-agent
+name: Security Compliance Agent
+description: >
+  Leaf sub-agent of the Security Specialist orchestrator. Manages compliance
+  framework mapping for SOC2, ISO 27001, HIPAA, PCI-DSS, FedRAMP, and GDPR,
+  maintains verified response libraries for security questionnaires (SIG, CAIQ,
+  custom), and prepares audit evidence packages. Tracks regulatory changes and
+  flags stale mappings when regulations or product capabilities evolve.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: security-specialist-agent
+  tags:
+    - compliance
+    - soc2
+    - iso27001
+    - hipaa
+    - pci-dss
+    - fedramp
+    - gdpr
+    - security-questionnaires
+    - audit-preparation
+  responsibility: >
+    Map platform capabilities to compliance frameworks, maintain verified
+    questionnaire response libraries, prepare audit evidence, and track
+    regulatory changes for currency maintenance.
+system_prompt: >
+  You are a Security Compliance Agent, part of the Security Specialist
+  intelligence system. Your job is to provide accurate, evidence-backed
+  compliance mapping and questionnaire response management.
+
+  CORE FUNCTIONS:
+  - Regulatory framework mapping (SOC2, ISO 27001, HIPAA, PCI-DSS, FedRAMP, GDPR)
+  - Compliance posture reports per framework with control evidence
+  - Security questionnaire response with verified answer library (SIG, CAIQ, custom)
+  - Compliance mapping currency maintenance as regulations and product evolve
+  - Audit evidence package preparation
+
+  You MUST:
+  - Map every compliance claim to a specific platform capability with evidence
+  - Track regulatory update dates and flag mappings older than 30 days post-change
+  - Auto-draft questionnaire responses from verified library with staleness indicators
+  - Route novel questionnaire questions to appropriate specialist for first-time authoring
+  - Include framework version numbers in all compliance mapping outputs
+  - Flag questions where cached answers may be outdated due to product or certification changes
+  - Maintain accuracy tracking per response library entry
+
+  You MUST NOT:
+  - Design security architectures or network segmentation (sec-architecture-agent's domain)
+  - Perform threat modeling or vulnerability assessment (sec-threat-agent's domain)
+  - Configure incident response or SIEM/SOAR workflows (sec-incident-agent's domain)
+  - Design IAM, SSO, or MFA architectures (sec-identity-agent's domain)
+  - Evaluate cloud security posture or container security (sec-cloud-agent's domain)
+
+  When uncertain: state which compliance requirements need specialist
+  interpretation, provide the closest mapping with caveats, and flag for
+  legal or compliance officer review. Never guarantee compliance certification.
+human_in_the_loop: true
+tools:
+  - component_type: ClientTool
+    id: read-infohub
+    name: Read InfoHub
+    description: Access customer compliance requirements, regulatory context, and questionnaire submissions
+    requires_confirmation: false
+    inputs:
+      - title: query
+        type: string
+    outputs:
+      - title: data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: InfoHub data unavailable, cannot proceed without compliance context
+        - error_code: STALE_DATA
+          guidance: Data exceeds freshness threshold, flag for human verification
+  - component_type: ClientTool
+    id: read-intelligence
+    name: Read Intelligence
+    description: Access compliance framework specifications, regulatory updates, and verified response libraries
+    requires_confirmation: false
+    inputs:
+      - title: query
+        type: string
+    outputs:
+      - title: intelligence
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+  - component_type: ClientTool
+    id: read-response-library
+    name: Read Response Library
+    description: Access verified security questionnaire response library with accuracy tracking and staleness indicators
+    requires_confirmation: false
+    inputs:
+      - title: framework
+        type: string
+      - title: question_category
+        type: string
+    outputs:
+      - title: responses
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+  - component_type: ClientTool
+    id: write-security-artifact
+    name: Write Security Artifact
+    description: Persist compliance mapping reports, questionnaire responses, and audit evidence packages
+    requires_confirmation: true
+    inputs:
+      - title: artifact_type
+        type: string
+      - title: artifact_content
+        type: object
+    outputs:
+      - title: write_confirmation
+        type: object
+    x-ea-agent:
+      risk: medium
+      resolver: service-registry
+      error_responses:
+        - error_code: WRITE_FAILED
+          guidance: Artifact persistence failed, retain output in memory and retry
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification on compliance requirements or questionnaire scope
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+toolboxes:
+  - component_type: Toolbox
+    id: compliance-outputs
+    name: Compliance Outputs
+    description: Compliance framework mappings, questionnaire responses, and audit evidence available to peer agents
+    tools:
+      - id: get-compliance-mapping
+        name: Get Compliance Mapping
+        description: Returns current compliance mapping for specified framework with control evidence and currency status
+        inputs:
+          - title: framework
+            type: string
+        outputs:
+          - title: compliance_mapping
+            type: object
+      - id: get-questionnaire-coverage
+        name: Get Questionnaire Coverage
+        description: Returns response library coverage percentage and accuracy tracking for specified questionnaire framework
+        inputs:
+          - title: framework
+            type: string
+        outputs:
+          - title: coverage_report
+            type: object
+specialized_agents: []
+flows:
+  - component_type: Flow
+    id: compliance-mapping
+    name: Compliance Framework Mapping
+    description: Map platform capabilities to regulatory framework controls with evidence-backed posture reports.
+    inputs:
+      - title: framework
+        type: string
+      - title: customer_requirements
+        type: object
+    outputs:
+      - title: compliance_mapping
+        type: object
+      - title: posture_report
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: sec-compliance-requirements
+          input: framework, customer_requirements
+          tools:
+            - read-infohub
+            - read-intelligence
+          description: Gather customer compliance requirements and current framework specification with control definitions
+          on_failure: stop
+        - step: 2
+          prompt: sec-compliance-mapping
+          input: framework, customer_requirements, framework_spec
+          tools:
+            - read-intelligence
+          description: Map platform capabilities to framework controls with evidence per control, flag gaps and partial mappings
+          on_failure: stop
+        - step: 3
+          prompt: sec-compliance-report
+          input: compliance_mapping, customer_requirements
+          tools:
+            - write-security-artifact
+          description: Produce compliance posture report with control coverage percentage, gap summary, and remediation recommendations
+          on_failure: stop
+  - component_type: Flow
+    id: questionnaire-response
+    name: Security Questionnaire Response
+    description: Auto-draft security questionnaire responses from verified library with accuracy tracking and staleness detection.
+    inputs:
+      - title: questionnaire
+        type: object
+      - title: framework_type
+        type: string
+    outputs:
+      - title: drafted_responses
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: sec-questionnaire-classify
+          input: questionnaire, framework_type
+          tools:
+            - read-response-library
+          description: Classify each question, match against verified response library, flag novel questions for first-time authoring
+          on_failure: stop
+        - step: 2
+          prompt: sec-questionnaire-draft
+          input: classified_questions, library_matches
+          tools:
+            - read-intelligence
+          description: Draft responses from verified library with staleness indicators, compose answers for novel questions with [NEEDS REVIEW] marker
+          on_failure: stop
+        - step: 3
+          prompt: sec-questionnaire-validate
+          input: drafted_responses
+          tools:
+            - write-security-artifact
+          description: Validate response accuracy, flag outdated library entries, produce final response package with accuracy metadata
+          on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+      - compliance-framework-mapping
+      - security-questionnaire-response
+      - audit-evidence-preparation
+      - regulatory-change-tracking
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent maps capabilities to controls and drafts questionnaire responses,
+      but compliance certification decisions, regulatory interpretation judgment,
+      and risk acceptance for partial compliance belong to the customer's
+      compliance officer and legal counsel. The mapping is engineering; the
+      compliance posture decision is organizational and legal judgment.
+    challenges:
+      - text: Compliance mappings go stale when regulations or product capabilities change without notification
+        specific_overhead:
+          - Monitoring regulatory updates across 6+ frameworks and remapping controls within 30 days
+      - text: Security questionnaires contain overlapping questions across frameworks with subtle differences
+        specific_overhead:
+          - Distinguishing nearly identical questions that require different evidence or precision levels
+      - text: Audit evidence packages must be assembled from multiple sources with traceability chains
+        specific_overhead:
+          - Collecting, organizing, and cross-referencing evidence artifacts across platform capabilities and controls
+    scenarios:
+      - problem: Customer requires SOC2 Type II compliance mapping but platform capabilities have changed since last mapping
+        why: >
+          Product releases add, modify, or deprecate capabilities that affect
+          compliance control mappings. Stale mappings create legal risk when
+          customers rely on them for procurement decisions and audit preparation.
+        agent: sec-compliance-agent
+        agent_response: >
+          Retrieves current platform capabilities, compares against last mapping
+          date, identifies changed controls, remaps affected framework requirements,
+          and produces an updated compliance posture report with change log and
+          confidence indicators per control.
+        success_signal:
+          metric: Compliance mapping currency
+          target: All active mappings updated within 30 days of product or regulatory changes
+          leading_indicator: Change detection flags stale mappings within 72 hours
+          failure_signal: Customer identifies a mapping that references a deprecated capability
+      - problem: Security questionnaire has 200+ questions and deal timeline requires response within 48 hours
+        why: >
+          Large questionnaires are high-stakes but time-consuming. Manual response
+          risks both inaccuracy from rushing and missed deadlines from thoroughness.
+          A verified response library with accuracy tracking enables speed without
+          sacrificing reliability.
+        agent: sec-compliance-agent
+        agent_response: >
+          Classifies each question against verified library, auto-drafts responses
+          for matched questions with staleness checks, flags novel questions for
+          specialist authoring, and produces a complete response package with
+          accuracy metadata and [NEEDS REVIEW] markers on unverified answers.
+        success_signal:
+          metric: Questionnaire response time with accuracy
+          target: 70%+ auto-drafted from verified library with zero accuracy incidents
+          leading_indicator: Library coverage increases after each completed questionnaire
+          failure_signal: Auto-drafted response contains an inaccuracy traced to stale library entry
+  escalation_triggers:
+    - Compliance mapping references a control that no longer exists in the platform
+    - Regulatory change affects 10+ existing customer mappings simultaneously
+    - Questionnaire contains questions requiring legal interpretation beyond compliance mapping
+  prompt_registry:
+    sec-compliance-requirements:
+      description: Gather customer compliance requirements and current framework specification with control definitions
+      source: prompts/tasks.yaml#security.compliance.requirements
+      inputs:
+        - title: framework
+          type: string
+        - title: customer_requirements
+          type: object
+      outputs:
+        - title: requirements_analysis
+          type: object
+      requires_data:
+        - source: read-infohub
+          fields:
+            - customer_compliance_requirements
+            - regulatory_context
+          priority: critical
+    sec-compliance-mapping:
+      description: Map platform capabilities to framework controls with evidence per control
+      source: prompts/tasks.yaml#security.compliance.mapping
+      inputs:
+        - title: framework
+          type: string
+        - title: framework_spec
+          type: object
+      outputs:
+        - title: compliance_mapping
+          type: object
+      requires_data:
+        - source: read-intelligence
+          fields:
+            - platform_capabilities
+            - control_evidence
+          priority: critical
+    sec-questionnaire-classify:
+      description: Classify questionnaire questions against verified response library with match scoring
+      source: prompts/tasks.yaml#security.compliance.questionnaire_classify
+      inputs:
+        - title: questionnaire
+          type: object
+        - title: framework_type
+          type: string
+      outputs:
+        - title: classified_questions
+          type: object
+      requires_data:
+        - source: read-response-library
+          fields:
+            - verified_responses
+            - accuracy_tracking
+          priority: critical
+  boundaries:
+    - Maps compliance frameworks, does not design security architectures (sec-architecture-agent's domain)
+    - Tracks regulatory requirements, does not perform threat modeling (sec-threat-agent's domain)
+    - Prepares audit evidence, does not configure incident response workflows (sec-incident-agent's domain)
+    - Maps compliance controls, does not design IAM or identity federation (sec-identity-agent's domain)
+    - Handles regulatory frameworks, does not evaluate cloud security posture tooling (sec-cloud-agent's domain)
+  permissions:
+    - Read customer compliance requirements and regulatory context
+    - Read compliance framework specifications and control definitions
+    - Access and maintain verified questionnaire response library
+    - Map platform capabilities to regulatory framework controls
+    - Produce compliance posture reports and audit evidence packages
+    - Write compliance mappings and questionnaire responses to artifact store
+  guardrails:
+    input_validation:
+      - Reject compliance mapping requests without specified framework and version
+      - Validate that platform capability data is current before producing mappings
+      - Reject questionnaire response requests without questionnaire content
+    output_checks:
+      - Never guarantee compliance certification (state mapping coverage only)
+      - Include framework version number in every compliance mapping output
+      - Flag responses drafted from library entries older than 90 days as [STALENESS RISK]
+      - All compliance claims must cite specific platform capability with evidence
+      - Novel questionnaire responses must carry [NEEDS REVIEW] marker
+    signal_validation:
+      - Never assert full compliance without mapping every required control
+      - Use "mapping indicates coverage" not "platform is compliant" in outputs
+      - Flag partial control mappings with explicit gap description
+    resource:
+      max_tool_calls: 20
+  error_handling:
+    tool_failures:
+      critical:
+        - read-infohub
+        - read-response-library
+      enrichment:
+        - read-intelligence
+        - write-security-artifact
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce compliance mapping without customer requirements or response library
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, flag missing enrichment sources
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag data freshness concern, compliance mappings require current data
+  knowledge:
+    scope:
+      domains:
+        - compliance
+        - regulatory-frameworks
+        - security-questionnaires
+        - audit-evidence
+      archetypes:
+        - enterprise
+        - regulated-industries
+        - financial-services
+        - healthcare
+    references:
+      - path: references/expertise-architecture-and-compliance.yaml
+        description: Compliance framework specifications, regulatory mapping patterns, and questionnaire response standards
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: security-specialist-agent
+        description: Security Specialist orchestrator routes compliance mapping and questionnaire requests
+      - type: event
+        source: regulatory_update_webhook
+        condition: regulation.framework IN active_mappings AND regulation.change_type IN [amendment, new_requirement, deprecation]
+        description: Auto-triggers mapping review when tracked regulatory framework changes
+    outputs:
+      - type: parent_return
+        target: security-specialist-agent
+        payload:
+          - compliance_mapping
+          - questionnaire_responses
+          - audit_evidence
+        description: Compliance outputs back to orchestrator
+      - type: notify_human
+        condition: mapping.stale_controls > 0 OR questionnaire.novel_questions > 5
+        channel: alert
+        description: Stale mappings and high novel-question counts surface for specialist review
+    consumes_toolboxes:
+      - toolbox: security-architecture-outputs
+        agent: sec-architecture-agent
+        tools:
+          - get-architecture-design
+        reason: Architecture design provides control context for compliance mapping validation
+    dependencies:
+      - agent: sec-architecture-agent
+        toolbox: security-architecture-outputs
+        tools:
+          - get-architecture-design
+        purpose: Security architecture controls inform compliance framework mapping accuracy

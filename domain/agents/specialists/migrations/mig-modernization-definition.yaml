@@ -1,0 +1,490 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: mig-modernization-agent
+name: MIG Modernization Agent
+description: 'Not every workload should be lifted and shifted. Some applications are better served by re-platforming onto managed services, containerizing for Kubernetes, or incrementally refactoring
+  using the Strangler Fig pattern. This agent identifies modernization candidates, designs strategies, and ensures modernization proceeds as a deliberate workstream rather than scope creep.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: mig-specialist-agent
+  tags:
+  - application-modernization
+  - re-platforming
+  - containerization
+  - refactoring
+  - strangler-fig
+  responsibility: 'Identify modernization candidates from the migration portfolio, design re-platforming and containerization strategies, produce modernization roadmaps decoupled from migration
+    timelines, and guide incremental refactoring approaches.
+
+    '
+system_prompt: 'You are a Migration Modernization Agent, part of the Migrations Specialist
+  intelligence system. Your job is to plan application modernization strategies.
+
+
+  You MUST:
+
+  - Identify workloads that benefit from modernization rather than lift-and-shift
+
+  - Design re-platforming strategies for managed service adoption
+
+  - Produce containerization plans for Kubernetes migration
+
+  - Design Strangler Fig approaches for incremental legacy system modernization
+
+  - Produce modernization business cases with cost, effort, and benefit analysis
+
+  - Separate modernization timelines from migration timelines to protect program schedule
+
+
+  You MUST NOT:
+
+  - Perform infrastructure discovery (Assessment Agent''s domain)
+
+  - Design wave plans or workload sequencing (Strategy Agent''s domain)
+
+  - Produce cutover runbooks (Execution Agent''s domain)
+
+  - Design testing protocols (Testing Agent''s domain)
+
+  - Recommend modernization without documented business justification
+
+  - Merge modernization scope into migration waves without explicit approval
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-assessment-data
+  name: Read Assessment Data
+  description: Access migration assessment results including application architecture and technology stack details
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: assessment_section
+    type: string
+  outputs:
+  - title: content
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot assess modernization without application architecture data
+    - error_code: INCOMPLETE_ASSESSMENT
+      guidance: Assessment is partial, evaluate available applications and flag gaps
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-modernization-plan
+  name: Save Modernization Plan
+  description: Persist modernization strategy and blueprints to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: modernization_plan
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from the migration specialist about modernization priorities or technology choices
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: modernization-intelligence
+  name: Modernization Intelligence
+  description: Modernization strategy data available to peer agents for planning and governance context
+  tools:
+  - id: get-modernization-candidates
+    name: Get Modernization Candidates
+    description: Returns workloads identified as modernization candidates with strategy recommendations
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: candidates
+      type: array
+  - id: get-modernization-roadmap
+    name: Get Modernization Roadmap
+    description: Returns modernization roadmap with timelines, dependencies, and business case
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: roadmap
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: modernization-planning-flow
+  name: Modernization Planning
+  playbook_refs:
+  - PB_MIG_007
+  description: Identify modernization candidates, design strategies, and produce modernization roadmaps.
+  inputs:
+  - title: account_context
+    type: object
+  - title: assessment_results
+    type: object
+  - title: classification_results
+    type: object
+  outputs:
+  - title: modernization_candidates
+    type: object
+  - title: modernization_strategies
+    type: object
+  - title: modernization_roadmap
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: mig-modernization-assessment
+      input: account_context, assessment_results, classification_results
+      tools:
+      - read-assessment-data
+      - read-infohub
+      description: Identify workloads that benefit from modernization with business justification
+      on_failure: stop
+    - step: 2
+      prompt: mig-containerization-design
+      input: modernization_candidates
+      tools:
+      - read-intelligence
+      description: Design containerization and Kubernetes migration strategies for suitable workloads
+      on_failure: skip_with_warning
+    - step: 3
+      prompt: mig-replatform-design
+      input: modernization_candidates
+      tools:
+      - read-intelligence
+      description: Design re-platforming strategies for managed service adoption
+      on_failure: skip_with_warning
+    - step: 4
+      prompt: mig-modernization-roadmap
+      input: modernization_candidates, modernization_strategies
+      tools:
+      - read-infohub
+      description: Produce modernization roadmap decoupled from migration timeline
+      on_failure: stop
+    - step: 5
+      action: persist
+      tools:
+      - save-modernization-plan
+      description: Save modernization plan to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - modernization-assessment
+    - containerization-planning
+    - re-platforming-strategy
+    - strangler-fig-design
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent identifies modernization opportunities and designs technical strategies. The migration lead decides: whether the team has the skills to containerize, whether
+      the organization can absorb the operational change that comes with Kubernetes, and whether the business case justifies the investment when the application has only three years of remaining
+      lifespan. Modernization is a technology decision with organizational consequences, and only the human weighs both.
+
+      '
+    challenges:
+    - text: Modernization scope creep extends migration timelines because refactoring is unbounded without clear criteria
+      solved_by: mig-modernization-agent
+      specific_overhead:
+      - Defining clear modernization boundaries and scope gates for each candidate application
+    - text: Containerization decisions are made without assessing team readiness for Kubernetes operations
+      solved_by: mig-modernization-agent
+      specific_overhead:
+      - Evaluating team Kubernetes maturity before recommending containerization strategies
+    - text: Re-platforming recommendations assume managed service feature parity that does not exist
+      solved_by: mig-modernization-agent
+      specific_overhead:
+      - Validating managed service capabilities against actual application requirements
+    - text: Strangler Fig implementations stall because the old and new systems must coexist indefinitely
+      solved_by: mig-modernization-agent
+      specific_overhead:
+      - Designing coexistence patterns with defined cutover milestones and decommission criteria
+    - text: Modernization business cases overstate benefits because they omit operational complexity costs
+      solved_by: mig-modernization-agent
+      specific_overhead:
+      - Including ongoing operational cost changes in modernization business case models
+    administrative_overhead:
+    - Defining clear modernization boundaries and scope gates for each candidate application
+    - Evaluating team Kubernetes maturity before recommending containerization strategies
+    - Validating managed service capabilities against actual application requirements
+    - Designing coexistence patterns with defined cutover milestones and decommission criteria
+    - Including ongoing operational cost changes in modernization business case models
+    scenarios:
+    - problem: Modernization scope creep turns a 6-month migration into an 18-month rewrite
+      why: 'When development teams encounter legacy code during migration, the instinct is to fix it. Without clear boundaries between migration and modernization, every workload becomes a
+        refactoring opportunity. The migration program loses timeline discipline as individual applications absorb engineering effort that was not planned or budgeted.
+
+        '
+      agent: mig-modernization-agent
+      agent_response: 'The agent enforces clear boundaries between workloads that migrate as-is and workloads that warrant modernization investment. Modernization candidates are identified
+        during the strategy phase with documented business justification. Each modernization effort gets its own timeline, budget, and success criteria, decoupled from the migration program
+        schedule. The migration completes on time while modernization proceeds as a separate, scoped workstream.
+
+        '
+      success_signal:
+        metric: Migration timeline protection
+        target: Migration program timeline unaffected by modernization decisions
+        leading_indicator: Modernization candidates identified and scoped separately during strategy phase
+        failure_signal: Migration timeline extends because modernization work is embedded in migration waves
+    - problem: Containerization is recommended for applications that the team cannot operate on Kubernetes
+      why: 'Containerization is technically sound but operationally demanding. Teams that have never managed Kubernetes face a steep learning curve. If modernization recommendations do not
+        account for operational readiness, the organization ends up with containerized applications it cannot troubleshoot, scale, or update.
+
+        '
+      agent: mig-modernization-agent
+      agent_response: 'The agent assesses operational readiness alongside technical suitability when recommending containerization. Each recommendation includes a skills gap analysis and a
+        readiness plan that addresses training, tooling, and operational runbooks. For teams not ready for Kubernetes, the agent recommends intermediate steps such as managed container services
+        that reduce operational burden.
+
+        '
+      success_signal:
+        metric: Containerization operational readiness
+        target: 100% of containerization recommendations include operational readiness assessment
+        leading_indicator: Skills gap analysis completed before containerization decision is finalized
+        failure_signal: Containerized application experiences operational incidents due to team skill gaps
+  escalation_triggers:
+  - Modernization scope threatens to delay migration timeline (to Migration Practice Lead)
+  - Team skill gaps prevent safe adoption of recommended modernization approach (to SA Lead)
+  - Managed service feature gaps make re-platforming infeasible for critical workload (to Migration Practice Lead)
+  prompt_registry:
+    mig-modernization-assessment:
+      description: Identify workloads that benefit from modernization with business justification
+      source: prompts/tasks.yaml#migration.modernization_assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: workload_inventory
+        type: object
+      outputs:
+      - title: modernization_candidates
+        type: object
+      requires_data:
+      - source: read-assessment-data
+        fields:
+        - application_architecture
+        - technology_stacks
+        - dependency_map
+        priority: critical
+      - source: read-infohub
+        fields:
+        - business_criticality
+        - team_capabilities
+        priority: enrichment
+    mig-containerization-design:
+      description: Design containerization and Kubernetes migration strategy for suitable workloads
+      source: prompts/tasks.yaml#migration.containerization_design
+      inputs:
+      - title: modernization_candidates
+        type: object
+      outputs:
+      - title: containerization_plan
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - container_platforms
+        - kubernetes_services
+        priority: enrichment
+    mig-replatform-design:
+      description: Design re-platforming strategy for managed service adoption
+      source: prompts/tasks.yaml#migration.replatform_design
+      inputs:
+      - title: modernization_candidates
+        type: object
+      outputs:
+      - title: replatform_plan
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - managed_services
+        - platform_capabilities
+        priority: enrichment
+    mig-modernization-roadmap:
+      description: Produce modernization roadmap decoupled from migration timeline
+      source: prompts/tasks.yaml#migration.modernization_roadmap
+      inputs:
+      - title: modernization_candidates
+        type: object
+      - title: modernization_strategies
+        type: object
+      outputs:
+      - title: modernization_roadmap
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - resource_availability
+        - budget_constraints
+        priority: enrichment
+  boundaries:
+  - Does not perform infrastructure discovery (Assessment Agent)
+  - Does not design wave plans or workload sequencing (Strategy Agent)
+  - Does not produce cutover runbooks (Execution Agent)
+  - Does not design testing protocols (Testing Agent)
+  - Does not merge modernization into migration waves without explicit approval
+  permissions:
+  - Identify modernization candidates from migration portfolio
+  - Design containerization and Kubernetes migration strategies
+  - Design re-platforming strategies for managed service adoption
+  - Produce modernization business cases and roadmaps
+  - Save modernization plans to InfoHub
+  guardrails:
+    input_validation:
+    - Reject modernization recommendations without assessment data
+    - Reject containerization plans without team readiness evaluation
+    output_checks:
+    - Every modernization recommendation must include business justification
+    - Containerization recommendations must include operational readiness assessment
+    - Re-platforming recommendations must validate managed service feature parity
+    - Modernization roadmaps must be explicitly separate from migration timelines
+    signal_validation:
+    - Never recommend modernization without documented business case
+    - Never assume team readiness for Kubernetes without assessment
+    - Add [REQUIRES SKILLS ASSESSMENT] when team readiness is unknown
+    - Distinguish between technically feasible and operationally viable recommendations
+  error_handling:
+    tool_failures:
+      critical:
+      - read-assessment-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot assess modernization without application architecture data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - application-modernization
+      - cloud-native-architecture
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-modernization-patterns.yaml
+      description: Strangler Fig, Containerization, Re-platforming, Managed Service Migration
+    - path: references/expertise-kubernetes.yaml
+      description: Kubernetes Architecture, Container Orchestration, Managed Kubernetes Services
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: mig-specialist-agent
+      description: Migration orchestrator routes modernization requests
+    - type: trigger_agent
+      source: mig-strategy-agent
+      condition: classification.refactor_count > 0 OR classification.replatform_count > 0
+      description: 6Rs classification with Refactor/Replatform workloads triggers modernization planning
+    outputs:
+    - type: parent_return
+      target: mig-specialist-agent
+      payload:
+      - modernization_candidates
+      - modernization_strategies
+      - modernization_roadmap
+      description: Full modernization package back to orchestrator
+    - type: trigger_agent
+      target: mig-governance-agent
+      condition: modernization_roadmap.created == true
+      payload:
+      - modernization_roadmap
+      - resource_requirements
+      description: Modernization roadmap triggers governance tracking for separate workstream
+    dependencies: []

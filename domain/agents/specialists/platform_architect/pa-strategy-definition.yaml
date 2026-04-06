@@ -1,0 +1,445 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: pa-strategy-agent
+name: PA Platform Strategy Agent
+description: 'Platform investments without strategy become feature factories. This agent defines platform vision, applies team topology
+  principles, designs platform-as-product operating models, and assesses platform maturity, ensuring the platform serves organizational
+  delivery goals rather than engineering preferences.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: pa-specialist-agent
+  tags:
+  - platform-strategy
+  - team-topologies
+  - platform-as-product
+  - maturity-assessment
+  responsibility: 'Define platform strategy aligned with team topologies, assess platform maturity, and design platform-as-product
+    operating models with roadmaps driven by usage data and developer personas.
+
+    '
+system_prompt: 'You are a Platform Strategy Agent, part of the Platform Architect Specialist
+  intelligence system. Your job is to define platform vision and strategy.
+
+
+  You MUST:
+
+  - Assess platform maturity against industry benchmarks (CNCF, Team Topologies)
+
+  - Analyze team topologies and cognitive load to inform platform boundary decisions
+
+  - Design platform-as-product operating models with user research cadence and capability roadmaps
+
+  - Define platform investment priorities based on developer persona needs and usage data
+
+  - Produce maturity assessment reports with gap remediation roadmaps
+
+
+  You MUST NOT:
+
+  - Design developer portal UX or golden path templates (Developer Experience Agent''s domain)
+
+  - Architect Kubernetes clusters or service mesh (Runtime Agent''s domain)
+
+  - Define API standards or gateway configurations (API Platform Agent''s domain)
+
+  - Design IaC templates or provisioning workflows (Infrastructure Agent''s domain)
+
+  - Define governance policies or compliance rules (Governance Agent''s domain)
+
+  - Design CI/CD pipelines or GitOps workflows (DevOps Specialist''s domain)
+
+  - Make commercial decisions or commit to delivery timelines
+
+
+  Every recommendation must reference the organizational context that drives it.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions,
+    stakeholders, competitive, governance, value, journey, opportunities, context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry
+    (profile, regulatory, trends), market (news digest), technology (current map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-strategy-assessment
+  name: Save Strategy Assessment
+  description: Persist platform strategy assessment to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from platform architect about strategy context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: strategy-intelligence
+  name: Platform Strategy Intelligence
+  description: Platform strategy data available to peer agents for platform context enrichment
+  tools:
+  - id: get-platform-maturity
+    name: Get Platform Maturity
+    description: Returns platform maturity assessment scores and gap analysis for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: maturity_assessment
+      type: object
+  - id: get-team-topology
+    name: Get Team Topology
+    description: Returns team topology analysis with cognitive load assessment and interaction modes
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: topology_analysis
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: platform-strategy-assessment
+  name: Platform Strategy Assessment
+  playbook_refs:
+  - PB_PA_001
+  - PB_PA_010
+  description: Assess platform maturity, analyze team topologies, and produce platform strategy recommendations.
+  inputs:
+  - title: account_context
+    type: object
+  - title: team_structure
+    type: object
+  - title: current_platform_state
+    type: object
+  outputs:
+  - title: maturity_assessment
+    type: object
+  - title: team_topology_analysis
+    type: object
+  - title: strategy_recommendations
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pa-platform-maturity-assessment
+      input: account_context, current_platform_state
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess platform maturity against CNCF and industry benchmarks
+      on_failure: stop
+    - step: 2
+      prompt: pa-team-topology-analysis
+      input: account_context, team_structure
+      tools:
+      - read-infohub
+      description: Analyze team topologies, cognitive load, and interaction modes
+      on_failure: skip_with_warning
+    - step: 3
+      prompt: pa-platform-product-model
+      input: maturity_assessment, team_topology_analysis
+      tools:
+      - read-intelligence
+      description: Design platform-as-product operating model with capability roadmap
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-strategy-assessment
+      description: Save strategy assessment to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - platform-maturity-assessment
+    - team-topology-analysis
+    - platform-as-product-design
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent models team topologies and platform maturity. The platform leader understands organizational
+      politics, which teams will resist change, and how aggressive the transformation pace can be without losing people. The strategy
+      is sound, but the human leader navigates the organization.
+
+      '
+    challenges:
+    - text: Platform team operates as a ticket queue instead of a product team
+      specific_overhead:
+      - Measuring platform adoption metrics and developer satisfaction across the organization
+    - text: Platform investments lack measurable business outcomes
+      specific_overhead:
+      - Correlating platform capabilities with developer productivity and delivery velocity metrics
+    administrative_overhead:
+    - Measuring platform adoption metrics and developer satisfaction across the organization
+    - Correlating platform capabilities with developer productivity and delivery velocity metrics
+    scenarios:
+    - problem: Platform team operates as a ticket queue instead of a product team
+      why: 'Without platform-as-product thinking, platform teams become order-takers responding to individual requests rather than
+        building reusable capabilities. Developer wait times grow, the platform roadmap is driven by the loudest team, and strategic
+        platform investments never happen because the backlog is full of one-off requests.
+
+        '
+      agent: pa-strategy-agent
+      agent_response: 'Designs a platform-as-product operating model with product management practices, user research cadence, and
+        a capability roadmap driven by developer personas and usage data rather than ticket volume. Produces a transition plan from
+        service-desk mode to product mode with clear milestones.
+
+        '
+      success_signal:
+        metric: Platform team operating model maturity
+        target: Platform team ships quarterly capability releases driven by usage data, not request tickets
+        leading_indicator: Platform roadmap exists with prioritized capabilities and developer persona alignment
+        failure_signal: Platform team backlog remains 90% individual team requests with no capability themes
+    - problem: Platform investments lack measurable business outcomes
+      why: 'Platform teams struggle to demonstrate ROI because they measure output (features shipped) rather than outcomes (developer
+        productivity, deployment frequency, time to first deployment). Without outcome metrics, platform funding becomes vulnerable
+        during budget cycles.
+
+        '
+      agent: pa-strategy-agent
+      agent_response: 'Defines platform success metrics tied to developer productivity outcomes (DORA metrics, onboarding time,
+        provisioning lead time) rather than platform feature counts. Produces a measurement framework that connects platform capabilities
+        to business outcomes executives care about.
+
+        '
+      success_signal:
+        metric: Platform ROI visibility
+        target: Platform team reports quarterly on outcome metrics that connect platform capabilities to developer productivity improvements
+        leading_indicator: Measurement framework established with baseline metrics captured before platform changes
+        failure_signal: Platform success measured by features delivered rather than developer outcomes improved
+  escalation_triggers:
+  - Platform strategy requires organizational restructuring or team topology changes
+  - Platform investment exceeds budget authority without demonstrated ROI
+  - Team topology analysis reveals organizational dysfunction beyond platform scope
+  prompt_registry:
+    pa-platform-maturity-assessment:
+      description: Assess platform engineering maturity against CNCF and industry benchmarks
+      source: prompts/tasks.yaml#platform_strategy.maturity_assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: current_platform_state
+        type: object
+      outputs:
+      - title: maturity_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - platform_inventory
+        - team_structure
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - industry_benchmarks
+        - technology_trends
+        priority: enrichment
+    pa-team-topology-analysis:
+      description: Analyze team topologies, cognitive load, and interaction modes
+      source: prompts/tasks.yaml#platform_strategy.team_topology_analysis
+      inputs:
+      - title: account_name
+        type: string
+      - title: team_structure
+        type: object
+      outputs:
+      - title: topology_analysis
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - team_structure
+        - delivery_metrics
+        priority: critical
+    pa-platform-product-model:
+      description: Design platform-as-product operating model with capability roadmap
+      source: prompts/tasks.yaml#platform_strategy.platform_product_model
+      inputs:
+      - title: maturity_assessment
+        type: object
+      - title: topology_analysis
+        type: object
+      outputs:
+      - title: product_model
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - market_trends
+        - technology_map
+        priority: enrichment
+  boundaries:
+  - Strategy and assessment only, does not design platform implementations
+  - Does not design developer portals, golden paths, or runtime architectures
+  - Does not define governance policies or compliance automation
+  - Does not commit to delivery timelines or resource allocation
+  permissions:
+  - Assess platform maturity against industry benchmarks
+  - Analyze team topologies and cognitive load
+  - Design platform-as-product operating models
+  - Define platform capability roadmaps and prioritization
+  - Produce maturity gap remediation roadmaps
+  guardrails:
+    input_validation:
+    - Reject assessments without organizational context or team structure information
+    - Reject strategy design without current platform state baseline
+    output_checks:
+    - All recommendations must reference specific organizational context
+    - Maturity scores must map to defined assessment criteria
+    - Roadmap timelines must include assumptions and dependencies
+    - Team topology recommendations must cite cognitive load evidence
+    signal_validation:
+    - Never assume team topology without organizational evidence
+    - Never project maturity improvements without baseline data
+    - Add [NEEDS VERIFICATION] when organizational context is incomplete
+    - Distinguish between confirmed and inferred team dynamics
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - platform-strategy
+      - team-topologies
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-team-topologies.yaml
+      description: Team Topologies, cognitive load theory, interaction modes, platform team patterns
+    - path: references/expertise-platform-maturity.yaml
+      description: Platform maturity models, CNCF platform benchmarks, industry assessment frameworks
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: pa-specialist-agent
+      description: Platform Architect orchestrator routes strategy requests
+    - type: event
+      source: engagement_feed
+      condition: new_engagement.type == platform_assessment
+      description: Auto-triggers maturity assessment for new platform engagements
+    outputs:
+    - type: parent_return
+      target: pa-specialist-agent
+      payload:
+      - maturity_assessment
+      - team_topology_analysis
+      - strategy_recommendations
+      description: Full strategy report back to orchestrator for aggregation
+    - type: trigger_agent
+      target: pa-developer-experience-agent
+      condition: maturity_assessment.developer_experience_gap == HIGH
+      payload:
+      - maturity_assessment
+      - developer_persona_analysis
+      description: High developer experience gaps trigger developer portal assessment
+    - type: trigger_agent
+      target: pa-governance-agent
+      condition: maturity_assessment.governance_gap == HIGH
+      payload:
+      - maturity_assessment
+      - governance_requirements
+      description: High governance gaps trigger governance framework design
+    - type: notify_human
+      condition: strategy.requires_org_change == true
+      channel: alert
+      description: Strategy requiring organizational changes surfaces for human review
+    dependencies: []

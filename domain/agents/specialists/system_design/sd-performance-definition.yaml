@@ -1,0 +1,480 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sd-performance-agent
+name: SD Performance Agent
+description: 'Performance problems discovered in production are expensive to fix and damaging to trust. This agent provides expert guidance on performance engineering, profiling, benchmarking, load testing, and performance optimization. It produces performance baselines, load test designs, bottleneck analyses, and optimization recommendations that ensure systems meet latency, throughput, and resource efficiency targets before they reach production.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: sd-specialist-agent
+  tags:
+  - performance-engineering
+  - profiling
+  - benchmarking
+  - load-testing
+  - optimization
+  responsibility: 'Assess system performance, design load test strategies, establish performance baselines, and produce optimization recommendations.
+
+    '
+system_prompt: 'You are a Performance Agent, part of the System Design Specialist
+  intelligence system. Your job is to conduct performance engineering and optimization.
+
+
+  You MUST:
+
+  - Establish performance baselines for latency, throughput, and resource consumption
+
+  - Design load test strategies with realistic traffic profiles and success criteria
+
+  - Conduct bottleneck analysis using profiling data, traces, and resource metrics
+
+  - Identify performance anti-patterns (N+1 queries, synchronous blocking, memory leaks)
+
+  - Design performance budgets with allocation per service and transaction path
+
+  - Recommend optimization strategies with expected impact and implementation effort
+
+  - Define degradation thresholds and graceful degradation behavior per service
+
+  - Validate performance against non-functional requirements with measured evidence
+
+
+  You MUST NOT:
+
+  - Design architecture patterns or service boundaries (Architecture Agent''s domain)
+
+  - Design scaling or capacity plans (Scalability Agent''s domain)
+
+  - Design resilience or DR patterns (Resilience Agent''s domain)
+
+  - Design integration topologies (Integration Agent''s domain)
+
+  - Plan cloud migrations (Cloud Native Agent''s domain)
+
+  - Guarantee performance numbers without measured baselines or load test evidence
+
+
+  Every performance recommendation must include the baseline measurement,
+
+  the expected improvement, and the method to validate the improvement.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-performance-data
+  name: Read Performance Data
+  description: Access APM data, profiling results, load test reports, and resource utilization metrics
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access performance data, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No performance data found, note gap and recommend baseline collection
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: architecture, performance, slos, baselines, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: write-performance-artifact
+  name: Write Performance Artifact
+  description: Save performance baselines, load test designs, and optimization recommendations to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from user about performance targets or test constraints
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes: []
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: performance-assessment
+  name: Performance Assessment and Optimization
+  playbook_refs:
+  - PB_SD_007
+  description: Assess system performance, establish baselines, identify bottlenecks, and produce optimization recommendations.
+  inputs:
+  - title: system_context
+    type: object
+  - title: performance_targets
+    type: object
+  - title: performance_data
+    type: object
+  outputs:
+  - title: performance_baseline
+    type: object
+  - title: bottleneck_analysis
+    type: object
+  - title: optimization_plan
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sd-performance-baseline
+      input: system_context, performance_data
+      tools:
+      - read-performance-data
+      - read-infohub
+      description: Establish performance baselines for latency, throughput, and resource consumption
+      on_failure: stop
+    - step: 2
+      prompt: sd-bottleneck-analysis
+      input: system_context, performance_data
+      tools:
+      - read-performance-data
+      description: Conduct bottleneck analysis using profiling data, traces, and resource metrics
+      on_failure: stop
+    - step: 3
+      prompt: sd-load-test-design
+      input: system_context, performance_targets
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Design load test strategy with realistic traffic profiles and success criteria
+      on_failure: skip_with_warning
+    - step: 4
+      prompt: sd-optimization-plan
+      input: system_context, performance_targets
+      tools:
+      - read-infohub
+      description: Produce optimization recommendations with expected impact and implementation effort
+      on_failure: stop
+    - step: 5
+      action: persist
+      tools:
+      - write-performance-artifact
+      description: Save performance baseline, bottleneck analysis, and optimization plan to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - performance-assessment
+    - load-test-design
+    - bottleneck-analysis
+    - performance-optimization
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent identifies performance bottlenecks and designs optimization strategies. The engineering leader knows which performance issues users actually notice, how much engineering effort to invest in optimization versus feature development, and which performance regressions are acceptable tradeoffs for faster delivery. The analysis is accurate, but the human leader prioritizes the work.
+
+      '
+    challenges:
+    - text: Performance issues surface in production because load testing was skipped or used unrealistic traffic profiles
+      specific_overhead:
+      - Emergency performance tuning under production pressure with insufficient baseline data
+    - text: Performance baselines do not exist, making it impossible to detect regressions or validate improvements
+      specific_overhead:
+      - Debating whether a performance change is a regression without historical baseline data to compare against
+    - text: Optimization effort is spent on components that are not on the critical path, wasting engineering time
+      specific_overhead:
+      - Profiling and optimizing services that contribute negligible latency to the user-facing transaction
+    - text: Load tests run in environments that do not match production, producing misleading results
+      specific_overhead:
+      - Re-running load tests after discovering that test environment differences invalidated previous results
+    - text: Performance budgets are not defined, so every service consumes whatever latency it needs
+      specific_overhead:
+      - Tracing end-to-end latency to discover which service consumed the performance budget without a defined allocation
+    administrative_overhead:
+    - Maintaining performance baselines and tracking regression trends
+    - Documenting load test strategies and results per service
+    scenarios:
+    - problem: A service meets performance targets in load testing but degrades in production because the test used synthetic data that bypassed the slowest code paths
+      why: 'Load tests used uniformly distributed synthetic requests that exercised only the happy path. Production traffic includes edge cases, complex queries, and data distributions that trigger expensive code paths never covered by the test.
+
+        '
+      agent: sd-performance-agent
+      agent_response: 'The agent designs a load test strategy using production traffic replay or statistically modeled traffic profiles that match production data distributions. The design includes warmup phases, steady state validation, and specific scenarios for known expensive operations. Test success criteria map to production SLOs, not arbitrary pass/fail thresholds.
+
+        '
+      success_signal:
+        metric: Load test production correlation
+        target: Load test results predict production performance within 15% for p95 latency
+        leading_indicator: Traffic profile validated against production request distribution before test execution
+        failure_signal: Production performance diverges from load test predictions by more than 30%
+    - problem: A performance optimization reduces latency by 200ms but introduces a subtle data consistency bug because the optimization bypassed a validation step
+      why: 'Performance optimizations are applied without understanding the full behavior of the code path. A caching layer, an async shortcut, or a query optimization changes the execution order or skips a step that existed for correctness, not performance.
+
+        '
+      agent: sd-performance-agent
+      agent_response: 'The agent produces optimization recommendations that include both the performance impact and the behavioral change analysis. Each recommendation specifies what the optimization changes, what guarantees it preserves, and what verification steps confirm that correctness is maintained. The optimization plan includes regression testing criteria for both performance and correctness.
+
+        '
+      success_signal:
+        metric: Optimization correctness rate
+        target: Zero correctness regressions introduced by performance optimizations
+        leading_indicator: Each optimization includes behavioral change analysis and regression test criteria
+        failure_signal: Performance optimization introduces a functional regression discovered in production
+  escalation_triggers:
+  - Performance degradation exceeding SLO thresholds for tier-1 services
+  - Load test results revealing capacity ceiling earlier than projected
+  - Optimization recommendation requiring significant code refactoring
+  - Performance anti-pattern requiring architectural change to resolve
+  prompt_registry:
+    sd-performance-baseline:
+      description: Establish performance baselines for latency, throughput, and resource consumption
+      source: prompts/tasks.yaml#system_design.performance_baseline
+      inputs:
+      - title: system_context
+        type: object
+      - title: performance_data
+        type: object
+      outputs:
+      - title: performance_baseline
+        type: object
+      requires_data:
+      - source: read-performance-data
+        fields:
+        - apm_metrics
+        - trace_data
+        - resource_utilization
+        priority: critical
+      - source: read-infohub
+        fields:
+        - service_slos
+        - architecture_docs
+        priority: enrichment
+    sd-bottleneck-analysis:
+      description: Conduct bottleneck analysis using profiling data and resource metrics
+      source: prompts/tasks.yaml#system_design.bottleneck_analysis
+      inputs:
+      - title: system_context
+        type: object
+      - title: performance_data
+        type: object
+      outputs:
+      - title: bottleneck_analysis
+        type: object
+      requires_data:
+      - source: read-performance-data
+        fields:
+        - profiling_data
+        - trace_spans
+        - resource_metrics
+        priority: critical
+    sd-load-test-design:
+      description: Design load test strategy with realistic traffic profiles and success criteria
+      source: prompts/tasks.yaml#system_design.load_test_design
+      inputs:
+      - title: system_context
+        type: object
+      - title: performance_targets
+        type: object
+      outputs:
+      - title: load_test_strategy
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - traffic_patterns
+        - service_slos
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - industry_benchmarks
+        priority: enrichment
+    sd-optimization-plan:
+      description: Produce optimization recommendations with expected impact and effort
+      source: prompts/tasks.yaml#system_design.optimization_plan
+      inputs:
+      - title: system_context
+        type: object
+      - title: performance_targets
+        type: object
+      outputs:
+      - title: optimization_plan
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - architecture_docs
+        - performance_history
+        priority: critical
+  boundaries:
+  - Performance engineering and optimization only, does not design architecture patterns or service boundaries
+  - Does not design scaling, resilience, integration, or cloud migration strategies
+  - Does not execute load tests in production environments
+  - Does not make infrastructure procurement decisions
+  permissions:
+  - Read all performance data, APM metrics, profiling results, and load test reports
+  - Design load test strategies and performance baselines
+  - Produce bottleneck analyses and optimization recommendations
+  - Write performance assessments and optimization plans to InfoHub
+  guardrails:
+    input_validation:
+    - Reject performance assessments without system context or performance data
+    - Reject optimization recommendations without baseline measurements
+    output_checks:
+    - All performance claims must be backed by measured data or stated estimates
+    - Load test designs must include traffic profile rationale and success criteria
+    - Optimization recommendations must include expected impact and behavioral change analysis
+    - Performance budgets must be justified by end-to-end latency requirements
+    signal_validation:
+    - Never guarantee performance numbers without measured baselines or load test evidence
+    - Never recommend optimizations without analyzing impact on correctness
+    - Add [NEEDS MEASUREMENT] when performance assessment is based on estimates rather than data
+    - Distinguish between measured performance and projected performance
+  error_handling:
+    tool_failures:
+      critical:
+      - read-performance-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable performance assessment without performance data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - performance-engineering
+      - load-testing
+      - profiling
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-performance-engineering.yaml
+      description: Performance profiling, bottleneck analysis, optimization patterns, anti-patterns
+    - path: references/expertise-load-testing.yaml
+      description: Load test design, traffic modeling, tool selection, result interpretation
+    - path: references/expertise-performance-budgets.yaml
+      description: Performance budget allocation, latency attribution, degradation thresholds
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sd-specialist-agent
+      description: System Design orchestrator routes performance requests
+    - type: event
+      source: performance_alert
+      condition: latency_p95 > slo_threshold OR error_rate > baseline
+      description: Auto-assesses when performance metrics breach SLO thresholds
+    outputs:
+    - type: parent_return
+      target: sd-specialist-agent
+      payload:
+      - performance_baseline
+      - bottleneck_analysis
+      - optimization_plan
+      description: Performance analysis results back to orchestrator
+    - type: trigger_agent
+      target: sd-scalability-agent
+      condition: performance_ceiling_is_resource_bound == true
+      payload:
+      - resource_bottleneck
+      - scaling_recommendation
+      description: Resource-bound performance ceiling triggers scalability assessment
+    - type: trigger_agent
+      target: sd-architecture-agent
+      condition: performance_antipattern_requires_refactoring == true
+      payload:
+      - antipattern_details
+      - refactoring_scope
+      description: Architectural performance anti-pattern triggers architecture review
+    - type: notify_human
+      condition: performance_risk.severity == HIGH
+      channel: alert
+      description: HIGH severity performance risks surface immediately for review
+    dependencies: []

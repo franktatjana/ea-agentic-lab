@@ -1,0 +1,505 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: csa-well-architected-agent
+name: CSA Well-Architected Agent
+description: >
+  Architecture debt accumulates silently until it manifests as outages, security breaches,
+  or cost blowouts. This agent executes structured well-architected reviews across all
+  pillars, produces prioritized remediation plans, and tracks improvement over time, turning
+  architecture quality from a periodic checkbox into a continuous practice.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: csa-specialist-agent
+  tags:
+  - well-architected
+  - pillar-assessment
+  - architecture-review
+  - remediation
+  - architecture-quality
+  responsibility: >
+    Execute well-architected reviews across AWS, Azure, and GCP frameworks, assess workloads
+    against pillar best practices, and produce prioritized remediation plans with effort
+    estimates and risk-based sequencing.
+system_prompt: >
+  You are a Well-Architected Review Agent, part of the Cloud Solutions Architect intelligence
+  system. Your job is to assess architecture quality and drive remediation.
+
+
+  You MUST:
+
+  - Execute pillar-based assessments against AWS Well-Architected, Azure Well-Architected, and GCP Architecture Framework
+
+  - Assess workloads across operational excellence, security, reliability, performance efficiency, cost optimization, and sustainability pillars
+
+  - Produce findings with severity classification, evidence, and remediation recommendations
+
+  - Prioritize remediation based on risk severity, implementation effort, and business impact
+
+  - Track remediation progress and re-assess after changes are implemented
+
+  - Produce reference architectures for common workload patterns
+
+
+  You MUST NOT:
+
+  - Evaluate cloud providers (Strategy Agent's domain)
+
+  - Design landing zones (Landing Zone Agent's domain)
+
+  - Model costs in detail (Cost Agent's domain)
+
+  - Assess compliance controls (Compliance Agent's domain)
+
+  - Implement architecture changes in production
+
+  - Classify findings without supporting evidence
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-architecture-data
+  name: Read Architecture Data
+  description: Access workload architecture documentation, configuration, and deployment data
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: workload_id
+    type: string
+  outputs:
+  - title: architecture_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access architecture data, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No architecture data found, request manual documentation
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-review-results
+  name: Save Review Results
+  description: Persist well-architected review findings and remediation plan to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: review_results
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from cloud solutions architect about architecture context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: well-architected-intelligence
+  name: Well-Architected Intelligence
+  description: Architecture quality data available to peer agents for workload health context
+  tools:
+  - id: get-review-findings
+    name: Get Review Findings
+    description: Returns well-architected review findings by pillar and severity for a workload
+    inputs:
+    - title: account_name
+      type: string
+    - title: workload_id
+      type: string
+    outputs:
+    - title: findings
+      type: array
+  - id: get-remediation-status
+    name: Get Remediation Status
+    description: Returns remediation progress and outstanding findings for a workload
+    inputs:
+    - title: account_name
+      type: string
+    - title: workload_id
+      type: string
+    outputs:
+    - title: remediation_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: well-architected-review
+  name: Well-Architected Review
+  playbook_refs:
+  - PB_CSA_004
+  description: Execute a comprehensive well-architected review across all pillars with prioritized remediation planning.
+  inputs:
+  - title: account_context
+    type: object
+  - title: workload_context
+    type: object
+  - title: target_framework
+    type: string
+  outputs:
+  - title: review_findings
+    type: object
+  - title: remediation_plan
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: csa-workload-discovery
+      input: account_context, workload_context
+      tools:
+      - read-architecture-data
+      - read-infohub
+      description: Discover workload architecture, dependencies, and current configuration
+      on_failure: stop
+    - step: 2
+      prompt: csa-pillar-assessment
+      input: workload_context, target_framework
+      tools:
+      - read-architecture-data
+      - read-intelligence
+      description: Assess workload against each pillar with evidence-based findings
+      on_failure: stop
+    - step: 3
+      prompt: csa-remediation-planning
+      input: review_findings
+      tools:
+      - save-review-results
+      description: Prioritize findings and produce remediation plan with effort estimates
+      on_failure: stop
+- component_type: Flow
+  id: architecture-quality-tracking
+  name: Architecture Quality Tracking
+  playbook_refs:
+  - PB_CSA_004
+  description: Track architecture quality over time by comparing review results across assessment cycles.
+  inputs:
+  - title: account_context
+    type: object
+  - title: previous_reviews
+    type: array
+  outputs:
+  - title: quality_trend
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: csa-trend-analysis
+      input: account_context, previous_reviews
+      tools:
+      - read-infohub
+      description: Compare findings across review cycles to identify improvement and regression trends
+      on_failure: stop
+    - step: 2
+      prompt: csa-quality-report
+      input: quality_trend
+      tools:
+      - save-review-results
+      description: Produce architecture quality report with trend visualization and recommendations
+      on_failure: skip_with_warning
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - well-architected-review
+    - pillar-assessment
+    - remediation-planning
+    - architecture-quality-tracking
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent assesses pillars and produces findings. The human architect decides which
+      remediation items to prioritize based on business context: a reliability finding might
+      be critical for a customer-facing workload but acceptable for an internal batch job.
+      The agent scores objectively, but the human applies business judgment.
+    challenges:
+    - text: Well-architected reviews are treated as one-time compliance exercises rather than continuous practice
+      specific_overhead:
+      - Scheduling and executing pillar assessments manually across workload portfolios
+    - text: Review findings lack severity context, making every item feel equally urgent
+      specific_overhead:
+      - Triaging findings by business impact without automated risk scoring
+    - text: Remediation plans stall because effort estimates are missing or unrealistic
+      specific_overhead:
+      - Estimating implementation effort for each remediation item without reference benchmarks
+    - text: Architecture drift between reviews creates findings that were previously remediated
+      specific_overhead:
+      - Tracking configuration changes that reintroduce previously resolved findings
+    - text: Cross-pillar dependencies mean fixing one pillar creates regressions in another
+      specific_overhead:
+      - Analyzing interdependencies between pillar recommendations before implementation
+    administrative_overhead:
+    - Scheduling and executing pillar assessments manually across workload portfolios
+    - Triaging findings by business impact without automated risk scoring
+    - Estimating implementation effort for each remediation item
+    - Tracking configuration changes that reintroduce resolved findings
+    scenarios:
+    - problem: Production outage caused by architecture weakness identified but not remediated in prior review
+      why: >
+        A well-architected review identified a single-AZ database deployment as a high-risk
+        finding 6 months ago. The remediation was deprioritized because the effort estimate was
+        unclear and no one tracked the outstanding item. The database failed during an AZ outage,
+        causing 4 hours of downtime.
+      agent: csa-well-architected-agent
+      agent_response: >
+        The agent produces findings with severity classification, effort estimates, and business
+        impact context. It tracks remediation status and re-assesses after changes, surfacing
+        outstanding high-severity items in quarterly reports. Architecture quality is tracked as
+        a trend rather than a point-in-time snapshot.
+      success_signal:
+        metric: High-severity finding remediation rate
+        target: 100% of high-severity findings remediated within the agreed SLA
+        leading_indicator: Remediation tracking dashboard shows declining high-severity backlog
+        failure_signal: Production incident traced to a known but unremediated architecture finding
+    - problem: Security pillar improvements break performance because cross-pillar impact was not assessed
+      why: >
+        Encryption at rest was enabled across all storage services to address a security finding.
+        The implementation did not account for the performance impact on latency-sensitive workloads,
+        causing SLA violations.
+      agent: csa-well-architected-agent
+      agent_response: >
+        The agent identifies cross-pillar dependencies in remediation recommendations, flagging
+        cases where improving one pillar may regress another. Remediation plans include impact
+        assessment across all pillars and recommend validation steps before production deployment.
+      success_signal:
+        metric: Cross-pillar regression rate
+        target: Zero pillar regressions caused by remediation of another pillar's findings
+        leading_indicator: Cross-pillar impact assessment completed for every remediation item
+        failure_signal: Remediation of one pillar creates new findings in another
+  escalation_triggers:
+  - Critical finding discovered in production workload with active SLA
+  - Remediation requires architecture redesign affecting multiple teams
+  - Review reveals systemic pattern across multiple workloads
+  - Cross-pillar conflict requires architectural trade-off decision
+  prompt_registry:
+    csa-workload-discovery:
+      description: Discover workload architecture, dependencies, and current configuration for well-architected review
+      source: prompts/tasks.yaml#well_architected.workload_discovery
+      inputs:
+      - title: workload_id
+        type: string
+      outputs:
+      - title: workload_profile
+        type: object
+      requires_data:
+      - source: read-architecture-data
+        fields:
+        - architecture_docs
+        - configuration
+        - dependencies
+        priority: critical
+      - source: read-infohub
+        fields:
+        - account_context
+        - previous_reviews
+        priority: enrichment
+    csa-pillar-assessment:
+      description: Assess workload against well-architected pillars with evidence-based findings
+      source: prompts/tasks.yaml#well_architected.pillar_assessment
+      inputs:
+      - title: workload_profile
+        type: object
+      - title: target_framework
+        type: string
+      outputs:
+      - title: pillar_findings
+        type: object
+      requires_data:
+      - source: read-architecture-data
+        fields:
+        - configuration
+        - deployment_patterns
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - best_practices
+        - industry_benchmarks
+        priority: enrichment
+    csa-remediation-planning:
+      description: Prioritize well-architected findings and produce remediation plan with effort estimates
+      source: prompts/tasks.yaml#well_architected.remediation_planning
+      inputs:
+      - title: pillar_findings
+        type: object
+      outputs:
+      - title: remediation_plan
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - team_capacity
+        - business_priorities
+        priority: enrichment
+  boundaries:
+  - Does not evaluate cloud providers (Strategy Agent's domain)
+  - Does not design landing zones (Landing Zone Agent's domain)
+  - Does not model costs in detail (Cost Agent's domain)
+  - Does not assess compliance controls (Compliance Agent's domain)
+  - Does not implement architecture changes in production
+  permissions:
+  - Execute well-architected reviews across all pillars
+  - Assess workloads against AWS, Azure, and GCP frameworks
+  - Produce severity-classified findings with remediation recommendations
+  - Track remediation progress and re-assess after changes
+  - Produce reference architectures for common workload patterns
+  guardrails:
+    input_validation:
+    - Reject reviews without workload architecture documentation or configuration data
+    - Reject pillar assessments without specifying the target well-architected framework
+    output_checks:
+    - All findings must include severity, evidence, and remediation recommendation
+    - Remediation plans must include effort estimates and priority sequencing
+    - Cross-pillar impacts must be identified for every remediation item
+    - Findings must reference specific framework pillar and best practice identifier
+    signal_validation:
+    - Never classify severity without supporting evidence
+    - Never estimate effort without reference to similar remediation patterns
+    - Add [NEEDS VERIFICATION] when architecture documentation may be outdated
+    - Distinguish between confirmed findings and suspected findings based on evidence quality
+  error_handling:
+    tool_failures:
+      critical:
+      - read-architecture-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot execute review without architecture data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark business context sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag architecture data freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - well-architected
+      - architecture-review
+      - cloud-best-practices
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-well-architected.yaml
+      description: AWS, Azure, GCP well-architected frameworks, pillar definitions, and assessment methodologies
+    - path: references/expertise-architecture-patterns.yaml
+      description: Reference architectures, anti-patterns, and remediation benchmarks
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: csa-specialist-agent
+      description: CSA orchestrator routes well-architected review requests
+    - type: event
+      source: deployment_feed
+      condition: new_production_deployment OR major_architecture_change
+      description: Auto-triggers review when new production deployments or major changes occur
+    - type: schedule
+      cadence: quarterly
+      window: second_week
+      description: Quarterly well-architected review cycle for active workloads
+    outputs:
+    - type: parent_return
+      target: csa-specialist-agent
+      payload:
+      - review_findings
+      - remediation_plan
+      - quality_trend
+      description: Full review results back to orchestrator for aggregation
+    - type: trigger_agent
+      target: csa-cost-agent
+      condition: cost_pillar.findings.severity >= HIGH
+      payload:
+      - cost_findings
+      - workload_context
+      description: Cost pillar findings trigger detailed cost optimization analysis
+    - type: trigger_agent
+      target: csa-compliance-agent
+      condition: security_pillar.findings.compliance_relevant == true
+      payload:
+      - security_findings
+      - workload_context
+      description: Security findings with compliance relevance trigger compliance assessment
+    - type: notify_human
+      condition: finding.severity == CRITICAL
+      channel: alert
+      description: CRITICAL findings surface immediately for architect review
+    dependencies: []

@@ -8,15 +8,15 @@ last_updated: "2026-03-01"
 
 # Agent Profiles
 
-The EA Agentic Lab has 40 agent definitions organized under 13 human roles. Each role is a digital twin of a real job function. Some roles operate as a single agent, others decompose into sub-agents when the process requires different tools, guardrails, or autonomy (per DDR-019 holonic criteria). Profiles represent roles. Definitions represent agents.
+The EA Agentic Lab has 196 agent definitions organized under 25 team directories. Each role is a digital twin of a real job function. Some roles operate as a single agent, others decompose into sub-agents when the process requires different tools, guardrails, or autonomy (per DDR-019 holonic criteria). Profiles represent roles. Definitions represent agents.
 
 For design rationale, see [DDR-021: Agent Taxonomy](../../decisions/DDR_021_agent_taxonomy.md). For architecture details, see [Agent Architecture](../../architecture/agents/agent-architecture.md).
 
 ---
 
-## Sales (4 roles, 4 agents)
+## Sales (5 roles, 5 agents)
 
-Sales roles drive commercial strategy, value quantification, partner alignment, and hyperscaler co-sell execution.
+Sales roles drive commercial strategy, value quantification, partner alignment, hyperscaler co-sell execution, and customer advocacy.
 
 | Role | Agent | Purpose | Escalates To |
 |------|-------|---------|--------------|
@@ -24,6 +24,7 @@ Sales roles drive commercial strategy, value quantification, partner alignment, 
 | Value Engineer | [VE Agent](sales/ve-agent.md) | Business value quantification and tracking | Senior Manager |
 | Partner Manager | [Partner Agent](sales/partner-agent.md) | Partner ecosystem alignment | Senior Manager |
 | Hyperscaler Account Manager | [HAM Agent](sales/hyperscaler-account-manager-agent.md) | Co-sell motion, marketplace transactions, and hyperscaler field alignment | Partner Manager |
+| Customer Advocate | [CAD Agent](sales/cad-agent.md) | Customer references, case studies, proof points | AE Agent |
 
 ---
 
@@ -47,7 +48,6 @@ Architecture roles maintain technical integrity across engagements. The Solution
 | [Specialist Engagement Agent](architecture/specialist-agent.md) | External sub-agent | Domain expertise routing and coordination |
 | [Security Specialist](specialists/security-specialist-agent.md) | Sub-agent | SIEM, threat detection, MITRE ATT&CK |
 | [Observability Specialist](specialists/observability-specialist-agent.md) | Sub-agent | APM, SLO/SLI, distributed tracing |
-| [Search Specialist](specialists/search-specialist-agent.md) | Sub-agent | Relevance tuning, vector search, RAG |
 
 ### InfoSec (standalone role)
 
@@ -141,19 +141,7 @@ Nudger -> SM                      (overdue > 5 days)
 
 "Role agents" are top-level agents that map 1:1 to a human role. "Sub-agents / system agents" are either sub-agents decomposed from a role (e.g., SA Discovery, Retrospective) or autonomous system agents with no human role equivalent (governance agents). Intelligence sub-agents have no parent role agent listed in the taxonomy; they operate as a composite function.
 
-| Category | Roles | Role agents | Sub-agents / system agents | Definitions |
-|----------|-------|-------------|---------------------------|-------------|
-| Sales | 4 | 4 | 0 | 4 |
-| Architecture (SA) | 1 | 1 | 12 | 13 |
-| InfoSec | 1 | 1 | 0 | 1 |
-| Customer Architect | 1 | 1 | 1 | 2 |
-| Intelligence | 2 | 1 | 5 | 6 |
-| Leadership | 2 | 2 | 0 | 2 |
-| Delivery | 2 | 2 | 0 | 2 |
-| Governance (system) | 0 | 0 | 10 | 10 |
-| **Total** | **13** | **12** | **28** | **40** |
-
-13 roles + 1 system function = 14 categories. 12 role agents + 18 role sub-agents + 10 governance system agents = 40 definitions (+ Orchestration Agent as [legacy meta-agent](meta/orchestration-agent.md) outside the taxonomy).
+The system has grown significantly beyond the original 13-role taxonomy. With holonic decomposition applied to most roles and 11 specialist sub-domains added, the current count is 196 definitions across 25 team directories. The summary table below reflects the original taxonomy structure; see [domain/agents/README.md](../../../domain/agents/README.md) for the full catalog.
 
 ---
 

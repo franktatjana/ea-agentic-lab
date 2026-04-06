@@ -1,0 +1,513 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: pm-feature-gap-agent
+name: PM Feature Gap Agent
+description: 'Feature requests arrive from every channel, each labeled urgent, but without cross-deal deduplication and revenue-weighted gap tracking, product teams cannot distinguish real demand signals from noise.
+  This agent maintains a living gap register that maps every customer request to the roadmap, deduplicates across accounts, and quantifies revenue at risk per gap so prioritization decisions
+  are grounded in evidence rather than the loudest voice in the room.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: pm-agent
+  tags:
+  - feature-gap
+  - gap-tracking
+  - deduplication
+  - revenue-at-risk
+  - roadmap-mapping
+  responsibility: 'Track feature gaps across deals, deduplicate requests, map gaps to roadmap items, and quantify revenue at risk per gap to inform product prioritization.
+
+    '
+system_prompt: 'You are a Feature Gap Analysis Agent, part of the Product Manager
+
+  intelligence system. Your job is to track, deduplicate, and quantify feature gaps
+
+  across all active deals.
+
+
+  You MUST:
+
+  - Extract feature requests from all customer communications and map each to the current roadmap
+
+  - Deduplicate feature requests across accounts, linking identical or overlapping needs
+
+  - Calculate revenue-at-risk per gap by aggregating deal values where the gap is a blocker or significant risk
+
+  - Classify gap severity (deal-blocking, high-impact, nice-to-have) with supporting evidence
+
+  - Maintain a living gap register that reflects current product state, not stale snapshots
+
+  - Flag gaps that appear in 3+ independent accounts as cross-account demand signals
+
+  - Include RFP capability gap data from the RFP Agent in the gap register
+
+
+  You MUST NOT:
+
+  - Set roadmap priorities or commit to delivery timelines (Roadmap Alignment Agent''s domain)
+
+  - Synthesize customer sentiment or satisfaction themes (Feedback Synthesis Agent''s domain)
+
+  - Build competitive feature matrices (Competitive Intelligence Agent''s domain)
+
+  - Communicate gap status to field teams or customers (Release Communication Agent''s domain)
+
+  - Assess commercial deal strategy or viability (AE Agent''s domain)
+
+
+  Every gap entry must cite the source account, communication, and specific text that triggered detection.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: product_gaps, feature_requests, roadmap_items, deal_context.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (opportunity map), industry (regulatory, trends), technology (current map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, CRM notes, and meeting notes for feature request extraction
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: save-gap-register
+  name: Save Gap Register
+  description: Persist gap assessment and gap register updates to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: gap_entry
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from PM about feature request context or gap classification
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: feature-gap-intelligence
+  name: Feature Gap Intelligence
+  description: Gap register data available to peer agents for roadmap and competitive context
+  tools:
+  - id: get-gap-register
+    name: Get Gap Register
+    description: Returns current feature gaps with severity, revenue-at-risk, and account linkage
+    inputs:
+    - title: filter_by
+      type: string
+    - title: min_severity
+      type: string
+    outputs:
+    - title: gaps
+      type: array
+  - id: get-cross-account-patterns
+    name: Get Cross-Account Patterns
+    description: Returns feature requests that appear across 3+ independent accounts with demand quantification
+    inputs:
+    - title: time_period
+      type: string
+    outputs:
+    - title: patterns
+      type: array
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: gap-assessment
+  name: Feature Gap Assessment
+  playbook_refs:
+  - PB_PM_001
+  description: Analyze gap between customer requirements and current product capabilities, classify severity, and calculate revenue at risk.
+  inputs:
+  - title: account_context
+    type: object
+  - title: requirement_description
+    type: string
+  - title: deal_value
+    type: string
+  outputs:
+  - title: gap_assessment
+    type: object
+  - title: revenue_at_risk
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pm-gap-assessment
+      input: requirement_description, account_context, deal_value
+      tools:
+      - read-infohub
+      - read-communications
+      description: Extract feature requests and map each against current product capabilities and roadmap
+      on_failure: stop
+    - step: 2
+      prompt: pm-gap-deduplication
+      input: gap_assessment
+      tools:
+      - read-infohub
+      description: Deduplicate against existing gap register, link overlapping requests across accounts
+      on_failure: skip_with_warning
+    - step: 3
+      prompt: pm-revenue-at-risk
+      input: gap_assessment, deal_value
+      tools:
+      - read-infohub
+      description: Calculate aggregate revenue at risk per gap by summing deal values where gap is blocker
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-gap-register
+      description: Save classified gap entry to gap register with severity, revenue-at-risk, and source citations
+      on_failure: stop
+- component_type: Flow
+  id: cross-account-pattern-detection
+  name: Cross-Account Pattern Detection
+  playbook_refs:
+  - PB_PM_001
+  - PB_PM_003
+  description: Identify recurring feature requests across accounts and aggregate demand signals for product prioritization.
+  inputs:
+  - title: time_period
+    type: string
+  - title: segment
+    type: string
+  outputs:
+  - title: pattern_report
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pm-pattern-analysis
+      input: time_period, segment
+      tools:
+      - read-infohub
+      - read-communications
+      description: Scan gap register and communications for recurring requests across 3+ accounts
+      on_failure: stop
+    - step: 2
+      prompt: pm-demand-quantification
+      input: pattern_report
+      tools:
+      - read-infohub
+      description: Quantify demand signal by aggregating deal count, total revenue, and segment distribution
+      on_failure: skip_with_warning
+    - step: 3
+      action: persist
+      tools:
+      - save-gap-register
+      description: Save pattern report with demand quantification to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - feature-gap-assessment
+    - gap-deduplication
+    - revenue-at-risk-calculation
+    - cross-account-pattern-detection
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent tracks every gap and calculates the revenue at risk. The PM decides which gaps represent genuine market demand versus one-off asks, and which revenue-at-risk
+      numbers justify reprioritization versus which are negotiation leverage. Gap data is evidence, but the PM interprets it.
+
+      '
+    challenges:
+    - text: Feature requests flood in during active deals from Slack, email, CRM notes, and meeting recordings, each flagged as must-have, but without automated deduplication PMs spend hours cross-referencing to find that 12 requests map to the same underlying need
+      specific_overhead:
+      - Manually scanning 5+ channels per account for feature mentions
+      - Cross-referencing each request against backlog to check for duplicates
+      - Tracking which accounts mentioned the same gap under different labels
+    - text: Revenue at risk per gap is invisible because deal values live in CRM, gap data lives in spreadsheets, and the link between them is maintained manually, causing product teams to deprioritize gaps blocking $2M+ in aggregate pipeline
+      specific_overhead:
+      - Manually joining CRM deal data with feature gap spreadsheets
+      - Recalculating revenue impact every time a deal stage changes
+    - text: RFP capability gaps are logged by the RFP Agent but never systematically merged into the feature gap register, creating a parallel shadow backlog that product leadership does not see
+      specific_overhead:
+      - Manually reviewing RFP response outputs for unmatched capabilities
+      - Reconciling RFP gap language with product backlog terminology
+    - text: Cross-account demand patterns emerge weeks after the third independent request because nobody connects requests that use different terminology for the same underlying capability
+      specific_overhead:
+      - Reading through request descriptions to identify semantic overlap
+      - Building manual pivot tables to count request frequency by feature area
+    scenarios:
+    - problem: Feature gaps are discovered during customer demos
+      why: 'Deal teams promise capabilities based on outdated knowledge of the product roadmap. When a customer asks for a specific feature during a demo, the gap between expectation
+        and reality creates credibility damage that is hard to recover from mid-deal.
+
+        '
+      agent: pm-feature-gap-agent
+      agent_response: 'The agent maintains a living gap register that maps customer requests against the current roadmap. It flags gaps where requested capabilities are not planned and
+        calculates revenue at risk, so deal teams know the product reality before making customer commitments.
+
+        '
+      success_signal:
+        metric: Feature gap detection before customer-facing interactions
+        target: Identify and flag feature gaps at least 5 days before scheduled demos
+        leading_indicator: Deal teams check gap register before committing to feature discussions
+        failure_signal: Feature gaps are first discovered during live customer interactions
+    - problem: Repeat feature requests across accounts go unrecognized
+      why: 'When multiple customers ask for the same capability through different channels and terminology, nobody connects the pattern. Each request is treated as a one-off, and product
+        leadership never sees the aggregate demand signal.
+
+        '
+      agent: pm-feature-gap-agent
+      agent_response: 'The agent deduplicates requests across accounts by mapping semantic overlap, then quantifies the demand signal by aggregating deal count and revenue at risk. Product
+        teams receive a single demand report rather than scattered individual requests.
+
+        '
+      success_signal:
+        metric: Cross-account pattern identification
+        target: Surface recurring feature patterns within 2 weeks of the third independent request
+        leading_indicator: Product team references aggregated demand data in prioritization decisions
+        failure_signal: Product priorities are set without awareness of cross-account request patterns
+  escalation_triggers:
+  - Deal-blocking gap identified on deal above revenue threshold
+  - Gap appears in 5+ accounts within 30 days
+  - Revenue at risk per gap exceeds escalation threshold
+  - RFP gap pattern indicates systemic product-market misalignment
+  prompt_registry:
+    pm-gap-assessment:
+      description: Analyze gap between customer need and product capability
+      source: prompts/tasks.yaml#feature_gap.gap_assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: requirement_description
+        type: string
+      - title: deal_value
+        type: string
+      outputs:
+      - title: gap_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - product_capabilities
+        - roadmap_items
+        - feature_backlog
+        priority: critical
+      - source: read-communications
+        fields:
+        - feature_requests
+        - meeting_notes
+        priority: critical
+    pm-gap-deduplication:
+      description: Deduplicate feature request against existing gap register entries
+      source: prompts/tasks.yaml#feature_gap.gap_deduplication
+      inputs:
+      - title: gap_assessment
+        type: object
+      outputs:
+      - title: deduplicated_gap
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - gap_register
+        - feature_backlog
+        priority: critical
+    pm-revenue-at-risk:
+      description: Calculate aggregate revenue at risk for a feature gap across all affected deals
+      source: prompts/tasks.yaml#feature_gap.revenue_at_risk
+      inputs:
+      - title: gap_assessment
+        type: object
+      - title: deal_value
+        type: string
+      outputs:
+      - title: revenue_at_risk
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - deal_values
+        - gap_linkage
+        priority: critical
+  boundaries:
+  - Does not set roadmap priorities or commit delivery timelines (Roadmap Alignment Agent)
+  - Does not synthesize customer sentiment themes (Feedback Synthesis Agent)
+  - Does not build competitive feature matrices (Competitive Intelligence Agent)
+  - Does not communicate gap status externally (Release Communication Agent)
+  permissions:
+  - Extract and classify feature requests from all customer communications
+  - Deduplicate requests across accounts and link semantic overlaps
+  - Calculate and update revenue-at-risk per gap
+  - Maintain living gap register in InfoHub
+  - Consume RFP capability gap data from RFP Agent
+  guardrails:
+    input_validation:
+    - Reject gap assessment without account context or requirement description
+    - Reject revenue-at-risk calculation without deal value data
+    output_checks:
+    - Every gap entry must cite source account, communication, and text excerpt
+    - Revenue-at-risk must be calculated from verified deal values, not estimates
+    - Severity classification must follow reference criteria (deal-blocking, high-impact, nice-to-have)
+    - Deduplicated gaps must cite all linked accounts and original request text
+    signal_validation:
+    - Never infer deal value not explicitly stated
+    - Add [NEEDS VERIFICATION] when gap severity depends on unconfirmed information
+    - Distinguish between confirmed blockers and perceived blockers in output
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      - read-communications
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable gap assessment without product data and communications
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - feature-gap-analysis
+      - demand-quantification
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/feature-gap-framework.yaml
+      description: Gap severity classification criteria, deduplication matching rules, revenue-at-risk calculation methodology
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: pm-agent
+      description: PM orchestrator routes gap analysis requests
+    - type: event
+      source: communications_feed
+      condition: new_communication.contains_feature_request == true
+      description: Auto-scans when new customer communications contain feature mentions
+    - type: event
+      source: rfp_agent
+      condition: rfp_gap_report.published == true
+      description: Ingests RFP capability gap data when new RFP analysis completes
+    outputs:
+    - type: parent_return
+      target: pm-agent
+      payload:
+      - gap_assessment
+      - revenue_at_risk
+      - pattern_report
+      description: Full gap analysis report back to orchestrator for aggregation
+    - type: trigger_agent
+      target: pm-roadmap-agent
+      condition: gap.severity == deal_blocking AND gap.revenue_at_risk > threshold
+      payload:
+      - gap_assessment
+      - revenue_at_risk
+      - affected_deals
+      description: Deal-blocking gap triggers roadmap alignment review with revenue context
+    - type: trigger_agent
+      target: pm-competitive-agent
+      condition: gap.source_mentions_competitor == true
+      payload:
+      - gap_assessment
+      - competitor_mention
+      description: Gap mentioning competitor capability triggers competitive matrix update
+    - type: notify_human
+      condition: gap.revenue_at_risk > escalation_threshold
+      channel: alert
+      description: High revenue-at-risk gaps surface immediately for PM review
+    dependencies: []

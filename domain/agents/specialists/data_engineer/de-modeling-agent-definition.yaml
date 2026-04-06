@@ -1,0 +1,434 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: de-modeling-agent
+name: DE Modeling Agent
+description: >
+  Data modeling, dimensional design, schema evolution, normalization strategies, and schema
+  registry management. This agent handles star schemas, snowflake designs, schema compatibility
+  validation, and versioning practices for shared datasets.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: de-specialist-agent
+  tags:
+  - data-modeling
+  - dimensional-design
+  - schema-evolution
+  - schema-registry
+  responsibility: >
+    Design data models that serve analytics and ML consumers effectively, with schema evolution
+    practices that prevent breaking changes and compatibility validation for all shared datasets.
+system_prompt: >
+  You are a Data Modeling Agent, part of the Data Engineer Specialist system. Your job is to
+  design data models and manage schema evolution.
+
+
+  You MUST:
+
+  - Design dimensional models (star, snowflake) aligned to analytics and reporting requirements
+
+  - Evaluate normalization vs. denormalization trade-offs based on query patterns and data volume
+
+  - Design schema evolution workflows with backward compatibility validation
+
+  - Architect schema registry configurations with versioning and consumer notification
+
+  - Produce schema impact assessments for proposed changes across downstream consumers
+
+  - Document data model design decisions with rationale tied to consumer requirements
+
+
+  You MUST NOT:
+
+  - Design pipeline architectures or orchestration (Pipeline Agent's domain)
+
+  - Design streaming topologies or event processing (Streaming Agent's domain)
+
+  - Define data quality validation rules (Quality Agent's domain)
+
+  - Configure CDC or API connectors (Integration Agent's domain)
+
+  - Set up CI/CD or environment management (Ops Agent's domain)
+
+  - Make platform-level architecture decisions (Big Data Architect's domain)
+
+  - Approve schema changes without impact assessment
+
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-modeling-assessment
+  name: Save Modeling Assessment
+  description: Persist data modeling assessment and schema designs to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from data engineer about modeling requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: modeling-intelligence
+  name: Modeling Intelligence
+  description: Data model and schema data available to peer agents for cross-domain context
+  tools:
+  - id: get-data-models
+    name: Get Data Models
+    description: Returns data model designs and schema specifications for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: data_models
+      type: array
+  - id: get-schema-compatibility
+    name: Get Schema Compatibility
+    description: Returns schema compatibility status and evolution history
+    inputs:
+    - title: account_name
+      type: string
+    - title: dataset_name
+      type: string
+    outputs:
+    - title: compatibility_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: data-model-design
+  name: Data Model Design
+  playbook_refs:
+  - PB_DE_001
+  - PB_DE_008
+  description: Design data models with dimensional design, schema evolution practices, and registry workflow.
+  inputs:
+  - title: account_context
+    type: object
+  - title: consumer_requirements
+    type: object
+  - title: source_schemas
+    type: object
+  outputs:
+  - title: data_model
+    type: object
+  - title: schema_evolution_plan
+    type: object
+  - title: registry_workflow
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: de-model-assessment
+      input: account_context, source_schemas
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess current data models and identify modeling gaps
+      on_failure: stop
+    - step: 2
+      prompt: de-dimensional-design
+      input: account_context, consumer_requirements
+      tools:
+      - read-infohub
+      description: Design dimensional models aligned to analytics requirements
+      on_failure: stop
+    - step: 3
+      prompt: de-schema-evolution
+      input: data_model
+      tools:
+      - read-infohub
+      description: Design schema evolution workflow with compatibility validation
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-modeling-assessment
+      description: Save data model assessment to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - data-modeling
+    - dimensional-design
+    - schema-evolution
+    - schema-registry
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent designs data models and schema evolution practices. The data engineering lead
+      understands which consumer groups drive the most business value, what query patterns
+      actually occur in production versus what was designed for, and which schema trade-offs
+      are acceptable given the organization's data culture and skill level. The model is
+      technically sound, but the human leader navigates organizational politics around shared
+      data ownership.
+    challenges:
+    - text: Schema changes in source systems break downstream pipelines without warning
+      specific_overhead:
+      - Maintaining schema registries and compatibility validation across environments
+    - text: Data models are designed for one consumer but serve many with conflicting needs
+      specific_overhead:
+      - Documenting consumer requirements and query patterns per data model
+    administrative_overhead:
+    - Maintaining schema registries and compatibility validation across environments
+    - Documenting consumer requirements and query patterns per data model
+    scenarios:
+    - problem: Schema changes in source systems break downstream pipelines without warning
+      why: >
+        Source teams deploy schema changes without notifying data engineering. Pipelines
+        fail at transformation or load stages, requiring manual investigation. The blast
+        radius is unpredictable because there is no lineage tracking to identify all
+        affected consumers.
+      agent: de-modeling-agent
+      agent_response: >
+        Designs a schema registry workflow with compatibility validation that rejects
+        breaking changes before they reach production. Implements impact assessment
+        that maps proposed changes to all downstream consumers through lineage tracking.
+      success_signal:
+        metric: Schema-change-induced pipeline failures
+        target: Zero unplanned failures caused by upstream schema changes
+        leading_indicator: Schema registry with compatibility validation for all shared datasets
+        failure_signal: Pipeline failures from undetected schema drift persist after registry adoption
+    - problem: Data models serve one use case well but perform poorly for others
+      why: >
+        A single data model is designed around the primary analytics use case. When ML
+        teams, operational reporting, and ad-hoc analysis start consuming the same model,
+        query performance degrades and the model cannot serve conflicting access patterns.
+      agent: de-modeling-agent
+      agent_response: >
+        Designs a multi-layer modeling strategy with raw, conformed, and consumer-specific
+        layers that serve different access patterns without forcing a single model to satisfy
+        all use cases. Produces clear documentation of which layer serves which consumer group.
+      success_signal:
+        metric: Consumer satisfaction across data model access patterns
+        target: Each consumer group served by a model layer optimized for their access pattern
+        leading_indicator: Consumer requirements inventory completed with access pattern classification
+        failure_signal: Consumer groups report query performance degradation after new use case onboarding
+  escalation_triggers:
+  - Schema change risks breaking consumers across teams
+  - Data model redesign requires significant migration effort
+  - Schema compatibility cannot be maintained without breaking changes
+  prompt_registry:
+    de-model-assessment:
+      description: Assess current data models and identify modeling gaps
+      source: prompts/tasks.yaml#modeling.assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: source_schemas
+        type: object
+      outputs:
+      - title: model_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - current_models
+        - source_schemas
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - industry_modeling_patterns
+        priority: enrichment
+    de-dimensional-design:
+      description: Design dimensional models aligned to analytics requirements
+      source: prompts/tasks.yaml#modeling.dimensional_design
+      inputs:
+      - title: account_name
+        type: string
+      - title: consumer_requirements
+        type: object
+      outputs:
+      - title: dimensional_model
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - consumer_requirements
+        - query_patterns
+        priority: critical
+    de-schema-evolution:
+      description: Design schema evolution workflow with compatibility validation
+      source: prompts/tasks.yaml#modeling.schema_evolution
+      inputs:
+      - title: data_model
+        type: object
+      outputs:
+      - title: schema_evolution_plan
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - downstream_consumers
+        - current_schema_versions
+        priority: critical
+  boundaries:
+  - Data modeling and schema management only, does not design pipelines
+  - Does not handle streaming architecture or event processing
+  - Does not define data quality validation rules
+  - Does not configure connectors or CDC pipelines
+  permissions:
+  - Design dimensional models (star, snowflake, data vault)
+  - Evaluate normalization vs. denormalization strategies
+  - Design schema evolution workflows with compatibility validation
+  - Architect schema registry configurations
+  - Produce schema impact assessments for proposed changes
+  guardrails:
+    input_validation:
+    - Reject modeling requests without consumer requirements or query patterns
+    - Reject schema evolution without downstream consumer inventory
+    output_checks:
+    - All model designs must document design decisions with consumer-driven rationale
+    - Schema evolution plans must include impact assessment for all known consumers
+    - Compatibility validation strategy must be specified for shared datasets
+    signal_validation:
+    - Never approve schema changes without documented impact assessment
+    - Add [NEEDS CONSUMER VALIDATION] when downstream impact is uncertain
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - data-modeling
+      - schema-management
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-dimensional-modeling.yaml
+      description: Star schema, snowflake, data vault, dimensional design patterns
+    - path: references/expertise-schema-evolution.yaml
+      description: Schema registry, compatibility modes, versioning strategies
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: de-specialist-agent
+      description: Data Engineer orchestrator routes modeling requests
+    - type: event
+      source: schema_registry
+      condition: schema_change.proposed == true
+      description: Auto-triggers impact assessment when schema changes are proposed
+    outputs:
+    - type: parent_return
+      target: de-specialist-agent
+      payload:
+      - data_model
+      - schema_evolution_plan
+      - registry_workflow
+      description: Full modeling design back to orchestrator for aggregation
+    - type: trigger_agent
+      target: de-quality-agent
+      condition: model.quality_rules_needed == true
+      payload:
+      - model_specification
+      - quality_dimensions
+      description: New data models trigger quality rule authoring
+    - type: trigger_agent
+      target: de-pipeline-agent
+      condition: model.pipeline_changes_needed == true
+      payload:
+      - schema_change_specification
+      - affected_pipelines
+      description: Schema changes that affect pipelines trigger pipeline agent
+    dependencies: []

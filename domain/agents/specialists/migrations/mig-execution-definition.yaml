@@ -1,0 +1,500 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: mig-execution-agent
+name: MIG Execution Agent
+description: 'Migration plans look complete on paper until cutover night arrives. This agent produces detailed execution runbooks, designs rollback procedures, coordinates data sync, and manages
+  the cutover process so migration teams execute with confidence rather than improvisation.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: mig-specialist-agent
+  tags:
+  - migration-execution
+  - cutover-planning
+  - rollback-procedures
+  - data-sync
+  responsibility: 'Produce detailed cutover runbooks, design rollback procedures, coordinate data synchronization, and manage migration execution to ensure workloads migrate safely with minimal
+    downtime and verified rollback capability.
+
+    '
+system_prompt: 'You are a Migration Execution Agent, part of the Migrations Specialist
+  intelligence system. Your job is to plan and coordinate migration cutovers.
+
+
+  You MUST:
+
+  - Produce detailed cutover runbooks with step-by-step procedures and time estimates
+
+  - Design rollback procedures for every cutover with verified restore capability
+
+  - Coordinate data synchronization and migration sequencing
+
+  - Define validation checkpoints at each stage of the cutover process
+
+  - Include communication templates and escalation paths for cutover windows
+
+  - Document pre-cutover prerequisites and go/no-go criteria
+
+
+  You MUST NOT:
+
+  - Approve production cutovers without human sign-off
+
+  - Perform infrastructure discovery (Assessment Agent''s domain)
+
+  - Classify workloads or design wave plans (Strategy Agent''s domain)
+
+  - Design testing protocols (Testing Agent''s domain)
+
+  - Execute changes in customer production environments
+
+  - Skip rollback procedure documentation for any cutover
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-wave-plan
+  name: Read Wave Plan
+  description: Access approved wave plan and workload details for cutover planning
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: wave_id
+    type: string
+  outputs:
+  - title: content
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot plan cutover without wave plan, request strategy first
+    - error_code: WAVE_NOT_APPROVED
+      guidance: Wave plan not yet approved, flag for approval before proceeding
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-execution-plan
+  name: Save Execution Plan
+  description: Persist cutover runbook and execution plan to InfoHub for review and execution tracking
+  requires_confirmation: false
+  inputs:
+  - title: execution_plan
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: write-risk-alert
+  name: Write Risk Alert
+  description: Save execution risk alert to InfoHub risk register
+  requires_confirmation: true
+  inputs:
+  - title: risk
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from the migration specialist about cutover requirements or constraints
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: execution-intelligence
+  name: Execution Intelligence
+  description: Cutover and execution data available to peer agents for governance and testing context
+  tools:
+  - id: get-cutover-runbook
+    name: Get Cutover Runbook
+    description: Returns cutover runbook with procedures, checkpoints, and rollback triggers for a wave
+    inputs:
+    - title: account_name
+      type: string
+    - title: wave_id
+      type: string
+    outputs:
+    - title: runbook
+      type: object
+  - id: get-execution-status
+    name: Get Execution Status
+    description: Returns current execution status for active migration waves
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: execution_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: migration-execution-flow
+  name: Migration Execution
+  playbook_refs:
+  - PB_MIG_005
+  - PB_MIG_009
+  description: Produce cutover runbooks, design rollback procedures, and coordinate migration execution.
+  inputs:
+  - title: account_context
+    type: object
+  - title: wave_plan
+    type: object
+  - title: workload_details
+    type: object
+  outputs:
+  - title: cutover_runbook
+    type: object
+  - title: rollback_procedures
+    type: object
+  - title: execution_status
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: mig-cutover-planning
+      input: account_context, wave_plan, workload_details
+      tools:
+      - read-wave-plan
+      - read-infohub
+      description: Design cutover runbook with step-by-step procedures and time estimates
+      on_failure: stop
+    - step: 2
+      prompt: mig-rollback-design
+      input: cutover_runbook, workload_details
+      tools:
+      - read-infohub
+      description: Design rollback procedures with restore capability verification
+      on_failure: stop
+    - step: 3
+      prompt: mig-data-sync-plan
+      input: workload_details
+      tools:
+      - read-infohub
+      description: Plan data synchronization strategy and cutover sequencing
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-execution-plan
+      - write-risk-alert
+      condition: write-risk-alert triggers when execution_risk.severity >= HIGH
+      description: Save execution plan and write risk alerts for high-severity execution risks
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - cutover-planning
+    - rollback-design
+    - data-sync-coordination
+    - execution-management
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs cutover procedures and rollback plans. The migration lead decides: when the maintenance window opens, who has authority to call a rollback, how much
+      downtime the business can absorb, and when to override the go/no-go criteria because the business cost of delay exceeds the risk of proceeding. The runbook is precise, but the call is human.
+
+      '
+    challenges:
+    - text: Cutover windows are too short for the actual migration complexity, causing rushed execution and errors
+      solved_by: mig-execution-agent
+      specific_overhead:
+      - Estimating realistic cutover durations from workload complexity and data volume
+    - text: Rollback procedures are untested and fail when actually needed during production cutover
+      solved_by: mig-execution-agent
+      specific_overhead:
+      - Pre-validating rollback procedures in non-production environments before every cutover
+    - text: Data synchronization gaps cause data loss or inconsistency during cutover
+      solved_by: mig-execution-agent
+      specific_overhead:
+      - Designing and validating data sync mechanisms with integrity verification checkpoints
+    - text: Communication breakdowns during cutover leave stakeholders uninformed about progress and issues
+      solved_by: mig-execution-agent
+      specific_overhead:
+      - Producing communication templates and escalation paths for each cutover window
+    - text: Go/no-go decisions lack clear criteria, causing last-minute debates during maintenance windows
+      solved_by: mig-execution-agent
+      specific_overhead:
+      - Defining measurable go/no-go criteria with documented decision authority
+    administrative_overhead:
+    - Estimating realistic cutover durations from workload complexity and data volume
+    - Pre-validating rollback procedures in non-production environments before every cutover
+    - Designing and validating data sync mechanisms with integrity verification checkpoints
+    - Producing communication templates and escalation paths for each cutover window
+    - Defining measurable go/no-go criteria with documented decision authority
+    scenarios:
+    - problem: Cutover windows are too short for the actual migration complexity
+      why: 'Cutover duration estimates are based on best-case scenarios without accounting for data volume, network throughput constraints, or the time required for validation checkpoints. When
+        the actual cutover runs long, the team faces a choice between rushing validation or extending the outage window, both of which increase risk.
+
+        '
+      agent: mig-execution-agent
+      agent_response: 'The agent produces cutover runbooks with realistic time estimates based on data volume, network capacity, and validation requirements. Each runbook includes time buffers
+        for common failure modes, a point-of-no-return marker, and rollback time estimates. Rehearsal cutovers in non-production environments calibrate the estimates before production execution.
+
+        '
+      success_signal:
+        metric: Cutover duration accuracy
+        target: Actual cutover duration within 20% of estimated duration for 90% of cutovers
+        leading_indicator: Rehearsal cutover completed with timing data used to calibrate production estimates
+        failure_signal: Cutover extends beyond approved maintenance window
+    - problem: Rollback procedures are untested and fail when actually needed
+      why: 'Rollback procedures are written as documentation but never exercised. When a production cutover goes wrong and rollback is triggered, the team discovers that the rollback script
+        references infrastructure that no longer exists, data sync has progressed past the rollback point, or the procedure was designed for a different version of the application.
+
+        '
+      agent: mig-execution-agent
+      agent_response: 'The agent designs rollback procedures with testable verification steps and requires pre-production validation before every production cutover. Each rollback plan includes
+        a time estimate, data integrity verification, and service restoration confirmation. The rollback is treated as a first-class operation with its own runbook, not an afterthought.
+
+        '
+      success_signal:
+        metric: Rollback readiness verification
+        target: 100% of production cutovers have pre-validated rollback procedures with documented test results
+        leading_indicator: Rollback rehearsal completed in non-production environment within 7 days of production cutover
+        failure_signal: Rollback fails during production cutover due to untested procedure
+  escalation_triggers:
+  - Cutover duration estimate exceeds approved maintenance window (to Migration Practice Lead)
+  - Rollback procedure cannot be validated in non-production environment (to SA Lead)
+  - Data sync integrity check fails during pre-cutover validation (to Migration Practice Lead)
+  - Go/no-go criteria not met and business requests override (to SA Lead / Migration Practice Lead)
+  prompt_registry:
+    mig-cutover-planning:
+      description: Design cutover runbook with step-by-step procedures, time estimates, and validation checkpoints
+      source: prompts/tasks.yaml#migration.cutover_planning
+      inputs:
+      - title: account_name
+        type: string
+      - title: wave_id
+        type: string
+      - title: workload_details
+        type: object
+      outputs:
+      - title: cutover_runbook
+        type: object
+      requires_data:
+      - source: read-wave-plan
+        fields:
+        - wave_workloads
+        - dependency_order
+        - migration_approach
+        priority: critical
+      - source: read-infohub
+        fields:
+        - sla_requirements
+        - maintenance_windows
+        priority: enrichment
+    mig-rollback-design:
+      description: Design rollback procedures with restore capability verification steps
+      source: prompts/tasks.yaml#migration.rollback_design
+      inputs:
+      - title: cutover_runbook
+        type: object
+      - title: workload_details
+        type: object
+      outputs:
+      - title: rollback_procedures
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - rto_requirements
+        - data_backup_policies
+        priority: critical
+    mig-data-sync-plan:
+      description: Plan data synchronization strategy, replication mechanisms, and cutover sequencing
+      source: prompts/tasks.yaml#migration.data_sync_plan
+      inputs:
+      - title: workload_details
+        type: object
+      outputs:
+      - title: data_sync_plan
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - database_inventory
+        - data_volume_estimates
+        priority: critical
+  boundaries:
+  - Does not approve production cutovers (human sign-off required)
+  - Does not perform infrastructure discovery (Assessment Agent)
+  - Does not classify workloads or design wave plans (Strategy Agent)
+  - Does not design testing protocols (Testing Agent)
+  - Does not execute changes in customer production environments
+  permissions:
+  - Produce cutover runbooks with step-by-step procedures
+  - Design rollback procedures and restoration plans
+  - Coordinate data synchronization and migration sequencing
+  - Define go/no-go criteria and validation checkpoints
+  - Save execution plans to InfoHub
+  - Write risk alerts for execution-related risks
+  guardrails:
+    input_validation:
+    - Reject cutover plans without approved wave plan
+    - Reject execution without defined rollback procedures
+    output_checks:
+    - Every cutover runbook must include rollback procedures
+    - Time estimates must account for validation checkpoints and rollback time
+    - Go/no-go criteria must be measurable and documented
+    - Communication plans must include escalation paths
+    signal_validation:
+    - Never produce cutover plans without rollback documentation
+    - Never estimate cutover duration without data volume and network capacity inputs
+    - Add [REQUIRES REHEARSAL] when cutover has not been validated in non-production
+    - Distinguish between rehearsed and unrehearsed procedures
+  error_handling:
+    tool_failures:
+      critical:
+      - read-wave-plan
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot plan cutover without wave plan and workload details
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - migration-execution
+      - cutover-management
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-cutover-patterns.yaml
+      description: Cutover Patterns, Blue-Green Migration, Canary Deployment, Big-Bang Vs Phased
+    - path: references/expertise-rollback-strategies.yaml
+      description: Rollback Patterns, Data Rollback, Service Restoration Procedures
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: mig-specialist-agent
+      description: Migration orchestrator routes execution requests
+    - type: trigger_agent
+      source: mig-strategy-agent
+      condition: wave_plan.approved == true
+      description: Approved wave plan auto-triggers cutover planning
+    outputs:
+    - type: parent_return
+      target: mig-specialist-agent
+      payload:
+      - cutover_runbook
+      - rollback_procedures
+      - execution_status
+      description: Full execution package back to orchestrator
+    - type: trigger_agent
+      target: mig-testing-agent
+      condition: cutover_runbook.created == true
+      payload:
+      - cutover_runbook
+      - workload_details
+      description: Cutover plan triggers testing protocol design
+    - type: trigger_agent
+      target: mig-governance-agent
+      condition: execution_risk.severity >= HIGH
+      payload:
+      - risk_details
+      - affected_workloads
+      description: High-severity execution risks trigger governance tracking
+    - type: notify_human
+      condition: cutover_runbook.requires_approval == true
+      channel: alert
+      description: Cutover runbooks surface for human review and approval before production execution
+    dependencies: []

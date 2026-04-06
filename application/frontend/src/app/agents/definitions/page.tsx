@@ -338,7 +338,7 @@ function OrchestratorList({
     <div className="space-y-6">
       {orchestrators.map((orch) => {
         const children = subAgentsByParent[orch.id] ?? [];
-        const isCollapsed = collapsed[orch.id] ?? false;
+        const isCollapsed = collapsed[orch.id] ?? true;
         const toggle = (e: React.MouseEvent) => {
           e.stopPropagation();
           setCollapsed((prev) => ({ ...prev, [orch.id]: !prev[orch.id] }));

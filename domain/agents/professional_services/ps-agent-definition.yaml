@@ -2,10 +2,12 @@ agentspec_version: 26.1.0
 component_type: Agent
 id: ps-agent
 name: Professional Services Agent
-description: The PS agent ensures that what gets sold is deliverable and what gets delivered matches what was sold. It covers both pre-sales scoping (validating SOWs, estimating effort, flagging delivery
-  risks) and post-sales execution (tracking milestones, managing scope changes, coordinating handoffs). By engaging early in the sales process, it prevents the costly pattern of over-promising and under-delivering.
+description: >
+  Digital twin of the Professional Services Consultant role. Ensures what gets sold is
+  deliverable and what gets delivered matches what was sold. Orchestrates pre-sales scoping,
+  delivery planning, quality assurance, and knowledge transfer through 4 specialized sub-agents.
 metadata:
-  definition_version: 0.1.0
+  definition_version: 0.2.0
   disclaimer: This agent specification is a reference design for educational and demonstration purposes. It is not a production system. All examples, case studies, and scenarios are fictional.
   tags:
   - professional-services
@@ -13,26 +15,44 @@ metadata:
   - scope-professional-services-en
   - validate-delivery-feasibility-
   - coordinate-handoff-from-sales-
-  responsibility: Bridge pre-sales promises with post-sales delivery reality
-system_prompt: 'You are a Professional Services Agent. Your job is to bridge pre-sales promises with post-sales delivery reality.
+  responsibility: Route PS requests to the correct sub-agent and escalate to human when delivery risk or quality gates are breached
+system_prompt: 'You are a Professional Services Orchestrator. You do not execute domain tasks
+  directly. You route each request to the appropriate sub-agent.
 
 
-  You MUST:
+  ROUTING RULES:
 
-  - Assess implementation feasibility and effort
+  - SOW validation, effort estimation, risk flags, pre-sales scoping → Scoping Agent
 
-  - Scope professional services engagements
+  - Resource allocation, milestone definition, timeline management → Delivery Planning Agent
 
-  - Track delivery milestones and risks
+  - Deliverable review, acceptance criteria validation, quality gates → Quality Agent
 
-  - Manage scope change requests
+  - Customer enablement, documentation handoff, training material → Knowledge Transfer Agent
 
-  - Coordinate handoff between sales and delivery
 
-  - Monitor customer satisfaction signals
+  CROSS-DOMAIN REQUESTS:
+
+  When a request spans multiple domains (e.g., "prepare for go-live and build training plan"),
+  route to each relevant sub-agent and aggregate the results.
+
+
+  ESCALATION:
+
+  - SOW commitments cannot be delivered within timeline → PS Manager + AE
+
+  - Scope change exceeds 20% of original effort → PS Manager + AE (within 24h)
+
+  - Critical quality gate failed before go-live → PS Manager (immediate)
+
+  - Customer escalation related to delivery quality → PS Manager + CA (immediate)
+
+  - Knowledge transfer not accepted at project close → PS Manager (within 48h)
 
 
   You MUST NOT:
+
+  - Execute domain tasks yourself (always delegate)
 
   - Make commercial commitments (AE Agent''s domain)
 
@@ -40,25 +60,9 @@ system_prompt: 'You are a Professional Services Agent. Your job is to bridge pre
 
   - Commit to product features (PM Agent''s domain)
 
-  - Execute technical implementation directly
-
   - Approve out-of-scope work without change order
 
   - Underestimate effort to win deals
-
-
-
-  When uncertain: state what evidence is missing, provide preliminary
-
-  analysis based on available information, and flag for human review.
-
-
-  Tone: realistic, delivery-focused, protective of scope.
-
-
-  Output format: markdown with evidence-based structure. Use tables for
-
-  structured comparisons. Bold key findings. Quote sources verbatim.
 
   '
 human_in_the_loop: true
@@ -84,6 +88,74 @@ outputs:
   type: object
   description: Agent output
 tools:
+- component_type: ClientTool
+  id: invoke-scoping
+  name: Invoke Scoping Agent
+  description: Route SOW validation, effort estimation, risk flagging, and pre-sales scoping requests
+  requires_confirmation: false
+  inputs:
+  - title: task
+    type: string
+  - title: context
+    type: object
+  outputs:
+  - title: result
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: agent-registry
+    target_agent: ps-scoping-agent
+- component_type: ClientTool
+  id: invoke-delivery-planning
+  name: Invoke Delivery Planning Agent
+  description: Route resource allocation, milestone definition, and timeline management requests
+  requires_confirmation: false
+  inputs:
+  - title: task
+    type: string
+  - title: context
+    type: object
+  outputs:
+  - title: result
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: agent-registry
+    target_agent: ps-delivery-planning-agent
+- component_type: ClientTool
+  id: invoke-quality
+  name: Invoke Quality Agent
+  description: Route deliverable review, acceptance criteria validation, and quality gate requests
+  requires_confirmation: false
+  inputs:
+  - title: task
+    type: string
+  - title: context
+    type: object
+  outputs:
+  - title: result
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: agent-registry
+    target_agent: ps-quality-agent
+- component_type: ClientTool
+  id: invoke-knowledge-transfer
+  name: Invoke Knowledge Transfer Agent
+  description: Route customer enablement, documentation handoff, and training material requests
+  requires_confirmation: false
+  inputs:
+  - title: task
+    type: string
+  - title: context
+    type: object
+  outputs:
+  - title: result
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: agent-registry
+    target_agent: ps-knowledge-transfer-agent
 - component_type: ClientTool
   id: read-ps-data
   name: Read Professional Data
@@ -354,6 +426,9 @@ a2a:
     - scope-management
     - handoff
     - lessons-learned
+    - delivery-planning
+    - quality-assurance
+    - knowledge-transfer
     input_modes:
     - text/plain
     - application/json
@@ -364,10 +439,85 @@ a2a:
     - text/plain
 x-ea-agent:
   profile:
-    role_context: 'Professional Services scopes and delivers implementation projects. They allocate specialist resources, manage timelines, and coordinate from kickoff through go-live. Getting the customer
-      to value quickly depends on accurate scoping and smooth execution.
+    why: 'Professional services engagements fail for predictable reasons: SOWs are signed with effort estimates nobody validated, resource conflicts accumulate silently until a senior consultant is spread
+      across three projects at once, deliverable quality is assessed subjectively rather than against defined acceptance criteria, and project knowledge evaporates at close because nobody owns the
+      transfer. This agent gives the PS consultant a system that flags scope risk before signature, keeps delivery plans honest throughout execution, gates quality against evidence, and ensures customers
+      can operate independently after handoff.
 
       '
+    human_matters_summary: 'Scope exists in every conversation, not just contracts. The agent estimates effort and surfaces delivery risks, but the PS consultant navigates the complexity of feature creep,
+      balances customer expectations against reality, reads the room when a scope conversation needs to happen diplomatically, and decides when to escalate before a misalignment becomes a crisis.
+      The SOW is validated, but human judgment preserves both the customer relationship and delivery health.
+
+      '
+    human_matters_goal: 'Every engagement is scoped to reality, every deliverable meets acceptance criteria, and the customer operates independently at close because the PS consultant brought the credibility
+      no checklist can replace.
+
+      '
+    role_tab_intro: 'A PS consultant is accountable from the first scoping conversation through the final knowledge transfer. The challenges below are where delivery commitments get made without evidence,
+      quality slips through without detection, and project knowledge walks out the door at close.
+
+      '
+    goals_summary: 'The PS consultant succeeds when every engagement is scoped to what is deliverable, milestones are met with quality evidence, and customers operate independently after handoff.
+
+      '
+    goals:
+    - Every SOW reviewed against effort benchmarks and resource availability before customer signature
+    - Delivery risk flags raised pre-signature for 100% of engagements above the effort threshold
+    - Resource conflicts identified before project assignment confirmation, never after kickoff
+    - Project plans grounded in the signed SOW with milestones traceable to deliverables
+    - Scope deviations detected and documented within 5 business days of first signal
+    - All deliverables reviewed against acceptance criteria before customer presentation
+    - Go-live decisions backed by a quantified readiness assessment with zero critical open items
+    - Knowledge transfer completion validated before project close, not assumed at handoff
+    - Training materials mapped to the customer's actual operating procedures and team structure
+    - Lessons learned captured for every engagement above 30 days duration
+    - Customer satisfaction measured at project close and at 30-day post-go-live check
+    - Change requests processed with effort impact and timeline assessment within 48 hours
+    role_context: 'Professional Services scopes and delivers implementation projects. They allocate specialist resources, manage timelines, and coordinate from kickoff through go-live. Getting the customer
+      to value quickly depends on accurate scoping during pre-sales and disciplined execution once the project begins.
+
+      The gap between what sales committed and what delivery can execute is where most PS pain originates. SOWs written under deal pressure carry optimistic timelines, loosely defined deliverables, and
+      effort estimates that assumed perfect conditions. The PS consultant inherits those commitments and must either renegotiate before damage is done or absorb the overrun and margin erosion.
+
+      Post-sale, scope creep is the second major failure mode. Customer requests arrive through emails, calls, and side conversations with the account team, each small enough to feel harmless until
+      the cumulative drift erodes the original plan. The PS consultant must detect this drift systematically, not reactively.
+
+      '
+    key_responsibilities:
+    - 'Pre-Sales Scoping: assess implementation feasibility, estimate effort by workstream, validate resource availability, and identify delivery risk before SOW signature'
+    - 'SOW Review: review statement of work against effort benchmarks, past engagement data, and delivery standards to flag gaps between promised scope and team capacity'
+    - 'Risk Assessment: evaluate delivery risk across timeline, resource, technical complexity, and customer readiness dimensions before and during engagement'
+    - 'Delivery Planning: translate signed SOW into an implementation plan with milestones, workstream owners, dependencies, and resource assignments'
+    - 'Resource Coordination: identify required specialist skills per engagement phase, flag allocation conflicts, and coordinate with Delivery Manager on staffing'
+    - 'Scope Management: track project progress against the original plan, identify undocumented scope additions, and process change requests with effort impact assessment'
+    - 'Quality Assurance: review deliverables against acceptance criteria before customer presentation, apply quality gates at each project milestone'
+    - 'Go-Live Readiness: apply a structured readiness framework across testing completion, open defects, data migration status, and user acceptance before authorizing go-live'
+    - 'Knowledge Transfer Planning: map customer enablement needs, build training materials aligned to customer operating procedures, and validate transfer completion'
+    - 'Customer Enablement: deliver workshops and documentation that enable the customer to operate the solution independently after engagement close'
+    - 'Handoff Coordination: document and execute structured handoffs from sales to delivery at engagement start and from delivery to operations at project close'
+    - 'Lessons Learned: capture delivery patterns, estimation errors, and process improvements from each engagement to improve future scoping accuracy'
+    key_metrics:
+    - 'SOW review coverage: percentage of engagements above the effort threshold with a delivery risk assessment before customer signature'
+    - 'Pre-signature scope change rate: percentage of SOWs that require renegotiation after signature due to unvalidated commitments'
+    - 'Scope creep detection lag: average days between first scope deviation signal and documented change request'
+    - 'Deliverable acceptance rate: percentage of deliverables accepted by customer on first review without rework'
+    - 'Go-live readiness accuracy: percentage of go-live approvals with zero critical open items at the time of decision'
+    - 'Knowledge transfer completion rate: percentage of engagements where customer-side enablement is validated before project close'
+    - 'Post-go-live satisfaction score: customer-reported satisfaction at 30-day post-go-live check'
+    stakeholder_landscape:
+      customer_side:
+      - "Project Sponsor: approves engagement scope, signs off on deliverables, holds budget authority for change orders"
+      - "Technical Lead: customer-side counterpart for implementation decisions, testing coordination, and environment access"
+      - "Business Process Owner: defines requirements, validates deliverables against business needs, authorizes acceptance"
+      - "Procurement: manages SOW, PO, and commercial terms for professional services engagement"
+      - "End Users: primary recipients of knowledge transfer and training, their adoption readiness determines go-live viability"
+      internal_team:
+      - "Solution Architect: technical architecture authority, design decisions, and technical risk assessment during scoping"
+      - "Account Executive: commercial relationship, scope change negotiations, and SOW alignment during pre-sales"
+      - "Delivery Manager: execution management, resource scheduling, and timeline coordination during project"
+      - "Customer Architect: post-engagement handoff recipient, ongoing support transition, and adoption monitoring"
+      - "Partner Manager: partner resource coordination when engagement involves partner-delivered workstreams"
     scenarios:
     - problem: SOW promises more than the team can deliver in the timeline
       why: 'Sales closes deals with aggressive timelines and loosely scoped deliverables. PS inherits commitments that were never validated against resource availability or implementation complexity, leading
@@ -445,64 +595,311 @@ x-ea-agent:
         leading_indicator: Readiness score trending upward across weekly assessments in the final sprint
         failure_signal: Post-go-live rollback or critical issue that was present in pre-go-live data
     challenges:
-    - text: Project scope creep starts before the kickoff meeting
+    - text: SOW effort estimates are built from intuition rather than benchmarks, creating commitments nobody can validate
+      solved_by: ps-scoping-agent
+      category: Pre-Sales Scoping and Estimation
       specific_overhead:
-      - Building project plans from SOWs and scattered pre-sales documentation
-    - text: Resource allocation conflicts across simultaneous engagements
+      - Pulling comparable engagements from past project data and normalizing for scope differences
+      - Cross-referencing SOW deliverables against effort rate cards for each service type
+    - text: Delivery risk is assessed informally during deal review with no structured framework, so critical risks are missed until post-signature
+      solved_by: ps-scoping-agent
+      category: Pre-Sales Scoping and Estimation
       specific_overhead:
-      - Tracking resource availability across overlapping engagements
-    - text: Go-live readiness is assessed subjectively, not systematically
+      - Manually reviewing SOW line items against team capacity and known technical constraints
+      - Preparing delivery risk memos for deal review with limited time and incomplete information
+    - text: Resource conflicts across concurrent engagements are discovered after project kickoff, not before staffing confirmation
+      solved_by: ps-delivery-planning-agent
+      category: Resource and Capacity Management
       specific_overhead:
-      - Compiling go-live readiness checklists from multiple workstreams
-    - text: SOW promises more than the team can deliver in the timeline
+      - Tracking consultant availability across overlapping engagements in spreadsheets or project tools
+      - Coordinating with Delivery Manager to reallocate resources after conflicts surface during execution
+    - text: Project plans are built from scratch at kickoff rather than from a structured SOW decomposition, losing scope traceability from day one
+      solved_by: ps-delivery-planning-agent
+      category: Resource and Capacity Management
       specific_overhead:
-      - Writing status reports and customer-facing progress updates
-    - Scope creep accumulates silently during project execution
+      - Translating SOW deliverables into project plan tasks manually for each new engagement
+      - Rebuilding milestone structures that could have been derived from the SOW template
+    - text: Deliverable quality is reviewed informally before customer presentation, with no acceptance criteria defined upfront
+      solved_by: ps-quality-agent
+      category: Deliverable Quality and Acceptance
+      specific_overhead:
+      - Gathering ad-hoc feedback from team members during deliverable review without a structured checklist
+      - Iterating through multiple customer revision cycles because acceptance criteria were never defined at kickoff
+    - text: Go-live readiness is a judgment call made in a meeting rather than a score derived from evidence across workstreams
+      solved_by: ps-quality-agent
+      category: Deliverable Quality and Acceptance
+      specific_overhead:
+      - Compiling readiness status from multiple workstream leads without a consistent data model
+      - Resolving conflicting readiness assessments from technical, functional, and data migration teams in real time
+    - text: Scope creep accumulates through informal customer requests that are never formally processed as change requests
+      solved_by: ps-scoping-agent
+      category: Scope Control
+      specific_overhead:
+      - Reviewing email threads and meeting notes to identify scope-expanding language and new requirements
+      - Writing change request documentation that quantifies effort impact and timeline delta for each addition
+    - text: Project knowledge disappears at engagement close because documentation handoff is treated as a formality rather than a validated transfer
+      solved_by: ps-knowledge-transfer-agent
+      category: Knowledge Transfer and Enablement
+      specific_overhead:
+      - Auditing project documentation for completeness before customer handoff under end-of-project time pressure
+      - Scheduling and facilitating knowledge transfer sessions across customer teams with varying technical readiness
+    - text: Training materials are generic and do not reflect the customer's specific configuration, workflows, or operating procedures
+      solved_by: ps-knowledge-transfer-agent
+      category: Knowledge Transfer and Enablement
+      specific_overhead:
+      - Customizing training content for each customer by reviewing their configuration, use cases, and team structure
+      - Validating that customer-side staff can operate the solution independently before PS signs off on project close
+    - text: Lessons learned are captured inconsistently across engagements, so estimation errors and delivery patterns repeat on new projects
+      solved_by: ps-scoping-agent
+      category: Delivery Learning and Improvement
+      specific_overhead:
+      - Facilitating project retrospectives under post-project time pressure when the team has already moved on
+      - Synthesizing retrospective outputs into structured improvements to scoping templates and effort benchmarks
+    - text: Milestone dependencies are not modeled at planning time, so a single delay cascades across the project without early warning
+      solved_by: ps-delivery-planning-agent
+      category: Resource and Capacity Management
+      specific_overhead:
+      - Mapping task dependencies manually and updating the project plan each time a milestone slips
+      - Communicating revised timelines to customer and internal stakeholders after dependency failures propagate
+    - text: Customer readiness for go-live is assumed rather than validated, leading to avoidable production failures in the first 30 days
+      solved_by: ps-quality-agent
+      category: Deliverable Quality and Acceptance
+      specific_overhead:
+      - Coordinating user acceptance testing sessions across customer teams with inconsistent participation
+      - Tracking open defects and workarounds across multiple testing cycles before a final go/no-go decision
     administrative_overhead:
-    - Building project plans from SOWs and scattered pre-sales documentation
-    - Tracking resource availability across overlapping engagements
-    - Compiling go-live readiness checklists from multiple workstreams
-    - Writing status reports and customer-facing progress updates
+    - text: Building project plans from SOWs and scattered pre-sales documentation
+      automated_by: ps-delivery-planning-agent
+    - text: Tracking resource availability across overlapping engagements in spreadsheets
+      automated_by: ps-delivery-planning-agent
+    - text: Compiling go-live readiness checklists from multiple workstreams before each milestone
+      automated_by: ps-quality-agent
+    - text: Writing weekly status reports and customer-facing progress updates
+      automated_by: ps-delivery-planning-agent
+    - text: Reviewing SOW deliverables against effort benchmarks before deal review
+      automated_by: ps-scoping-agent
+    - text: Customizing training materials for each customer engagement from a generic template
+      automated_by: ps-knowledge-transfer-agent
+    - text: Auditing project documentation completeness at engagement close
+      automated_by: ps-knowledge-transfer-agent
     capabilities:
     - Project scoping and estimation
-    - Resource allocation
-    - Delivery management
-    - Go-live coordination
-    - Workshop facilitation
-    human_matters_summary: 'Scope exists in every conversation, not just contracts. The agent estimates effort and surfaces delivery risks, but the PS manager navigates the complexity of feature creep,
-      balances customer expectations against reality, and decides when to escalate scope mismatches before they become delivery crises. The SOW is validated, but human judgment preserves both the customer
-      relationship and delivery health.
+    - SOW review and delivery risk assessment
+    - Resource allocation and conflict detection
+    - Delivery planning and milestone management
+    - Scope change detection and change request processing
+    - Deliverable quality review and acceptance criteria validation
+    - Go-live readiness assessment
+    - Knowledge transfer planning and validation
+    - Customer enablement and training delivery
+    - Handoff coordination between sales, delivery, and operations
+    - Lessons learned capture and estimation improvement
+    with_this_agent:
+    - domain: Pre-Sales Scoping and Estimation
+      agent: ps-scoping-agent
+      items:
+      - 'SOW Review: validate SOW deliverables against effort benchmarks and past engagement data before customer signature'
+      - 'Delivery Risk Assessment: flag scope, resource, and technical risks before deal close with a structured risk framework'
+      - 'Effort Estimation: estimate effort by workstream with confidence levels and stated assumptions per SOW component'
+    - domain: Scope Control
+      agent: ps-scoping-agent
+      items:
+      - 'Scope Creep Detection: monitor project communications and milestone reports for undocumented scope additions'
+      - 'Change Request Processing: document change requests with effort delta, timeline impact, and approval path within 48 hours'
+    - domain: Resource and Capacity Management
+      agent: ps-delivery-planning-agent
+      items:
+      - 'Resource Conflict Detection: identify allocation conflicts across concurrent engagements before project assignment is confirmed'
+      - 'Capacity Planning: model resource utilization across the active engagement portfolio and flag overcommitment risk'
+    - domain: Delivery Planning and Tracking
+      agent: ps-delivery-planning-agent
+      items:
+      - 'Project Plan Generation: translate SOW deliverables into a milestone-based project plan with workstream owners and dependencies'
+      - 'Progress Tracking: compare effort consumed versus planned by workstream and surface deviations before they impact milestones'
+      - 'Status Reporting: generate weekly project status updates with milestone progress, open risks, and next-period actions'
+    - domain: Deliverable Quality and Acceptance
+      agent: ps-quality-agent
+      items:
+      - 'Acceptance Criteria Validation: review deliverables against acceptance criteria defined at project kickoff before customer presentation'
+      - 'Quality Gate Assessment: apply structured quality gates at each project milestone to prevent defects from advancing to the next phase'
+    - domain: Go-Live Readiness
+      agent: ps-quality-agent
+      items:
+      - 'Readiness Scoring: produce a quantified readiness score across testing completion, open defects, data migration, and user acceptance'
+      - 'Blocker Resolution Tracking: monitor critical open items to readiness threshold and flag unresolved blockers before go-live authorization'
+    - domain: Knowledge Transfer and Enablement
+      agent: ps-knowledge-transfer-agent
+      items:
+      - 'Training Material Development: build customer-specific training content mapped to their configuration, workflows, and team structure'
+      - 'Enablement Session Planning: design and schedule knowledge transfer sessions sequenced to the customer team''s readiness timeline'
+    - domain: Documentation and Handoff
+      agent: ps-knowledge-transfer-agent
+      items:
+      - 'Documentation Audit: validate project documentation completeness before customer handoff and flag gaps that would impede self-sufficiency'
+      - 'Handoff Package: assemble structured handoff packages for sales-to-delivery and delivery-to-operations transitions'
+    activity_map:
+      purpose: 'The PS agent routes each engagement activity to one of 4 specialized sub-agents. Each sub-agent owns a distinct phase of the engagement lifecycle. The orchestrator aggregates cross-domain
+        outputs when tasks span scoping, planning, quality, and enablement simultaneously.
 
-      '
+        '
+      domains:
+      - domain: Pre-Sales Scoping and Estimation
+        why: 'Delivery failures begin with commitments made before anyone checked whether delivery could honor them. Structured scoping prevents estimation errors from compounding into scope renegotiations.
+
+          '
+        agent: ps-scoping-agent
+        activities:
+        - SOW review against effort benchmarks and past engagement patterns
+        - Delivery risk assessment across timeline, resource, and technical complexity dimensions
+        - Effort estimation by workstream with confidence levels and stated assumptions
+        - Pre-kickoff alignment brief comparing SOW deliverables to post-close customer expectations
+        cadence: per-deal, triggered at SOW draft stage
+      - domain: Scope Control
+        why: 'Scope creep is a slow leak that erodes margin and delays milestones. Systematic detection stops informal requests from becoming unplanned commitments.
+
+          '
+        agent: ps-scoping-agent
+        activities:
+        - Scope deviation monitoring across project communications and status reports
+        - Change request documentation with effort delta and timeline impact
+        - Scope boundary enforcement and change order initiation
+        cadence: weekly during project execution
+      - domain: Resource and Capacity Management
+        why: 'Overallocated consultants deliver poor quality across all engagements. Conflict detection before staffing confirmation protects both project quality and consultant performance.
+
+          '
+        agent: ps-delivery-planning-agent
+        activities:
+        - Resource conflict detection across concurrent engagement portfolio
+        - Capacity utilization modeling by consultant and engagement
+        - Rebalancing recommendations when overallocation is identified
+        cadence: per-project, triggered at staffing confirmation stage
+      - domain: Delivery Planning and Tracking
+        why: 'Plans built from SOW deliverables maintain scope traceability. Progress tracking against the original plan surfaces drift before it becomes a missed milestone.
+
+          '
+        agent: ps-delivery-planning-agent
+        activities:
+        - Project plan generation from SOW with milestone decomposition and dependency mapping
+        - Weekly effort-to-plan variance tracking by workstream
+        - Status report generation with milestone progress, risks, and next-period actions
+        - Kickoff preparation with agenda, team assignments, and scope confirmation
+        cadence: project kickoff, then weekly throughout execution
+      - domain: Deliverable Quality and Acceptance
+        why: 'Customer rejection of deliverables during execution is more damaging than catching defects internally. Quality gates defined at kickoff eliminate subjective review at presentation time.
+
+          '
+        agent: ps-quality-agent
+        activities:
+        - Acceptance criteria definition at project kickoff per deliverable
+        - Deliverable review against criteria before customer presentation
+        - Quality gate assessment at each project milestone
+        - Defect tracking and remediation before phase advancement
+        cadence: per deliverable and at each milestone gate
+      - domain: Go-Live Readiness
+        why: 'Subjective go-live approvals lead to avoidable production failures. A scored readiness framework makes the go/no-go decision defensible regardless of deal pressure.
+
+          '
+        agent: ps-quality-agent
+        activities:
+        - Structured go-live readiness scoring across all workstream dimensions
+        - Critical open item tracking and resolution verification before authorization
+        - User acceptance testing completion validation
+        - Rollback plan review as a prerequisite for go-live approval
+        cadence: weekly in final sprint, escalated to daily in final week
+      - domain: Knowledge Transfer and Enablement
+        why: 'Customers who cannot operate independently generate support costs that negate implementation value. Transfer validation before project close protects both the customer outcome and PS reputation.
+
+          '
+        agent: ps-knowledge-transfer-agent
+        activities:
+        - Training needs assessment against customer team structure and operating procedures
+        - Customer-specific training material development per configuration and use case
+        - Enablement session delivery and participation tracking
+        - Knowledge transfer completion validation before project close sign-off
+        cadence: planned at kickoff, executed in final phase, validated at project close
+      - domain: Documentation and Handoff
+        why: 'Documentation that survives the PS team''s departure is the customer''s only safety net during the first months of independent operation. Incomplete handoff packages generate avoidable escalations.
+
+          '
+        agent: ps-knowledge-transfer-agent
+        activities:
+        - Project documentation completeness audit before handoff
+        - Sales-to-delivery handoff package assembly and delivery
+        - Delivery-to-operations handoff package with known issues and configuration details
+        - Lessons learned capture and submission to estimation benchmark library
+        cadence: at project close and at engagement transition points
+    sub_agents:
+    - name: Scoping Agent
+      id: ps-scoping-agent
+      purpose: SOW validation, effort estimation, delivery risk flags, pre-sales scoping, scope change detection, and change request processing
+    - name: Delivery Planning Agent
+      id: ps-delivery-planning-agent
+      purpose: Resource allocation and conflict detection, project plan generation, milestone tracking, and progress reporting
+    - name: Quality Agent
+      id: ps-quality-agent
+      purpose: Deliverable review against acceptance criteria, quality gate assessment at milestones, and go-live readiness scoring
+    - name: Knowledge Transfer Agent
+      id: ps-knowledge-transfer-agent
+      purpose: Customer enablement planning, training material development, documentation handoff, and transfer completion validation
+    public_resources:
+    - title: Project Management Institute - PMBOK Guide
+      url: https://www.pmi.org/pmbok-guide-standards/foundational/pmbok
+      context: Industry-standard framework for project scope, schedule, resource, quality, and stakeholder management used by PS practitioners globally
+    - title: AXELOS PRINCE2 Practitioner
+      url: https://www.axelos.com/certifications/propath/prince2-project-management
+      context: Structured project management method widely applied in professional services engagements, particularly for milestone governance and change control
+    - title: Gartner - Professional Services Best Practices
+      url: https://www.gartner.com/en/industries/technology/professional-services
+      context: Analyst guidance on PS delivery models, scoping standards, and knowledge transfer frameworks in enterprise technology implementations
+    - title: TSIA - Technology and Services Industry Association Research
+      url: https://www.tsia.com/research/professional-services
+      context: Industry benchmarks for PS delivery metrics including SOW accuracy, scope change rates, and go-live readiness standards
+    - title: Salesforce Trailhead - Implementation Methodology
+      url: https://trailhead.salesforce.com/en/content/learn/modules/service_cloud_implementation
+      context: Reference implementation methodology covering scoping, planning, quality gates, and knowledge transfer for enterprise PS engagements
     playbook_raci:
-      context: >
-        Professional Services contributes implementation expertise to playbooks led by other
-        roles. PS does not own engagement-level playbooks but provides delivery feasibility,
-        effort estimation, and implementation constraints.
-      responsible: []
-      accountable: []
+      context: 'Professional Services contributes implementation expertise to playbooks led by other roles. PS does not own engagement-level playbooks but provides delivery feasibility, effort estimation, and implementation constraints.
+'
+      responsible:
+      - playbook: Support-to-Account Intelligence (PB_DEL_006)
+        scope: Evaluate whether an account qualifies for a Designated Support Engineer, create 
+        team: delivery
+        file: PB_DEL_006_engage_dse.yaml
+      - playbook: Pre-Sales Engagement Scoping & SOW Validation (PB_PS_001)
+        scope: Assess service requirements, estimate effort and resource needs, identify delive
+        team: professional_services
+        file: PB_PS_001_presales_scoping.yaml
+      - playbook: Project Delivery Planning & Milestone Management (PB_PS_002)
+        scope: Plan and manage project delivery through resource allocation, milestone definiti
+        team: professional_services
+        file: PB_PS_002_delivery_planning.yaml
+      - playbook: Customer Enablement & Knowledge Transfer (PB_PS_003)
+        scope: Ensure complete knowledge transfer from the PS engagement team to the customer t
+        team: professional_services
+        file: PB_PS_003_knowledge_transfer.yaml
       consulted:
-        - playbook: Implementation Kickoff (PB_DEL_001)
-          scope: Implementation feasibility, resource availability, effort estimation for delivery planning
-          team: delivery
-          file: PB_DEL_001_implementation_kickoff.yaml
-        - playbook: Sizing (PB_SA_002)
-          scope: Implementation effort validation and resource estimation for capacity planning
-          team: solution_architects
-          file: PB_SA_002_sizing_estimation.yaml
-        - playbook: Go-Live Readiness (PB_DEL_002)
-          scope: Implementation completeness verification and operational readiness assessment
-          team: delivery
-          file: PB_DEL_002_go_live_readiness.yaml
+      - playbook: Implementation Kickoff (PB_DEL_001)
+        scope: Implementation feasibility, resource availability, effort estimation for delivery planning
+        team: delivery
+        file: PB_DEL_001_implementation_kickoff.yaml
+      - playbook: Sizing (PB_SA_002)
+        scope: Implementation effort validation and resource estimation for capacity planning
+        team: solution_architects
+        file: PB_SA_002_sizing_estimation.yaml
+      - playbook: Go-Live Readiness (PB_DEL_002)
+        scope: Implementation completeness verification and operational readiness assessment
+        team: delivery
+        file: PB_DEL_002_go_live_readiness.yaml
       informed:
-        - playbook: Deal Retrospective (PB_AE_001)
-          scope: Receives delivery quality feedback for service improvement
-          team: account_executives
-          file: PB_AE_001_retrospective.yaml
-        - playbook: Post-Implementation Review (PB_DEL_004)
-          scope: Receives implementation outcome assessment for methodology refinement
-          team: delivery
-          file: PB_DEL_004_post_implementation_review.yaml
+      - playbook: Deal Retrospective (PB_AE_001)
+        scope: Receives delivery quality feedback for service improvement
+        team: account_executives
+        file: PB_AE_001_retrospective.yaml
+      - playbook: Post-Implementation Review (PB_DEL_004)
+        scope: Receives implementation outcome assessment for methodology refinement
+        team: delivery
+        file: PB_DEL_004_post_implementation_review.yaml
   fallback_model: null
   prompt_registry:
     ps-scope-engagement:
@@ -892,21 +1289,67 @@ x-ea-agent:
   - Manage scope change requests
   - Coordinate handoff between sales and delivery
   - Monitor customer satisfaction signals
+  - Route requests to appropriate sub-agent based on task type
+  - Aggregate cross-domain results from multiple sub-agents
   escalation_triggers:
-  - Technical architecture decisions (to SA Agent)
-  - Commercial negotiations (to AE Agent)
-  - Execution management (to Delivery Agent)
-  - Critical deliverability assessment exceeding agent authority (to Leadership)
+  - SOW commitments identified as undeliverable in current timeline (immediate, to PS Manager + AE)
+  - Scope change exceeds 20% of original SOW effort without approved change order (within 24h, to PS Manager + AE)
+  - Critical quality gate failed with no viable remediation path before go-live (immediate, to PS Manager)
+  - Customer escalation related to delivery quality or missed milestone (immediate, to PS Manager + CA)
+  - Resource conflict identified after project kickoff confirmation (to PS Manager + Delivery Manager)
+  - Knowledge transfer rejected by customer at project close (within 48h, to PS Manager)
   handoffs:
-    human_escalation: Leadership
+    human_escalation: PS Manager
     defer_to:
-      sa_agent: Technical architecture decisions
-      ae_agent: Commercial negotiations
-      delivery_agent: Execution management
+      sa_agent:
+        scope: Technical architecture decisions, solution design authority, technical risk assessment
+        scenarios:
+        - trigger: Engagement requires architecture decision beyond PS scope or implementation reveals design constraint
+          context_passed: Implementation context, technical constraints, customer environment details, proposed workarounds
+          receiver_action: Architecture decision, design guidance, technical risk assessment
+      ae_agent:
+        scope: Commercial negotiations, scope changes requiring contract amendments, SOW renegotiation
+        scenarios:
+        - trigger: Engagement scope change requires commercial discussion or SOW amendment
+          context_passed: Scope change details, effort impact, timeline implications, change request documentation
+          receiver_action: Customer negotiation, commercial terms adjustment, SOW amendment
+      delivery_agent:
+        scope: Execution management, resource scheduling, timeline coordination, cross-project resource conflicts
+        scenarios:
+        - trigger: Engagement plan ready for execution or resource conflict identified across engagements
+          context_passed: Project plan, resource requirements, milestone schedule, dependency map
+          receiver_action: Resource allocation, execution tracking, conflict resolution
+      pm_agent:
+        scope: Product limitations or bugs blocking implementation, feature gap assessment
+        scenarios:
+        - trigger: Product issue or feature gap discovered during implementation that blocks a deliverable
+          context_passed: Issue details, customer impact, workaround availability, timeline pressure
+          receiver_action: Bug prioritization, hotfix assessment, workaround guidance, roadmap confirmation
     provide_to:
-      ae_agent: Feasibility assessment, effort estimates
-      sa_agent: Implementation constraints
-      ca_agent: Handoff documentation, delivery completion context
+      ae_agent:
+        scope: Feasibility assessments, effort estimates, delivery risk assessments, engagement scoping
+        scenarios:
+        - trigger: Pre-sale engagement scoping or deal requires PS commitment before SOW signature
+          context_passed: Effort estimation, resource availability, delivery risk assessment, scoping assumptions
+          receiver_action: Deal pricing, customer expectation setting, SOW preparation
+      sa_agent:
+        scope: Implementation constraints, deployment patterns, customer environment learnings
+        scenarios:
+        - trigger: Engagement reveals implementation pattern or customer environment constraint with architecture implications
+          context_passed: Implementation findings, environment constraints, deployment patterns, customer technical context
+          receiver_action: Solution design improvement, reference architecture updates, constraint documentation
+      ca_agent:
+        scope: Engagement completion handoff, documentation, knowledge transfer artifacts, outstanding items
+        scenarios:
+        - trigger: Professional services engagement completing or transitioning to ongoing support
+          context_passed: Deliverable summary, configuration documentation, known issues, training completion status, outstanding items
+          receiver_action: Customer onboarding to ongoing support, health monitoring setup, adoption monitoring
+      delivery_agent:
+        scope: Engagement readiness, dependency chain, specialist availability, implementation plan
+        scenarios:
+        - trigger: Engagement scoped and ready for delivery planning
+          context_passed: Engagement scope, skill requirements, timeline constraints, resource needs per phase
+          receiver_action: Delivery planning, resource assignment, milestone scheduling
   human_in_the_loop_conditions:
   - Review required before publishing analysis externally
   - Approval needed for strategic recommendations

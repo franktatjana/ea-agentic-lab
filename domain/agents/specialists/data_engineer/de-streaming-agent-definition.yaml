@@ -1,0 +1,429 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: de-streaming-agent
+name: DE Streaming Agent
+description: >
+  Real-time streaming architecture, Kafka cluster design, Flink/Spark Streaming topologies,
+  and event processing patterns. This agent handles stream topology design, exactly-once
+  semantics, backpressure management, and low-latency event delivery.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: de-specialist-agent
+  tags:
+  - streaming
+  - kafka
+  - flink
+  - event-processing
+  - real-time
+  responsibility: >
+    Design real-time streaming architectures that deliver business-critical events with low
+    latency, ordering guarantees, and exactly-once semantics where required.
+system_prompt: >
+  You are a Streaming Agent, part of the Data Engineer Specialist system. Your job is to
+  design real-time streaming architectures and event processing patterns.
+
+
+  You MUST:
+
+  - Design event-driven streaming topologies with clear producer/consumer boundaries
+
+  - Architect Kafka cluster designs with topic partitioning, replication, and retention strategies
+
+  - Specify exactly-once semantics, ordering guarantees, and deduplication approaches
+
+  - Design backpressure handling and flow control for high-throughput streams
+
+  - Recommend stream processing frameworks (Flink, Spark Streaming, Kafka Streams) based on workload
+
+  - Produce latency budgets that map processing stages to time allocations
+
+
+  You MUST NOT:
+
+  - Design batch pipeline architectures or DAG orchestration (Pipeline Agent's domain)
+
+  - Define data quality validation rules (Quality Agent's domain)
+
+  - Design data models or schema evolution (Modeling Agent's domain)
+
+  - Configure CDC or API connectors (Integration Agent's domain)
+
+  - Set up CI/CD or environment management (Ops Agent's domain)
+
+  - Make platform-level architecture decisions (Big Data Architect's domain)
+
+  - Guarantee specific latency numbers without measurement data
+
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-streaming-assessment
+  name: Save Streaming Assessment
+  description: Persist streaming architecture assessment to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from data engineer about streaming context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: streaming-intelligence
+  name: Streaming Intelligence
+  description: Streaming architecture data available to peer agents for cross-domain context
+  tools:
+  - id: get-streaming-topology
+    name: Get Streaming Topology
+    description: Returns streaming topology designs and event processing patterns for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: streaming_designs
+      type: array
+  - id: get-streaming-health
+    name: Get Streaming Health
+    description: Returns streaming latency metrics and throughput data
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: health_metrics
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: streaming-architecture-design
+  name: Streaming Architecture Design
+  playbook_refs:
+  - PB_DE_001
+  - PB_DE_006
+  description: Design real-time streaming architecture with topology, processing semantics, and latency framework.
+  inputs:
+  - title: account_context
+    type: object
+  - title: event_sources
+    type: object
+  - title: latency_requirements
+    type: object
+  outputs:
+  - title: streaming_topology
+    type: object
+  - title: kafka_design
+    type: object
+  - title: latency_budget
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: de-streaming-assessment
+      input: account_context, event_sources
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess current streaming landscape and event processing requirements
+      on_failure: stop
+    - step: 2
+      prompt: de-streaming-topology
+      input: account_context, latency_requirements
+      tools:
+      - read-infohub
+      description: Design streaming topology with producer/consumer boundaries and processing semantics
+      on_failure: stop
+    - step: 3
+      prompt: de-kafka-design
+      input: streaming_topology
+      tools:
+      - read-infohub
+      description: Design Kafka cluster architecture with topic partitioning and replication
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-streaming-assessment
+      description: Save streaming architecture assessment to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - streaming-architecture
+    - kafka-design
+    - event-processing
+    - stream-topology
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent designs streaming topologies and event processing patterns. The data engineering lead
+      understands which events are truly business-critical (versus merely nice-to-have in real-time),
+      what latency tolerances the business can accept before degrading user experience, and which
+      trade-offs between consistency and availability are acceptable for each use case.
+    challenges:
+    - text: Streaming latency spikes during peak load periods cause event processing delays
+      specific_overhead:
+      - Profiling and tuning consumer group configurations per customer workload
+    - text: Exactly-once semantics are assumed but not validated across the full processing chain
+      specific_overhead:
+      - Designing and executing end-to-end exactly-once validation tests per stream topology
+    administrative_overhead:
+    - Profiling and tuning consumer group configurations per customer workload
+    - Designing and executing end-to-end exactly-once validation tests per stream topology
+    scenarios:
+    - problem: Streaming latency spikes during peak load cause business-critical event processing delays
+      why: >
+        Stream processing jobs are configured for average load, not peak load. During traffic spikes,
+        consumer lag grows, backpressure cascades through the topology, and latency-sensitive events
+        (fraud detection, inventory updates) arrive too late to be actionable.
+      agent: de-streaming-agent
+      agent_response: >
+        Designs streaming architectures with autoscaling consumer groups, backpressure-aware
+        flow control, and latency budgets that allocate time across processing stages. Produces
+        capacity models based on peak-load projections rather than average throughput.
+      success_signal:
+        metric: P99 event processing latency during peak load
+        target: P99 latency remains within SLA during 2x average load
+        leading_indicator: Load testing completed with peak-load simulation
+        failure_signal: Latency SLA breached during first real peak-load event
+    - problem: Event ordering violations cause incorrect state in downstream consumers
+      why: >
+        Kafka partitioning strategy does not align with the ordering requirements of downstream
+        consumers. Events for the same entity arrive out of order when processed across multiple
+        partitions, causing state corruption in materialized views or event-sourced systems.
+      agent: de-streaming-agent
+      agent_response: >
+        Designs partitioning strategies that align with ordering requirements, specifying
+        partition keys that group related events together. Implements sequence validation
+        at consumer boundaries and designs dead-letter queues for out-of-order events.
+      success_signal:
+        metric: Event ordering violation rate
+        target: Zero ordering violations for events within the same entity partition
+        leading_indicator: Partition key strategy validated against all consumer ordering requirements
+        failure_signal: Downstream consumers report state inconsistencies after topology deployment
+  escalation_triggers:
+  - Streaming latency exceeds SLA threshold for business-critical events
+  - Exactly-once semantics cannot be guaranteed for regulated data streams
+  - Kafka cluster sizing requires infrastructure investment decision
+  prompt_registry:
+    de-streaming-assessment:
+      description: Assess current streaming landscape and event processing requirements
+      source: prompts/tasks.yaml#streaming.assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: event_sources
+        type: object
+      outputs:
+      - title: streaming_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - streaming_inventory
+        - event_sources
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - technology_map
+        priority: enrichment
+    de-streaming-topology:
+      description: Design streaming topology with processing semantics
+      source: prompts/tasks.yaml#streaming.topology
+      inputs:
+      - title: account_name
+        type: string
+      - title: latency_requirements
+        type: object
+      outputs:
+      - title: streaming_topology
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - event_sources
+        - consumer_requirements
+        priority: critical
+    de-kafka-design:
+      description: Design Kafka cluster architecture with topic partitioning
+      source: prompts/tasks.yaml#streaming.kafka_design
+      inputs:
+      - title: streaming_topology
+        type: object
+      outputs:
+      - title: kafka_design
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - throughput_requirements
+        - retention_policies
+        priority: critical
+  boundaries:
+  - Streaming architecture only, does not handle batch pipelines
+  - Does not define data quality rules or validation logic
+  - Does not design data models or schema evolution
+  - Does not configure CDC or API connectors
+  permissions:
+  - Design real-time streaming architectures
+  - Architect Kafka cluster configurations
+  - Design stream processing topologies with Flink, Spark Streaming, or Kafka Streams
+  - Specify exactly-once semantics and ordering guarantee strategies
+  - Design backpressure handling and flow control
+  guardrails:
+    input_validation:
+    - Reject streaming design requests without event source inventory or latency requirements
+    - Reject topology design without consumer ordering requirements
+    output_checks:
+    - All streaming designs must specify processing semantics (at-least-once, exactly-once)
+    - Latency budgets must be stated as estimates unless grounded in measurement data
+    - Partitioning strategies must document ordering implications
+    signal_validation:
+    - Never guarantee specific latency numbers without load testing data
+    - Add [NEEDS LOAD TESTING] when latency estimates lack measurement basis
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - streaming-architecture
+      - event-processing
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-kafka-patterns.yaml
+      description: Kafka cluster design, topic architecture, consumer group patterns
+    - path: references/expertise-stream-processing.yaml
+      description: Flink, Spark Streaming, Kafka Streams processing patterns
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: de-specialist-agent
+      description: Data Engineer orchestrator routes streaming design requests
+    - type: event
+      source: streaming_metrics
+      condition: consumer_lag.exceeds_threshold == true
+      description: Auto-triggers assessment when consumer lag exceeds thresholds
+    outputs:
+    - type: parent_return
+      target: de-specialist-agent
+      payload:
+      - streaming_topology
+      - kafka_design
+      - latency_budget
+      description: Full streaming design back to orchestrator for aggregation
+    - type: trigger_agent
+      target: de-quality-agent
+      condition: stream.needs_validation == true
+      payload:
+      - stream_specification
+      - validation_requirements
+      description: Streams requiring data validation trigger quality agent
+    - type: trigger_agent
+      target: de-modeling-agent
+      condition: stream.schema_design_needed == true
+      payload:
+      - event_schema_requirements
+      description: Event schema design needs trigger modeling agent
+    dependencies: []

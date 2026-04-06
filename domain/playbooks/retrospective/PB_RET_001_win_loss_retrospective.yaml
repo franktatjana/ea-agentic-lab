@@ -1,0 +1,570 @@
+# disclaimer
+# This playbook is part of a reference architecture
+# framework. It defines agent behavior specifications,
+# not production-ready operational procedures.
+# Framework references (MEDDPICC, Five Whys, SWOT,
+# etc.) are industry-standard methodologies cited for
+# educational context.
+
+# PLAYBOOK: Win/Loss Retrospective Analysis
+# Structured analysis after deal completion for organizational learning
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+playbook_id: "PB_RET_001"
+framework_name: "Structured Win/Loss Retrospective"
+framework_source: "Agile Retrospective + Five Whys Root Cause Analysis (Toyota Production System)"
+intended_agent_role: "retrospective-agent"
+secondary_agents: ["AE Agent provides deal context and timeline", "SA Agent provides technical evaluation details", "CI Agent provides competitive intelligence", "CA Agent provides customer relationship context"]
+playbook_mode: "ANALYTICAL"
+playbook_category: "governance"
+
+primary_objective: "Conduct structured, blame-free win/loss analysis after deal completion, extracting replicable success patterns from wins and root causes from losses across five categories (product, process, people, positioning, pricing) to build organizational learning"
+
+vault_routing:
+  primary_vault: "Global Knowledge Vault"
+  rationale: "Anonymized retrospective patterns and lessons learned are organizational assets that improve future deal execution across all teams and regions."
+  secondary_outputs:
+    - vault: "Internal Account Hub"
+      artifact: "Account-specific retrospective findings, deal-level root cause analysis, and competitive intelligence gathered during the retrospective"
+
+flow_bindings:
+  description: "Maps playbook phases to the retrospective agent flows that execute them"
+  bindings:
+    - phase: "win_initiation"
+      agent: retrospective-agent
+      flow: win-retrospective
+      step: 1
+      prompt: retrospective-initiate-win-retro
+      context: "Gather deal baseline data, confirm participants, establish blame-free ground rules, and set retrospective scope for closed-won deal"
+    - phase: "win_factor_analysis"
+      agent: retrospective-agent
+      flow: win-retrospective
+      step: 2
+      prompt: retrospective-analyze-win-factors
+      context: "Deep analysis of why we won: value proposition resonance, champion effectiveness, technical proof points, competitive differentiation, and timing"
+    - phase: "win_documentation"
+      agent: retrospective-agent
+      flow: win-retrospective
+      step: 3
+      prompt: retrospective-document-win-learnings
+      context: "Create structured win retrospective document with replicable patterns, success factors, and recommendations for future deals"
+    - phase: "loss_initiation"
+      agent: retrospective-agent
+      flow: loss-retrospective
+      step: 1
+      prompt: retrospective-initiate-loss-retro
+      context: "Gather deal baseline data, confirm participants, establish blame-free ground rules, and set retrospective scope for closed-lost deal"
+    - phase: "loss_factor_analysis"
+      agent: retrospective-agent
+      flow: loss-retrospective
+      step: 2
+      prompt: retrospective-analyze-loss-factors
+      context: "Root cause analysis across five categories: product gaps, process failures, people/relationship gaps, positioning misalignment, and pricing issues"
+    - phase: "loss_documentation"
+      agent: retrospective-agent
+      flow: loss-retrospective
+      step: 3
+      prompt: retrospective-document-loss-learnings
+      context: "Create structured loss retrospective document with root causes, corrective actions, and prevention recommendations"
+    - phase: "competitive_deep_dive"
+      agent: retrospective-agent
+      flow: loss-retrospective
+      step: 4
+      prompt: retrospective-competitive-loss-deep-dive
+      context: "Detailed competitive analysis when deal was lost to a specific competitor: competitor tactics, differentiators, customer perception, and counter-strategy recommendations"
+
+when_not_to_use:
+  - "Deal still active or in negotiation (retrospectives must not influence active deals)"
+  - "Less than 5 business days since close (allow emotional distance for objective analysis)"
+  - "Key participants unavailable for minimum viable input"
+  - "Deal under legal review or NDA dispute"
+  - "Informal or transactional deal with no evaluation process"
+
+raci:
+  responsible:
+    role: "Retrospective Agent"
+    agent: "retrospective-agent"
+    description: "Conducts structured win/loss analysis using blame-free methodology, extracts root causes and success patterns, and produces retrospective artifacts"
+
+  accountable:
+    role: "Sales Leadership"
+    human_required: true
+    description: "Approves retrospective findings, ensures learnings are distributed and acted upon, and protects blame-free culture"
+    approval_actions:
+      - "approve"
+      - "request_revision"
+      - "escalate"
+
+  consulted:
+    - role: "AE Agent"
+      on_steps: ["win_initiation", "loss_initiation", "win_factor_analysis", "loss_factor_analysis"]
+    - role: "SA Agent"
+      on_steps: ["win_factor_analysis", "loss_factor_analysis", "competitive_deep_dive"]
+    - role: "CI Agent"
+      on_steps: ["competitive_deep_dive", "loss_factor_analysis"]
+    - role: "CA Agent"
+      on_steps: ["win_factor_analysis", "loss_factor_analysis"]
+
+  informed:
+    - role: "Sales Leadership"
+      notify_on: ["retrospective_complete", "pattern_detected", "product_gap_identified"]
+    - role: "CI Agent"
+      notify_on: ["competitive_loss", "competitive_insights_extracted"]
+    - role: "Product Team"
+      notify_on: ["product_gap_identified", "feature_request_documented"]
+    - role: "AE Community"
+      notify_on: ["replicable_win_pattern_found"]
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - event: "deal_closed_won"
+      description: "Deal moved to closed-won status in CRM"
+      timing: "Initiate within 5 business days of close"
+
+    - event: "deal_closed_lost"
+      description: "Deal moved to closed-lost status in CRM"
+      timing: "Initiate within 5 business days of close"
+      priority: "HIGH"
+
+    - event: "no_decision_timeout"
+      description: "Deal stalled with no decision for 90+ days, effectively a loss"
+      condition: "$.deal.days_in_no_decision_stage >= 90"
+
+  manual:
+    - "Sales leadership requests structured retrospective for specific deal"
+    - "Account team requests retrospective after notable win or loss"
+    - "AE requests retrospective to understand deal dynamics"
+
+  conditional:
+    - condition: "$.deal.value >= ${thresholds.strategic_deal_value}"
+      description: "Strategic deal requires retrospective regardless of outcome"
+
+    - condition: "$.deal.competitive == true AND $.deal.outcome == 'lost'"
+      description: "Competitive loss triggers retrospective with competitive deep-dive"
+
+    - condition: "$.deal.sales_cycle_days >= ${thresholds.long_sales_cycle}"
+      description: "Extended sales cycle warrants learning capture"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "{realm}/{node}/external-infohub/overview.md"
+      description: "Account overview and deal context"
+    - artifact: "Deal outcome (won/lost/no-decision)"
+      description: "Final deal status and close date"
+    - artifact: "Sales cycle timeline"
+      description: "Stage progression, key milestones, and duration"
+    - artifact: "Deal participants"
+      description: "AE, SA, and other team members involved in the deal"
+
+  optional:
+    - artifact: "{realm}/{node}/external-infohub/meetings/*.md"
+      use: "Meeting notes from discovery, demo, POC, and negotiation"
+    - artifact: "{realm}/{node}/internal-infohub/competitive/*.md"
+      use: "Competitive context, battlecards, and positioning used"
+    - artifact: "{realm}/{node}/internal-infohub/stakeholders/relationship_map.md"
+      use: "Stakeholder engagement and champion analysis"
+    - artifact: "{realm}/{node}/external-infohub/decisions/*.md"
+      use: "Architecture and technical decisions made during the deal"
+    - artifact: "POV/POC results and success criteria"
+      use: "Technical validation outcomes and customer feedback"
+    - artifact: "Proposal, pricing, and commercial terms"
+      use: "Commercial positioning and negotiation history"
+    - artifact: "Customer feedback (direct or via AE)"
+      use: "Customer-stated reasons for decision"
+    - artifact: "MEDDPICC scores during deal lifecycle"
+      use: "Qualification assessment history"
+
+  minimum_data_threshold:
+    - "Deal outcome confirmed (won, lost, or no-decision)"
+    - "Basic deal timeline and stage history available"
+    - "At least one participant available for input"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  deal_context:
+    - "What was the deal value, strategic importance, and intended use case?"
+    - "How long was the sales cycle and how did it compare to expected duration?"
+    - "Who were the key stakeholders on the customer side?"
+    - "Which competitors were involved and when did they enter the evaluation?"
+    - "What was the customer's buying process and decision criteria?"
+
+  win_analysis:
+    - "What were the top 3 factors that led to winning this deal?"
+    - "Which value propositions resonated most strongly with the customer?"
+    - "Who was our champion and how effectively did they advocate internally?"
+    - "What technical proof points or demos were decisive?"
+    - "What differentiated us from competitors in the customer's view?"
+    - "What did we do during discovery that set us up for success?"
+    - "What elements of this win are replicable in similar deals?"
+
+  loss_analysis_product:
+    - "Were there product capabilities or features the customer required that we lacked?"
+    - "Did the customer cite specific technical gaps as a decision factor?"
+    - "Were integration requirements unmet by our product?"
+
+  loss_analysis_process:
+    - "Where in the sales process did we lose momentum?"
+    - "Were there process failures in discovery, demo, POC, or negotiation?"
+    - "Did we miss critical steps or skip stages prematurely?"
+    - "Was the sales cycle too long or too compressed?"
+
+  loss_analysis_people:
+    - "Did we engage the right stakeholders at the right time?"
+    - "Was our champion effective, or did we lose champion support?"
+    - "Were there organizational changes that affected our position?"
+    - "Did we have the right team composition for this deal?"
+
+  loss_analysis_positioning:
+    - "Was our value proposition aligned with the customer's stated priorities?"
+    - "Did the customer perceive us as a strategic partner or a vendor?"
+    - "Were our differentiators clearly communicated and understood?"
+    - "Did the competitor position more effectively?"
+
+  loss_analysis_pricing:
+    - "Was pricing a primary or contributing factor in the loss?"
+    - "How did our pricing compare to competitor offers?"
+    - "Was the commercial structure (subscription model, terms) a barrier?"
+    - "Did we lose on price or on perceived value for the price?"
+
+  competitive_deep_dive:
+    - "Which competitor won and what were their key tactics?"
+    - "What did the competitor demonstrate or promise that we did not?"
+    - "What was the customer's perception of the competitor's strengths?"
+    - "Where did the competitor's positioning resonate more effectively?"
+    - "What intelligence can we extract for future competitive encounters?"
+
+  five_whys:
+    purpose: "Reach root cause by asking 'why' iteratively"
+    questions:
+      - "Why did we win/lose this deal? (1st why, surface reason)"
+      - "Why did that factor influence the outcome? (2nd why)"
+      - "Why were we in that position? (3rd why)"
+      - "Why did our process or approach lead here? (4th why)"
+      - "What systemic advantage or gap enabled this outcome? (5th why, root cause)"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    - id: "replicable_win_pattern"
+      condition: "outcome == 'won' AND win_factors.replicable_count >= 2"
+      severity: "LOW"
+      output_type: "Initiative"
+      decision:
+        title: "Replicable win pattern identified for {node}"
+        context: "Multiple success factors identified that can be replicated in similar deals"
+        recommendation: "Document and distribute win pattern to broader sales and SA community"
+        actions:
+          - "Create win pattern entry with tagged success factors"
+          - "Retrospective Agent: Trigger knowledge-sharing flow to create lessons summary"
+          - "Distribute to AE and SA communities for adoption"
+          - "Update relevant playbooks with validated tactics"
+        stakeholders: ["Sales Leadership", "AE Community", "SA Community"]
+
+    - id: "competitive_loss"
+      condition: "outcome == 'lost' AND competitor_won IS NOT NULL"
+      severity: "MEDIUM"
+      output_type: "Initiative + Artifact"
+      decision:
+        title: "Competitive loss to {competitor_won}: intelligence extraction required"
+        context: "Deal lost to identified competitor, retrospective contains competitive intelligence"
+        recommendation: "Extract competitive insights and create competitive brief"
+        actions:
+          - "Execute competitive deep-dive (step 4 of loss-retrospective flow)"
+          - "Retrospective Agent: Trigger knowledge-sharing flow to create competitive brief"
+          - "CI Agent: Update battlecard for {competitor_won}"
+          - "Document competitor tactics and customer perception for future positioning"
+        stakeholders: ["CI Agent", "SA Community", "Sales Leadership"]
+      creates:
+        - object_type: "competitive_brief"
+          priority: "HIGH"
+
+    - id: "product_gap_loss"
+      condition: "outcome == 'lost' AND root_cause_category == 'product'"
+      severity: "HIGH"
+      output_type: "Risk + Initiative"
+      decision:
+        title: "Product gap contributed to loss: {product_gap_description}"
+        context: "Customer requirement not met by current product capabilities"
+        recommendation: "Document product feedback and escalate to Product team"
+        actions:
+          - "Retrospective Agent: Trigger knowledge-sharing flow to create product feedback"
+          - "Submit structured product feedback with customer evidence and competitive context"
+          - "Track similar feedback from other retrospectives for pattern detection"
+        escalate_to: "Product Team"
+      creates:
+        - object_type: "product_feedback"
+          priority: "HIGH"
+        - object_type: "Risk"
+          category: "product"
+          severity: "MEDIUM"
+
+    - id: "process_failure_loss"
+      condition: "outcome == 'lost' AND root_cause_category == 'process' AND root_cause.controllable == true"
+      severity: "MEDIUM"
+      output_type: "Initiative + Action Items"
+      decision:
+        title: "Controllable process failure identified: {root_cause_summary}"
+        context: "Five Whys analysis revealed a controllable process gap that contributed to the loss"
+        recommendation: "Implement corrective actions to prevent recurrence"
+        actions:
+          - "Create specific improvement actions with owners and deadlines"
+          - "Update affected playbooks or process documentation"
+          - "Flag for pattern analysis: check if similar process gap appears in other retrospectives"
+        stakeholders: ["AE", "SA", "Sales Leadership"]
+      creates:
+        - object_type: "Initiative"
+          priority: "HIGH"
+
+    - id: "positioning_mismatch"
+      condition: "outcome == 'lost' AND root_cause_category == 'positioning'"
+      severity: "MEDIUM"
+      output_type: "Initiative"
+      decision:
+        title: "Positioning mismatch contributed to loss at {node}"
+        context: "Value proposition or differentiation did not align with customer priorities"
+        recommendation: "Review and update positioning for this segment or use case"
+        actions:
+          - "Document which messaging failed and what would have been more effective"
+          - "CI Agent: Review positioning against competitor messaging"
+          - "Update talking points and demo narratives for similar deals"
+        stakeholders: ["CI Agent", "SA Community", "Marketing"]
+
+    - id: "pricing_loss"
+      condition: "outcome == 'lost' AND root_cause_category == 'pricing'"
+      severity: "MEDIUM"
+      output_type: "Risk + Decision"
+      decision:
+        title: "Pricing contributed to loss at {node}"
+        context: "Commercial terms or pricing structure was a factor in the customer's decision"
+        recommendation: "Review pricing strategy for this segment"
+        actions:
+          - "Document pricing comparison with winning competitor"
+          - "Assess whether loss was price-driven or value-perception-driven"
+          - "Sales Leadership: Review pricing flexibility for similar deals"
+        stakeholders: ["Sales Leadership", "RevOps"]
+      creates:
+        - object_type: "Risk"
+          category: "commercial"
+          severity: "LOW"
+
+    - id: "resurrection_potential"
+      condition: "outcome == 'lost' AND resurrection_potential == 'HIGH'"
+      severity: "LOW"
+      output_type: "Initiative"
+      decision:
+        title: "Resurrection opportunity identified for {node}"
+        context: "Lost deal has conditions that may lead to re-engagement"
+        recommendation: "Implement structured nurture strategy"
+        actions:
+          - "Document re-engagement conditions and timing"
+          - "AE Agent: Set reminder for check-in at defined interval"
+          - "Maintain champion relationship for future opportunity"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/{node}/internal-infohub/retrospectives/retrospective_{outcome}_{YYYY-MM-DD}.md"
+    format: "markdown"
+    sections:
+      - executive_summary
+      - deal_snapshot
+      - outcome_analysis
+      - root_cause_analysis
+      - key_learnings
+      - recommendations
+      - competitive_analysis (competitive losses only)
+      - resurrection_assessment (losses only)
+
+    schema:
+      executive_summary:
+        - outcome: "enum[WON|LOST|NO_DECISION]"
+        - deal_value: "number"
+        - primary_outcome_driver: "string"
+        - root_cause_category: "enum[product|process|people|positioning|pricing|external]"
+        - root_cause_summary: "string"
+        - key_learning: "string"
+        - replicable_pattern: "boolean (wins only)"
+
+      deal_snapshot:
+        - account_name: "string"
+        - opportunity_name: "string"
+        - deal_value: "number"
+        - sales_cycle_days: "integer"
+        - close_date: "date"
+        - competitors: "array[string]"
+        - use_cases_evaluated: "array[string]"
+        - ae: "string"
+        - sa: "string"
+
+      outcome_analysis:
+        - primary_drivers: "array[driver_detail]"
+        - contributing_factors: "array[factor]"
+        - factor_categories:
+            product: "string (assessment and evidence)"
+            process: "string (assessment and evidence)"
+            people: "string (assessment and evidence)"
+            positioning: "string (assessment and evidence)"
+            pricing: "string (assessment and evidence)"
+        - what_worked_well: "array[string]"
+        - what_could_improve: "array[string]"
+
+      root_cause_analysis:
+        - methodology: "Five Whys"
+        - chain: "array[why_level]"
+        - root_cause: "string"
+        - category: "enum[product|process|people|positioning|pricing|external]"
+        - controllable: "boolean"
+        - branches: "array[root_cause_analysis] (if multiple root causes)"
+
+      key_learnings:
+        - learning: "string"
+        - category: "enum[sales|technical|competitive|product|process|positioning|pricing]"
+        - applicability: "enum[universal|segment|account]"
+        - action_recommended: "string"
+        - replicable: "boolean"
+
+      recommendations:
+        - immediate_actions: "array[action_item]"
+        - process_improvements: "array[improvement]"
+        - competitive_updates: "array[string]"
+        - product_feedback: "array[feedback_item]"
+        - positioning_updates: "array[string]"
+
+      competitive_analysis:
+        - competitor_won: "string"
+        - competitor_tactics: "array[string]"
+        - competitor_strengths_observed: "array[string]"
+        - competitor_weaknesses_observed: "array[string]"
+        - customer_perception_of_competitor: "string"
+        - counter_strategy_recommendations: "array[string]"
+
+  lessons_learned:
+    path: "{realm}/{node}/internal-infohub/retrospectives/lessons_{YYYY-MM-DD}.md"
+    format: "markdown"
+    create_always: true
+
+  competitive_brief:
+    path: "{realm}/{node}/internal-infohub/competitive/retro_brief_{competitor}_{YYYY-MM-DD}.md"
+    format: "markdown"
+    create_if: "outcome == 'lost' AND competitor_won IS NOT NULL"
+
+  action_items:
+    path: "{realm}/{node}/internal-infohub/actions/"
+    create_for: "All recommendations with specific owners and deadlines"
+
+  notifications:
+    - recipient: "Sales Leadership"
+      condition: "always"
+      message: "Retrospective complete for {node}: {outcome} - Root cause: {root_cause_category} - Key learning: {key_learning}"
+
+    - recipient: "CI Agent"
+      condition: "competitor_insights.count > 0"
+      message: "Competitive intelligence extracted from {node} retrospective: {competitor_won}"
+
+    - recipient: "Product Team"
+      condition: "product_feedback.count > 0"
+      message: "Product feedback from {node} retrospective: {product_gap_description}"
+
+    - recipient: "AE Community"
+      condition: "outcome == 'won' AND replicable_pattern == true"
+      message: "Replicable win pattern identified from {node}: {pattern_summary}"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "sensitive_personnel_issues_surface"
+      reason: "Retrospective reveals personnel-related concerns that require HR or management judgment"
+      action: "Pause analysis, document factual findings only, escalate to Sales Leadership"
+
+    - condition: "contradictory_participant_accounts"
+      reason: "Team members have significantly different recollections of key events"
+      action: "Facilitated discussion needed to reconcile perspectives before finalizing root cause"
+
+    - condition: "executive_deal_sensitivity"
+      reason: "Deal involves executive relationships or strategic accounts requiring discretion"
+      action: "Leadership review before finalizing and distributing retrospective"
+
+    - condition: "blame_attribution_detected"
+      reason: "Analysis is drifting toward individual blame rather than systemic factors"
+      action: "Reframe analysis to focus on process, tooling, and information flow gaps"
+
+  insufficient_data:
+    - "Deal outcome not confirmed in CRM"
+    - "No participant available for input (all team members reassigned or unavailable)"
+    - "Deal history not documented (no meeting notes, emails, or CRM activity)"
+    - "Less than 5 business days since deal close"
+
+  ambiguity_signals:
+    - "Root cause unclear despite Five Whys analysis across all five categories"
+    - "Multiple equally valid root causes with insufficient evidence to prioritize"
+    - "Customer-stated reason contradicts observable evidence"
+    - "Conflicting input from different team members on key decision points"
+
+  human_judgment_required:
+    - "Weighting root cause categories when multiple factors contributed"
+    - "Determining whether a pattern is systemic or situational"
+    - "Deciding which learnings warrant organizational process changes"
+    - "Assessing resurrection potential for lost deals"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "Deal is closed (won, lost, or no-decision confirmed)"
+    - "Minimum 5 business days since close date"
+    - "At least AE or SA available for input"
+    - "Basic deal timeline and stage history accessible"
+    - "Blame-free ground rules communicated to all participants"
+
+  post_execution:
+    - "Five Whys analysis reaches a root cause (not just symptoms)"
+    - "Root cause classified into one of the five categories (product, process, people, positioning, pricing) or external"
+    - "At least 3 key learnings documented with applicability tags"
+    - "At least 1 actionable recommendation with owner and deadline"
+    - "Competitive deep-dive completed for all competitive losses"
+    - "No blame assigned to individuals in any output"
+    - "Evidence cited for all key conclusions"
+
+  output_quality:
+    - "Root cause is specific and actionable (not generic like 'improve communication')"
+    - "Learnings are applicable beyond this specific deal"
+    - "Recommendations have clear owners, deadlines, and success criteria"
+    - "Win patterns are documented with enough detail to be replicable"
+    - "Competitive intelligence is actionable for CI Agent and SA community"
+    - "Tone is analytical and constructive throughout all artifacts"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "45-90 minutes (agent analysis) + participant input collection"
+frequency: "Within 5-10 business days of deal close"
+human_review_required: true
+approval_workflow:
+  - reviewer: "AE"
+    approval_gate: "Validate deal facts, timeline accuracy, and participant input"
+  - reviewer: "SA"
+    approval_gate: "Validate technical analysis and product gap assessment"
+  - reviewer: "Sales Leadership"
+    condition: "deal_value >= ${thresholds.strategic_deal_value} OR competitive_loss"
+    approval_gate: "Approve findings for distribution and action item assignment"
+
+last_updated: "2026-03-26"
+version: "1.0"
+status: "draft"

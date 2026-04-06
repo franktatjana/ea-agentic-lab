@@ -357,6 +357,22 @@ export default function BlueprintHubPage() {
         <p className="text-[15px] text-muted-foreground mt-1">
           Engagement composition starts here: archetypes classify the pattern, blueprints assemble the playbooks, and tracks control depth and governance.
         </p>
+        <div className="flex flex-wrap gap-3 mt-2">
+          <Link
+            href="/docs?path=reference/blueprint-catalog.md"
+            className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+          >
+            <BookOpen className="h-3 w-3" />
+            Blueprint catalog
+          </Link>
+          <Link
+            href="/docs?path=reference/repository-paths.md"
+            className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+          >
+            <Layers className="h-3 w-3" />
+            Repo paths (YAML / vault)
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -8,10 +8,12 @@ Checks:
 5. Disclaimer header present
 6. Version consistency
 7. Sequential step numbers in flows
+8. Playbook RACI consistency (cross-reference with playbook files)
 
 Usage:
     python validate_definitions.py              # validate all
     python validate_definitions.py <file.yaml>  # validate one
+    python validate_definitions.py --raci       # RACI cross-reference only
 """
 
 import sys
@@ -20,6 +22,7 @@ from pathlib import Path
 import yaml
 
 AGENTS_BASE = Path(__file__).resolve().parent.parent
+PLAYBOOKS_BASE = AGENTS_BASE.parent / "playbooks"
 
 REQUIRED_ZONE1 = [
     "agentspec_version", "component_type", "id", "name", "description",
@@ -176,17 +179,129 @@ def validate_file(path: Path) -> list[str]:
     return issues
 
 
+def build_playbook_index() -> dict[str, list[dict]]:
+    """Scan all playbook YAMLs and index by intended_agent_role."""
+    index: dict[str, list[dict]] = {}
+    if not PLAYBOOKS_BASE.exists():
+        return index
+    for pb_file in sorted(PLAYBOOKS_BASE.rglob("*.yaml")):
+        if pb_file.name == "README.md" or "template" in pb_file.parts:
+            continue
+        try:
+            data = yaml.safe_load(pb_file.read_text(encoding="utf-8"))
+        except (yaml.YAMLError, OSError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        role = data.get("intended_agent_role")
+        if not role:
+            continue
+        team = str(pb_file.parent.relative_to(PLAYBOOKS_BASE))
+        entry = {
+            "file": pb_file.name,
+            "team": team,
+            "path": pb_file,
+            "name": data.get("framework_name") or data.get("steckbrief", {}).get("name", pb_file.stem),
+            "playbook_id": data.get("playbook_id", ""),
+        }
+        index.setdefault(role, []).append(entry)
+    return index
+
+
+def validate_raci() -> list[str]:
+    """Cross-reference playbook_raci in definitions against actual playbook files."""
+    issues = []
+    pb_index = build_playbook_index()
+    defs = sorted(AGENTS_BASE.rglob("*-definition.yaml"))
+
+    for def_path in defs:
+        try:
+            data = yaml.safe_load(def_path.read_text(encoding="utf-8"))
+        except (yaml.YAMLError, OSError):
+            continue
+        if not isinstance(data, dict):
+            continue
+
+        agent_id = data.get("id", "")
+        rel = def_path.relative_to(AGENTS_BASE) if def_path.is_relative_to(AGENTS_BASE) else def_path
+        xea = data.get("x-ea-agent", {})
+        if not isinstance(xea, dict):
+            continue
+        profile = xea.get("profile", {})
+        if not isinstance(profile, dict):
+            continue
+        raci = profile.get("playbook_raci")
+
+        catalog_playbooks = pb_index.get(agent_id, [])
+        catalog_files = {p["file"] for p in catalog_playbooks}
+
+        if not raci:
+            if catalog_playbooks:
+                names = ", ".join(p["name"] for p in catalog_playbooks[:5])
+                suffix = f" (and {len(catalog_playbooks) - 5} more)" if len(catalog_playbooks) > 5 else ""
+                issues.append(f"RACI {rel}: No playbook_raci section but {len(catalog_playbooks)} playbooks target this agent: {names}{suffix}")
+            continue
+
+        if not isinstance(raci, dict):
+            continue
+
+        raci_files: set[str] = set()
+        for role_type in ("responsible", "accountable", "consulted", "informed"):
+            entries = raci.get(role_type, [])
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                file_ref = entry.get("file", "")
+                team_ref = entry.get("team", "")
+                if file_ref:
+                    raci_files.add(file_ref)
+                    pb_path = PLAYBOOKS_BASE / team_ref / file_ref if team_ref else None
+                    if pb_path and not pb_path.exists():
+                        issues.append(f"RACI {rel}: {role_type} entry '{entry.get('playbook', '')}' references missing file: {team_ref}/{file_ref}")
+
+        if agent_id in pb_index:
+            missing = catalog_files - raci_files
+            for pb in catalog_playbooks:
+                if pb["file"] in missing:
+                    issues.append(f"RACI {rel}: Playbook '{pb['name']}' ({pb['team']}/{pb['file']}) targets {agent_id} but is not in playbook_raci")
+
+    orphan_roles = set(pb_index.keys())
+    defined_ids = set()
+    for def_path in defs:
+        try:
+            data = yaml.safe_load(def_path.read_text(encoding="utf-8"))
+        except (yaml.YAMLError, OSError):
+            continue
+        if isinstance(data, dict):
+            defined_ids.add(data.get("id", ""))
+    for role in sorted(orphan_roles - defined_ids):
+        count = len(pb_index[role])
+        issues.append(f"RACI orphan: {count} playbook(s) target '{role}' but no agent definition with that ID exists")
+
+    return issues
+
+
 def main():
-    if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
-        path = Path(sys.argv[1]).resolve()
+    raci_only = "--raci" in sys.argv
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+
+    issues = []
+
+    if raci_only:
+        print("Validating playbook RACI consistency...\n")
+        issues = validate_raci()
+    elif args:
+        path = Path(args[0]).resolve()
         issues = validate_file(path)
     else:
         defs = sorted(AGENTS_BASE.rglob("*-definition.yaml"))
         print(f"Validating {len(defs)} definition files...\n")
-        issues = []
         for f in defs:
-            file_issues = validate_file(f)
-            issues.extend(file_issues)
+            issues.extend(validate_file(f))
+        print("Running playbook RACI cross-reference...\n")
+        issues.extend(validate_raci())
 
     if issues:
         print(f"Found {len(issues)} issues:\n")

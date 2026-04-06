@@ -1,11 +1,15 @@
 ---
 title: "Guides"
 order: 3
+audience: both
+summary: "How-to guides for practitioners and developers."
+related:
+  - ../START_HERE.md
 ---
 
 # Guides
 
-Practical guidance organized by reader intent. Start with orientation if you're new, then go to the section that matches your role or task. The [Architecture docs](../architecture/) explain the design. These guides explain how to use and work within it.
+Practical guidance organized by reader intent. For a **reading order** across all documentation, start at [Start here](../START_HERE.md). The [Architecture docs](../architecture/) explain the design; these guides explain how to use and work within it.
 
 ---
 
@@ -19,7 +23,7 @@ Read these first. They are not role-specific.
 | [End-to-End Walkthrough by Role](end-to-end-walkthrough.md) | What a full deal looks like from the AE, SA, Specialist, CSM, and Sales Leadership desks, using a single running example |
 | [RFP Agent: Executive Guide](rfp-agent.md) | How the RFP Agent orchestrates proposal responses and feeds product intelligence back to the PM team |
 
-For a one-page overview of the entire platform, see [HANDBOOK.md](../HANDBOOK.md).
+For a one-page overview of the entire platform, see [Executive summary](../overview/executive-summary.md) and [HANDBOOK.md](../HANDBOOK.md). For repo paths outside `docs/`, see [Repository path locator](../reference/repository-paths.md).
 
 ---
 

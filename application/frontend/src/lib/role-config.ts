@@ -31,6 +31,15 @@ export const ROLE_STYLES: Record<string, RoleStyle> = {
   rfp:        { label: "RFP",                 badgeColors: "bg-rose-600/20 text-rose-400 border-rose-600/30",       borderColor: "border-rose-600/30 hover:border-rose-500/50",     activeBorderColor: "border-rose-500/60 bg-rose-600/5",     textColor: "text-rose-400" },
   fcto:       { label: "Field CTO",            badgeColors: "bg-yellow-600/20 text-yellow-400 border-yellow-600/30", borderColor: "border-yellow-600/30 hover:border-yellow-500/50", activeBorderColor: "border-yellow-500/60 bg-yellow-600/5", textColor: "text-yellow-400" },
   aa:         { label: "Alliance Architect",   badgeColors: "bg-amber-600/20 text-amber-400 border-amber-600/30",   borderColor: "border-amber-600/30 hover:border-amber-500/50",   activeBorderColor: "border-amber-500/60 bg-amber-600/5",   textColor: "text-amber-400" },
+  infosec:    { label: "InfoSec",              badgeColors: "bg-red-600/20 text-red-400 border-red-600/30",           borderColor: "border-red-600/30 hover:border-red-500/50",       activeBorderColor: "border-red-500/60 bg-red-600/5",       textColor: "text-red-400" },
+  aci:        { label: "Account Intelligence", badgeColors: "bg-violet-600/20 text-violet-400 border-violet-600/30", borderColor: "border-violet-600/30 hover:border-violet-500/50", activeBorderColor: "border-violet-500/60 bg-violet-600/5", textColor: "text-violet-400" },
+  ii:         { label: "Industry Intelligence",badgeColors: "bg-fuchsia-600/20 text-fuchsia-400 border-fuchsia-600/30", borderColor: "border-fuchsia-600/30 hover:border-fuchsia-500/50", activeBorderColor: "border-fuchsia-500/60 bg-fuchsia-600/5", textColor: "text-fuchsia-400" },
+  mna:        { label: "Market News",          badgeColors: "bg-slate-600/20 text-slate-400 border-slate-600/30",     borderColor: "border-slate-600/30 hover:border-slate-500/50",   activeBorderColor: "border-slate-500/60 bg-slate-600/5",   textColor: "text-slate-400" },
+  ti:         { label: "Tech Intelligence",    badgeColors: "bg-zinc-600/20 text-zinc-400 border-zinc-600/30",       borderColor: "border-zinc-600/30 hover:border-zinc-500/50",     activeBorderColor: "border-zinc-500/60 bg-zinc-600/5",     textColor: "text-zinc-400" },
+  ps:         { label: "Professional Services",badgeColors: "bg-stone-600/20 text-stone-400 border-stone-600/30",     borderColor: "border-stone-600/30 hover:border-stone-500/50",   activeBorderColor: "border-stone-500/60 bg-stone-600/5",   textColor: "text-stone-400" },
+  cadv:       { label: "Customer Advocacy",    badgeColors: "bg-sky-600/20 text-sky-400 border-sky-600/30",           borderColor: "border-sky-600/30 hover:border-sky-500/50",       activeBorderColor: "border-sky-500/60 bg-sky-600/5",       textColor: "text-sky-400" },
+  cad:        { label: "Cloud Architecture",   badgeColors: "bg-sky-600/20 text-sky-300 border-sky-600/30",           borderColor: "border-sky-600/30 hover:border-sky-500/50",       activeBorderColor: "border-sky-500/60 bg-sky-600/5",       textColor: "text-sky-300" },
+  tw:         { label: "Technical Writing",    badgeColors: "bg-orange-600/20 text-orange-400 border-orange-600/30", borderColor: "border-orange-600/30 hover:border-orange-500/50", activeBorderColor: "border-orange-500/60 bg-orange-600/5", textColor: "text-orange-400" },
 };
 
 const FALLBACK: RoleStyle = {
@@ -52,9 +61,18 @@ export function getRoleKey(agentRole: string): string {
   if (lower.includes("value engineer") || lower.startsWith("ve")) return "ve";
   if (lower.startsWith("ae") || lower.includes("account exec")) return "ae";
   if (lower.startsWith("sa") || lower.includes("solution arch")) return "sa";
+  if (lower.startsWith("cad-agent") || lower.includes("customer-advoca")) return "cadv";
+  if (lower.startsWith("cad") || lower.includes("cloud-architecture")) return "cad";
   if (lower.startsWith("ca") || lower.includes("customer arch")) return "ca";
   if (lower.startsWith("ci") || lower.includes("competitive")) return "ci";
   if (lower.includes("delivery")) return "delivery";
+  if (lower.startsWith("infosec") || lower.includes("security-specialist")) return "infosec";
+  if (lower.startsWith("aci") || lower.includes("account-context")) return "aci";
+  if (lower.startsWith("ii-") || lower.includes("industry-intelligence")) return "ii";
+  if (lower.startsWith("mna") || lower.includes("market-news")) return "mna";
+  if (lower.startsWith("ti-") || lower.includes("tech-signal") || lower.includes("technology-intelligence")) return "ti";
+  if (lower.startsWith("ps") || lower.includes("professional-service")) return "ps";
+  if (lower.startsWith("tw-") || lower.includes("technical-writing")) return "tw";
   if (lower.includes("specialist")) return "specialist";
   if (lower.includes("pm") || lower.includes("product manager")) return "pm";
   if (lower.includes("partner")) return "partner";

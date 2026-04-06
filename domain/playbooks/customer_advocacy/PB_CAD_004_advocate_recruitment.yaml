@@ -1,0 +1,447 @@
+# disclaimer
+# This playbook is part of a reference architecture
+# framework. It defines agent behavior specifications,
+# not production-ready operational procedures.
+# Framework references (advocate lifecycle, maturity
+# models, etc.) are industry-standard methodologies
+# cited for educational context.
+
+# PLAYBOOK: Advocate Recruitment Pipeline
+# Framework operationalization for AI agents
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+playbook_id: "PB_CAD_004"
+framework_name: "Advocate Recruitment Pipeline"
+framework_source: "Customer Reference Program Management + B2B Advocate Lifecycle Methodology"
+intended_agent_role: "cad-agent"
+secondary_agents: ["CA Agent", "AE Agent"]
+playbook_mode: "PROACTIVE"
+playbook_category: "customer_enablement"
+
+primary_objective: "Build and maintain a healthy advocate pipeline by screening closed-won deals for advocacy potential, scoring candidates against maturity thresholds, coordinating warm introductions through account teams, capturing consent and preferences, onboarding advocates to the community, and assigning maturity tiers that guide engagement intensity"
+
+vault_routing:
+  primary_vault: "Internal Account Hub"
+  rationale: "Recruitment pipeline data contains advocate assessment scores, willingness signals, consent records, and internal prioritization criteria. Sharing externally would expose recruitment strategy before customer consent is secured."
+  secondary_outputs:
+    - vault: "Customer InfoHub"
+      artifact: "Advocate program invitations, benefit summaries, and community welcome packages shared with prospective and onboarded advocates"
+    - vault: "Global Knowledge Vault"
+      artifact: "Anonymized recruitment conversion rates, maturity tier distribution benchmarks, and onboarding completion patterns (quarterly aggregation)"
+
+flow_bindings:
+  description: "Maps playbook phases to the agent flows that execute them"
+  bindings:
+    - phase: "Closed-Won Deal Screening"
+      agent: cad-agent-proactive
+      flow: advocate-management
+      context: "Screen recently closed-won deals for advocacy potential using customer success signals, deal size, logo value, and solution complexity"
+    - phase: "Candidate Scoring Against Maturity Thresholds"
+      agent: cad-agent-analytical
+      flow: advocate-management
+      context: "Score candidates across outcome strength, willingness indicators, logo value, coverage gap fit, and deployment maturity"
+    - phase: "Warm Introduction Coordination"
+      agent: cad-agent
+      flow: advocate-management
+      context: "Coordinate warm introductions through AE and CA account teams, leveraging existing relationships to initiate advocacy conversations"
+    - phase: "Consent and Preference Capture"
+      agent: cad-agent
+      flow: advocate-management
+      context: "Capture explicit consent for advocacy activities, document activity preferences, availability windows, and communication channels"
+    - phase: "Advocate Community Onboarding"
+      agent: cad-agent-proactive
+      flow: advocate-management
+      context: "Onboard consented advocates into the community with welcome kits, benefit overviews, first activity suggestions, and peer connections"
+    - phase: "Maturity Tier Assignment"
+      agent: cad-agent-analytical
+      flow: advocate-management
+      context: "Assign initial maturity tier (new, established, champion, ambassador) based on readiness signals, activity comfort, and engagement depth"
+
+when_not_to_use:
+  - "Customer has an active support escalation or health score below 50 (stabilize first)"
+  - "Customer is within first 90 days of deployment (insufficient success signals)"
+  - "Customer has explicitly declined advocacy participation in the last 6 months"
+  - "Customer is in active legal dispute or contract renegotiation"
+  - "Deal closed with significant concessions or customer dissatisfaction signals"
+
+raci:
+  responsible:
+    role: "CAD Agent"
+    agent: "cad_agent"
+    description: "Screens closed-won deals, scores candidates, coordinates introductions, captures consent, manages onboarding, and assigns maturity tiers"
+
+  accountable:
+    role: "Customer Advocacy Manager"
+    human_required: true
+    description: "Approves recruitment target list, validates outreach approach for strategic accounts, and authorizes engagement plans for high-value logos"
+    approval_actions:
+      - "approve"
+      - "request_revision"
+      - "deprioritize"
+      - "escalate_to_executive"
+
+  consulted:
+    - role: "CA Agent"
+      on_steps: ["candidate_health_verification", "willingness_assessment", "relationship_context"]
+    - role: "AE Agent"
+      on_steps: ["deal_context_enrichment", "warm_introduction_coordination"]
+
+  informed:
+    - role: "CA Agent"
+      notify_on: ["recruitment_outreach_initiated", "advocate_onboarded"]
+    - role: "AE Agent"
+      notify_on: ["new_advocate_available", "coverage_gap_closed"]
+    - role: "Customer Advocacy Manager"
+      notify_on: ["pipeline_below_threshold", "onboarding_completed"]
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - event: "deal_closed_won"
+      description: "New deal closes successfully, triggering advocacy potential screening"
+      condition: "$.deal.outcome == 'won' AND $.deal.close_date_age_days <= 30"
+
+    - event: "quarterly_recruitment_cycle"
+      description: "Scheduled quarterly scan for new advocate candidates from the installed base"
+      timing: "First week of each quarter"
+
+    - event: "coverage_gap_alert"
+      description: "Proof point library coverage gap identified for a critical segment"
+      condition: "$.advocacy.coverage_gaps[segment].active_advocates < 3"
+
+    - event: "customer_milestone_achieved"
+      signal_filter: "milestone IN ['go_live', 'value_realized', 'renewal_completed', 'expansion_closed']"
+      description: "Customer reaches a success milestone indicating advocacy readiness"
+
+    - event: "nps_promoter_score"
+      signal_filter: "nps_score >= 9"
+      description: "Customer submits a promoter-level NPS score"
+
+  manual:
+    - "Customer Advocacy Manager requests targeted recruitment for a specific segment"
+    - "AE identifies a referenceable customer during account review"
+    - "CA Agent flags a customer as advocacy-ready after successful engagement"
+
+  conditional:
+    - condition: "$.customer.health_score >= 70 AND $.customer.tenure_months >= 6 AND $.customer.advocate_status == 'none'"
+      description: "Healthy, established customer not yet in the advocate program"
+
+    - condition: "$.advocacy.active_pool_size < $.advocacy.minimum_pool_threshold"
+      description: "Active advocate count drops below minimum program threshold"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "Closed-won deal records with account context (deal size, products, buyer personas)"
+      source: "CRM / Deal Pipeline"
+      criticality: "HIGH"
+    - artifact: "Customer success data (health scores, NPS, support satisfaction, usage metrics)"
+      source: "Customer Success Platform / CA Agent"
+      criticality: "HIGH"
+    - artifact: "Current advocate registry with active, inactive, and declined advocates"
+      source: "Advocate Program Database"
+      criticality: "HIGH"
+    - artifact: "Proof point library coverage map (gaps by industry, use case, persona)"
+      source: "CAD Agent / Proof Point Library"
+      criticality: "HIGH"
+
+  optional:
+    - artifact: "Account relationship maps with champion and executive sponsor contacts"
+      source: "Internal Account Hub"
+      criticality: "MEDIUM"
+    - artifact: "Previous advocacy interactions (declined, expired, lapsed)"
+      source: "Advocate Program Database"
+      criticality: "MEDIUM"
+    - artifact: "Industry and segment coverage targets"
+      source: "Customer Advocacy Manager"
+      criticality: "LOW"
+    - artifact: "Marketing campaign calendar for recruitment timing alignment"
+      source: "Marketing Agent"
+      criticality: "LOW"
+
+  minimum_data_threshold:
+    - "Customer health score available (not 'unknown')"
+    - "At least 6 months of customer tenure or clear value-realization milestone"
+    - "At least one deployed product in production"
+    - "No active escalation or churn risk flag"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  deal_screening:
+    - "Which recently closed-won deals have deployment timelines that put them on track for advocacy readiness within 6-12 months?"
+    - "Which closed deals involved competitive displacement that could yield high-value migration stories?"
+    - "What logo tier and industry does each closed deal represent, and does it fill a coverage gap?"
+    - "Did the deal champion express satisfaction or enthusiasm during the sales cycle?"
+    - "Are there any deal conditions (heavy discounts, concessions, scope limitations) that reduce advocacy suitability?"
+
+  candidate_scoring:
+    - "What is the strength of documented outcomes (quantified metrics vs. qualitative satisfaction)?"
+    - "What willingness indicators exist (unsolicited praise, conference attendance, community engagement)?"
+    - "How well does the candidate fill existing coverage gaps (industry, use case, persona, geography)?"
+    - "What is the customer's public visibility comfort (private references only vs. public speaking)?"
+
+  warm_introduction:
+    - "Who is the best internal contact to initiate the advocacy conversation (AE, CSM, executive sponsor)?"
+    - "What is the existing relationship strength and trust level with the customer?"
+    - "What is the ideal timing for the introduction (post-milestone, renewal, QBR)?"
+
+  onboarding:
+    - "What advocacy activities is the customer most comfortable starting with (private call, written quote, case study, event)?"
+    - "What are the customer's availability windows and preferred communication channels?"
+    - "Does the customer require internal approval (legal, PR, communications) before participating?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    # High-potential candidate from closed-won deal
+    - id: "high_potential_closed_won"
+      condition: "advocacy_score >= 0.8 AND deal.outcome == 'won' AND customer.health_score >= 80"
+      severity: "LOW"
+      output_type: "Fast-Track Recruitment Plan"
+      decision:
+        title: "High-priority advocate candidate from closed-won deal: {customer_name}"
+        context: "Strong outcomes, high health score, and positive deal signals indicate high advocacy potential"
+        recommendation: "Fast-track recruitment with warm introduction through account team"
+        actions:
+          - "Assign target maturity tier based on readiness signals"
+          - "Coordinate warm introduction through AE who closed the deal"
+          - "Design personalized outreach emphasizing community benefits and peer networking"
+          - "Set 30-day recruitment conversion target"
+          - "Prepare onboarding welcome kit for immediate deployment upon consent"
+
+    # Candidate fills critical coverage gap
+    - id: "coverage_gap_candidate"
+      condition: "advocacy_score >= 0.6 AND fills_coverage_gap == true AND gap_priority == HIGH"
+      severity: "MEDIUM"
+      output_type: "Priority Recruitment Plan + Coverage Gap Update"
+      decision:
+        title: "Coverage-priority advocate candidate: {customer_name} for {segment}"
+        context: "Candidate fills a critical proof point library gap that impacts deal support"
+        recommendation: "Prioritize recruitment to close the coverage gap"
+        actions:
+          - "Design outreach emphasizing industry thought leadership and visibility benefits"
+          - "Propose initial activity aligned with the gap (case study, reference call, review)"
+          - "Coordinate with CA Agent for relationship health confirmation"
+          - "Track against coverage gap closure targets"
+
+    # Candidate needs nurture before recruitment
+    - id: "nurture_track_candidate"
+      condition: "advocacy_score >= 0.4 AND advocacy_score < 0.6"
+      severity: "LOW"
+      output_type: "Nurture Plan"
+      decision:
+        title: "Nurture-track advocate candidate: {customer_name}"
+        context: "Positive signals present but insufficient outcome strength or willingness for immediate recruitment"
+        recommendation: "Add to nurture pipeline with milestone-triggered re-assessment"
+        actions:
+          - "Assign Passive maturity tier"
+          - "Set milestone triggers for re-assessment (next renewal, next QBR, value realization)"
+          - "Include in low-commitment engagement (newsletter, community invitation, event attendance)"
+          - "Monitor for willingness signal changes"
+
+    # Candidate with risk factors blocking recruitment
+    - id: "candidate_with_risk_flags"
+      condition: "advocacy_score >= 0.6 AND (health_score < 70 OR open_escalation == true OR recent_decline == true)"
+      severity: "HIGH"
+      output_type: "Hold + Risk Assessment"
+      decision:
+        title: "Advocate candidate on hold: {customer_name}"
+        context: "Strong advocacy potential but active risk factors prevent recruitment"
+        recommendation: "Hold recruitment until risk factors resolved"
+        actions:
+          - "Do not initiate outreach until health score stabilized above 70"
+          - "Notify CA Agent of advocacy interest for post-stabilization follow-up"
+          - "Set automated re-assessment trigger when risk factors clear"
+          - "Document risk factors for future recruitment timing"
+
+    # Consent captured, proceed to onboarding
+    - id: "consent_received_onboard"
+      condition: "consent_status == 'granted' AND preferences_captured == true"
+      severity: "LOW"
+      output_type: "Onboarding Plan"
+      decision:
+        title: "Advocate onboarding: {customer_name} consented and ready"
+        context: "Customer has granted advocacy consent with documented activity preferences"
+        recommendation: "Execute community onboarding and assign initial maturity tier"
+        actions:
+          - "Deliver welcome kit with program benefits, community access, and first activity options"
+          - "Assign initial maturity tier based on comfort level and engagement readiness"
+          - "Schedule introductory touchpoint within 14 days"
+          - "Notify AE Agent that new advocate is available for reference matching"
+          - "Update advocate registry and coverage map"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/advocacy/recruitment/pipeline_{YYYY-Q}.md"
+    format: "markdown"
+    sections:
+      - executive_summary
+      - deal_screening_results
+      - candidate_rankings
+      - coverage_gap_analysis
+      - onboarding_status
+      - pipeline_metrics
+
+    schema:
+      executive_summary:
+        deals_screened: "integer"
+        qualified_candidates: "integer"
+        high_priority: "integer"
+        coverage_gaps_addressable: "integer"
+        onboarded_this_period: "integer"
+
+      candidate_rankings:
+        type: "array"
+        items:
+          rank: "integer"
+          customer_name: "string"
+          deal_id: "string"
+          advocacy_score: "float (0.0-1.0)"
+          dimension_scores:
+            outcome_strength: "enum[HIGH|MEDIUM|LOW]"
+            logo_value: "enum[TIER_1|TIER_2|TIER_3]"
+            willingness_signals: "enum[STRONG|MODERATE|WEAK]"
+            coverage_gap_fit: "enum[CRITICAL|MODERATE|MARGINAL|NONE]"
+          health_score: "integer (0-100)"
+          target_maturity_tier: "enum[new|established|champion|ambassador]"
+          recruitment_status: "enum[screening|outreach|consent_pending|onboarding|active|hold]"
+          recommended_first_activity: "string"
+
+      onboarding_status:
+        type: "array"
+        items:
+          customer_name: "string"
+          consent_date: "date"
+          preferences_captured: "boolean"
+          maturity_tier: "string"
+          welcome_kit_delivered: "boolean"
+          first_activity_scheduled: "boolean"
+
+  coverage_gap_updates:
+    path: "{realm}/advocacy/coverage_gaps/"
+    create_if: "candidate fills identified gap"
+    template: "Gap closure projection with candidate details and timeline"
+
+  pipeline_metrics:
+    path: "{realm}/advocacy/metrics/recruitment_{YYYY-Q}.md"
+    create_if: "always"
+    fields:
+      - period: "string"
+      - deals_screened: "integer"
+      - candidates_qualified: "integer"
+      - outreach_initiated: "integer"
+      - consent_granted: "integer"
+      - onboarded: "integer"
+      - conversion_rate: "float"
+      - average_time_to_consent_days: "integer"
+
+  notifications:
+    - recipient: "Customer Advocacy Manager"
+      condition: "always"
+      message: "Recruitment pipeline update: {qualified_count} candidates identified, {onboarded_count} onboarded this period"
+
+    - recipient: "CA Agent"
+      condition: "outreach_initiated == true"
+      message: "Advocate recruitment outreach initiated for {customer_name}, coordinate relationship support"
+
+    - recipient: "AE Agent"
+      condition: "advocate_onboarded == true"
+      message: "New advocate onboarded: {customer_name} ({industry}/{use_case}), available for reference matching"
+
+    - recipient: "Customer Advocacy Manager"
+      condition: "pipeline_below_minimum == true"
+      message: "Recruitment pipeline below threshold for {segment}, intervention required"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "candidate_is_strategic_logo"
+      reason: "High-profile brand requires executive-level coordination for advocacy outreach"
+      action: "Route to Customer Advocacy Manager for personalized executive engagement strategy"
+
+    - condition: "candidate_previously_declined"
+      reason: "Customer declined advocacy participation within the last 6 months"
+      action: "Customer Advocacy Manager to assess re-engagement timing and approach"
+
+    - condition: "candidate_has_legal_restrictions"
+      reason: "Customer has NDA, PR policy, or regulatory constraints that may block advocacy"
+      action: "Route to Customer Advocacy Manager and Legal for feasibility assessment"
+
+    - condition: "consent_terms_unusual"
+      reason: "Customer requests non-standard consent terms or significant restrictions on usage"
+      action: "Route to Customer Advocacy Manager for consent framework review"
+
+  insufficient_data:
+    - "Customer health score unavailable or stale (last update > 90 days)"
+    - "No customer success milestones documented"
+    - "Deal context missing (no products deployed, no buyer persona identified)"
+
+  ambiguity_signals:
+    - "Customer has mixed signals (high NPS but low engagement frequency)"
+    - "Customer contact has changed since deal close and willingness status unknown"
+    - "Account team provides conflicting readiness assessments"
+    - "Customer expresses interest but delays consent capture repeatedly"
+
+  human_judgment_required:
+    - "Prioritizing between equally scored candidates when outreach capacity is limited"
+    - "Determining appropriate maturity tier for candidates with unusual profiles"
+    - "Deciding whether to re-engage a previously declined customer"
+    - "Setting outreach timing around customer-sensitive events (budget cycle, reorg)"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "Closed-won deal data available with account context and deployment details"
+    - "Customer success data current (last refresh within 30 days)"
+    - "Advocate registry synced with current active, inactive, and declined lists"
+    - "Coverage gap map available from proof point library"
+
+  post_execution:
+    - "All candidates scored with documented rationale citing source signals"
+    - "No candidate with health score below 50 included in active recruitment pipeline"
+    - "No candidate with recent decline (< 6 months) included without manager override"
+    - "Consent captured with explicit activity preferences and availability windows"
+    - "Onboarded advocates assigned maturity tier with documented justification"
+
+  output_quality:
+    - "Advocacy scores reflect actual evidence from deal and customer success data, not assumptions"
+    - "Coverage gap fit validated against current proof point library, not outdated analysis"
+    - "Warm introduction plans reference specific account team contacts, not generic outreach"
+    - "Onboarding materials are personalized to advocate preferences, not template-only"
+    - "Pipeline metrics include full funnel from screening through onboarding"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "20-40 minutes (agent screening and scoring) + 2-4 hours (human review, outreach coordination, and onboarding)"
+frequency: "Continuous for closed-won screening + quarterly comprehensive pipeline review"
+human_review_required: true
+approval_workflow:
+  - reviewer: "CAD Agent"
+    approval_gate: "Validate candidate scores, maturity tier assignments, and consent completeness"
+  - reviewer: "Customer Advocacy Manager"
+    approval_gate: "Approve recruitment target list, prioritization, and outreach strategies"
+  - reviewer: "CA Agent"
+    condition: "candidate_health_score < 80"
+    approval_gate: "Confirm customer relationship is stable enough for advocacy outreach"
+
+last_updated: "2026-03-26"
+version: "1.0"
+status: "draft"

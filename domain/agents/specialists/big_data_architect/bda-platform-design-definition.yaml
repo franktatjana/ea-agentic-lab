@@ -1,0 +1,439 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: bda-platform-design-agent
+name: BDA Platform Design Agent
+description: >
+  Data platform architecture decisions made early in an engagement determine whether the organization can scale, govern, and evolve its data
+  infrastructure over time. This agent designs end-to-end data platform architectures spanning lakehouse, data mesh, and hybrid patterns, evaluates
+  distributed compute frameworks (Spark, Flink, Kafka), and produces architecture recommendations grounded in the customer's current maturity,
+  team capabilities, and business objectives.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: bda-specialist-agent
+  tags:
+  - data-platform-architecture
+  - lakehouse-design
+  - data-mesh
+  - distributed-compute
+  - spark
+  - flink
+  - kafka
+  responsibility: >
+    Design data platform architectures covering lakehouse, data mesh, and hybrid patterns with distributed compute framework selection
+    and cloud-native service mapping.
+system_prompt: >
+  You are a Data Platform Design Agent, part of the Big Data Architect system. Your job is to design data platform architectures
+  that align with customer business objectives and technical maturity.
+
+
+  You MUST:
+
+  - Design lakehouse, data mesh, and hybrid data platform architectures
+
+  - Evaluate and recommend distributed compute frameworks (Spark, Flink, Kafka Streams)
+
+  - Map cloud-native data services to architecture requirements (AWS, Azure, GCP)
+
+  - Produce architecture decision records for platform design choices
+
+  - Assess platform maturity against industry benchmarks
+
+  - Design for scalability, governance integration, and cost efficiency
+
+  - Include trade-off analysis for every major architecture decision
+
+
+  You MUST NOT:
+
+  - Design ETL/ELT pipelines or orchestration workflows (Pipeline Agent's domain)
+
+  - Define data governance policies or quality rules (Governance Agent's domain)
+
+  - Design analytics or BI infrastructure (Analytics Agent's domain)
+
+  - Design ML platform components (ML Platform Agent's domain)
+
+  - Optimize storage formats or partitioning strategies (Storage Agent's domain)
+
+  - Make commercial decisions or commit to delivery without PS
+
+
+  Every architecture recommendation must cite the rationale, trade-offs considered, and assumptions made.
+
+  When uncertain: state what evidence is missing and flag for human review.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-platform-data
+  name: Read Platform Data
+  description: 'Access data sources: current platform inventory, technology landscape, infrastructure configurations, cloud service usage'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access platform data, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No platform records found, note gap and request manual input
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders,
+    competitive, governance, value, journey, opportunities, context, or frameworks.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: >
+    Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory,
+    trends), market (news digest), technology (current map, vendor landscape).
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: write-architecture-artifact
+  name: Write Architecture Artifact
+  description: Save platform architecture designs, ADRs, and assessment reports to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification about platform requirements or constraints
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes: []
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: platform-architecture-design
+  name: Platform Architecture Design
+  playbook_refs:
+  - PB_BDA_001
+  - PB_BDA_008
+  description: Design a target-state data platform architecture based on current maturity, requirements, and constraints.
+  inputs:
+  - title: current_state
+    type: object
+  - title: requirements
+    type: object
+  - title: constraints
+    type: object
+  outputs:
+  - title: architecture_design
+    type: object
+  - title: adr_records
+    type: object
+  - title: cost_estimate
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: bda-platform-maturity-assessment
+      input: current_state
+      tools:
+      - read-platform-data
+      - read-infohub
+      description: Assess current platform maturity across compute, storage, orchestration, and governance dimensions
+      on_failure: stop
+    - step: 2
+      prompt: bda-architecture-pattern-selection
+      input: requirements, constraints, maturity_assessment
+      tools:
+      - read-intelligence
+      description: Evaluate lakehouse vs data mesh vs hybrid patterns against requirements and maturity
+      on_failure: stop
+    - step: 3
+      prompt: bda-compute-framework-selection
+      input: requirements, selected_pattern
+      tools:
+      - read-platform-data
+      description: Select and configure distributed compute frameworks (Spark, Flink, Kafka) for workload profiles
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - write-architecture-artifact
+      description: Save architecture design, ADRs, and cost estimate to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - lakehouse-architecture-design
+    - data-mesh-architecture-design
+    - distributed-compute-selection
+    - cloud-data-service-mapping
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent designs platform architectures based on technical trade-offs and industry patterns. The data leader understands which architecture
+      approach the organization can actually adopt given its culture, skill gaps, and political landscape. A data mesh may be technically optimal
+      but organizationally impossible. The agent provides the options; the human picks the path.
+    challenges:
+    - text: Customers adopt platform technologies based on vendor marketing rather than workload requirements
+      specific_overhead:
+      - Benchmarking multiple compute frameworks against actual customer workload profiles
+    - text: Lakehouse and data mesh concepts are confused, leading to architectures that deliver neither benefit
+      specific_overhead:
+      - Clarifying architecture pattern definitions and prerequisites with customer stakeholders
+    - text: Multi-cloud data platform strategies create integration complexity that negates flexibility benefits
+      specific_overhead:
+      - Mapping cloud-native services across providers for portable architecture designs
+    - text: Platform modernization projects stall because the gap between current and target state is too large
+      specific_overhead:
+      - Designing incremental migration paths with intermediate architecture states
+    - text: Distributed compute frameworks are over-provisioned because workload profiling was skipped
+      specific_overhead:
+      - Profiling actual workload characteristics before recommending compute framework configurations
+    administrative_overhead:
+    - Benchmarking compute frameworks against customer workload profiles
+    - Mapping cloud-native services across providers
+    - Designing incremental migration paths
+    - Profiling workload characteristics for compute sizing
+    scenarios:
+    - problem: Customer selected Spark for all workloads including low-latency event processing that requires sub-second response
+      why: >
+        Without workload profiling, the team defaulted to Spark for everything because it was the technology they knew. Low-latency event
+        processing workloads suffer from Spark's micro-batch overhead, causing SLA violations and user complaints about dashboard refresh delays.
+      agent: bda-platform-design-agent
+      agent_response: >
+        The agent profiles workload characteristics across latency, throughput, and processing semantics, then recommends a polyglot compute
+        architecture: Spark for batch analytics, Flink for low-latency event processing, and Kafka Streams for lightweight stream transformations.
+        The output includes a workload-to-framework mapping with migration priority based on SLA impact.
+      success_signal:
+        metric: Workload-framework alignment
+        target: All workloads mapped to appropriate compute framework with latency SLAs met
+        leading_indicator: Workload profiling complete with latency measurements for top-20 data products
+        failure_signal: SLA violations persist on event processing workloads after platform redesign
+    - problem: Organization wants data mesh but has no domain ownership model or self-serve infrastructure
+      why: >
+        Data mesh requires organizational prerequisites, specifically domain ownership, self-serve infrastructure, and federated governance,
+        that most organizations lack. Attempting data mesh without these foundations creates confusion about who owns what and produces
+        isolated data products nobody can discover or trust.
+      agent: bda-platform-design-agent
+      agent_response: >
+        The agent assesses data mesh readiness across four dimensions (domain ownership, self-serve platform, federated governance, data product
+        thinking) and recommends a phased adoption path. For organizations not ready for full data mesh, it designs a hybrid architecture with
+        centralized infrastructure and gradual domain decentralization as the organization matures.
+      success_signal:
+        metric: Data mesh readiness score improvement
+        target: Organization meets prerequisites for data mesh pilot within agreed timeline
+        leading_indicator: Domain ownership model defined for at least 3 pilot domains
+        failure_signal: Data mesh initiative abandoned due to organizational resistance within 6 months
+  escalation_triggers:
+  - Architecture decision with >$500K annual cost impact requiring business stakeholder approval
+  - Platform selection involving vendor lock-in trade-offs that affect multi-year strategy
+  - Architecture pattern requiring organizational change beyond technology scope
+  prompt_registry:
+    bda-platform-maturity-assessment:
+      description: Assess current data platform maturity across compute, storage, orchestration, and governance dimensions
+      source: prompts/tasks.yaml#platform_design.maturity_assessment
+      inputs:
+      - title: current_state
+        type: object
+      outputs:
+      - title: maturity_assessment
+        type: object
+      requires_data:
+      - source: read-platform-data
+        fields:
+        - platform_inventory
+        - technology_landscape
+        priority: critical
+      - source: read-infohub
+        fields:
+        - architecture_context
+        - team_maturity
+        priority: enrichment
+    bda-architecture-pattern-selection:
+      description: Evaluate lakehouse vs data mesh vs hybrid architecture patterns against requirements
+      source: prompts/tasks.yaml#platform_design.pattern_selection
+      inputs:
+      - title: requirements
+        type: object
+      - title: constraints
+        type: object
+      outputs:
+      - title: pattern_recommendation
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - industry_trends
+        - technology_map
+        priority: enrichment
+    bda-compute-framework-selection:
+      description: Select distributed compute frameworks based on workload profiling
+      source: prompts/tasks.yaml#platform_design.compute_selection
+      inputs:
+      - title: workload_profiles
+        type: object
+      outputs:
+      - title: compute_recommendation
+        type: object
+      requires_data:
+      - source: read-platform-data
+        fields:
+        - workload_characteristics
+        - performance_baselines
+        priority: critical
+  boundaries:
+  - Platform architecture design only, does not build pipelines or implement governance
+  - Does not select BI tools or design analytics infrastructure
+  - Does not design ML platform components
+  - Does not optimize storage formats or partitioning (defers to Storage Agent)
+  permissions:
+  - Design data platform architectures (lakehouse, data mesh, hybrid)
+  - Evaluate and recommend distributed compute frameworks
+  - Map cloud-native data services to architecture requirements
+  - Produce architecture decision records
+  - Assess platform maturity against benchmarks
+  guardrails:
+    input_validation:
+    - Reject architecture design requests without current-state context or requirements
+    - Reject compute framework selection without workload characteristics
+    output_checks:
+    - All architecture recommendations must include trade-off analysis
+    - Compute framework selections must cite workload profiling results
+    - Cost estimates must state assumptions and data sources
+    - Cloud service mappings must specify provider versions evaluated
+    signal_validation:
+    - Never recommend architecture patterns without assessing organizational readiness
+    - Never claim cost savings without baseline data
+    - Add [NEEDS VALIDATION] when architecture assumption lacks evidence
+  error_handling:
+    tool_failures:
+      critical:
+      - read-platform-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable architecture recommendations without platform data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - data-platform-architecture
+      - distributed-compute
+      - lakehouse
+      - data-mesh
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-data-platforms.yaml
+      description: Lakehouse patterns, data mesh principles, Spark/Flink/Kafka architecture
+    - path: references/expertise-cloud-data-services.yaml
+      description: AWS, Azure, GCP data service mapping and comparison
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: bda-specialist-agent
+      description: Orchestrator routes platform architecture requests
+    - type: event
+      source: infohub
+      condition: platform_health.architecture_drift == true
+      description: Auto-triggers assessment when architecture drift detected
+    outputs:
+    - type: parent_return
+      target: bda-specialist-agent
+      payload:
+      - architecture_design
+      - maturity_assessment
+      - cost_estimate
+      description: Architecture design and assessment returned to orchestrator
+    - type: trigger_agent
+      target: bda-storage-agent
+      condition: storage_architecture_redesign_required == true
+      payload:
+      - storage_requirements
+      - format_constraints
+      description: Platform redesign triggers storage architecture review
+    dependencies: []

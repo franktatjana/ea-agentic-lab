@@ -1,0 +1,629 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: pm-competitive-agent
+name: PM Competitive Intelligence Agent
+description: 'Gartner finds that 73% of product decisions affected by competitive pressure lack systematic competitive evidence, and competitive feature parity is the second most cited
+  reason for deal loss after price. Without structured competitor tracking, product teams react to anecdotal competitive claims from deal teams, building features that match perceived
+  gaps rather than validated ones. This agent monitors competitor product releases and feature announcements, maintains feature comparison matrices per competitor, analyzes win/loss
+  outcomes from a product perspective, maintains competitive battlecards with product-side input, tracks competitor monitoring sources, and surfaces competitive alerts so the PM can
+  make evidence-based competitive response decisions.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: pm-agent
+  tags:
+  - competitive-intelligence
+  - feature-matrix
+  - competitor-monitoring
+  - win-loss-analysis
+  - battlecards
+  - competitive-alerts
+  responsibility: 'Monitor competitor product releases and feature announcements, maintain feature comparison matrices per competitor, analyze win/loss outcomes from a product perspective,
+    maintain competitive battlecards, track competitor monitoring sources, and surface competitive alerts when competitor moves threaten active deals or differentiation.
+
+    '
+system_prompt: 'You are a Competitive Intelligence Agent, part of the Product Manager
+
+  intelligence system. Your job is to monitor competitors, maintain competitive matrices,
+
+  analyze win/loss outcomes from a product perspective, and surface competitive alerts
+
+  so the PM makes evidence-based competitive response decisions.
+
+
+  You MUST:
+
+  - Monitor competitor product releases and feature announcements across release notes, job postings, analyst reports, customer feedback, patents, and conferences
+
+  - Maintain feature comparison matrices per competitor with last-updated timestamps and source citations
+
+  - Analyze win/loss outcomes from a product perspective, classifying losses as product gap, positioning, pricing, no-decision, or relationship
+
+  - Maintain competitive battlecards with product-side input including differentiation points and gap context
+
+  - Track competitor monitoring sources and flag source coverage gaps
+
+  - Surface competitive alerts when a competitor launches a feature we lack in 3+ deals, enters our differentiation area, or receives an analyst downgrade
+
+
+  You MUST NOT:
+
+  - Track or deduplicate individual feature requests (Feature Gap Agent''s domain)
+
+  - Set roadmap priorities (Roadmap Alignment Agent''s domain)
+
+  - Aggregate customer feedback (Feedback Synthesis Agent''s domain)
+
+  - Distribute release information (Release Communication Agent''s domain)
+
+  - Manage sales-product trust (Stakeholder Alignment Agent''s domain)
+
+
+  Every competitive claim must cite the source (competitor announcement, analyst report, deal team report, public data)
+
+  and classification confidence level.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: competitive, deal_outcomes, feature_backlog, battlecards.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: market (competitor profiles, news digest), technology (vendor landscape), industry (trends, analyst ratings).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: read-market-data
+  name: Read Market Data
+  description: Access competitor releases, analyst reports, patent filings, conference announcements, and job postings for competitive monitoring
+  requires_confirmation: false
+  inputs:
+  - title: competitor_name
+    type: string
+  - title: source_type
+    type: string
+  - title: time_period
+    type: string
+  outputs:
+  - title: market_data
+    type: array
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access market data source, flag as data gap and proceed with available sources
+    - error_code: NO_RECORDS
+      guidance: No market data found for period or competitor, expand search or note gap
+    - error_code: STALE_DATA
+      guidance: Market data may be outdated, competitive intelligence ages quickly, flag for refresh
+- component_type: ClientTool
+  id: save-competitive-analysis
+  name: Save Competitive Analysis
+  description: Persist competitive feature matrix updates, battlecard changes, win/loss analysis results, and alert records to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: analysis
+    type: object
+  - title: competitor_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from PM about competitive context, gap classification, or battlecard priorities
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: competitive-intelligence
+  name: Competitive Intelligence
+  description: Competitive feature data and win/loss summaries available to peer agents for deal positioning and roadmap context
+  tools:
+  - id: get-competitive-matrix
+    name: Get Competitive Matrix
+    description: Returns competitive feature comparison matrix for specified product area and competitors with gap classifications and last-updated timestamps
+    inputs:
+    - title: product_area
+      type: string
+    - title: competitor_names
+      type: array
+    outputs:
+    - title: feature_matrix
+      type: object
+  - id: get-win-loss-summary
+    name: Get Win/Loss Summary
+    description: Returns win/loss outcome analysis from a product perspective with loss classification (product gap, positioning, pricing, no-decision, relationship) and validation status
+    inputs:
+    - title: time_period
+      type: string
+    - title: segment
+      type: string
+    outputs:
+    - title: win_loss_summary
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: competitive-analysis
+  name: Competitive Analysis
+  playbook_refs:
+  - PB_PM_004
+  description: Monitor competitor product releases and feature announcements, maintain feature comparison matrices, update battlecards, and surface competitive alerts.
+  inputs:
+  - title: competitor_name
+    type: string
+  - title: product_area
+    type: string
+  outputs:
+  - title: updated_matrix
+    type: object
+  - title: competitive_alerts
+    type: array
+  - title: battlecard_updates
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pm-competitor-monitoring
+      input: competitor_name, product_area
+      tools:
+      - read-market-data
+      - read-intelligence
+      description: Scan competitor monitoring sources (release notes, job postings, analyst reports, customer feedback, patents, conferences) for product changes
+      on_failure: stop
+    - step: 2
+      prompt: pm-matrix-update
+      input: competitor_capabilities, current_matrix
+      tools:
+      - read-infohub
+      description: Update feature comparison matrix with new competitor capabilities, classify gaps, and timestamp entries
+      on_failure: stop
+    - step: 3
+      prompt: pm-battlecard-update
+      input: updated_matrix, competitive_changes
+      tools:
+      - read-infohub
+      description: Update competitive battlecards with product-side input based on matrix changes and new competitor moves
+      on_failure: skip_with_warning
+    - step: 4
+      prompt: pm-alert-evaluation
+      input: competitive_changes, active_deals
+      tools:
+      - read-infohub
+      description: Evaluate whether competitive changes trigger alerts (feature we lack in 3+ deals, differentiation area entry, analyst downgrade)
+      on_failure: skip_with_warning
+    - step: 5
+      action: persist
+      tools:
+      - save-competitive-analysis
+      description: Save updated feature matrix, battlecard changes, and alert records to InfoHub
+      on_failure: stop
+- component_type: Flow
+  id: win-loss-product-analysis
+  name: Win/Loss Product Analysis
+  playbook_refs:
+  - PB_PM_004
+  description: Analyze deal outcomes from a product perspective, classifying losses by root cause (product gap, positioning, pricing, no-decision, relationship) and validating attribution accuracy.
+  inputs:
+  - title: time_period
+    type: string
+  - title: segment
+    type: string
+  outputs:
+  - title: product_loss_patterns
+    type: object
+  - title: misattribution_findings
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pm-win-loss-extraction
+      input: time_period, segment
+      tools:
+      - read-infohub
+      - read-market-data
+      description: Extract deal outcomes and classify each from a product perspective (product gap, positioning, pricing, no-decision, relationship)
+      on_failure: stop
+    - step: 2
+      prompt: pm-loss-validation
+      input: product_losses
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Cross-reference cited loss reasons against actual product capabilities and competitive matrix to detect misattribution
+      on_failure: stop
+    - step: 3
+      prompt: pm-pattern-synthesis
+      input: validated_losses
+      description: Synthesize validated loss patterns into actionable product insights, flagging systemic gaps and misattribution rates
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-competitive-analysis
+      description: Save validated loss patterns, misattribution findings, and product gap correlations
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - competitive-feature-matrix
+    - competitor-release-monitoring
+    - win-loss-product-analysis
+    - competitive-battlecard-maintenance
+    - competitive-alert-detection
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent tracks what competitors ship, maintains feature matrices, and surfaces alerts when competitive moves threaten active deals or differentiation.
+      The PM decides which competitive moves warrant a product response, which gaps justify reactive investment versus which are distractions that would erode differentiation,
+      and which battlecard updates need field distribution. Competitive data is evidence, but the PM sets the competitive strategy.
+
+      '
+    challenges:
+    - text: Competitive feature parity pressure forces reactive copying that bloats the product, but distinguishing genuine enterprise dealbreakers from surface-level objections requires maintaining feature matrices across multiple competitors and product areas that go stale within weeks of a competitor release
+      specific_overhead:
+      - Manually monitoring competitor websites, press releases, product changelogs, and conference announcements
+      - Updating spreadsheet-based feature matrices across multiple product areas and competitors
+      - Validating whether cited gaps are real capability differences or positioning issues after each deal loss
+    - text: Win/loss analysis gaps leave product teams building against phantom competitive gaps, with fewer than 20% of companies doing win/loss interviews consistently (UserVoice) and only 40% uncovering the real reason for loss, meaning product investment targets perceived gaps while real shortcomings compound
+      specific_overhead:
+      - Manually reviewing CRM deal outcomes and post-mortem notes for product-versus-non-product signals
+      - Cross-referencing loss reasons against actual product capabilities to detect misattribution
+      - Reconciling CRM loss codes with qualitative deal team feedback to identify no-decision root causes
+    - text: Competitor monitoring across many sources (release notes, job postings, analyst reports, customer feedback, patents, conferences) is fragmented and manual, causing delays between a competitor move and the deal team learning about it, often after the customer raises it first
+      specific_overhead:
+      - Scanning 6+ source types per competitor on inconsistent schedules
+      - Maintaining source coverage tracking to know which competitors have monitoring gaps
+      - Correlating signals across sources (job posting for ML engineers + patent filing = upcoming AI feature)
+    - text: Battlecard staleness erodes field trust because competitive positioning decays faster than it is updated, and deal teams who encounter outdated battlecard content in a customer conversation stop using them entirely, reverting to ad-hoc competitive responses
+      specific_overhead:
+      - Tracking which battlecards need updates after each competitive matrix change
+      - Validating that battlecard claims still hold against latest competitor capabilities
+      - Measuring battlecard usage to detect trust decay before it becomes systemic
+    scenarios:
+    - problem: Competitive displacement threat in active pipeline
+      why: 'A competitor launches a feature that directly addresses a capability gap cited in 3+ active deals. Deal teams are unaware of the launch and walk into customer
+        meetings where the competitor''s new release is raised as evidence of a better alternative. Without pre-positioned responses, deal teams are caught flat-footed
+        and default to price concessions rather than differentiation arguments.
+
+        '
+      agent: pm-competitive-agent
+      agent_response: 'The agent detects the competitor release through monitoring sources, updates the feature matrix, evaluates the impact against active deals where
+        the gap was cited, and surfaces a competitive alert with the specific deals affected. It updates the relevant battlecard with differentiation context and gaps
+        that remain versus gaps that are now closed by the competitor move.
+
+        '
+      success_signal:
+        metric: Competitive alert detection before customer interaction
+        target: Material competitive moves reach deal teams within 48 hours of public announcement
+        leading_indicator: Deal team acknowledges competitive brief and adjusts positioning before next meeting
+        failure_signal: Customer raises competitor move that deal team hears for the first time in the meeting
+    - problem: Systematic product gap revealed by analyst downgrade
+      why: 'An industry analyst downgrades the product rating or shifts positioning in a competitive landscape report, citing specific capability gaps. Sales teams are
+        blindsided when prospects reference the analyst report. The product team lacks structured data to assess whether the analyst''s cited gaps are validated capability
+        differences or are based on outdated information.
+
+        '
+      agent: pm-competitive-agent
+      agent_response: 'The agent ingests the analyst report through market data monitoring, cross-references cited gaps against the current feature matrix and product
+        capabilities, and classifies each gap as confirmed, addressed-but-not-marketed, or mischaracterized. It produces a structured response brief for the PM with
+        validated gaps that need product investment versus gaps that need analyst engagement or better positioning.
+
+        '
+      success_signal:
+        metric: Analyst gap validation turnaround
+        target: Structured response brief with validated gap classifications within 5 business days of report publication
+        leading_indicator: Product team references validated gap data in analyst response strategy
+        failure_signal: Product team builds features based on unvalidated analyst criticism while addressable positioning gaps persist
+  escalation_triggers:
+  - Competitor launches feature we lack in 3+ active deals
+  - Analyst downgrade citing specific product capability gaps
+  - Competitive displacement threat in deal above revenue threshold
+  - Win/loss analysis reveals systemic product gap causing 3+ losses in quarter
+  prompt_registry:
+    pm-competitor-monitoring:
+      description: Scan competitor monitoring sources for product releases, feature announcements, and capability changes
+      source: prompts/tasks.yaml#competitive.competitor_monitoring
+      inputs:
+      - title: competitor_name
+        type: string
+      - title: product_area
+        type: string
+      outputs:
+      - title: competitor_capabilities
+        type: object
+      requires_data:
+      - source: read-market-data
+        fields:
+        - release_notes
+        - job_postings
+        - analyst_reports
+        - customer_feedback
+        - patents
+        - conferences
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - competitor_profiles
+        - market_news
+        - vendor_landscape
+        priority: critical
+    pm-matrix-update:
+      description: Update feature comparison matrix with new competitor capabilities and classify gaps
+      source: prompts/tasks.yaml#competitive.matrix_update
+      inputs:
+      - title: competitor_capabilities
+        type: object
+      - title: current_matrix
+        type: object
+      outputs:
+      - title: updated_matrix
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - current_feature_matrix
+        - product_capabilities
+        priority: critical
+    pm-battlecard-update:
+      description: Update competitive battlecards with product-side input based on matrix changes
+      source: prompts/tasks.yaml#competitive.battlecard_update
+      inputs:
+      - title: updated_matrix
+        type: object
+      - title: competitive_changes
+        type: object
+      outputs:
+      - title: battlecard_updates
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - current_battlecards
+        - differentiation_points
+        priority: critical
+    pm-alert-evaluation:
+      description: Evaluate competitive changes for alert conditions (feature gap in 3+ deals, differentiation area entry, analyst downgrade)
+      source: prompts/tasks.yaml#competitive.alert_evaluation
+      inputs:
+      - title: competitive_changes
+        type: object
+      - title: active_deals
+        type: array
+      outputs:
+      - title: competitive_alerts
+        type: array
+      requires_data:
+      - source: read-infohub
+        fields:
+        - active_deals
+        - cited_gaps_per_deal
+        priority: critical
+    pm-win-loss-extraction:
+      description: Extract deal outcomes and classify from a product perspective
+      source: prompts/tasks.yaml#competitive.win_loss_extraction
+      inputs:
+      - title: time_period
+        type: string
+      - title: segment
+        type: string
+      outputs:
+      - title: product_losses
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - deal_outcomes
+        - post_mortem_notes
+        - competitor_mentions
+        priority: critical
+      - source: read-market-data
+        fields:
+        - competitor_releases_in_period
+        priority: enrichment
+    pm-loss-validation:
+      description: Cross-reference cited loss reasons against actual product capabilities to detect misattribution
+      source: prompts/tasks.yaml#competitive.loss_validation
+      inputs:
+      - title: product_losses
+        type: object
+      outputs:
+      - title: validated_losses
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - product_capabilities
+        - feature_matrix
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - competitor_profiles
+        priority: enrichment
+    pm-pattern-synthesis:
+      description: Synthesize validated loss patterns into actionable product insights
+      source: prompts/tasks.yaml#competitive.pattern_synthesis
+      inputs:
+      - title: validated_losses
+        type: object
+      outputs:
+      - title: product_loss_patterns
+        type: object
+  boundaries:
+  - Does not track or deduplicate individual feature requests (Feature Gap Agent)
+  - Does not set roadmap priorities (Roadmap Alignment Agent)
+  - Does not aggregate customer feedback (Feedback Synthesis Agent)
+  - Does not distribute release information (Release Communication Agent)
+  - Does not manage sales-product trust (Stakeholder Alignment Agent)
+  permissions:
+  - Monitor competitor product releases and feature announcements across all source types
+  - Maintain feature comparison matrices per competitor with gap classifications
+  - Analyze win/loss outcomes from a product perspective
+  - Maintain competitive battlecards with product-side input
+  - Track competitor monitoring source coverage
+  - Surface competitive alerts to PM and affected deal teams
+  - Write competitive analysis results to InfoHub
+  guardrails:
+    input_validation:
+    - Reject competitive analysis without specified competitor or product area
+    - Reject win/loss analysis without time period
+    - Reject battlecard update without current matrix context
+    output_checks:
+    - Every competitive claim must cite source and classification confidence
+    - Gap classifications must include evidence for confirmed, surface-level, or misattributed labels
+    - Win/loss analysis must classify each loss by root cause (product gap, positioning, pricing, no-decision, relationship)
+    - Feature matrices must show last-updated timestamp per entry and source citation
+    - Battlecard updates must reference the matrix changes that triggered them
+    - Competitive alerts must cite the specific deals affected and the gap context
+    signal_validation:
+    - Never infer competitor capabilities without cited source
+    - Add [NEEDS VERIFICATION] when gap classification depends on unconfirmed competitor data
+    - Distinguish between public announcements and unverified rumors in competitive data
+    - Distinguish between confirmed product gaps and positioning gaps in loss analysis
+  error_handling:
+    tool_failures:
+      critical:
+      - read-market-data
+      - read-intelligence
+      enrichment:
+      - read-infohub
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable competitive analysis without market data or intelligence sources
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern, competitive intelligence ages quickly
+  knowledge:
+    scope:
+      domains:
+      - competitive-intelligence
+      - win-loss-analysis
+      - battlecard-management
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/competitive-analysis-framework.yaml
+      description: Competitive gap classification criteria, win/loss validation methodology, feature matrix maintenance cadence, battlecard update triggers, alert threshold definitions
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: pm-agent
+      description: PM orchestrator routes competitive analysis requests
+    - type: event
+      source: competitor_monitoring_feed
+      condition: competitor_release.detected == true
+      description: Auto-scans when competitor release or announcement is detected in monitoring sources
+    - type: schedule
+      cadence: monthly
+      window: first_monday 08:00-10:00
+      description: Monthly competitor landscape scan across all monitored competitors and source types
+    outputs:
+    - type: parent_return
+      target: pm-agent
+      payload:
+      - updated_matrix
+      - competitive_alerts
+      - battlecard_updates
+      - loss_patterns
+      description: Full competitive analysis back to orchestrator for aggregation
+    - type: trigger_agent
+      target: pm-roadmap-agent
+      condition: competitive_gap.threatens_positioning == true
+      payload:
+      - confirmed_gap
+      - affected_deals
+      - positioning_impact
+      description: Competitive gap that threatens product positioning triggers roadmap alignment review
+    - type: trigger_agent
+      target: pm-release-agent
+      condition: own_release.counters_competitor == true
+      payload:
+      - release_context
+      - competitive_brief
+      - affected_deals
+      description: Own product release that counters a competitor move triggers release communication with competitive context
+    - type: notify_human
+      condition: competitive_alert.critical == true
+      channel: alert
+      description: Critical competitive alerts (feature gap in 3+ deals, analyst downgrade, displacement threat) surface immediately for PM review
+    dependencies: []

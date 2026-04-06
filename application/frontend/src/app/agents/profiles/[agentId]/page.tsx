@@ -86,6 +86,9 @@ function challengeText(entry: ChallengeEntry): string {
 function challengeAgent(entry: ChallengeEntry): string | undefined {
   return typeof entry === "string" ? undefined : entry.solved_by;
 }
+function challengeCategory(entry: ChallengeEntry): string | undefined {
+  return typeof entry === "string" ? undefined : entry.category;
+}
 function challengeOverhead(entry: ChallengeEntry): string[] {
   return typeof entry === "string" ? [] : (entry.specific_overhead ?? []);
 }
@@ -722,10 +725,13 @@ export default function AgentProfileDetailPage({
           {challenges.length > 0 && (() => {
             const hasAgents = challenges.some((ch) => challengeAgent(ch));
             if (hasAgents) {
+              const hasCategories = challenges.some((ch) => challengeCategory(ch));
+              const groupKey = (ch: ChallengeEntry) =>
+                (hasCategories ? challengeCategory(ch) : challengeAgent(ch)) ?? "_ungrouped";
               const grouped = challenges.reduce<Record<string, ChallengeEntry[]>>((acc, ch) => {
-                const agent = challengeAgent(ch) ?? "_ungrouped";
-                if (!acc[agent]) acc[agent] = [];
-                acc[agent].push(ch);
+                const key = groupKey(ch);
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(ch);
                 return acc;
               }, {});
               return (
@@ -735,30 +741,22 @@ export default function AgentProfileDetailPage({
                   color="text-red-400"
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {Object.entries(grouped).map(([agent, items]) => {
-                      const allItems = items.map((ch) => challengeText(ch));
-                      const visible = allItems.slice(0, 3);
-                      const overflow = allItems.length - 3;
-                      const framing = challengeGroupFraming[agent];
+                    {Object.entries(grouped).map(([key, items]) => {
+                      const firstAgent = challengeAgent(items[0]);
                       return (
-                        <div key={agent} className="rounded-xl border border-border/50 bg-muted/30 flex flex-col p-4 gap-3">
-                          {agent !== "_ungrouped" && <AgentBadge agentId={agent} />}
-                          {framing && (
-                            <p className="text-[12px] text-muted-foreground leading-relaxed border-l-2 border-border/60 pl-3">
-                              {framing}
-                            </p>
+                        <div key={key} className="rounded-xl border border-border/50 bg-muted/30 flex flex-col p-4 gap-3">
+                          {firstAgent && <AgentBadge agentId={firstAgent} />}
+                          {hasCategories && key !== "_ungrouped" && (
+                            <p className="text-[12px] font-medium text-foreground/70 uppercase tracking-wide">{key}</p>
                           )}
                           <ul className="space-y-1.5 flex-1">
-                            {visible.map((text, idx) => (
+                            {items.map((ch, idx) => (
                               <li key={idx} className="flex items-start gap-2 text-[13px]">
                                 <span className="mt-[7px] h-1.5 w-1.5 rounded-full bg-muted-foreground/40 shrink-0" />
-                                <span className="text-foreground/90 leading-relaxed">{text}</span>
+                                <span className="text-foreground/90 leading-relaxed">{challengeText(ch)}</span>
                               </li>
                             ))}
                           </ul>
-                          {overflow > 0 && (
-                            <span className="text-[11px] text-muted-foreground/60 self-end">+{overflow} more</span>
-                          )}
                         </div>
                       );
                     })}
@@ -880,9 +878,11 @@ export default function AgentProfileDetailPage({
                   onClick={() => router.push(`/agents/profiles/${d.agent}`)}
                 >
                   <CardContent className="p-5 space-y-3">
-                    <div className="flex items-start justify-between gap-2">
+                    <div>
                       <h3 className="font-medium">{d.domain}</h3>
-                      <span className="text-xs text-muted-foreground/60 shrink-0">{d.cadence}</span>
+                      {d.cadence && (
+                        <p className="text-xs text-muted-foreground/60 mt-1">{d.cadence}</p>
+                      )}
                     </div>
                     <p className="text-[15px] text-muted-foreground leading-relaxed">{d.why}</p>
                     <ul className="space-y-1.5">
@@ -1049,13 +1049,14 @@ export default function AgentProfileDetailPage({
             {subAgents.map((sa) => {
               const meta = sa.id ? subAgentLookup[sa.id] : undefined;
               const hasProfile = meta?.has_profile === true;
-              return (
+              const isClickable = !!sa.id;
+              const href = hasProfile
+                ? `/agents/profiles/${sa.id}`
+                : `/agents/definitions?agent=${sa.id}`;
+              const card = (
                 <Card
                   key={sa.name}
-                  className={`border-l-4 border-l-purple-400/50 ${hasProfile ? "cursor-pointer hover:border-l-purple-400 transition-colors" : ""}`}
-                  onClick={() => {
-                    if (hasProfile) router.push(`/agents/profiles/${sa.id}`);
-                  }}
+                  className={`border-l-4 border-l-purple-400/50 ${isClickable ? "cursor-pointer hover:border-l-purple-400 transition-colors" : ""}`}
                 >
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between gap-2 mb-2">
@@ -1063,7 +1064,7 @@ export default function AgentProfileDetailPage({
                         <Bot className="h-4 w-4 text-purple-400 shrink-0" />
                         <h3 className="font-medium">{sa.name}</h3>
                       </div>
-                      {hasProfile && <ArrowRight className="h-3.5 w-3.5 text-blue-500 dark:text-amber-400 shrink-0 mt-0.5" />}
+                      {isClickable && <ArrowRight className="h-3.5 w-3.5 text-blue-500 dark:text-amber-400 shrink-0 mt-0.5" />}
                     </div>
                     <p className="text-[15px] text-muted-foreground leading-relaxed">
                       {sa.purpose}
@@ -1095,6 +1096,10 @@ export default function AgentProfileDetailPage({
                   </CardContent>
                 </Card>
               );
+              if (isClickable) {
+                return <Link key={sa.name} href={href}>{card}</Link>;
+              }
+              return card;
             })}
           </div>
 

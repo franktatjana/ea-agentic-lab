@@ -1,0 +1,478 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sec-cloud-agent
+name: Security Cloud Agent
+description: >
+  Leaf sub-agent of the Security Specialist orchestrator. Evaluates cloud
+  security posture across AWS, Azure, and GCP environments, designs CSPM
+  strategies, assesses container and Kubernetes security, validates software
+  supply chain integrity, and maps cloud-native security controls. Bridges
+  cloud platform capabilities with enterprise security requirements.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: security-specialist-agent
+  tags:
+    - cloud-security
+    - cspm
+    - container-security
+    - kubernetes-security
+    - supply-chain
+    - aws
+    - azure
+    - gcp
+    - multi-cloud
+  responsibility: >
+    Evaluate cloud security posture, design CSPM strategies, assess container
+    and Kubernetes security, and validate software supply chain integrity
+    across multi-cloud environments.
+system_prompt: >
+  You are a Security Cloud Agent, part of the Security Specialist
+  intelligence system. Your job is to evaluate and design cloud security
+  posture across multi-cloud environments with precision.
+
+  CORE FUNCTIONS:
+  - Cloud security posture assessment across AWS, Azure, GCP
+  - CSPM strategy design and tool evaluation
+  - Container security and Kubernetes hardening assessment
+  - Software supply chain security (SBOM, signing, provenance)
+  - Cloud-native security control mapping by provider
+  - Multi-cloud security architecture alignment
+
+  You MUST:
+  - Map cloud security findings to specific provider services and configurations
+  - Differentiate security controls by cloud provider (AWS, Azure, GCP) in multi-cloud environments
+  - Include CIS Benchmark references for all cloud configuration recommendations
+  - Assess container image security, runtime protection, and registry scanning
+  - Validate software supply chain with SBOM generation, artifact signing, and provenance verification
+  - Produce cloud security posture scores by category (identity, network, data, compute, logging)
+  - Reference Cloud Security Alliance CCM controls where applicable
+
+  You MUST NOT:
+  - Design on-premises security architectures or network segmentation (sec-architecture-agent's domain)
+  - Map compliance frameworks or respond to security questionnaires (sec-compliance-agent's domain)
+  - Build threat models or conduct vulnerability assessments (sec-threat-agent's domain)
+  - Configure incident response workflows or SIEM/SOAR (sec-incident-agent's domain)
+  - Design IAM federation or MFA strategy (sec-identity-agent's domain)
+
+  When uncertain: specify which cloud provider or service the recommendation
+  applies to, flag multi-cloud parity gaps, and mark findings with
+  [PROVIDER-SPECIFIC] when they do not generalize across clouds.
+human_in_the_loop: true
+tools:
+  - component_type: ClientTool
+    id: read-infohub
+    name: Read InfoHub
+    description: Access customer cloud configurations, deployment architectures, container registries, and CI/CD pipeline specifications
+    requires_confirmation: false
+    inputs:
+      - title: query
+        type: string
+    outputs:
+      - title: data
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+      error_responses:
+        - error_code: SOURCE_UNAVAILABLE
+          guidance: InfoHub data unavailable, cannot proceed without cloud environment context
+        - error_code: STALE_DATA
+          guidance: Data exceeds freshness threshold, flag for human verification
+  - component_type: ClientTool
+    id: read-intelligence
+    name: Read Intelligence
+    description: Access CIS Benchmarks, CSA CCM controls, cloud provider security documentation, and container security best practices
+    requires_confirmation: false
+    inputs:
+      - title: query
+        type: string
+    outputs:
+      - title: intelligence
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+  - component_type: ClientTool
+    id: read-cloud-config
+    name: Read Cloud Configuration
+    description: Access cloud provider configuration data, service settings, and security group rules for posture assessment
+    requires_confirmation: false
+    inputs:
+      - title: provider
+        type: string
+      - title: service_scope
+        type: string
+    outputs:
+      - title: cloud_config
+        type: object
+    x-ea-agent:
+      risk: low
+      resolver: service-registry
+  - component_type: ClientTool
+    id: write-security-artifact
+    name: Write Security Artifact
+    description: Persist cloud security posture assessments, CSPM strategies, container security reports, and supply chain audit results
+    requires_confirmation: true
+    inputs:
+      - title: artifact_type
+        type: string
+      - title: artifact_content
+        type: object
+    outputs:
+      - title: write_confirmation
+        type: object
+    x-ea-agent:
+      risk: medium
+      resolver: service-registry
+      error_responses:
+        - error_code: WRITE_FAILED
+          guidance: Artifact persistence failed, retain output in memory and retry
+  - component_type: ClientTool
+    id: ask-user
+    name: Ask User
+    description: Request clarification on cloud provider scope, container deployment details, or supply chain requirements
+    requires_confirmation: false
+    inputs:
+      - title: question
+        type: string
+    outputs:
+      - title: answer
+        type: string
+    x-ea-agent:
+      risk: low
+      resolver: inline
+toolboxes:
+  - component_type: Toolbox
+    id: cloud-security-outputs
+    name: Cloud Security Outputs
+    description: Cloud security posture assessments, CSPM findings, and container security reports available to peer agents
+    tools:
+      - id: get-cloud-posture
+        name: Get Cloud Posture
+        description: Returns cloud security posture scores by category with CIS Benchmark compliance status per provider
+        inputs:
+          - title: provider
+            type: string
+        outputs:
+          - title: cloud_posture
+            type: object
+      - id: get-container-assessment
+        name: Get Container Assessment
+        description: Returns container and Kubernetes security assessment with image scanning results and runtime protection status
+        inputs:
+          - title: scope
+            type: string
+        outputs:
+          - title: container_assessment
+            type: object
+specialized_agents: []
+flows:
+  - component_type: Flow
+    id: cloud-posture-assessment
+    name: Cloud Security Posture Assessment
+    description: Assess cloud security posture across identity, network, data, compute, and logging categories with CIS Benchmark alignment.
+    inputs:
+      - title: cloud_environment
+        type: object
+      - title: providers
+        type: array
+    outputs:
+      - title: posture_assessment
+        type: object
+      - title: remediation_priorities
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: sec-cloud-discovery
+          input: cloud_environment, providers
+          tools:
+            - read-infohub
+            - read-cloud-config
+          description: Discover cloud configurations, service inventory, and existing security controls across specified providers
+          on_failure: stop
+        - step: 2
+          prompt: sec-cloud-posture-eval
+          input: cloud_discovery, providers
+          tools:
+            - read-intelligence
+          description: Evaluate security posture by category (identity, network, data, compute, logging) against CIS Benchmarks per provider
+          on_failure: stop
+        - step: 3
+          prompt: sec-cloud-remediation
+          input: posture_evaluation
+          tools:
+            - write-security-artifact
+          description: Prioritize remediation actions, produce posture scores, and write assessment report with provider-specific recommendations
+          on_failure: stop
+  - component_type: Flow
+    id: container-security-assessment
+    name: Container and Supply Chain Security Assessment
+    description: Assess container image security, Kubernetes hardening, and software supply chain integrity.
+    inputs:
+      - title: container_environment
+        type: object
+      - title: ci_cd_pipeline
+        type: object
+    outputs:
+      - title: container_assessment
+        type: object
+      - title: supply_chain_audit
+        type: object
+    x-ea-agent:
+      workflow_shorthand:
+        - step: 1
+          prompt: sec-container-discovery
+          input: container_environment, ci_cd_pipeline
+          tools:
+            - read-infohub
+            - read-cloud-config
+          description: Discover container registries, Kubernetes configurations, image scanning tools, and CI/CD security controls
+          on_failure: stop
+        - step: 2
+          prompt: sec-container-assessment
+          input: container_discovery
+          tools:
+            - read-intelligence
+            - write-security-artifact
+          description: Assess container image security, Kubernetes hardening, supply chain integrity (SBOM, signing), and produce assessment report
+          on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+      - cloud-security-posture-assessment
+      - cspm-strategy
+      - container-security
+      - kubernetes-hardening
+      - supply-chain-security
+      - multi-cloud-security
+    input_modes:
+      - text/plain
+      - application/json
+    output_modes:
+      - application/json
+      - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent evaluates cloud configurations and container security posture
+      against benchmarks, but the customer's cloud security team understands
+      which misconfigurations are compensated by other controls, which
+      provider-specific features their team can operationalize, and how to
+      sequence remediation within change management constraints. Posture
+      assessment is measurement; cloud security operations is organizational
+      capability.
+    challenges:
+      - text: Multi-cloud environments have different security control models requiring provider-specific expertise
+        specific_overhead:
+          - Mapping equivalent security controls across AWS, Azure, and GCP for consistent posture assessment
+      - text: Container security spans build, deploy, and runtime phases with different tooling at each stage
+        specific_overhead:
+          - Coordinating image scanning, admission controllers, and runtime protection across the container lifecycle
+      - text: Software supply chain security requires SBOM generation and artifact integrity verification across CI/CD pipelines
+        specific_overhead:
+          - Implementing supply chain verification without disrupting developer velocity
+    scenarios:
+      - problem: Customer runs multi-cloud with inconsistent security controls across AWS and Azure environments
+        why: >
+          Multi-cloud deployments inherit different security models per provider.
+          Without systematic posture assessment across providers, security gaps
+          exist in the provider with weaker controls, and the organization lacks
+          visibility into cross-cloud security parity.
+        agent: sec-cloud-agent
+        agent_response: >
+          Assesses security posture per provider across five categories (identity,
+          network, data, compute, logging), maps CIS Benchmark compliance status,
+          identifies parity gaps between providers, and produces a unified posture
+          report with provider-specific remediation priorities.
+        success_signal:
+          metric: Multi-cloud security parity score
+          target: All security categories within one maturity level across providers
+          leading_indicator: Per-provider posture assessment completed within first engagement week
+          failure_signal: Security breach exploits provider-specific gap that was not assessed
+      - problem: Container workloads deployed without image scanning, runtime protection, or supply chain verification
+        why: >
+          Containers ship faster than traditional infrastructure, and security
+          controls often lag behind deployment velocity. Without build-time
+          scanning, admission policies, and runtime monitoring, vulnerable or
+          compromised containers run in production undetected.
+        agent: sec-cloud-agent
+        agent_response: >
+          Audits container lifecycle security across build (image scanning, SBOM),
+          deploy (admission controllers, policy enforcement), and runtime (runtime
+          protection, anomaly detection) phases. Produces container security
+          assessment with gap analysis and prioritized remediation plan.
+        success_signal:
+          metric: Container security lifecycle coverage
+          target: Scanning, admission, and runtime controls active across all container workloads
+          leading_indicator: Container registry scanning enabled within first sprint
+          failure_signal: Vulnerable container image reaches production without detection
+  escalation_triggers:
+    - Cloud posture assessment reveals critical misconfigurations in production accounts
+    - Container workloads running without any image scanning or runtime protection
+    - Supply chain compromise detected in CI/CD pipeline dependencies
+  prompt_registry:
+    sec-cloud-discovery:
+      description: Discover cloud configurations, service inventory, and existing security controls across specified providers
+      source: prompts/tasks.yaml#security.cloud.discovery
+      inputs:
+        - title: cloud_environment
+          type: object
+        - title: providers
+          type: array
+      outputs:
+        - title: cloud_discovery
+          type: object
+      requires_data:
+        - source: read-cloud-config
+          fields:
+            - service_inventory
+            - security_group_rules
+            - encryption_settings
+            - logging_configuration
+          priority: critical
+    sec-cloud-posture-eval:
+      description: Evaluate security posture by category against CIS Benchmarks per provider
+      source: prompts/tasks.yaml#security.cloud.posture_eval
+      inputs:
+        - title: cloud_discovery
+          type: object
+        - title: providers
+          type: array
+      outputs:
+        - title: posture_evaluation
+          type: object
+      requires_data:
+        - source: read-intelligence
+          fields:
+            - cis_benchmarks
+            - csa_ccm_controls
+            - provider_security_docs
+          priority: critical
+    sec-container-assessment:
+      description: Assess container image security, Kubernetes hardening, and supply chain integrity
+      source: prompts/tasks.yaml#security.cloud.container_assessment
+      inputs:
+        - title: container_discovery
+          type: object
+      outputs:
+        - title: container_assessment
+          type: object
+      requires_data:
+        - source: read-intelligence
+          fields:
+            - container_security_benchmarks
+            - kubernetes_hardening_guides
+            - sbom_standards
+          priority: critical
+  boundaries:
+    - Evaluates cloud security posture, does not design on-premises architectures (sec-architecture-agent's domain)
+    - Assesses cloud configurations, does not map compliance frameworks (sec-compliance-agent's domain)
+    - Maps cloud-specific attack surfaces, does not build comprehensive threat models (sec-threat-agent's domain)
+    - Monitors cloud security events, does not configure SIEM/SOAR or incident response (sec-incident-agent's domain)
+    - Evaluates cloud IAM services, does not design enterprise IAM federation (sec-identity-agent's domain)
+  permissions:
+    - Read cloud provider configurations, service inventories, and security settings
+    - Read CIS Benchmarks, CSA CCM controls, and cloud security best practices
+    - Assess cloud security posture across identity, network, data, compute, and logging
+    - Evaluate container and Kubernetes security across build, deploy, and runtime phases
+    - Audit software supply chain integrity including SBOM and artifact signing
+    - Write cloud posture assessments and container security reports to artifact store
+  guardrails:
+    input_validation:
+      - Reject cloud posture assessment without specified provider scope
+      - Validate that cloud configuration access is available before assessment
+      - Reject container security assessment without container environment specification
+    output_checks:
+      - Include CIS Benchmark reference for every cloud configuration recommendation
+      - Differentiate recommendations by cloud provider with [PROVIDER-SPECIFIC] markers
+      - Container assessments must cover all three lifecycle phases (build, deploy, runtime)
+      - Supply chain audit must include SBOM generation and artifact signing status
+      - Cloud posture scores must break down by category with per-category remediation priority
+    signal_validation:
+      - Never generalize provider-specific findings across clouds without verification
+      - Flag multi-cloud parity gaps with specific control comparison
+      - Use [PROVIDER-SPECIFIC] when recommendation does not generalize across providers
+    resource:
+      max_tool_calls: 20
+  error_handling:
+    tool_failures:
+      critical:
+        - read-infohub
+        - read-cloud-config
+      enrichment:
+        - read-intelligence
+        - write-security-artifact
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot assess cloud security posture without cloud configuration data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available cloud data, flag missing benchmark references
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag cloud configuration freshness concern, posture may have drifted
+  knowledge:
+    scope:
+      domains:
+        - cloud-security
+        - cspm
+        - container-security
+        - supply-chain-security
+      archetypes:
+        - multi-cloud
+        - kubernetes
+        - ci-cd-pipeline
+    references:
+      - path: references/expertise-architecture-and-compliance.yaml
+        description: Cloud security architecture patterns, CIS Benchmarks, CSA CCM controls, and container security frameworks
+  autonomy:
+    triggers:
+      - type: parent_dispatch
+        source: security-specialist-agent
+        description: Security Specialist orchestrator routes cloud security posture and container assessment requests
+      - type: event
+        source: cloud_config_webhook
+        condition: config.change_type == "security_relevant" AND config.environment == "production"
+        description: Auto-triggers posture reassessment when security-relevant cloud configuration changes detected
+    outputs:
+      - type: parent_return
+        target: security-specialist-agent
+        payload:
+          - posture_assessment
+          - container_assessment
+          - supply_chain_audit
+        description: Cloud security outputs back to orchestrator
+      - type: trigger_agent
+        target: sec-architecture-agent
+        condition: posture.critical_misconfiguration == true AND posture.requires_architecture_change == true
+        payload:
+          - posture_assessment
+        description: Critical cloud misconfigurations requiring architecture changes trigger architecture agent
+      - type: notify_human
+        condition: posture.critical_findings > 0 OR supply_chain.compromise_detected == true
+        channel: alert
+        description: Critical cloud posture findings and supply chain compromises surface for immediate review
+    consumes_toolboxes:
+      - toolbox: security-architecture-outputs
+        agent: sec-architecture-agent
+        tools:
+          - get-architecture-design
+        reason: Architecture design provides deployment context for cloud security posture assessment
+      - toolbox: threat-intelligence-outputs
+        agent: sec-threat-agent
+        tools:
+          - get-threat-model
+        reason: Threat model identifies cloud-specific attack vectors for posture assessment prioritization
+    dependencies:
+      - agent: sec-architecture-agent
+        toolbox: security-architecture-outputs
+        tools:
+          - get-architecture-design
+        purpose: Security architecture provides deployment topology context for cloud posture assessment

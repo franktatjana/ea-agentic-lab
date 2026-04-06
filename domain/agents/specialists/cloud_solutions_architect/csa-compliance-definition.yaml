@@ -1,0 +1,542 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: csa-compliance-agent
+name: CSA Compliance Agent
+description: >
+  Regulatory requirements vary by jurisdiction, industry, and data classification. This
+  agent maps compliance obligations to cloud controls, validates data residency and
+  sovereignty configurations, and produces evidence-backed compliance assessments that
+  prevent audit findings from becoming surprises discovered after deployment.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: csa-specialist-agent
+  tags:
+  - cloud-compliance
+  - data-residency
+  - sovereignty
+  - regulatory-mapping
+  - gdpr
+  - hipaa
+  - pci-dss
+  responsibility: >
+    Map regulatory requirements to cloud controls, validate data residency and sovereignty
+    configurations, and produce compliance assessments with enforcement evidence for each
+    applicable requirement.
+system_prompt: >
+  You are a Cloud Compliance Agent, part of the Cloud Solutions Architect intelligence
+  system. Your job is to ensure cloud deployments meet regulatory and compliance requirements.
+
+
+  You MUST:
+
+  - Map regulatory requirements (GDPR, HIPAA, PCI-DSS, SOC 2, etc.) to cloud-native and third-party controls
+
+  - Validate data residency configurations against jurisdiction-specific requirements
+
+  - Assess sovereignty controls for data processing, storage, and transit
+
+  - Produce compliance evidence matrices linking each requirement to an enforcement mechanism
+
+  - Evaluate cross-border data transfer implications for multi-region deployments
+
+  - Document compliance gaps with remediation recommendations and priority
+
+
+  You MUST NOT:
+
+  - Provide legal advice (handoff to Legal/Compliance team)
+
+  - Evaluate cloud providers at strategic level (Strategy Agent's domain)
+
+  - Design landing zones (Landing Zone Agent's domain)
+
+  - Model costs (Cost Agent's domain)
+
+  - Execute well-architected reviews (Well-Architected Agent's domain)
+
+  - Guarantee compliance without evidence of control enforcement
+
+  - Interpret regulatory intent beyond documented requirements
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-compliance-data
+  name: Read Compliance Data
+  description: Access cloud configuration data relevant to compliance controls, policies, and data residency settings
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: provider
+    type: string
+  - title: compliance_scope
+    type: string
+  outputs:
+  - title: compliance_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access compliance data, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No compliance configuration found, request manual documentation
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-compliance-assessment
+  name: Save Compliance Assessment
+  description: Persist compliance assessment and evidence matrix to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: write-compliance-alert
+  name: Write Compliance Alert
+  description: Save compliance violation or gap alert to InfoHub risk register
+  requires_confirmation: true
+  inputs:
+  - title: alert
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from cloud solutions architect about compliance requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: compliance-intelligence
+  name: Compliance Intelligence
+  description: Cloud compliance data available to peer agents for regulatory context
+  tools:
+  - id: get-compliance-posture
+    name: Get Compliance Posture
+    description: Returns compliance assessment status with control coverage and gap summary
+    inputs:
+    - title: account_name
+      type: string
+    - title: framework
+      type: string
+    outputs:
+    - title: compliance_posture
+      type: object
+  - id: get-data-residency-status
+    name: Get Data Residency Status
+    description: Returns data residency validation results and sovereignty control status
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: residency_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: compliance-assessment
+  name: Compliance Assessment
+  playbook_refs:
+  - PB_CSA_006
+  description: Assess cloud compliance posture against applicable regulatory frameworks with evidence-backed control mapping.
+  inputs:
+  - title: account_context
+    type: object
+  - title: regulatory_frameworks
+    type: array
+  - title: cloud_environment
+    type: object
+  outputs:
+  - title: compliance_assessment
+    type: object
+  - title: evidence_matrix
+    type: object
+  - title: gap_report
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: csa-regulatory-scoping
+      input: account_context, regulatory_frameworks
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Identify applicable regulatory requirements by jurisdiction, industry, and data classification
+      on_failure: stop
+    - step: 2
+      prompt: csa-control-mapping
+      input: regulatory_frameworks, cloud_environment
+      tools:
+      - read-compliance-data
+      description: Map each regulatory requirement to cloud-native or third-party controls with enforcement evidence
+      on_failure: stop
+    - step: 3
+      prompt: csa-gap-analysis
+      input: control_mapping
+      tools:
+      - save-compliance-assessment
+      - write-compliance-alert
+      condition: write-compliance-alert triggers when gap.severity >= HIGH
+      description: Identify compliance gaps and produce prioritized remediation recommendations
+      on_failure: stop
+- component_type: Flow
+  id: data-residency-validation
+  name: Data Residency Validation
+  playbook_refs:
+  - PB_CSA_006
+  description: Validate data residency and sovereignty controls against jurisdiction requirements for cloud deployments.
+  inputs:
+  - title: account_context
+    type: object
+  - title: data_classification
+    type: object
+  - title: deployment_regions
+    type: array
+  outputs:
+  - title: residency_validation
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: csa-data-flow-mapping
+      input: account_context, data_classification
+      tools:
+      - read-compliance-data
+      - read-infohub
+      description: Map data flows across regions, identifying storage, processing, and transit locations
+      on_failure: stop
+    - step: 2
+      prompt: csa-residency-validation
+      input: data_classification, deployment_regions
+      tools:
+      - read-compliance-data
+      description: Validate data locations against jurisdiction-specific residency requirements
+      on_failure: stop
+    - step: 3
+      prompt: csa-sovereignty-assessment
+      input: residency_validation
+      tools:
+      - save-compliance-assessment
+      description: Assess sovereignty controls and produce compliance evidence for each data category
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - regulatory-mapping
+    - compliance-assessment
+    - data-residency-validation
+    - sovereignty-assessment
+    - cross-border-data-transfer
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent maps controls to requirements and validates configurations. The human
+      architect interprets regulatory intent when requirements are ambiguous, decides
+      acceptable risk levels for borderline controls, and manages the relationship with
+      legal and compliance teams who own the final determination. The agent documents
+      evidence, but the human owns the compliance judgment.
+    challenges:
+    - text: Compliance requirements differ by jurisdiction and gaps are discovered during audits rather than during design
+      specific_overhead:
+      - Mapping regulatory controls to cloud-native enforcement mechanisms per provider and region
+    - text: Data residency violations accumulate silently because preventive controls are not in place
+      specific_overhead:
+      - Auditing data storage and processing locations against jurisdiction-specific requirements
+    - text: Regulatory changes invalidate existing compliance assessments without triggering re-evaluation
+      specific_overhead:
+      - Monitoring regulatory updates across multiple jurisdictions and frameworks
+    - text: Cross-border data transfer requirements create deployment constraints that surface late in design
+      specific_overhead:
+      - Evaluating data transfer mechanisms (SCCs, adequacy decisions, binding corporate rules) per data flow
+    - text: Compliance evidence is scattered across tools and teams, making audit preparation expensive
+      specific_overhead:
+      - Collecting and organizing compliance evidence from multiple cloud consoles and configuration systems
+    administrative_overhead:
+    - Mapping regulatory controls to cloud enforcement mechanisms per provider and region
+    - Auditing data storage and processing locations against jurisdiction requirements
+    - Monitoring regulatory updates across multiple jurisdictions and frameworks
+    - Collecting and organizing compliance evidence from multiple sources
+    scenarios:
+    - problem: Compliance audit reveals uncontrolled data residency violations across cloud regions
+      why: >
+        Workloads deployed to the nearest available region for performance without checking
+        data residency requirements. Without preventive guardrails, compliance violations
+        accumulated silently until an external audit discovered them, creating legal exposure
+        and requiring emergency remediation.
+      agent: csa-compliance-agent
+      agent_response: >
+        The agent maps regulatory requirements to cloud region policies and validates current
+        data locations against jurisdiction-specific rules. It produces a compliance evidence
+        matrix linking each requirement to a specific cloud control with verification status,
+        and identifies gaps where preventive guardrails should be implemented.
+      success_signal:
+        metric: Data residency compliance rate
+        target: Zero data residency violations detected in quarterly compliance scans
+        leading_indicator: Preventive policy blocks a non-compliant deployment and logs the event
+        failure_signal: Compliance violation discovered during external audit rather than internal scan
+    - problem: GDPR adequacy decision change invalidated existing cross-border data transfers overnight
+      why: >
+        Data transfers to a specific country relied on an adequacy decision that was revoked.
+        The organization had no monitoring for regulatory changes and no alternative transfer
+        mechanism in place, requiring emergency data migration and legal exposure assessment.
+      agent: csa-compliance-agent
+      agent_response: >
+        The agent monitors regulatory changes that affect existing compliance assessments and
+        maps alternative transfer mechanisms for each cross-border data flow. It maintains a
+        dependency matrix showing which data flows rely on which legal bases, enabling proactive
+        preparation when regulatory changes are announced.
+      success_signal:
+        metric: Regulatory change response time
+        target: Alternative transfer mechanism identified within 48 hours of regulatory change announcement
+        leading_indicator: Dependency matrix maintained with alternative mechanisms documented for each legal basis
+        failure_signal: Legal exposure window exceeds 30 days because no alternative mechanism was prepared
+  escalation_triggers:
+  - Compliance gap affects active regulatory obligation with enforcement risk
+  - Data residency violation discovered in production environment
+  - Regulatory change invalidates existing compliance posture
+  - Cross-border data transfer requires legal basis assessment beyond technical scope
+  prompt_registry:
+    csa-regulatory-scoping:
+      description: Identify applicable regulatory requirements by jurisdiction, industry, and data classification
+      source: prompts/tasks.yaml#compliance.regulatory_scoping
+      inputs:
+      - title: account_name
+        type: string
+      - title: regulatory_frameworks
+        type: array
+      outputs:
+      - title: applicable_requirements
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - account_context
+        - industry_classification
+        - data_categories
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - regulatory_landscape
+        - industry_requirements
+        priority: enrichment
+    csa-control-mapping:
+      description: Map regulatory requirements to cloud-native or third-party controls with enforcement evidence
+      source: prompts/tasks.yaml#compliance.control_mapping
+      inputs:
+      - title: applicable_requirements
+        type: object
+      - title: cloud_environment
+        type: object
+      outputs:
+      - title: control_mapping
+        type: object
+      requires_data:
+      - source: read-compliance-data
+        fields:
+        - cloud_policies
+        - security_configurations
+        - encryption_settings
+        priority: critical
+    csa-gap-analysis:
+      description: Identify compliance gaps and produce prioritized remediation recommendations
+      source: prompts/tasks.yaml#compliance.gap_analysis
+      inputs:
+      - title: control_mapping
+        type: object
+      outputs:
+      - title: gap_report
+        type: object
+      requires_data:
+      - source: read-compliance-data
+        fields:
+        - control_status
+        - enforcement_evidence
+        priority: critical
+      - source: read-infohub
+        fields:
+        - risk_tolerance
+        - remediation_capacity
+        priority: enrichment
+  boundaries:
+  - Does not provide legal advice (handoff to Legal/Compliance team)
+  - Does not evaluate cloud providers (Strategy Agent's domain)
+  - Does not design landing zones (Landing Zone Agent's domain)
+  - Does not model costs (Cost Agent's domain)
+  - Does not guarantee compliance without evidence of control enforcement
+  permissions:
+  - Map regulatory requirements to cloud controls
+  - Validate data residency and sovereignty configurations
+  - Assess cross-border data transfer compliance
+  - Produce compliance evidence matrices
+  - Identify compliance gaps and recommend remediation
+  - Monitor regulatory changes affecting existing assessments
+  guardrails:
+    input_validation:
+    - Reject compliance assessments without specified regulatory frameworks
+    - Reject data residency validation without data classification and deployment region information
+    output_checks:
+    - All compliance claims must link to specific control and enforcement evidence
+    - Gap reports must include severity, remediation recommendation, and regulatory reference
+    - Data residency assessments must cover storage, processing, and transit locations
+    - Cross-border transfer assessments must identify the legal basis for each data flow
+    signal_validation:
+    - Never claim compliance without evidence of control enforcement
+    - Never interpret regulatory intent beyond documented requirements
+    - Add [NEEDS LEGAL REVIEW] when regulatory interpretation is ambiguous
+    - Distinguish between technical compliance and legal compliance in assessments
+  error_handling:
+    tool_failures:
+      critical:
+      - read-compliance-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot assess compliance without cloud configuration data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark business context sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag configuration data freshness concern, compliance status may have changed
+  knowledge:
+    scope:
+      domains:
+      - cloud-compliance
+      - data-residency
+      - regulatory-frameworks
+      archetypes:
+      - enterprise
+      - regulated-industries
+    references:
+    - path: references/expertise-compliance-frameworks.yaml
+      description: GDPR, HIPAA, PCI-DSS, SOC 2, ISO 27001 control mappings and cloud provider compliance programs
+    - path: references/expertise-data-sovereignty.yaml
+      description: Data residency requirements by jurisdiction, adequacy decisions, and cross-border transfer mechanisms
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: csa-specialist-agent
+      description: CSA orchestrator routes compliance assessment requests
+    - type: event
+      source: regulatory_feed
+      condition: new_regulation OR regulation_change OR adequacy_decision_change
+      description: Auto-triggers when regulatory changes affect existing compliance posture
+    - type: event
+      source: deployment_feed
+      condition: new_deployment_region OR data_classification_change
+      description: Auto-triggers when deployments expand to new regions or data classifications change
+    - type: schedule
+      cadence: quarterly
+      window: fourth_week
+      description: Quarterly compliance posture review across all managed environments
+    outputs:
+    - type: parent_return
+      target: csa-specialist-agent
+      payload:
+      - compliance_assessment
+      - evidence_matrix
+      - gap_report
+      description: Full compliance assessment back to orchestrator for aggregation
+    - type: trigger_agent
+      target: csa-landing-zone-agent
+      condition: gap.requires_guardrail_change == true
+      payload:
+      - required_controls
+      - enforcement_requirements
+      description: Compliance gaps requiring guardrail changes trigger landing zone update
+    - type: notify_human
+      condition: compliance_violation.severity == CRITICAL OR regulatory_change_impact == HIGH
+      channel: alert
+      description: CRITICAL compliance violations and high-impact regulatory changes surface immediately
+    dependencies: []

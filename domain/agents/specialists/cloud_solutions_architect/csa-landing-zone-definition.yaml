@@ -1,0 +1,500 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: csa-landing-zone-agent
+name: CSA Landing Zone Agent
+description: >
+  Landing zones are the foundation every workload inherits. This agent designs account
+  structures, networking topologies, identity federation, and governance guardrails that
+  make cloud environments production-ready before the first deployment, preventing the
+  retroactive security and compliance remediation that plagues unstructured adoptions.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: csa-specialist-agent
+  tags:
+  - landing-zone
+  - account-structure
+  - governance
+  - network-topology
+  - identity-federation
+  - policy-as-code
+  responsibility: >
+    Design cloud landing zones with account structures, networking, identity federation,
+    and governance guardrails that enforce organizational standards without blocking
+    developer velocity.
+system_prompt: >
+  You are a Landing Zone Design Agent, part of the Cloud Solutions Architect intelligence
+  system. Your job is to design production-ready cloud foundations.
+
+
+  You MUST:
+
+  - Design account/subscription/project structures aligned to organizational boundaries
+
+  - Architect network topologies with connectivity, segmentation, and DNS strategy
+
+  - Design identity federation and IAM structures with least-privilege access models
+
+  - Implement policy-as-code guardrails that prevent violations without blocking development
+
+  - Define environment promotion paths (dev → staging → production) with isolation controls
+
+  - Document governance guardrails with enforcement mechanisms and exception processes
+
+
+  You MUST NOT:
+
+  - Evaluate cloud providers (Strategy Agent's domain)
+
+  - Model costs or commitment strategies (Cost Agent's domain)
+
+  - Execute well-architected reviews (Well-Architected Agent's domain)
+
+  - Design application architectures (SA Agent's domain)
+
+  - Assume organizational structure without documented evidence
+
+  - Deploy or modify production infrastructure
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-cloud-environment
+  name: Read Cloud Environment
+  description: Access current cloud environment configuration, account structure, and networking topology
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: provider
+    type: string
+  outputs:
+  - title: environment_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access cloud environment data, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No environment data found, request manual input
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-landing-zone-design
+  name: Save Landing Zone Design
+  description: Persist landing zone design to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: design
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from cloud solutions architect about landing zone requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: landing-zone-intelligence
+  name: Landing Zone Intelligence
+  description: Landing zone design data available to peer agents for governance and architecture context
+  tools:
+  - id: get-account-structure
+    name: Get Account Structure
+    description: Returns account/subscription/project hierarchy and governance controls for an environment
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: account_structure
+      type: object
+  - id: get-network-topology
+    name: Get Network Topology
+    description: Returns network architecture, connectivity, and segmentation design
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: network_topology
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: landing-zone-design
+  name: Landing Zone Design
+  playbook_refs:
+  - PB_CSA_002
+  description: Design a complete landing zone with account structure, networking, identity, and governance guardrails.
+  inputs:
+  - title: account_context
+    type: object
+  - title: target_provider
+    type: string
+  - title: organizational_requirements
+    type: object
+  outputs:
+  - title: landing_zone_design
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: csa-org-structure-mapping
+      input: account_context, organizational_requirements
+      tools:
+      - read-cloud-environment
+      - read-infohub
+      description: Map organizational structure to account/subscription/project hierarchy
+      on_failure: stop
+    - step: 2
+      prompt: csa-network-design
+      input: target_provider, organizational_requirements
+      tools:
+      - read-intelligence
+      description: Design network topology with connectivity, segmentation, and DNS strategy
+      on_failure: stop
+    - step: 3
+      prompt: csa-guardrail-design
+      input: organizational_requirements
+      tools:
+      - save-landing-zone-design
+      description: Define policy-as-code guardrails with enforcement mechanisms and exception processes
+      on_failure: stop
+- component_type: Flow
+  id: governance-assessment
+  name: Governance Assessment
+  playbook_refs:
+  - PB_CSA_002
+  description: Assess existing landing zone governance against best practices and organizational requirements.
+  inputs:
+  - title: account_context
+    type: object
+  - title: current_governance
+    type: object
+  outputs:
+  - title: governance_assessment
+    type: object
+  - title: remediation_recommendations
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: csa-governance-audit
+      input: account_context, current_governance
+      tools:
+      - read-cloud-environment
+      - read-infohub
+      description: Audit current governance controls against best practices and organizational requirements
+      on_failure: stop
+    - step: 2
+      prompt: csa-governance-remediation
+      input: governance_assessment
+      tools:
+      - save-landing-zone-design
+      description: Produce prioritized remediation plan for governance gaps
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - landing-zone-design
+    - account-structure
+    - network-topology
+    - governance-guardrails
+    - identity-federation
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent designs technically sound landing zones. The human architect understands
+      which teams need separate accounts versus shared environments, how much governance
+      the organization can absorb without developer revolt, and when to enforce versus
+      advise. The architecture is correct, but the human calibrates it to organizational
+      tolerance.
+    challenges:
+    - text: Landing zones designed without governance guardrails require retroactive security hardening
+      specific_overhead:
+      - Documenting account structures and policy configurations per environment manually
+    - text: Network topology decisions made early constrain future workload placement and connectivity options
+      specific_overhead:
+      - Designing IP address plans and subnet strategies that accommodate growth without re-architecture
+    - text: Identity federation patterns differ across providers, creating inconsistent access controls
+      specific_overhead:
+      - Mapping identity providers and role structures across AWS IAM, Azure AD, and GCP IAM
+    - text: Policy-as-code guardrails either block too much (frustrating developers) or too little (allowing violations)
+      specific_overhead:
+      - Tuning policy strictness through trial-and-error across development and production environments
+    - text: Environment promotion paths lack isolation controls, allowing configuration drift between stages
+      specific_overhead:
+      - Validating environment parity across dev, staging, and production configurations
+    administrative_overhead:
+    - Documenting account structures and policy configurations per environment manually
+    - Designing IP address plans and subnet strategies that accommodate growth
+    - Mapping identity providers and role structures across cloud providers
+    - Tuning policy strictness across environments
+    scenarios:
+    - problem: Landing zone lacks governance, forcing 6-month security remediation after initial deployment
+      why: >
+        Without governance guardrails from the start, teams deploy workloads with default
+        configurations. Public storage buckets, overprivileged roles, and unencrypted data
+        stores accumulate until a security review discovers them, triggering expensive remediation.
+      agent: csa-landing-zone-agent
+      agent_response: >
+        The agent designs landing zones with preventive guardrails built in: policy-as-code
+        that blocks non-compliant configurations at deployment time, identity structures with
+        least-privilege defaults, and network segmentation that isolates workload tiers. Remediation
+        is replaced by prevention.
+      success_signal:
+        metric: Security findings at first compliance scan
+        target: Zero critical security findings at initial compliance assessment
+        leading_indicator: Preventive policy blocks a non-compliant deployment attempt in dev
+        failure_signal: Post-deployment security scan reveals critical findings in production
+    - problem: Network re-architecture required 12 months after initial deployment due to IP exhaustion
+      why: >
+        Initial network design used large CIDR blocks without growth planning. When the organization
+        scaled to additional regions or connected to on-premises networks, IP conflicts and
+        exhaustion forced a disruptive re-architecture.
+      agent: csa-landing-zone-agent
+      agent_response: >
+        The agent designs network topologies with documented growth assumptions, reserved IP
+        ranges for future expansion, and a DNS strategy that supports multi-region and hybrid
+        connectivity. IP allocation follows a structured plan that prevents conflicts and
+        accommodates three years of projected growth.
+      success_signal:
+        metric: Network scalability without re-architecture
+        target: No IP conflicts or exhaustion events within 24 months of initial deployment
+        leading_indicator: IP allocation plan reviewed and approved with growth projections
+        failure_signal: Network team requests CIDR expansion or re-architecture within 12 months
+  escalation_triggers:
+  - Landing zone design impacts production workloads already deployed
+  - Network topology change requires connectivity downtime
+  - Identity federation design conflicts with corporate identity standards
+  - Governance guardrails require exception for business-critical workload
+  prompt_registry:
+    csa-org-structure-mapping:
+      description: Map organizational structure to cloud account/subscription/project hierarchy
+      source: prompts/tasks.yaml#landing_zone.org_structure_mapping
+      inputs:
+      - title: account_name
+        type: string
+      - title: organizational_requirements
+        type: object
+      outputs:
+      - title: account_hierarchy
+        type: object
+      requires_data:
+      - source: read-cloud-environment
+        fields:
+        - current_accounts
+        - org_structure
+        priority: critical
+      - source: read-infohub
+        fields:
+        - organizational_context
+        - team_structure
+        priority: enrichment
+    csa-network-design:
+      description: Design network topology with connectivity, segmentation, DNS, and IP allocation strategy
+      source: prompts/tasks.yaml#landing_zone.network_design
+      inputs:
+      - title: target_provider
+        type: string
+      - title: connectivity_requirements
+        type: object
+      outputs:
+      - title: network_design
+        type: object
+      requires_data:
+      - source: read-cloud-environment
+        fields:
+        - current_network
+        - on_premises_connectivity
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - technology_map
+        priority: enrichment
+    csa-guardrail-design:
+      description: Define policy-as-code guardrails with enforcement mechanisms and exception processes
+      source: prompts/tasks.yaml#landing_zone.guardrail_design
+      inputs:
+      - title: organizational_requirements
+        type: object
+      outputs:
+      - title: guardrail_specifications
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - governance
+        - compliance_requirements
+        priority: critical
+  boundaries:
+  - Does not evaluate cloud providers (Strategy Agent's domain)
+  - Does not model costs or commitment strategies (Cost Agent's domain)
+  - Does not execute well-architected reviews (Well-Architected Agent's domain)
+  - Does not design application architectures
+  - Does not deploy or modify production infrastructure
+  permissions:
+  - Design account/subscription/project structures
+  - Architect network topologies and connectivity patterns
+  - Design identity federation and IAM structures
+  - Define policy-as-code guardrails and enforcement mechanisms
+  - Document environment promotion paths and isolation controls
+  guardrails:
+    input_validation:
+    - Reject landing zone designs without organizational structure context
+    - Reject network designs without connectivity requirements and growth projections
+    output_checks:
+    - All account structures must map to documented organizational boundaries
+    - Network designs must include IP allocation plans with growth capacity
+    - Identity structures must enforce least-privilege with documented role definitions
+    - Guardrails must include both enforcement mechanism and exception process
+    signal_validation:
+    - Never assume organizational structure without documented evidence
+    - Never design network topology without growth projections
+    - Add [NEEDS VERIFICATION] when existing infrastructure state is unconfirmed
+    - Distinguish between preventive and detective guardrails in recommendations
+  error_handling:
+    tool_failures:
+      critical:
+      - read-cloud-environment
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot design landing zone without current environment data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - landing-zone
+      - governance
+      - network-architecture
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-landing-zones.yaml
+      description: AWS Control Tower, Azure Landing Zones, GCP Foundation patterns, account structures
+    - path: references/expertise-network-architecture.yaml
+      description: Cloud networking patterns, hybrid connectivity, DNS strategy, IP planning
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: csa-specialist-agent
+      description: CSA orchestrator routes landing zone design requests
+    - type: event
+      source: governance_feed
+      condition: policy_violation_detected OR new_compliance_requirement
+      description: Auto-triggers governance review when policy violations or new requirements emerge
+    outputs:
+    - type: parent_return
+      target: csa-specialist-agent
+      payload:
+      - landing_zone_design
+      - governance_assessment
+      description: Full landing zone design back to orchestrator for aggregation
+    - type: trigger_agent
+      target: csa-compliance-agent
+      condition: landing_zone_design.status == complete
+      payload:
+      - account_structure
+      - network_topology
+      - guardrail_specifications
+      description: Completed landing zone design triggers compliance validation
+    - type: trigger_agent
+      target: csa-cost-agent
+      condition: landing_zone_design.includes_reserved_networking == true
+      payload:
+      - network_topology
+      - connectivity_services
+      description: Landing zone with dedicated connectivity triggers cost modeling
+    - type: notify_human
+      condition: governance_gap.severity == HIGH
+      channel: alert
+      description: HIGH severity governance gaps surface immediately for architect review
+    dependencies: []

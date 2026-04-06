@@ -29,7 +29,7 @@ The two layers never mix in a single RACI row. Every activity belongs to either 
 
 ## Role Agents
 
-Eleven role agents cover the full engagement lifecycle from pre-sales strategy through post-sales renewal. The table below shows each agent's category and the lifecycle phases where it is the primary contributor. Agents not listed for a phase may still be consulted or informed; the phases listed indicate where the agent carries primary ownership or execution responsibility.
+Twelve role agents cover the full engagement lifecycle from pre-sales strategy through post-sales renewal. The table below shows each agent's category and the lifecycle phases where it is the primary contributor. Agents not listed for a phase may still be consulted or informed; the phases listed indicate where the agent carries primary ownership or execution responsibility.
 
 | Role | Agent ID | Category | Primary Lifecycle Phases |
 |------|----------|----------|--------------------------|
@@ -44,6 +44,7 @@ Eleven role agents cover the full engagement lifecycle from pre-sales strategy t
 | Senior Manager | `senior-manager-agent` | Leadership | All phases |
 | Delivery Manager | `delivery-agent` | Implementation |Implementation, Post-Sales |
 | Professional Services | `ps-agent` | Delivery | Implementation, Post-Sales |
+| Customer Advocate | `cad-agent` | Sales | Post-Sales, Renewal |
 
 **Intelligence Analyst** is a composite role comprising five sub-agents: Account Intelligence (ACI), Industry Intelligence (II), Market News (MNA), Tech Scout Scanner, and Tech Scout Analyzer. From a RACI perspective they act as a single **Intel** column, as no organization staffs five separate human roles for this function.
 
@@ -76,7 +77,8 @@ Three domain specialists sit under the Solution Architect role. They activate wh
 |------------|--------|--------------|-------------------|
 | Security Specialist | SIEM, threat detection, MITRE ATT&CK | SA Agent | `specialist_request`, `poc_initiated`, `rfp_received` |
 | Observability Specialist | APM, SLO/SLI, distributed tracing | SA Agent | `specialist_request`, `technical_depth_required` |
-| Search Specialist | Relevance tuning, vector search, RAG | SA Agent | `specialist_request`, `technical_depth_required` |
+
+Nine additional specialist domains have been elaborated (big data, cloud solutions, data engineering, database, DevOps, migrations, network, platform, system design), each with its own orchestrator and sub-agents. See [domain/agents/README.md](../../domain/agents/README.md) for the full specialist catalog.
 
 ---
 
@@ -297,7 +299,7 @@ The POC Agent (an SA sub-agent) owns proof-of-concept execution. The SA role is 
 |----------|----|-------------------|-----------------|
 | POC Success Plan | PB_POC_001 | POC Agent | Solution Architect |
 
-### Specialist Playbooks (PB_SEC_*, PB_OBS_*, PB_SRCH_*)
+### Specialist Playbooks (PB_SEC_*, PB_OBS_*)
 
 Specialist playbooks are executed by the domain specialist sub-agents under the SA role. Each specialist is responsible for its own domain playbooks; the SA is accountable as the parent role owner.
 
@@ -327,17 +329,6 @@ Specialist playbooks are executed by the domain specialist sub-agents under the 
 | Platform Architecture | PB_OBS_008 | Observability Specialist | Solution Architect |
 | Technical POC | PB_OBS_009 | Observability Specialist | Solution Architect |
 | Alerting Strategy | PB_OBS_010 | Observability Specialist | Solution Architect |
-| **Search** | | | |
-| Technical Validation | PB_SRCH_001 | Search Specialist | Solution Architect |
-| RFx Response | PB_SRCH_002 | Search Specialist | Solution Architect |
-| Solution Scoping | PB_SRCH_003 | Search Specialist | Solution Architect |
-| Schema Design | PB_SRCH_004 | Search Specialist | Solution Architect |
-| Relevance Tuning | PB_SRCH_005 | Search Specialist | Solution Architect |
-| Vector Search Architecture | PB_SRCH_006 | Search Specialist | Solution Architect |
-| Technical POC | PB_SRCH_007 | Search Specialist | Solution Architect |
-| RAG System Design | PB_SRCH_008 | Search Specialist | Solution Architect |
-| Deep Discovery | PB_SRCH_009 | Search Specialist | Solution Architect |
-| Custom Demo | PB_SRCH_010 | Search Specialist | Solution Architect |
 
 ### Partner Playbooks (PB_PTR_*)
 

@@ -1,8 +1,8 @@
 # Agents
 
-This directory contains agent definitions for all 49 agents in the EA Agentic Lab system. Agents are organized across 23 team directories following the DDR-019 v3.0 domain model. Each agent is defined by a canonical `*-definition.yaml` file (Oracle Agent Spec 26.1.0) and supporting configuration files.
+This directory contains agent definitions for all 196 agents in the EA Agentic Lab system. Agents are organized across 25 team directories following the DDR-019 v3.0 domain model. Each agent is defined by a canonical `*-definition.yaml` file (Oracle Agent Spec 26.1.0) and supporting configuration files.
 
-The system has 35 standalone role agents and 14 sub-agents. Two orchestrator agents (AE and SA) use holonic decomposition to delegate specialized work to sub-agents while retaining routing and coordination responsibility.
+The system uses holonic decomposition extensively. Role-level orchestrator agents delegate specialized work to sub-agents while retaining routing and coordination responsibility. The specialist domain has expanded to 11 sub-domains (big data, cloud solutions, data engineering, database, DevOps, migrations, network, observability, platform, security, system design), each with its own orchestrator and sub-agents.
 
 ## Agent Catalog
 
@@ -35,9 +35,9 @@ Commercial strategy, competitive positioning, value quantification, partner alig
 | `partners/` | Partner Agent | partner-agent | standalone | Partner ecosystem coordination |
 | `customer_advocacy/` | Customer Advocate Agent | cad-agent | standalone | Customer references, case studies, proof points |
 
-### Architecture (3 roles + 6 sub-agents + 3 domain specialists)
+### Architecture (3 roles + 6 sub-agents + 11 domain specialist teams)
 
-Technical integrity through solution design, customer architecture tracking, and domain expertise routing. The SA agent is an orchestrator with 6 sub-agents. The Specialist agent routes requests to domain specialists (observability, search, security).
+Technical integrity through solution design, customer architecture tracking, and domain expertise routing. The SA agent is an orchestrator with 6 sub-agents. The Specialist agent routes requests to 11 domain specialist teams (big data, cloud solutions, data engineering, database, DevOps, migrations, network, observability, platform, security, system design), each with its own orchestrator and sub-agents.
 
 | Directory | Agent | ID | Type | Purpose |
 |-----------|-------|----|------|---------|
@@ -50,9 +50,17 @@ Technical integrity through solution design, customer architecture tracking, and
 | `solution_architects/` | Journey | sa-journey-agent | sub-agent | Customer journey mapping |
 | `customer_architects/` | CA Agent | ca-agent | standalone | Customer success, adoption tracking |
 | `specialists/` | Specialist Agent | specialist-agent | standalone | Domain expertise routing |
-| `specialists/observability/` | Observability Specialist | observability-specialist-agent | standalone | Observability and monitoring guidance |
-| `specialists/search/` | Search Specialist | search-specialist-agent | standalone | Search architecture guidance |
-| `specialists/security/` | Security Specialist | security-specialist-agent | standalone | Security architecture guidance |
+| `specialists/observability/` | Observability Specialist | observability-specialist-agent | orchestrator | Observability and monitoring guidance (6 sub-agents) |
+| `specialists/security/` | Security Specialist | security-specialist-agent | orchestrator | Security architecture guidance (6 sub-agents) |
+| `specialists/big_data_architect/` | BDA Specialist | bda-specialist-agent | orchestrator | Big data architecture (6 sub-agents) |
+| `specialists/cloud_solutions_architect/` | CSA Specialist | csa-specialist-agent | orchestrator | Cloud solutions architecture (6 sub-agents) |
+| `specialists/data_engineer/` | DE Specialist | de-specialist-agent | orchestrator | Data engineering (6 sub-agents) |
+| `specialists/database_architect/` | DBA Specialist | dba-specialist-agent | orchestrator | Database architecture (6 sub-agents) |
+| `specialists/devops/` | DevOps Specialist | devops-specialist-agent | orchestrator | DevOps and SRE (6 sub-agents) |
+| `specialists/migrations/` | Migration Specialist | mig-specialist-agent | orchestrator | Migration planning and execution (6 sub-agents) |
+| `specialists/network_architect/` | Network Specialist | net-specialist-agent | orchestrator | Network architecture (6 sub-agents) |
+| `specialists/platform_architect/` | Platform Specialist | pa-specialist-agent | orchestrator | Platform architecture (6 sub-agents) |
+| `specialists/system_design/` | System Design Specialist | sd-specialist-agent | orchestrator | System design and scalability (6 sub-agents) |
 
 ### Deal Execution (3)
 

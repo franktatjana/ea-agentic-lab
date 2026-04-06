@@ -1,0 +1,534 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: mig-governance-agent
+name: MIG Governance Agent
+description: 'Large migration programs generate status updates from multiple workstreams, risk signals from execution teams, and compliance requirements from regulators. Without consistent governance,
+  leadership receives fragmented information that obscures the real state of the program. This agent establishes governance frameworks, tracks risks, and produces reporting that reflects actual
+  progress rather than self-reported optimism.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: mig-specialist-agent
+  tags:
+  - migration-governance
+  - progress-tracking
+  - risk-management
+  - compliance
+  - reporting
+  responsibility: 'Establish migration governance frameworks, maintain risk registers with quantified impact, track migration progress across workstreams, validate compliance requirements, and
+    produce executive reporting that reflects actual program status.
+
+    '
+system_prompt: 'You are a Migration Governance Agent, part of the Migrations Specialist
+  intelligence system. Your job is to govern migration programs and manage risk.
+
+
+  You MUST:
+
+  - Establish governance frameworks with standardized status reporting across workstreams
+
+  - Maintain risk registers with quantified impact, probability, assigned owners, and mitigation plans
+
+  - Track migration progress against wave plans with variance analysis
+
+  - Validate that migration plans satisfy regulatory and compliance requirements
+
+  - Produce executive dashboards that reflect actual workstream status within 24 hours
+
+  - Track blockers with assigned owners, resolution deadlines, and escalation triggers
+
+
+  You MUST NOT:
+
+  - Perform infrastructure discovery (Assessment Agent''s domain)
+
+  - Classify workloads or design wave plans (Strategy Agent''s domain)
+
+  - Produce cutover runbooks (Execution Agent''s domain)
+
+  - Design testing protocols (Testing Agent''s domain)
+
+  - Override risk classifications without human approval
+
+  - Suppress negative status to produce optimistic reports
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-program-status
+  name: Read Program Status
+  description: Access migration program status from all workstreams, execution reports, and test results
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: program_section
+    type: string
+  outputs:
+  - title: content
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot report status without workstream data, flag reporting gap
+    - error_code: STALE_STATUS
+      guidance: Status data is outdated, flag freshness concern in report
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-governance-report
+  name: Save Governance Report
+  description: Persist governance reports, risk register updates, and compliance validation results to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: governance_report
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: write-risk-alert
+  name: Write Risk Alert
+  description: Save governance risk alert to InfoHub risk register for program-level risks
+  requires_confirmation: true
+  inputs:
+  - title: risk
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from the migration specialist about governance requirements or compliance constraints
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: governance-intelligence
+  name: Governance Intelligence
+  description: Migration governance data available to peer agents for status awareness and risk context
+  tools:
+  - id: get-program-status
+    name: Get Program Status
+    description: Returns current migration program status with wave progress and timeline variance
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: program_status
+      type: object
+  - id: get-risk-register
+    name: Get Risk Register
+    description: Returns active risk register with quantified impact, probability, and mitigation status
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: risk_register
+      type: array
+  - id: get-compliance-status
+    name: Get Compliance Status
+    description: Returns compliance validation status for regulatory requirements across migration waves
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: compliance_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: migration-governance-flow
+  name: Migration Governance
+  playbook_refs:
+  - PB_MIG_008
+  description: Establish governance framework, maintain risk register, track progress, and validate compliance.
+  inputs:
+  - title: account_context
+    type: object
+  - title: wave_plan
+    type: object
+  - title: execution_status
+    type: object
+  outputs:
+  - title: governance_dashboard
+    type: object
+  - title: risk_register
+    type: object
+  - title: compliance_report
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: mig-status-collection
+      input: account_context, wave_plan
+      tools:
+      - read-program-status
+      - read-infohub
+      description: Collect status from all migration workstreams with variance analysis against plan
+      on_failure: stop
+    - step: 2
+      prompt: mig-risk-assessment
+      input: execution_status, program_status
+      tools:
+      - read-infohub
+      description: Update risk register with quantified impact, probability, and mitigation status
+      on_failure: stop
+    - step: 3
+      prompt: mig-compliance-validation
+      input: account_context, execution_status
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Validate migration plans and execution against regulatory and compliance requirements
+      on_failure: skip_with_warning
+    - step: 4
+      prompt: mig-executive-dashboard
+      input: program_status, risk_register, compliance_report
+      tools: []
+      description: Produce executive dashboard with program status, risk summary, and compliance posture
+      on_failure: skip_with_warning
+    - step: 5
+      action: persist
+      tools:
+      - save-governance-report
+      - write-risk-alert
+      condition: write-risk-alert triggers when program_risk.severity >= HIGH
+      description: Save governance report and write risk alerts for high-severity program risks
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - program-governance
+    - risk-management
+    - compliance-validation
+    - executive-reporting
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent tracks status, quantifies risks, and validates compliance. The migration lead decides: which risks are acceptable to proceed with, whether a timeline delay
+      requires executive escalation or can be absorbed, and when compliance requirements need interpretation rather than literal application. Governance provides visibility, but judgment about
+      what the data means and what action to take remains human.
+
+      '
+    challenges:
+    - text: Migration status reporting is fragmented across teams, producing an inaccurate picture of program health
+      solved_by: mig-governance-agent
+      specific_overhead:
+      - Aggregating status updates from multiple workstreams into a single consistent view
+    - text: Risk registers become stale because risk owners do not update mitigation status
+      solved_by: mig-governance-agent
+      specific_overhead:
+      - Chasing risk owners for status updates and mitigation progress
+    - text: Compliance requirements are validated at program start but not re-checked as migration proceeds
+      solved_by: mig-governance-agent
+      specific_overhead:
+      - Tracking compliance requirement changes and validating each wave against current regulations
+    - text: Executive reporting optimistically summarizes status without surfacing blockers or risks
+      solved_by: mig-governance-agent
+      specific_overhead:
+      - Producing balanced reports that include blockers and risks alongside progress
+    - text: Timeline variance accumulates silently because individual delays are too small to escalate individually
+      solved_by: mig-governance-agent
+      specific_overhead:
+      - Tracking cumulative timeline variance across waves to detect trend-level slippage
+    administrative_overhead:
+    - Aggregating status updates from multiple workstreams into a single consistent view
+    - Chasing risk owners for status updates and mitigation progress
+    - Tracking compliance requirement changes and validating each wave against current regulations
+    - Producing balanced reports that include blockers and risks alongside progress
+    - Tracking cumulative timeline variance across waves to detect trend-level slippage
+    scenarios:
+    - problem: Migration governance is a spreadsheet that nobody trusts
+      why: 'Status reporting relies on manual collection from multiple teams. By the time the spreadsheet is updated and shared, the data is already stale. Individual workstream leads report
+        their own status with natural optimism bias. The executive view shows green when individual workstreams are accumulating yellow and red signals that compound into program-level risk.
+
+        '
+      agent: mig-governance-agent
+      agent_response: 'The agent establishes automated status collection from execution, testing, and risk workstreams. It produces governance dashboards that reflect actual workstream status
+        within 24 hours of changes, with variance analysis against the approved wave plan. Risk signals from any sub-agent are automatically incorporated into the risk register. Executive
+        reports include both progress metrics and risk summary so leadership sees the full picture.
+
+        '
+      success_signal:
+        metric: Governance reporting freshness
+        target: Executive dashboard reflects actual workstream status within 24 hours of changes
+        leading_indicator: Automated status collection operational across all migration workstreams
+        failure_signal: Leadership surprised by migration delays not visible in governance reports
+    - problem: Compliance requirements are treated as a one-time gate rather than continuous validation
+      why: 'Regulatory requirements for data residency, encryption, and audit trails are validated during the planning phase, but migration execution introduces changes that may violate those
+        requirements. A data migration to a different region, a change in encryption at rest, or a modified audit trail configuration may create compliance gaps that are invisible until audit.
+
+        '
+      agent: mig-governance-agent
+      agent_response: 'The agent validates compliance requirements continuously, checking each migration wave against the current regulatory constraint set. It tracks requirement changes from
+        the compliance team and flags any migration activity that may create a compliance gap. Each wave closure includes a compliance verification checkpoint, and exceptions are documented
+        with risk acceptance from the appropriate authority.
+
+        '
+      success_signal:
+        metric: Compliance verification coverage
+        target: 100% of migration waves include compliance verification checkpoint before closure
+        leading_indicator: Regulatory requirements mapped to migration activities with automated tracking
+        failure_signal: Compliance gap discovered during audit rather than during migration governance
+  escalation_triggers:
+  - Migration timeline variance exceeds 15% of approved plan (to SA Lead / Migration Practice Lead)
+  - HIGH severity risk without assigned owner or mitigation plan (to Migration Practice Lead)
+  - Compliance validation failure for regulatory data requirement (to SA Lead / Migration Practice Lead)
+  - Three or more concurrent RED status workstreams (to SA Lead / Migration Practice Lead)
+  prompt_registry:
+    mig-status-collection:
+      description: Collect status from all migration workstreams with variance analysis
+      source: prompts/tasks.yaml#migration.status_collection
+      inputs:
+      - title: account_name
+        type: string
+      - title: wave_plan
+        type: object
+      outputs:
+      - title: program_status
+        type: object
+      requires_data:
+      - source: read-program-status
+        fields:
+        - workstream_status
+        - wave_progress
+        - blocker_list
+        priority: critical
+    mig-risk-assessment:
+      description: Update risk register with quantified impact, probability, and mitigation status
+      source: prompts/tasks.yaml#migration.risk_assessment
+      inputs:
+      - title: execution_status
+        type: object
+      - title: program_status
+        type: object
+      outputs:
+      - title: risk_register
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - existing_risks
+        - incident_history
+        priority: critical
+    mig-compliance-validation:
+      description: Validate migration activities against regulatory and compliance requirements
+      source: prompts/tasks.yaml#migration.compliance_validation
+      inputs:
+      - title: account_context
+        type: object
+      - title: execution_status
+        type: object
+      outputs:
+      - title: compliance_report
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - regulatory_requirements
+        - compliance_framework
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - regulatory_changes
+        - industry_requirements
+        priority: enrichment
+    mig-executive-dashboard:
+      description: Produce executive dashboard with program status, risk summary, and compliance posture
+      source: prompts/tasks.yaml#migration.executive_dashboard
+      inputs:
+      - title: program_status
+        type: object
+      - title: risk_register
+        type: object
+      - title: compliance_report
+        type: object
+      outputs:
+      - title: executive_dashboard
+        type: object
+  boundaries:
+  - Does not perform infrastructure discovery (Assessment Agent)
+  - Does not classify workloads or design wave plans (Strategy Agent)
+  - Does not produce cutover runbooks (Execution Agent)
+  - Does not design testing protocols (Testing Agent)
+  - Does not override risk classifications without human approval
+  - Does not suppress negative status in reporting
+  permissions:
+  - Establish migration governance frameworks
+  - Maintain risk registers with quantified impact and probability
+  - Track migration progress across workstreams
+  - Validate compliance requirements for each migration wave
+  - Produce executive dashboards and stakeholder reports
+  - Write risk alerts for program-level risks
+  guardrails:
+    input_validation:
+    - Reject governance reporting without workstream status data
+    - Reject compliance validation without regulatory requirements input
+    output_checks:
+    - Executive reports must include both progress and risk metrics
+    - Risk register entries must include quantified impact and assigned owner
+    - Compliance reports must reference specific regulatory requirements
+    - Timeline variance must be calculated against approved baseline plan
+    signal_validation:
+    - Never suppress negative status signals in reporting
+    - Never close risk items without documented mitigation or acceptance
+    - Add [STALE DATA] when status information exceeds freshness threshold
+    - Distinguish between self-reported and independently verified status
+  error_handling:
+    tool_failures:
+      critical:
+      - read-program-status
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce governance report without workstream status
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - migration-governance
+      - program-management
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-governance-frameworks.yaml
+      description: Migration Governance Models, RAID Logs, Program Reporting Standards
+    - path: references/expertise-compliance.yaml
+      description: Data Residency Requirements, Encryption Standards, Audit Trail Compliance
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: mig-specialist-agent
+      description: Migration orchestrator routes governance requests
+    - type: schedule
+      cadence: weekly
+      window: Monday 08:00-09:00
+      description: Weekly governance review and status collection
+    - type: trigger_agent
+      source: mig-execution-agent
+      condition: execution_risk.severity >= HIGH
+      description: High-severity execution risks trigger governance tracking
+    - type: trigger_agent
+      source: mig-testing-agent
+      condition: test_failure.severity >= HIGH
+      description: Test failures trigger governance risk register update
+    - type: trigger_agent
+      source: mig-strategy-agent
+      condition: wave_plan.created == true
+      description: Wave plan creation triggers governance tracking setup
+    - type: trigger_agent
+      source: mig-modernization-agent
+      condition: modernization_roadmap.created == true
+      description: Modernization roadmap triggers separate governance workstream
+    outputs:
+    - type: parent_return
+      target: mig-specialist-agent
+      payload:
+      - governance_dashboard
+      - risk_register
+      - compliance_report
+      description: Full governance report back to orchestrator
+    - type: notify_human
+      condition: program_risk.severity >= HIGH OR timeline_variance > 15
+      channel: alert
+      description: HIGH severity program risks or significant timeline variance surface for human review
+    dependencies: []

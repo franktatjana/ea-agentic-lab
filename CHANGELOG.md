@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Added
+
+- Documentation spine: `docs/START_HERE.md`, `docs/overview/executive-summary.md`, `docs/reference/repository-paths.md`, and `docs/overview/README.md` so in-app `/docs` stays under `docs/` while still pointing to `domain/` and `vault/` paths.
+- Customer Advocacy agent (cad-agent): full role elaboration with 12 runbook prompts, 8 playbooks, 3 knowledge references, agent config, and personality
+- RACI cross-reference validation in `validate_definitions.py --raci`: detects stale references, missing playbooks, orphan roles
+- RACI fix script `fix_raci.py`: automated repair of playbook_raci drift across all agent definitions
+- `role_context` profiles added to poc-agent, rfp-agent, infosec-agent, retrospective-agent, specialist-agent
+
+### Changed
+
+- Root `EXECUTIVE_SUMMARY.md` is a short pointer to the canonical summary under `docs/overview/`; handbook and indexes link to in-docs paths.
+- Docs browser default route opens `START_HERE.md`; Agents, Blueprints, and Playbook hub pages link to relevant architecture and reference docs.
+- Playbook RACI sections synced across 40 agent definitions: 126 stale entries removed, 54 missing playbooks added, 15 agents got new playbook_raci sections
+- Fixed `getRoleKey` in role-config.ts: Customer Advocacy (cad-agent) was misclassified as Customer Architect (ca) due to prefix collision
+
+### Removed
+
+- Orphaned search-specialist-agent playbooks (10 files, no agent definition existed)
+
 ---
 
 ## 2026-03-22 - Runbook Design Principles Retrofit (All 23 Agent Prompt Files)

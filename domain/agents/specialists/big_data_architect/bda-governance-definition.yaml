@@ -1,0 +1,443 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: bda-governance-agent
+name: BDA Governance Agent
+description: >
+  Data without governance is a liability, not an asset. This agent designs data governance frameworks covering data quality rules, data catalogs,
+  lineage tracking, access control policies, and regulatory compliance (GDPR, CCPA, industry-specific). It ensures data assets are discoverable,
+  trustworthy, and compliant, transforming raw data collections into governed data products that the organization can rely on for decisions.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: bda-specialist-agent
+  tags:
+  - data-governance
+  - data-quality
+  - data-catalog
+  - data-lineage
+  - gdpr
+  - ccpa
+  - compliance
+  responsibility: >
+    Design data governance frameworks covering quality, catalog, lineage, access control, and regulatory compliance to ensure data assets
+    are discoverable, trustworthy, and compliant.
+system_prompt: >
+  You are a Data Governance Agent, part of the Big Data Architect system. Your job is to design governance frameworks
+  that make data trustworthy, discoverable, and compliant.
+
+
+  You MUST:
+
+  - Design data governance frameworks with quality rules, ownership models, and stewardship processes
+
+  - Implement data catalog architectures for asset discovery and metadata management
+
+  - Design data lineage tracking across ingestion, transformation, and consumption layers
+
+  - Define data quality rules with automated validation and anomaly detection
+
+  - Map compliance requirements (GDPR, CCPA, HIPAA, SOX) to data governance controls
+
+  - Design access control policies and data classification schemes
+
+  - Produce data governance maturity assessments with gap remediation roadmaps
+
+
+  You MUST NOT:
+
+  - Design data platform architecture or compute frameworks (Platform Design Agent's domain)
+
+  - Design ETL/ELT pipelines or orchestration (Pipeline Agent's domain)
+
+  - Design analytics or BI infrastructure (Analytics Agent's domain)
+
+  - Design ML platform components (ML Platform Agent's domain)
+
+  - Optimize storage formats or partitioning (Storage Agent's domain)
+
+  - Make legal determinations about compliance (defer to Legal/Compliance)
+
+  - Make commercial decisions or commit to delivery without PS
+
+
+  Every governance recommendation must include implementation priority, affected data assets, and compliance mapping.
+
+  When uncertain: state what evidence is missing and flag for human review.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-governance-data
+  name: Read Governance Data
+  description: 'Access data sources: current governance policies, data catalog contents, quality metrics, compliance documentation'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access governance data, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No governance records found, note gap and request manual input
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders,
+    competitive, governance, value, journey, opportunities, context, or frameworks.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: >
+    Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory,
+    trends), market (news digest), technology (current map, vendor landscape).
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: write-governance-artifact
+  name: Write Governance Artifact
+  description: Save governance frameworks, quality rules, and compliance mappings to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification about governance requirements or compliance constraints
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes: []
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: governance-framework-design
+  name: Governance Framework Design
+  playbook_refs:
+  - PB_BDA_006
+  description: Design a data governance framework covering quality, catalog, lineage, access control, and compliance requirements.
+  inputs:
+  - title: current_governance
+    type: object
+  - title: compliance_requirements
+    type: object
+  - title: data_asset_inventory
+    type: object
+  outputs:
+  - title: governance_framework
+    type: object
+  - title: quality_rules
+    type: object
+  - title: compliance_mapping
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: bda-governance-maturity-assessment
+      input: current_governance, data_asset_inventory
+      tools:
+      - read-governance-data
+      - read-infohub
+      description: Assess current governance maturity across quality, catalog, lineage, access control, and compliance
+      on_failure: stop
+    - step: 2
+      prompt: bda-data-quality-framework
+      input: data_asset_inventory, compliance_requirements
+      tools:
+      - read-governance-data
+      description: Define data quality rules, validation checks, and anomaly detection thresholds per data asset
+      on_failure: stop
+    - step: 3
+      prompt: bda-compliance-mapping
+      input: compliance_requirements, data_asset_inventory
+      tools:
+      - read-intelligence
+      description: Map regulatory requirements to governance controls, data classification, and retention policies
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - write-governance-artifact
+      description: Save governance framework, quality rules, and compliance mapping to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - data-governance-framework
+    - data-quality-management
+    - data-catalog-lineage
+    - compliance-mapping
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent designs governance frameworks based on best practices and compliance requirements. The data governance lead understands
+      which governance controls will be adopted versus circumvented, which data owners will actually steward their assets, and which
+      compliance requirements carry real enforcement risk versus theoretical exposure. The agent provides the framework; the human
+      drives organizational adoption.
+    challenges:
+    - text: Data governance initiatives fail because they impose process without demonstrating value to data producers
+      specific_overhead:
+      - Designing governance frameworks that balance control with usability for data teams
+    - text: Data quality issues are discovered by consumers, not detected by automated checks
+      specific_overhead:
+      - Implementing quality validation rules at pipeline boundaries for each critical data asset
+    - text: Data lineage tracking breaks at organizational boundaries where tools and processes differ
+      specific_overhead:
+      - Mapping lineage across heterogeneous tools and manual processes at organizational boundaries
+    - text: GDPR/CCPA compliance is treated as a one-time project rather than a continuous governance process
+      specific_overhead:
+      - Auditing data classification and retention policies against evolving regulatory requirements
+    - text: Data catalog adoption stalls because metadata is stale and search results are unreliable
+      specific_overhead:
+      - Designing automated metadata ingestion and freshness tracking for catalog reliability
+    administrative_overhead:
+    - Designing governance frameworks that balance control with usability
+    - Implementing quality validation at pipeline boundaries
+    - Mapping lineage across heterogeneous tools
+    - Auditing compliance against evolving regulations
+    - Designing automated metadata ingestion for catalogs
+    scenarios:
+    - problem: Customer has GDPR obligations but no data classification, lineage, or deletion capability across their data lake
+      why: >
+        Data was ingested into the lake without classification or retention policies. Personal data is scattered across hundreds of tables
+        with no lineage tracking. When a data subject requests deletion, the team cannot identify all locations where their data exists,
+        creating compliance risk and audit exposure.
+      agent: bda-governance-agent
+      agent_response: >
+        The agent designs a data classification framework, maps personal data locations through automated scanning and lineage analysis,
+        and produces a compliance remediation plan with prioritized actions: classify tier-1 tables, implement lineage tracking for PII flows,
+        design deletion workflows, and establish ongoing compliance monitoring. The output includes a GDPR control mapping with gap analysis.
+      success_signal:
+        metric: GDPR compliance coverage
+        target: 100% of tier-1 data assets classified with PII tracking and deletion capability
+        leading_indicator: Automated PII scanning covers all production data stores
+        failure_signal: Data subject deletion request cannot be fulfilled within regulatory timeline
+    - problem: Data quality scores are unknown because there is no quality framework, downstream reports are distrusted
+      why: >
+        Without data quality rules, issues propagate silently through pipelines. Business users discover incorrect values in reports and
+        lose trust in the data platform. The data team spends significant time investigating ad-hoc quality complaints rather than
+        building systematic quality controls.
+      agent: bda-governance-agent
+      agent_response: >
+        The agent designs a data quality framework with dimension-specific rules (completeness, accuracy, consistency, timeliness, uniqueness),
+        automated validation at pipeline boundaries, quality scoring dashboards, and anomaly alerting. The framework is prioritized by
+        business criticality, starting with data assets feeding executive dashboards and compliance reports.
+      success_signal:
+        metric: Data quality score visibility
+        target: Quality scores published for 100% of tier-1 data assets with automated validation
+        leading_indicator: Quality rules defined and automated for top-20 critical data assets
+        failure_signal: Business users continue to discover quality issues before automated checks detect them
+  escalation_triggers:
+  - Compliance gap with active regulatory exposure requiring legal review
+  - Data classification requiring business owner decisions on sensitivity levels
+  - Governance framework change affecting cross-team data ownership model
+  prompt_registry:
+    bda-governance-maturity-assessment:
+      description: Assess current data governance maturity across quality, catalog, lineage, access control, and compliance
+      source: prompts/tasks.yaml#governance.maturity_assessment
+      inputs:
+      - title: current_governance
+        type: object
+      - title: data_asset_inventory
+        type: object
+      outputs:
+      - title: maturity_assessment
+        type: object
+      requires_data:
+      - source: read-governance-data
+        fields:
+        - governance_policies
+        - quality_metrics
+        - catalog_coverage
+        priority: critical
+      - source: read-infohub
+        fields:
+        - compliance_context
+        - organizational_structure
+        priority: enrichment
+    bda-data-quality-framework:
+      description: Define data quality rules, validation checks, and anomaly detection per data asset
+      source: prompts/tasks.yaml#governance.quality_framework
+      inputs:
+      - title: data_asset_inventory
+        type: object
+      outputs:
+      - title: quality_framework
+        type: object
+      requires_data:
+      - source: read-governance-data
+        fields:
+        - current_quality_rules
+        - data_profiling_results
+        priority: critical
+    bda-compliance-mapping:
+      description: Map regulatory requirements to governance controls and data classification
+      source: prompts/tasks.yaml#governance.compliance_mapping
+      inputs:
+      - title: compliance_requirements
+        type: object
+      outputs:
+      - title: compliance_mapping
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - regulatory_landscape
+        - industry_compliance
+        priority: enrichment
+  boundaries:
+  - Governance framework design only, does not make legal determinations
+  - Does not design data platforms, pipelines, or analytics infrastructure
+  - Does not implement technical security controls (defers to Security Specialist)
+  - Does not enforce governance policies in production (guidance only)
+  permissions:
+  - Design data governance frameworks and stewardship models
+  - Define data quality rules and validation frameworks
+  - Design data catalog and lineage architectures
+  - Map compliance requirements to governance controls
+  - Produce governance maturity assessments
+  guardrails:
+    input_validation:
+    - Reject governance design requests without data asset inventory or scope
+    - Reject compliance mapping without specified regulatory requirements
+    output_checks:
+    - All governance recommendations must include implementation priority
+    - Compliance mappings must cite specific regulatory articles or requirements
+    - Quality rules must specify measurable thresholds and validation frequency
+    - Data classification must follow established frameworks (public/internal/confidential/restricted)
+    signal_validation:
+    - Never make legal determinations about compliance status
+    - Never claim compliance without verification against specific regulatory text
+    - Add [LEGAL REVIEW REQUIRED] for compliance recommendations with enforcement implications
+  error_handling:
+    tool_failures:
+      critical:
+      - read-governance-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable governance recommendations without governance data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - data-governance
+      - data-quality
+      - compliance
+      - data-catalog
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-data-governance.yaml
+      description: DAMA-DMBOK, data quality dimensions, catalog/lineage patterns
+    - path: references/expertise-compliance.yaml
+      description: GDPR, CCPA, HIPAA, SOX data governance requirements
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: bda-specialist-agent
+      description: Orchestrator routes governance and compliance requests
+    - type: event
+      source: infohub
+      condition: data_quality.score < threshold OR compliance.gap_detected == true
+      description: Auto-triggers governance review when quality degrades or compliance gaps appear
+    outputs:
+    - type: parent_return
+      target: bda-specialist-agent
+      payload:
+      - governance_framework
+      - quality_rules
+      - compliance_mapping
+      description: Governance framework returned to orchestrator
+    - type: trigger_agent
+      target: bda-pipeline-agent
+      condition: quality_validation_gaps_in_pipelines == true
+      payload:
+      - quality_rules
+      - affected_pipelines
+      description: Quality gaps in pipelines trigger pipeline architecture review
+    dependencies: []

@@ -1,0 +1,455 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sd-integration-agent
+name: SD Integration Agent
+description: 'As service count grows, integration complexity becomes the primary source of system fragility. This agent provides expert guidance on API gateway design, message queue architectures, service mesh topologies, event streaming patterns, and API governance. It produces integration architecture specifications, dependency maps, and API design standards that transform ungoverned point-to-point connections into managed, observable integration fabrics.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: sd-specialist-agent
+  tags:
+  - api-gateway
+  - message-queues
+  - service-mesh
+  - event-streaming
+  - api-governance
+  responsibility: 'Design integration architectures, map service dependencies, establish API governance standards, and produce integration specifications.
+
+    '
+system_prompt: 'You are an Integration Agent, part of the System Design Specialist
+  intelligence system. Your job is to design integration architectures and API governance.
+
+
+  You MUST:
+
+  - Map current integration topology and identify ungoverned point-to-point connections
+
+  - Design API gateway patterns for external traffic management, rate limiting, and authentication
+
+  - Architect message-driven integration with queue selection, ordering, and dead-letter handling
+
+  - Design service mesh topologies for internal traffic management and observability
+
+  - Architect event streaming platforms with partitioning, consumer groups, and replay strategies
+
+  - Establish API design standards covering versioning, backward compatibility, and deprecation
+
+  - Design contract-first API development workflows with schema validation
+
+  - Classify integration patterns (sync/async, request-reply/event-driven) by use case fit
+
+
+  You MUST NOT:
+
+  - Design architecture patterns or service boundaries (Architecture Agent''s domain)
+
+  - Design scaling or capacity plans (Scalability Agent''s domain)
+
+  - Design resilience or DR patterns (Resilience Agent''s domain)
+
+  - Plan cloud migrations (Cloud Native Agent''s domain)
+
+  - Execute performance tests (Performance Agent''s domain)
+
+  - Recommend specific vendor products without stating evaluation criteria
+
+
+  Every integration recommendation must include the failure mode, the expected
+
+  behavior under degradation, and the observability requirements for production operations.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-integration-docs
+  name: Read Integration Documentation
+  description: Access API specs, integration diagrams, message flow documentation, and service dependency maps
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access integration documentation, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No integration documentation found, note gap and request from user
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: architecture, integration, apis, dependencies, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: write-integration-artifact
+  name: Write Integration Artifact
+  description: Save integration architecture specs, API standards, and dependency maps to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from user about integration requirements or API contracts
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes: []
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: integration-architecture-design
+  name: Integration Architecture Design
+  playbook_refs:
+  - PB_SD_005
+  description: Map current integration topology, design governed integration architecture, and establish API standards.
+  inputs:
+  - title: system_context
+    type: object
+  - title: integration_requirements
+    type: object
+  - title: api_landscape
+    type: object
+  outputs:
+  - title: integration_topology
+    type: object
+  - title: integration_architecture
+    type: object
+  - title: api_standards
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sd-integration-topology
+      input: system_context, api_landscape
+      tools:
+      - read-integration-docs
+      - read-infohub
+      description: Map current integration topology, identify point-to-point connections and dependency risks
+      on_failure: stop
+    - step: 2
+      prompt: sd-integration-design
+      input: system_context, integration_requirements
+      tools:
+      - read-integration-docs
+      - read-intelligence
+      description: Design target integration architecture with pattern selection per interaction type
+      on_failure: stop
+    - step: 3
+      prompt: sd-api-governance
+      input: system_context
+      tools:
+      - read-infohub
+      description: Establish API design standards, versioning strategy, and governance framework
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - write-integration-artifact
+      description: Save integration architecture and API standards to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - integration-architecture
+    - api-gateway-design
+    - event-streaming
+    - service-mesh
+    - api-governance
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs integration patterns and API governance frameworks. The engineering leader knows which teams will adopt contract-first development, how much governance the organization can absorb without slowing delivery, and which integration standards will actually be enforced. The architecture is well-designed, but the human leader makes governance stick.
+
+      '
+    challenges:
+    - text: Integration architectures evolve into unmaintainable webs of point-to-point connections
+      specific_overhead:
+      - Tracing data flow across dozens of undocumented service-to-service connections during incidents
+    - text: API versioning is ad-hoc, causing breaking changes that cascade to downstream consumers
+      specific_overhead:
+      - Coordinating API version migrations across multiple consumer teams with different release schedules
+    - text: Synchronous call chains create cascading failure paths that are invisible until one service degrades
+      specific_overhead:
+      - Debugging cascading timeouts across synchronous service call chains during production incidents
+    - text: Event streaming patterns are adopted without understanding ordering, partitioning, or exactly-once semantics
+      specific_overhead:
+      - Fixing data inconsistencies caused by incorrect partition key selection or missing idempotency handling
+    - text: Service mesh adds operational complexity without a clear understanding of which problems it solves
+      specific_overhead:
+      - Maintaining service mesh infrastructure and debugging connectivity issues through the mesh proxy layer
+    administrative_overhead:
+    - Maintaining API documentation and service dependency maps
+    - Tracking API version lifecycles and deprecation timelines
+    scenarios:
+    - problem: A service outage cascades across 12 services because all integration is synchronous request-reply
+      why: 'Every service calls downstream services synchronously in the request path. When one service becomes slow, upstream services accumulate blocked threads, exhaust connection pools, and become unresponsive. The blast radius of a single service degradation extends to every service in the call chain.
+
+        '
+      agent: sd-integration-agent
+      agent_response: 'The agent maps the synchronous call chain, classifies each interaction as requiring synchronous response or tolerating asynchronous processing, and designs a hybrid integration architecture. Command operations that need immediate feedback remain synchronous with circuit breakers. Data propagation, notifications, and batch operations move to event-driven patterns with message queues, reducing the synchronous blast radius.
+
+        '
+      success_signal:
+        metric: Cascading failure containment
+        target: Single service degradation affects no more than direct consumers, not the full chain
+        leading_indicator: Integration topology reclassified with sync/async justification per interaction
+        failure_signal: Service outage still cascades beyond direct consumers
+    - problem: API consumers break on every release because there is no versioning strategy or backward compatibility contract
+      why: 'API changes are deployed without version management. Consumers discover breaking changes when their integration fails in production. There is no contract testing, no deprecation timeline, and no mechanism for consumers to test against upcoming API versions.
+
+        '
+      agent: sd-integration-agent
+      agent_response: 'The agent establishes an API governance framework covering versioning strategy (URL path or header-based), backward compatibility contracts, deprecation policy with timeline, and contract testing pipeline. The framework includes a consumer registry so API producers know who to notify before breaking changes.
+
+        '
+      success_signal:
+        metric: Breaking change incidents
+        target: Zero unannounced breaking changes reaching production
+        leading_indicator: API governance framework adopted with contract testing in CI pipeline
+        failure_signal: Consumer integration breaks due to undocumented API change
+  escalation_triggers:
+  - Integration topology reveals undocumented critical dependencies
+  - API governance gap creating breaking change risk for external consumers
+  - Event streaming design with potential data loss or ordering violations
+  - Service mesh evaluation with significant operational complexity implications
+  prompt_registry:
+    sd-integration-topology:
+      description: Map current integration topology and identify dependency risks
+      source: prompts/tasks.yaml#system_design.integration_topology
+      inputs:
+      - title: system_context
+        type: object
+      - title: api_landscape
+        type: object
+      outputs:
+      - title: integration_topology
+        type: object
+      requires_data:
+      - source: read-integration-docs
+        fields:
+        - api_specs
+        - service_diagrams
+        - message_flows
+        priority: critical
+      - source: read-infohub
+        fields:
+        - service_registry
+        - dependency_map
+        priority: enrichment
+    sd-integration-design:
+      description: Design target integration architecture with pattern selection per interaction type
+      source: prompts/tasks.yaml#system_design.integration_design
+      inputs:
+      - title: system_context
+        type: object
+      - title: integration_requirements
+        type: object
+      outputs:
+      - title: integration_architecture
+        type: object
+      requires_data:
+      - source: read-integration-docs
+        fields:
+        - current_integrations
+        - api_contracts
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - technology_landscape
+        - vendor_options
+        priority: enrichment
+    sd-api-governance:
+      description: Establish API design standards, versioning, and governance framework
+      source: prompts/tasks.yaml#system_design.api_governance
+      inputs:
+      - title: system_context
+        type: object
+      outputs:
+      - title: api_standards
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - existing_api_standards
+        - consumer_registry
+        priority: enrichment
+  boundaries:
+  - Integration architecture and API governance only, does not design service boundaries or decomposition
+  - Does not design scaling, resilience, or cloud migration strategies
+  - Does not execute performance or integration tests
+  - Does not make vendor procurement decisions for middleware
+  permissions:
+  - Read all integration documentation, API specs, and dependency maps
+  - Design integration architectures and API governance frameworks
+  - Produce integration topology maps and dependency analyses
+  - Write integration specifications and API standards to InfoHub
+  guardrails:
+    input_validation:
+    - Reject integration design without system context or current topology information
+    - Reject API governance without understanding of current API landscape
+    output_checks:
+    - All integration pattern recommendations must include failure mode and degradation behavior
+    - API standards must include versioning, backward compatibility, and deprecation policies
+    - Event streaming designs must specify ordering guarantees and idempotency requirements
+    - Service mesh recommendations must include operational complexity assessment
+    signal_validation:
+    - Never recommend sync or async pattern without justifying the choice for the specific interaction
+    - Never assume message delivery guarantees without stating the messaging platform semantics
+    - Add [NEEDS VALIDATION] when integration design is based on incomplete dependency mapping
+    - Distinguish between documented integrations and discovered shadow integrations
+  error_handling:
+    tool_failures:
+      critical:
+      - read-integration-docs
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable integration design without integration documentation
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - integration-architecture
+      - api-design
+      - event-streaming
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-integration-patterns.yaml
+      description: API gateway patterns, message-driven integration, saga orchestration, event sourcing
+    - path: references/expertise-service-mesh.yaml
+      description: Service mesh architectures, sidecar proxy patterns, traffic management, mTLS
+    - path: references/expertise-api-governance.yaml
+      description: API versioning, contract testing, OpenAPI standards, backward compatibility patterns
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sd-specialist-agent
+      description: System Design orchestrator routes integration requests
+    - type: event
+      source: api_change
+      condition: breaking_change_detected == true
+      description: Auto-assesses when potential breaking API changes are detected
+    outputs:
+    - type: parent_return
+      target: sd-specialist-agent
+      payload:
+      - integration_topology
+      - integration_architecture
+      - api_standards
+      description: Integration analysis results back to orchestrator
+    - type: trigger_agent
+      target: sd-resilience-agent
+      condition: cascading_failure_risk_identified == true
+      payload:
+      - dependency_chain
+      - failure_scenario
+      description: Cascading failure risk triggers resilience assessment
+    - type: trigger_agent
+      target: sd-performance-agent
+      condition: integration_latency_concern == true
+      payload:
+      - latency_analysis
+      - affected_paths
+      description: Integration latency concern triggers performance assessment
+    - type: notify_human
+      condition: integration_risk.severity == HIGH
+      channel: alert
+      description: HIGH severity integration risks surface immediately for review
+    dependencies: []

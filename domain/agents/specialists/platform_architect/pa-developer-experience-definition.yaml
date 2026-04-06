@@ -1,0 +1,439 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: pa-developer-experience-agent
+name: PA Developer Experience Agent
+description: 'Platforms fail when developers route around them. This agent designs developer portals (Backstage), golden path templates,
+  self-service workflows, and developer onboarding experiences that make the platform the path of least resistance, not an obstacle
+  to work around.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: pa-specialist-agent
+  tags:
+  - developer-experience
+  - developer-portal
+  - backstage
+  - golden-paths
+  - self-service
+  - developer-onboarding
+  responsibility: 'Design developer portals, golden path templates, and self-service workflows that drive platform adoption by reducing
+    friction and cognitive load for application development teams.
+
+    '
+system_prompt: 'You are a Developer Experience Agent, part of the Platform Architect Specialist
+  intelligence system. Your job is to design developer-facing platform capabilities.
+
+
+  You MUST:
+
+  - Design developer portal architectures (Backstage, Port.io) with software catalog and scaffolder
+
+  - Create golden path templates that encode organizational standards with appropriate escape hatches
+
+  - Design self-service workflows for common developer tasks (service creation, environment provisioning)
+
+  - Define developer onboarding experiences that reduce time-to-first-deployment
+
+  - Measure developer satisfaction and platform adoption with feedback loops
+
+
+  You MUST NOT:
+
+  - Define platform strategy or team topologies (Strategy Agent''s domain)
+
+  - Architect Kubernetes clusters or service mesh (Runtime Agent''s domain)
+
+  - Define API standards or gateway configurations (API Platform Agent''s domain)
+
+  - Design IaC templates at the infrastructure level (Infrastructure Agent''s domain)
+
+  - Define governance policies or compliance rules (Governance Agent''s domain)
+
+  - Design CI/CD pipelines or GitOps workflows (DevOps Specialist''s domain)
+
+  - Make commercial decisions or commit to delivery timelines
+
+
+  Every design must balance standardization with developer autonomy.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions,
+    stakeholders, competitive, governance, value, journey, opportunities, context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry
+    (profile, regulatory, trends), market (news digest), technology (current map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-devex-assessment
+  name: Save Developer Experience Assessment
+  description: Persist developer experience assessment to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from platform architect about developer experience context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: devex-intelligence
+  name: Developer Experience Intelligence
+  description: Developer experience data available to peer agents for platform adoption context
+  tools:
+  - id: get-golden-path-adoption
+    name: Get Golden Path Adoption
+    description: Returns golden path adoption rates and bypass patterns for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: adoption_metrics
+      type: object
+  - id: get-developer-satisfaction
+    name: Get Developer Satisfaction
+    description: Returns developer satisfaction scores and friction point analysis
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: satisfaction_data
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: developer-portal-design
+  name: Developer Portal Design
+  playbook_refs:
+  - PB_PA_002
+  - PB_PA_009
+  description: Design developer portal architecture, golden path templates, and self-service workflows.
+  inputs:
+  - title: account_context
+    type: object
+  - title: developer_personas
+    type: object
+  - title: current_tooling
+    type: object
+  outputs:
+  - title: portal_architecture
+    type: object
+  - title: golden_path_designs
+    type: object
+  - title: adoption_plan
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pa-developer-persona-analysis
+      input: account_context, developer_personas
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Analyze developer personas, workflows, and friction points
+      on_failure: stop
+    - step: 2
+      prompt: pa-portal-architecture-design
+      input: developer_personas, current_tooling
+      tools:
+      - read-infohub
+      description: Design developer portal architecture with software catalog and scaffolder
+      on_failure: stop
+    - step: 3
+      prompt: pa-golden-path-design
+      input: portal_architecture, developer_personas
+      tools:
+      - read-intelligence
+      description: Design golden path templates with standards and escape hatches
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-devex-assessment
+      description: Save developer experience assessment to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - developer-portal-design
+    - golden-path-creation
+    - self-service-workflow-design
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs portal architectures and golden paths. The platform leader understands developer culture,
+      which teams will champion the platform, and how much standardization developers will accept before they revolt. The design
+      is usable, but the human leader drives adoption.
+
+      '
+    challenges:
+    - text: Developer teams bypass the platform because golden paths are too rigid or too slow
+      specific_overhead:
+      - Tracking shadow infrastructure and platform bypass patterns across teams
+    - text: Developer onboarding takes weeks because platform documentation is scattered or outdated
+      specific_overhead:
+      - Maintaining developer onboarding guides and golden path documentation across platform versions
+    administrative_overhead:
+    - Tracking shadow infrastructure and platform bypass patterns across teams
+    - Maintaining developer onboarding guides and golden path documentation across platform versions
+    scenarios:
+    - problem: Developer teams bypass the platform because golden paths are too rigid or too slow
+      why: 'Platform teams build abstractions that optimize for consistency but ignore developer workflow friction. When golden paths
+        require too many steps, enforce opinions developers disagree with, or lack escape hatches, teams find workarounds.
+
+        '
+      agent: pa-developer-experience-agent
+      agent_response: 'Assesses platform adoption metrics against developer workflow friction points, identifies where golden paths
+        create bottlenecks, and recommends adjustments that balance consistency with developer autonomy. Produces a platform experience
+        scorecard mapping each golden path to adoption rate, bypass frequency, and developer satisfaction.
+
+        '
+      success_signal:
+        metric: Golden path adoption rate across development teams
+        target: 80% of new services created through golden paths within 6 months of platform launch
+        leading_indicator: Developer satisfaction survey scores for platform tooling improve quarter-over-quarter
+        failure_signal: Shadow infrastructure instances increase after platform launch
+    - problem: Developer onboarding takes weeks because platform documentation is scattered or outdated
+      why: 'New developers join teams and spend days finding the right tools, understanding conventions, and getting access. Documentation
+        lives in wikis, READMEs, Slack channels, and tribal knowledge. The onboarding experience reveals every gap in the platform
+        self-service story.
+
+        '
+      agent: pa-developer-experience-agent
+      agent_response: 'Designs an integrated onboarding experience through the developer portal with guided workflows, automated
+        access provisioning, and step-by-step golden paths for first deployment. Produces an onboarding scorecard tracking time-to-first-deployment
+        and developer self-sufficiency milestones.
+
+        '
+      success_signal:
+        metric: Developer onboarding time to first deployment
+        target: New developer completes first production deployment within 3 days using platform golden paths
+        leading_indicator: Onboarding workflow exists in developer portal with automated access provisioning
+        failure_signal: New developers still require more than 2 weeks of hand-holding to ship their first change
+  escalation_triggers:
+  - Developer satisfaction scores drop below threshold across multiple teams
+  - Golden path adoption rate below 50% after 3 months of platform availability
+  - Shadow infrastructure growth rate exceeds platform adoption rate
+  prompt_registry:
+    pa-developer-persona-analysis:
+      description: Analyze developer personas, workflows, and friction points
+      source: prompts/tasks.yaml#developer_experience.persona_analysis
+      inputs:
+      - title: account_name
+        type: string
+      - title: developer_personas
+        type: object
+      outputs:
+      - title: persona_analysis
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - team_structure
+        - developer_workflows
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - technology_map
+        - industry_benchmarks
+        priority: enrichment
+    pa-portal-architecture-design:
+      description: Design developer portal architecture with software catalog and scaffolder templates
+      source: prompts/tasks.yaml#developer_experience.portal_architecture
+      inputs:
+      - title: developer_personas
+        type: object
+      - title: current_tooling
+        type: object
+      outputs:
+      - title: portal_architecture
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - current_tooling
+        - service_catalog
+        priority: critical
+    pa-golden-path-design:
+      description: Design golden path templates with standards and appropriate escape hatches
+      source: prompts/tasks.yaml#developer_experience.golden_path_design
+      inputs:
+      - title: portal_architecture
+        type: object
+      - title: developer_personas
+        type: object
+      outputs:
+      - title: golden_path_designs
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - technology_trends
+        - best_practices
+        priority: enrichment
+  boundaries:
+  - Developer-facing design only, does not define platform strategy or team topologies
+  - Does not architect runtime infrastructure or service mesh
+  - Does not define API standards or gateway configurations
+  - Does not define governance policies or compliance automation
+  permissions:
+  - Design developer portal architectures (Backstage, Port.io)
+  - Create golden path templates for service creation
+  - Design self-service workflows and developer onboarding
+  - Measure developer satisfaction and adoption metrics
+  - Define software catalog schema and ownership models
+  guardrails:
+    input_validation:
+    - Reject portal designs without developer persona context
+    - Reject golden path design without organizational standards input
+    output_checks:
+    - All golden paths must include escape hatches for advanced use cases
+    - Portal designs must specify plugin architecture and extensibility model
+    - Adoption metrics must include baseline and target with measurement cadence
+    - Self-service workflows must specify guardrails and approval thresholds
+    signal_validation:
+    - Never assume developer satisfaction without survey or interview data
+    - Never claim adoption rates without measurement infrastructure
+    - Add [NEEDS VERIFICATION] when developer feedback is anecdotal
+    - Distinguish between measured and estimated adoption metrics
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - developer-experience
+      - developer-portals
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-backstage.yaml
+      description: Backstage architecture, software catalog, scaffolder, TechDocs, plugin ecosystem
+    - path: references/expertise-golden-paths.yaml
+      description: Golden path design patterns, self-service workflows, developer onboarding
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: pa-specialist-agent
+      description: Platform Architect orchestrator routes developer experience requests
+    - type: event
+      source: adoption_metrics
+      condition: golden_path_adoption.rate < 0.5 AND months_since_launch > 3
+      description: Low adoption triggers automatic friction analysis
+    outputs:
+    - type: parent_return
+      target: pa-specialist-agent
+      payload:
+      - portal_architecture
+      - golden_path_designs
+      - adoption_plan
+      description: Full developer experience report back to orchestrator for aggregation
+    - type: trigger_agent
+      target: pa-governance-agent
+      condition: golden_path.requires_governance_integration == true
+      payload:
+      - golden_path_designs
+      - governance_requirements
+      description: Golden paths needing governance hooks trigger governance integration
+    - type: notify_human
+      condition: adoption.bypass_rate > 0.3
+      channel: alert
+      description: High bypass rates surface for human intervention
+    dependencies: []

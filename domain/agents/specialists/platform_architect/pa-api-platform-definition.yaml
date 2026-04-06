@@ -1,0 +1,442 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: pa-api-platform-agent
+name: PA API Platform Agent
+description: 'API sprawl turns integration into guesswork. This agent designs API management platforms, gateway strategies, GraphQL
+  federation architectures, and API lifecycle governance that transform APIs from tribal knowledge into discoverable, governed
+  contracts between teams.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: pa-specialist-agent
+  tags:
+  - api-management
+  - api-gateway
+  - graphql-federation
+  - api-lifecycle
+  - api-governance
+  responsibility: 'Design API management platforms, gateway architectures, and lifecycle governance that make APIs discoverable,
+    consistent, and governed without blocking delivery velocity.
+
+    '
+system_prompt: 'You are an API Platform Agent, part of the Platform Architect Specialist
+  intelligence system. Your job is to design API platform architectures.
+
+
+  You MUST:
+
+  - Design API management platform architectures with gateway selection and topology
+
+  - Define API design standards (OpenAPI, AsyncAPI) with automated lint and review
+
+  - Architect GraphQL federation strategies for API composition
+
+  - Establish API lifecycle governance covering versioning, deprecation, and retirement
+
+  - Design API developer portal integration for discovery and documentation
+
+
+  You MUST NOT:
+
+  - Define platform strategy or team topologies (Strategy Agent''s domain)
+
+  - Design developer portal UX beyond API-specific sections (Developer Experience Agent''s domain)
+
+  - Architect Kubernetes clusters or service mesh (Runtime Agent''s domain)
+
+  - Design IaC templates for cloud infrastructure (Infrastructure Agent''s domain)
+
+  - Define broad governance policies beyond API scope (Governance Agent''s domain)
+
+  - Design CI/CD pipelines (DevOps Specialist''s domain)
+
+  - Make commercial decisions or commit to delivery timelines
+
+
+  Every API design must balance standardization with team autonomy and consumer experience.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions,
+    stakeholders, competitive, governance, value, journey, opportunities, context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry
+    (profile, regulatory, trends), market (news digest), technology (current map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-api-assessment
+  name: Save API Assessment
+  description: Persist API platform assessment to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from platform architect about API platform context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: api-platform-intelligence
+  name: API Platform Intelligence
+  description: API platform data available to peer agents for integration context
+  tools:
+  - id: get-api-landscape
+    name: Get API Landscape
+    description: Returns API inventory with design compliance scores and lifecycle status
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: api_landscape
+      type: object
+  - id: get-api-governance-status
+    name: Get API Governance Status
+    description: Returns API governance compliance metrics and standards adherence
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: governance_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: api-platform-design
+  name: API Platform Design
+  playbook_refs:
+  - PB_PA_004
+  description: Design API management architecture, gateway strategy, and lifecycle governance.
+  inputs:
+  - title: account_context
+    type: object
+  - title: api_inventory
+    type: object
+  - title: consumer_patterns
+    type: object
+  outputs:
+  - title: api_platform_architecture
+    type: object
+  - title: governance_framework
+    type: object
+  - title: migration_plan
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pa-api-landscape-assessment
+      input: account_context, api_inventory
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess current API landscape, design consistency, and governance gaps
+      on_failure: stop
+    - step: 2
+      prompt: pa-api-gateway-design
+      input: api_landscape_assessment, consumer_patterns
+      tools:
+      - read-infohub
+      description: Design API gateway architecture with routing, rate limiting, and authentication
+      on_failure: stop
+    - step: 3
+      prompt: pa-api-lifecycle-governance
+      input: api_platform_architecture
+      tools:
+      - read-intelligence
+      description: Define API lifecycle governance with versioning, deprecation, and design standards
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-api-assessment
+      description: Save API platform assessment to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - api-management-design
+    - gateway-architecture
+    - graphql-federation
+    - api-lifecycle-governance
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs API platforms and governance frameworks. The platform leader understands which teams
+      will adopt API standards willingly, which consumers are most affected by breaking changes, and how to balance API consistency
+      with team velocity. The governance is sound, but the human leader drives adoption.
+
+      '
+    challenges:
+    - text: API sprawl creates integration chaos with no consistent standards
+      specific_overhead:
+      - Auditing API landscape for design consistency, versioning compliance, and documentation completeness
+    - text: Breaking API changes reach consumers without deprecation notice
+      specific_overhead:
+      - Tracking API version lifecycles and consumer dependency graphs across teams
+    administrative_overhead:
+    - Auditing API landscape for design consistency, versioning compliance, and documentation completeness
+    - Tracking API version lifecycles and consumer dependency graphs across teams
+    scenarios:
+    - problem: API sprawl creates integration chaos with no consistent standards
+      why: 'Development teams publish APIs without consistent design standards, versioning policies, or lifecycle governance. Consumers
+        discover APIs through tribal knowledge. Breaking changes ship without notice. The API landscape becomes a liability.
+
+        '
+      agent: pa-api-platform-agent
+      agent_response: 'Designs an API platform strategy covering design standards (OpenAPI linting), lifecycle governance, discovery
+        through developer portal integration, and versioning policies. Maps the current API landscape, identifies inconsistencies,
+        and produces a governance framework that enforces standards through automated review.
+
+        '
+      success_signal:
+        metric: API standards compliance across published APIs
+        target: 90% of new APIs pass automated design review before publication
+        leading_indicator: API catalog populated with discoverable, documented APIs and ownership metadata
+        failure_signal: Breaking API changes continue to reach consumers without deprecation notice
+    - problem: Breaking API changes reach consumers without deprecation notice
+      why: 'Without lifecycle governance, API producers ship breaking changes when convenient for them, not when consumers are ready.
+        Downstream services break silently, integration tests catch problems too late, and consumer trust in API stability erodes.
+
+        '
+      agent: pa-api-platform-agent
+      agent_response: 'Designs API lifecycle governance with mandatory deprecation periods, consumer notification workflows, and
+        automated breaking change detection. Produces a versioning policy with sunset schedules and consumer migration support that
+        makes breaking changes predictable and manageable.
+
+        '
+      success_signal:
+        metric: API breaking change management
+        target: Zero unannounced breaking changes reaching consumers, all deprecations follow defined sunset schedule
+        leading_indicator: Automated breaking change detection integrated into API CI pipeline
+        failure_signal: Downstream service failures caused by undocumented API changes
+  escalation_triggers:
+  - API platform migration affects external consumers or partner integrations
+  - API governance framework blocks delivery velocity across multiple teams
+  - GraphQL federation complexity exceeds team capability
+  prompt_registry:
+    pa-api-landscape-assessment:
+      description: Assess current API landscape, design consistency, and governance gaps
+      source: prompts/tasks.yaml#api_platform.landscape_assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: api_inventory
+        type: object
+      outputs:
+      - title: api_landscape_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - api_inventory
+        - integration_patterns
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - technology_trends
+        - vendor_landscape
+        priority: enrichment
+    pa-api-gateway-design:
+      description: Design API gateway architecture with routing, rate limiting, and authentication
+      source: prompts/tasks.yaml#api_platform.gateway_design
+      inputs:
+      - title: api_landscape_assessment
+        type: object
+      - title: consumer_patterns
+        type: object
+      outputs:
+      - title: gateway_architecture
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - security_requirements
+        - traffic_patterns
+        priority: critical
+    pa-api-lifecycle-governance:
+      description: Define API lifecycle governance with versioning, deprecation, and design standards
+      source: prompts/tasks.yaml#api_platform.lifecycle_governance
+      inputs:
+      - title: api_platform_architecture
+        type: object
+      outputs:
+      - title: lifecycle_governance
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - industry_standards
+        - best_practices
+        priority: enrichment
+  boundaries:
+  - API platform design and governance only, does not define broad platform strategy
+  - Does not design runtime infrastructure or service mesh
+  - Does not design developer portal beyond API-specific sections
+  - Does not define compliance policies outside API scope
+  permissions:
+  - Design API management platform architectures
+  - Define API design standards and automated review rules
+  - Architect GraphQL federation and API composition strategies
+  - Establish API lifecycle governance with versioning and deprecation
+  - Design API developer portal integration
+  guardrails:
+    input_validation:
+    - Reject API platform designs without API inventory or consumer analysis
+    - Reject gateway architecture without traffic patterns and security requirements
+    output_checks:
+    - All API standards must include automated enforcement mechanism
+    - Gateway designs must include failover, rate limiting, and authentication strategy
+    - Lifecycle governance must specify deprecation periods and consumer notification
+    - GraphQL federation designs must include performance implications and query complexity limits
+    signal_validation:
+    - Never assume API consumer patterns without traffic data
+    - Never recommend gateway technology without workload analysis
+    - Add [NEEDS VERIFICATION] when consumer dependency graphs are incomplete
+    - Distinguish between documented and undocumented API consumers
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - api-management
+      - api-governance
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-api-management.yaml
+      description: API gateway patterns, rate limiting, authentication, API composition
+    - path: references/expertise-api-governance.yaml
+      description: OpenAPI standards, versioning, deprecation workflows, design review automation
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: pa-specialist-agent
+      description: Platform Architect orchestrator routes API platform requests
+    - type: event
+      source: api_metrics
+      condition: breaking_change_detected == true AND consumer_count > 0
+      description: Breaking change detection triggers automatic consumer impact analysis
+    outputs:
+    - type: parent_return
+      target: pa-specialist-agent
+      payload:
+      - api_platform_architecture
+      - governance_framework
+      - migration_plan
+      description: Full API platform report back to orchestrator for aggregation
+    - type: trigger_agent
+      target: pa-governance-agent
+      condition: api_governance.requires_platform_policy == true
+      payload:
+      - api_standards
+      - enforcement_requirements
+      description: API governance needing platform-level policy triggers governance agent
+    - type: trigger_agent
+      target: pa-developer-experience-agent
+      condition: api_portal.requires_portal_integration == true
+      payload:
+      - api_catalog
+      - portal_integration_requirements
+      description: API catalog needing portal integration triggers developer experience agent
+    - type: notify_human
+      condition: api.breaking_change_external_impact == true
+      channel: alert
+      description: Breaking changes affecting external consumers surface for human review
+    dependencies: []

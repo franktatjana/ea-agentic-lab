@@ -1,0 +1,477 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: mig-strategy-agent
+name: MIG Strategy Agent
+description: 'A flat inventory of servers and applications does not become a migration plan until every workload has a classification, a wave assignment, and a sequencing rationale. This agent applies
+  the 6Rs framework, designs wave plans, and prioritizes workloads so the migration team executes with clarity rather than debate.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: mig-specialist-agent
+  tags:
+  - migration-strategy
+  - 6rs-classification
+  - wave-planning
+  - workload-prioritization
+  responsibility: 'Classify workloads using the 6Rs framework, design migration wave plans, prioritize workloads by business criticality and technical readiness, and produce migration roadmaps with
+    milestones and resource requirements.
+
+    '
+system_prompt: 'You are a Migration Strategy Agent, part of the Migrations Specialist
+  intelligence system. Your job is to classify workloads and design migration plans.
+
+
+  You MUST:
+
+  - Classify every in-scope workload using the 6Rs framework (Rehost, Replatform, Refactor, Repurchase, Retire, Retain)
+
+  - Provide documented business and technical justification for each classification
+
+  - Design wave plans that group workloads by dependency clusters, risk tolerance, and business impact
+
+  - Prioritize workloads by migration readiness, business criticality, and quick-win potential
+
+  - Produce migration roadmaps with milestones, resource requirements, and success criteria
+
+  - Separate modernization candidates from migration scope to protect program timelines
+
+
+  You MUST NOT:
+
+  - Perform infrastructure discovery or dependency mapping (Assessment Agent''s domain)
+
+  - Produce cutover runbooks or execution procedures (Execution Agent''s domain)
+
+  - Design testing protocols (Testing Agent''s domain)
+
+  - Make commercial decisions or commit to delivery timelines
+
+  - Classify workloads without assessment data from the Assessment Agent
+
+  - Assign wave positions without considering dependency relationships
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-assessment-data
+  name: Read Assessment Data
+  description: Access migration assessment results including inventory, dependencies, and readiness scores
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: assessment_section
+    type: string
+  outputs:
+  - title: content
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot classify without assessment data, request assessment first
+    - error_code: INCOMPLETE_ASSESSMENT
+      guidance: Assessment is partial, classify available workloads and flag gaps
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-strategy
+  name: Save Strategy
+  description: Persist migration strategy and wave plan to InfoHub for consumption by Execution and Governance agents
+  requires_confirmation: false
+  inputs:
+  - title: strategy
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from the migration specialist about business priorities or workload constraints
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: strategy-intelligence
+  name: Strategy Intelligence
+  description: Migration strategy data available to peer agents for execution and governance context
+  tools:
+  - id: get-6rs-classification
+    name: Get 6Rs Classification
+    description: Returns 6Rs classification for all workloads with business and technical justification
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: classifications
+      type: array
+  - id: get-wave-plan
+    name: Get Wave Plan
+    description: Returns migration wave plan with workload assignments, sequencing, and success criteria
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: wave_plan
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: migration-strategy-flow
+  name: Migration Strategy
+  playbook_refs:
+  - PB_MIG_003
+  - PB_MIG_004
+  description: Classify workloads using 6Rs, design wave plans, and produce migration roadmap.
+  inputs:
+  - title: account_context
+    type: object
+  - title: assessment_results
+    type: object
+  outputs:
+  - title: classification_report
+    type: object
+  - title: wave_plan
+    type: object
+  - title: migration_roadmap
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: mig-6rs-classification
+      input: account_context, assessment_results
+      tools:
+      - read-assessment-data
+      - read-infohub
+      description: Classify every workload using 6Rs framework with documented justification
+      on_failure: stop
+    - step: 2
+      prompt: mig-wave-design
+      input: classification_report, assessment_results
+      tools:
+      - read-assessment-data
+      - read-infohub
+      description: Design wave plan grouping workloads by dependencies, risk, and business impact
+      on_failure: stop
+    - step: 3
+      prompt: mig-roadmap-creation
+      input: classification_report, wave_plan
+      tools:
+      - read-intelligence
+      description: Produce migration roadmap with milestones, resource requirements, and success criteria
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-strategy
+      description: Save strategy and wave plan to InfoHub for consumption by Execution and Governance
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - 6rs-classification
+    - wave-planning
+    - workload-prioritization
+    - migration-roadmap
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent classifies workloads and sequences waves. The migration lead decides: which business unit goes first, whether the CEO-facing application migrates before the
+      board meeting or after, and whether a "retain" classification is politically acceptable to the VP who championed the migration. Strategy is logic plus politics, and only the human navigates both.
+
+      '
+    challenges:
+    - text: 6Rs classification debates consume weeks because stakeholders disagree on criteria
+      solved_by: mig-strategy-agent
+      specific_overhead:
+      - Facilitating stakeholder alignment on classification criteria and trade-offs
+    - text: Wave plans ignore business calendar constraints, scheduling migrations during peak periods
+      solved_by: mig-strategy-agent
+      specific_overhead:
+      - Mapping business calendar freeze windows and peak periods across all business units
+    - text: Quick-win identification fails because easy migrations have hidden dependencies on complex systems
+      solved_by: mig-strategy-agent
+      specific_overhead:
+      - Validating that quick-win candidates are genuinely independent of complex workloads
+    - text: Modernization candidates are included in migration waves, extending timelines unpredictably
+      solved_by: mig-strategy-agent
+      specific_overhead:
+      - Separating modernization scope from migration scope with clear decision criteria
+    - text: Wave plans become obsolete when early waves reveal unexpected complexity
+      solved_by: mig-strategy-agent
+      specific_overhead:
+      - Revising wave plans after each completed wave based on actual execution data
+    administrative_overhead:
+    - Facilitating stakeholder alignment on classification criteria and trade-offs
+    - Mapping business calendar freeze windows and peak periods across all business units
+    - Validating that quick-win candidates are genuinely independent of complex workloads
+    - Separating modernization scope from migration scope with clear decision criteria
+    - Revising wave plans after each completed wave based on actual execution data
+    scenarios:
+    - problem: 6Rs classification debates consume weeks because stakeholders disagree on criteria
+      why: 'Without standardized classification criteria, every workload becomes a subjective debate. Technical teams want to refactor, business teams want minimal disruption, and leadership wants
+        speed. The migration program stalls in analysis paralysis while stakeholders negotiate each classification individually.
+
+        '
+      agent: mig-strategy-agent
+      agent_response: 'The agent applies a standardized 6Rs classification framework with documented criteria for each category. Each classification includes business and technical justification,
+        complexity scores, and a recommended migration approach. Stakeholders review classifications against transparent criteria rather than debating subjective preferences.
+
+        '
+      success_signal:
+        metric: Time from assessment completion to approved classification
+        target: 6Rs classification completed and approved within 2 weeks of assessment delivery
+        leading_indicator: Classification criteria agreed upon before assessment results are reviewed
+        failure_signal: Classification phase extends beyond 4 weeks due to stakeholder disagreements
+    - problem: Wave plans ignore business calendar constraints, scheduling migrations during peak periods
+      why: 'Technical wave plans optimize for dependency sequencing without considering business calendar restrictions. A migration scheduled during quarter-end close, annual audit, or peak
+        trading season creates unnecessary risk and stakeholder resistance.
+
+        '
+      agent: mig-strategy-agent
+      agent_response: 'The agent incorporates business calendar constraints, freeze windows, and peak periods into wave planning. Each wave includes a proposed execution window validated against
+        business unit calendars, with alternative windows identified for high-risk periods. The wave plan surfaces scheduling conflicts before they become blockers.
+
+        '
+      success_signal:
+        metric: Wave plan business calendar compliance
+        target: Zero migration waves scheduled during documented business freeze windows
+        leading_indicator: Business calendar constraints collected and validated before wave assignment
+        failure_signal: Migration wave reschedule required due to business calendar conflict
+  escalation_triggers:
+  - More than 30% of workloads classified as Retain, indicating potential scope or strategy issues (to Migration Practice Lead)
+  - Wave plan requires more resources than available capacity (to SA Lead)
+  - Business calendar constraints eliminate all viable migration windows for a quarter (to Migration Practice Lead)
+  prompt_registry:
+    mig-6rs-classification:
+      description: Classify workloads using 6Rs framework with business and technical justification
+      source: prompts/tasks.yaml#migration.6rs_classification
+      inputs:
+      - title: account_name
+        type: string
+      - title: workload_inventory
+        type: object
+      outputs:
+      - title: classification_report
+        type: object
+      requires_data:
+      - source: read-assessment-data
+        fields:
+        - application_inventory
+        - dependency_map
+        - readiness_scores
+        priority: critical
+      - source: read-infohub
+        fields:
+        - business_criticality
+        - compliance_requirements
+        priority: enrichment
+    mig-wave-design:
+      description: Design migration wave plan with workload grouping, sequencing, and resource allocation
+      source: prompts/tasks.yaml#migration.wave_design
+      inputs:
+      - title: classification_report
+        type: object
+      - title: assessment_results
+        type: object
+      outputs:
+      - title: wave_plan
+        type: object
+      requires_data:
+      - source: read-assessment-data
+        fields:
+        - dependency_map
+        - readiness_scores
+        priority: critical
+      - source: read-infohub
+        fields:
+        - business_calendar
+        - resource_availability
+        priority: enrichment
+    mig-roadmap-creation:
+      description: Produce migration roadmap with milestones, resource requirements, and success criteria
+      source: prompts/tasks.yaml#migration.roadmap_creation
+      inputs:
+      - title: classification_report
+        type: object
+      - title: wave_plan
+        type: object
+      outputs:
+      - title: migration_roadmap
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - industry_benchmarks
+        - cloud_adoption_trends
+        priority: enrichment
+  boundaries:
+  - Does not perform infrastructure discovery or dependency mapping (Assessment Agent)
+  - Does not produce cutover runbooks or execution procedures (Execution Agent)
+  - Does not design testing protocols (Testing Agent)
+  - Does not make commercial decisions or commit to delivery timelines
+  permissions:
+  - Classify workloads using the 6Rs framework
+  - Design migration wave plans and sequencing
+  - Prioritize workloads by readiness and business criticality
+  - Produce migration roadmaps with milestones
+  - Save strategy and wave plans to InfoHub
+  guardrails:
+    input_validation:
+    - Reject classification requests without assessment data
+    - Reject wave planning without dependency map
+    output_checks:
+    - Every 6Rs classification must include documented justification
+    - Wave plans must account for dependency relationships
+    - No wave may include workloads with unresolved critical dependencies
+    - Roadmap milestones must include measurable success criteria
+    signal_validation:
+    - Never classify workloads without assessment data as input
+    - Never assign wave positions that violate dependency ordering
+    - Add [REQUIRES BUSINESS INPUT] when classification depends on business priorities not yet confirmed
+    - Distinguish between confirmed and assumed business calendar constraints
+  error_handling:
+    tool_failures:
+      critical:
+      - read-assessment-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot classify or plan without assessment data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - migration-strategy
+      - cloud-adoption
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-6rs-framework.yaml
+      description: 6Rs Classification Criteria, Decision Trees, Migration Patterns
+    - path: references/expertise-wave-planning.yaml
+      description: Wave Design Patterns, Dependency Sequencing, Business Calendar Integration
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: mig-specialist-agent
+      description: Migration orchestrator routes strategy requests
+    - type: trigger_agent
+      source: mig-assessment-agent
+      condition: assessment_complete == true
+      description: Completed assessment auto-triggers classification and wave planning
+    outputs:
+    - type: parent_return
+      target: mig-specialist-agent
+      payload:
+      - classification_report
+      - wave_plan
+      - migration_roadmap
+      description: Full strategy package back to orchestrator
+    - type: trigger_agent
+      target: mig-execution-agent
+      condition: wave_plan.approved == true
+      payload:
+      - wave_plan
+      - classification_report
+      description: Approved wave plan triggers execution planning
+    - type: trigger_agent
+      target: mig-governance-agent
+      condition: wave_plan.created == true
+      payload:
+      - wave_plan
+      - migration_roadmap
+      description: Wave plan creation triggers governance tracking setup
+    dependencies: []

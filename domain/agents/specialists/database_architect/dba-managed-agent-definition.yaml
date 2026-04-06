@@ -1,0 +1,445 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: dba-managed-agent
+name: DBA Managed Services Agent
+description: 'Cloud database services shift operational burden to providers but introduce cost complexity and vendor lock-in risks. This agent evaluates managed offerings (RDS, Aurora, CosmosDB,
+  Cloud SQL, Spanner), models costs across compute, storage, and I/O dimensions, and assesses serverless database fit, ensuring teams benefit from managed operations without budget surprises or
+  portability constraints.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: dba-specialist-agent
+  tags:
+  - managed-services
+  - rds
+  - aurora
+  - cosmosdb
+  - cloud-sql
+  - spanner
+  - serverless-database
+  - dbaas
+  responsibility: 'Evaluate managed database services, model costs across cloud providers, assess serverless database fit, and produce cross-cloud architecture recommendations for database-as-a-service adoption.
+
+    '
+system_prompt: 'You are a Managed Database Services Agent, part of the Database Architect
+
+  Specialist intelligence system. Your job is to evaluate managed database offerings
+
+  and model their cost and operational implications.
+
+
+  You MUST:
+
+  - Evaluate managed database services (AWS RDS/Aurora, Azure SQL/CosmosDB, Google Cloud SQL/Spanner) against workload requirements
+
+  - Model costs across compute tiers, storage classes, I/O operations, backup retention, and data transfer
+
+  - Assess serverless database fit (Aurora Serverless, CosmosDB serverless, Neon, PlanetScale) for variable workloads
+
+  - Compare managed vs self-managed operational tradeoffs including patching, scaling, and monitoring
+
+  - Identify vendor lock-in risks and portability constraints for each service
+
+  - Design cross-cloud database strategies for multi-cloud deployments
+
+
+  You MUST NOT:
+
+  - Design database schemas or data models (Relational/NoSQL Agent''s domain)
+
+  - Optimize query performance (Performance Agent''s domain)
+
+  - Design self-managed replication topologies (HA/DR Agent''s domain)
+
+  - Plan database migrations (Migration Agent''s domain)
+
+  - Commit to specific pricing without current provider rate cards
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, technology, architecture, infrastructure,
+    cloud-strategy, or cost-baselines.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: technology (current database map, cloud provider landscape), market (vendor pricing trends), industry (compliance requirements for managed services).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-managed-assessment
+  name: Save Managed Assessment
+  description: Persist managed service assessment to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from the database architect about managed service requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: managed-services-intelligence
+  name: Managed Services Intelligence
+  description: Managed database service assessments available to peer agents for cloud strategy context
+  tools:
+  - id: get-managed-assessment
+    name: Get Managed Assessment
+    description: Returns managed database service evaluation with cost model, feature comparison, and lock-in analysis
+    inputs:
+    - title: account_name
+      type: string
+    - title: service_scope
+      type: string
+    outputs:
+    - title: managed_assessment
+      type: object
+  - id: get-cost-projection
+    name: Get Cost Projection
+    description: Returns managed database cost projection with scaling triggers and optimization recommendations
+    inputs:
+    - title: account_name
+      type: string
+    - title: time_horizon
+      type: string
+    outputs:
+    - title: cost_projection
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: managed-service-evaluation
+  name: Managed Service Evaluation
+  playbook_refs:
+  - PB_DBA_002
+  - PB_DBA_007
+  description: Evaluate managed database services with cost modeling, feature comparison, and cross-cloud architecture analysis.
+  inputs:
+  - title: account_context
+    type: object
+  - title: workload_requirements
+    type: object
+  - title: cloud_strategy
+    type: object
+  outputs:
+  - title: service_comparison
+    type: object
+  - title: cost_projection
+    type: object
+  - title: lock_in_analysis
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: dba-managed-service-comparison
+      input: workload_requirements, cloud_strategy
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Compare managed database services against workload requirements and operational constraints
+      on_failure: stop
+    - step: 2
+      prompt: dba-cost-modeling
+      input: workload_requirements, service_comparison
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Model costs across compute, storage, I/O, backup, and data transfer dimensions
+      on_failure: stop
+    - step: 3
+      prompt: dba-lock-in-assessment
+      input: service_comparison, cloud_strategy
+      tools:
+      - read-intelligence
+      description: Assess vendor lock-in risks, portability constraints, and exit strategy requirements
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-managed-assessment
+      description: Save managed service assessment and cost projection to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - managed-service-evaluation
+    - cost-modeling
+    - serverless-assessment
+    - cross-cloud-architecture
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent evaluates managed services with cost models and feature comparisons. The engineering leader understands the organizational cloud strategy, the procurement constraints
+      on vendor selection, the team readiness for managed service operations, and the business tolerance for vendor lock-in. The analysis is correct, but the human navigates the organizational and
+      commercial context.
+
+      '
+    challenges:
+    - text: Managed database costs grow unpredictably as workloads scale beyond initial estimates
+      specific_overhead:
+      - Modeling cost projections across multiple billing dimensions with growth scenarios
+    - text: Vendor lock-in from proprietary features discovered only when migration is needed
+      specific_overhead:
+      - Documenting proprietary feature dependencies and portability constraints for each service
+    administrative_overhead:
+    - Modeling cost projections across multiple billing dimensions with growth scenarios
+    - Documenting proprietary feature dependencies and portability constraints for each service
+    scenarios:
+    - problem: Managed database costs grow unpredictably as workloads scale beyond initial estimates
+      why: 'Cloud database services bill on compute, storage, I/O, and backup dimensions that interact in non-obvious ways. A workload that costs $500/month at launch can reach $5,000/month after
+        organic growth, and the billing driver is rarely the dimension teams expected. Rightsizing after deployment is harder than sizing correctly upfront.
+
+        '
+      agent: dba-managed-agent
+      agent_response: 'Models costs across all billing dimensions using workload profiles and growth projections. Compares pricing across AWS RDS/Aurora, Azure SQL/CosmosDB, and Google Cloud SQL/Spanner
+        with scaling trigger points. Identifies the billing dimension most sensitive to growth and recommends optimization strategies (reserved instances, storage tiering, I/O optimization) before
+        costs escalate.
+
+        '
+      success_signal:
+        metric: Cost projection accuracy
+        target: Projections within 15% of actual spend at 90-day review
+        leading_indicator: Cost model includes explicit growth assumptions with monthly validation checkpoint
+        failure_signal: Actual costs exceed projection by more than 25% without a documented scaling event
+    - problem: Vendor lock-in from proprietary features discovered only when migration is needed
+      why: 'Teams adopt provider-specific features (Aurora serverless scaling, CosmosDB multi-model API, Spanner TrueTime) that have no equivalent on other providers. The lock-in is invisible during
+        adoption but becomes a hard constraint when cloud strategy changes or multi-cloud requirements emerge.
+
+        '
+      agent: dba-managed-agent
+      agent_response: 'Produces a lock-in assessment for each managed service, categorizing features as portable (standard SQL, open protocols), partially portable (equivalent but different API), and
+        proprietary (no cross-cloud equivalent). Documents the migration cost and effort for exiting each service, enabling informed vendor decisions rather than accidental lock-in.
+
+        '
+      success_signal:
+        metric: Lock-in risk documentation coverage
+        target: Every managed database adoption includes a lock-in assessment with feature portability classification
+        leading_indicator: Lock-in assessment completed before production deployment approval
+        failure_signal: Migration project discovers proprietary dependency not documented during adoption
+  escalation_triggers:
+  - Managed service cost projection exceeds budget by more than 25%
+  - Vendor lock-in assessment reveals critical proprietary dependencies
+  - Multi-cloud database strategy requires architectural consistency across providers
+  - Serverless database adoption has unpredictable cost implications at projected scale
+  prompt_registry:
+    dba-managed-service-comparison:
+      description: Compare managed database services against workload requirements
+      source: prompts/tasks.yaml#database.managed_service_comparison
+      inputs:
+      - title: workload_requirements
+        type: object
+      - title: cloud_strategy
+        type: object
+      outputs:
+      - title: service_comparison
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - cloud_strategy
+        - workload_requirements
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - vendor_landscape
+        - technology_map
+        priority: enrichment
+    dba-cost-modeling:
+      description: Model managed database costs across billing dimensions with growth projections
+      source: prompts/tasks.yaml#database.cost_modeling
+      inputs:
+      - title: workload_requirements
+        type: object
+      - title: service_comparison
+        type: object
+      outputs:
+      - title: cost_projection
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - workload_requirements
+        - growth_projections
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - vendor_pricing
+        - market_trends
+        priority: enrichment
+    dba-lock-in-assessment:
+      description: Assess vendor lock-in risks and feature portability constraints
+      source: prompts/tasks.yaml#database.lock_in_assessment
+      inputs:
+      - title: service_comparison
+        type: object
+      - title: cloud_strategy
+        type: object
+      outputs:
+      - title: lock_in_analysis
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - vendor_landscape
+        - technology_map
+        priority: enrichment
+  boundaries:
+  - Managed service evaluation only, does not design schemas or data models
+  - Does not optimize query performance or indexing strategies
+  - Does not design self-managed replication topologies
+  - Does not plan database migrations between engines
+  permissions:
+  - Evaluate managed database services across cloud providers
+  - Model costs across compute, storage, I/O, and backup dimensions
+  - Assess serverless database fit for variable workloads
+  - Analyze vendor lock-in risks and portability constraints
+  - Design cross-cloud database architecture patterns
+  guardrails:
+    input_validation:
+    - Reject managed service evaluation without workload requirements or cloud strategy context
+    - Reject cost modeling without data volume estimates or growth projections
+    output_checks:
+    - All cost projections must state assumptions and include sensitivity analysis on key dimensions
+    - Service comparisons must include lock-in risk classification for proprietary features
+    - Serverless recommendations must include cost projection at steady-state and peak workloads
+    - Cross-cloud designs must identify where provider-specific implementations differ
+    signal_validation:
+    - Never commit to specific pricing without referencing current provider rate cards
+    - Never claim cost savings without explicit comparison baseline
+    - Add [PRICING SUBJECT TO CHANGE] on all cost projections
+    - Distinguish between list pricing and negotiated enterprise pricing
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable managed service assessment without workload context
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - managed-databases
+      - cloud-services
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-managed-databases.yaml
+      description: AWS RDS/Aurora, Azure SQL/CosmosDB, Google Cloud SQL/Spanner, serverless databases, cost models
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: dba-specialist-agent
+      description: DBA orchestrator routes managed service evaluation requests
+    - type: event
+      source: cost_monitoring
+      condition: managed_db_spend.monthly_change > 20%
+      description: Auto-triggers when managed database costs increase by more than 20% month-over-month
+    outputs:
+    - type: parent_return
+      target: dba-specialist-agent
+      payload:
+      - service_comparison
+      - cost_projection
+      - lock_in_analysis
+      description: Full managed service assessment back to orchestrator for aggregation
+    - type: trigger_agent
+      target: dba-ha-agent
+      condition: managed_service.ha_config_required == true
+      payload:
+      - service_selection
+      - ha_capabilities
+      description: Managed service HA configuration triggers HA/DR design alignment
+    - type: notify_human
+      condition: cost_projection.variance > 25%
+      channel: alert
+      description: Cost projections exceeding budget threshold surface for human review
+    dependencies: []

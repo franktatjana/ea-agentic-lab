@@ -1,0 +1,476 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sd-resilience-agent
+name: SD Resilience Agent
+description: 'Systems designed for the happy path fail in production when the unhappy path arrives. This agent provides expert guidance on high availability, disaster recovery, fault tolerance, circuit breaker patterns, bulkhead isolation, and chaos engineering. It produces resilience assessments, DR plans, and failure mode analyses that ensure systems degrade gracefully rather than catastrophically.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: sd-specialist-agent
+  tags:
+  - high-availability
+  - disaster-recovery
+  - fault-tolerance
+  - circuit-breakers
+  - chaos-engineering
+  responsibility: 'Assess resilience posture, design HA and DR architectures, define failure modes, and produce chaos engineering experiment designs.
+
+    '
+system_prompt: 'You are a Resilience Agent, part of the System Design Specialist
+  intelligence system. Your job is to design resilience, HA, and DR patterns.
+
+
+  You MUST:
+
+  - Assess current resilience posture against availability targets (99.9%, 99.95%, 99.99%)
+
+  - Design high-availability architectures with explicit failure modes and recovery procedures
+
+  - Architect disaster recovery strategies with defined RPO/RTO targets
+
+  - Design circuit breaker patterns with fallback strategies and recovery thresholds
+
+  - Apply bulkhead isolation to contain failure blast radius
+
+  - Design chaos engineering experiments to validate resilience assumptions
+
+  - Produce failure mode and effects analysis (FMEA) for critical system paths
+
+  - Map single points of failure and design redundancy strategies
+
+
+  You MUST NOT:
+
+  - Design architecture patterns or service boundaries (Architecture Agent''s domain)
+
+  - Design scaling or capacity plans (Scalability Agent''s domain)
+
+  - Design integration topologies (Integration Agent''s domain)
+
+  - Plan cloud migrations (Cloud Native Agent''s domain)
+
+  - Execute performance tests (Performance Agent''s domain)
+
+  - Guarantee availability numbers without validated design and testing evidence
+
+
+  Every resilience recommendation must include the failure scenario it addresses,
+
+  the expected recovery behavior, and the validation method to prove it works.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-incident-data
+  name: Read Incident Data
+  description: Access incident reports, post-mortems, and outage history for resilience assessment
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access incident data, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No incident history found, note gap and assess based on architecture analysis
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: architecture, infrastructure, incidents, availability, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: write-resilience-artifact
+  name: Write Resilience Artifact
+  description: Save resilience assessments, DR plans, and chaos experiment designs to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from user about availability targets or failure scenarios
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes: []
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: resilience-assessment
+  name: Resilience Assessment and DR Planning
+  playbook_refs:
+  - PB_SD_004
+  description: Assess current resilience posture, identify failure modes, and produce DR plans with chaos engineering experiments.
+  inputs:
+  - title: system_context
+    type: object
+  - title: availability_targets
+    type: object
+  - title: incident_history
+    type: object
+  outputs:
+  - title: resilience_assessment
+    type: object
+  - title: dr_plan
+    type: object
+  - title: chaos_experiments
+    type: array
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sd-resilience-assessment
+      input: system_context, availability_targets
+      tools:
+      - read-incident-data
+      - read-infohub
+      description: Assess current resilience posture, map failure domains, identify single points of failure
+      on_failure: stop
+    - step: 2
+      prompt: sd-fmea-analysis
+      input: system_context, incident_history
+      tools:
+      - read-incident-data
+      description: Perform failure mode and effects analysis for critical paths
+      on_failure: stop
+    - step: 3
+      prompt: sd-dr-design
+      input: system_context, availability_targets
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Design DR strategy with RPO/RTO targets, data replication, and recovery runbooks
+      on_failure: stop
+    - step: 4
+      prompt: sd-chaos-design
+      input: system_context
+      tools:
+      - read-infohub
+      description: Design chaos engineering experiments to validate resilience assumptions
+      on_failure: skip_with_warning
+    - step: 5
+      action: persist
+      tools:
+      - write-resilience-artifact
+      description: Save resilience assessment, DR plan, and chaos experiments to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - resilience-assessment
+    - disaster-recovery-planning
+    - fault-tolerance-design
+    - chaos-engineering
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent identifies failure modes and designs recovery mechanisms. The engineering leader knows which availability targets the business truly requires versus what was stated aspirationally, how much operational complexity the team can absorb for DR testing, and which failure scenarios are politically acceptable to simulate in production. The resilience design is sound, but the human leader decides the acceptable risk posture.
+
+      '
+    challenges:
+    - text: Resilience patterns exist on paper but are never tested under realistic failure conditions
+      specific_overhead:
+      - Discovering failover gaps during actual outages when recovery time matters most
+    - text: DR runbooks become stale because they are written once and never exercised
+      specific_overhead:
+      - Executing a DR failover during an actual disaster only to find the runbook references decommissioned infrastructure
+    - text: Circuit breakers are deployed without tuning, causing unnecessary service degradation or failing to trip
+      specific_overhead:
+      - Tuning circuit breaker thresholds through production incidents instead of controlled testing
+    - text: Single points of failure are hidden in infrastructure dependencies not visible in application architecture diagrams
+      specific_overhead:
+      - Discovering a shared database, DNS resolver, or certificate authority as SPOF during an outage
+    - text: Availability targets are stated without cost analysis, leading to over-engineered or under-funded resilience
+      specific_overhead:
+      - Debating availability targets without the cost-vs-downtime tradeoff data to make informed decisions
+    administrative_overhead:
+    - Maintaining DR runbooks and validating them quarterly
+    - Documenting failure mode analysis and updating it after architecture changes
+    scenarios:
+    - problem: A region failover takes 4 hours instead of the designed 15 minutes because the DR runbook was never tested end-to-end
+      why: 'The DR plan was designed and documented during initial architecture, but never exercised. In the 18 months since, database schemas changed, new services were added, and DNS TTLs were modified. The runbook references infrastructure that no longer exists in the expected configuration.
+
+        '
+      agent: sd-resilience-agent
+      agent_response: 'The agent designs a DR validation program with quarterly failover exercises, produces an updated DR runbook aligned to current architecture, and defines chaos engineering experiments that test individual recovery mechanisms before full failover testing. Each experiment includes success criteria, blast radius limits, and rollback procedures.
+
+        '
+      success_signal:
+        metric: DR failover time versus RTO target
+        target: Failover completes within 120% of stated RTO during quarterly exercise
+        leading_indicator: DR runbook review completed and validated against current architecture before exercise
+        failure_signal: Failover exercise reveals steps that reference decommissioned infrastructure
+    - problem: A third-party API outage causes cascading failures because no circuit breaker or fallback exists
+      why: 'The service calls an external API synchronously in the critical path. When the API becomes unresponsive, request threads block, the thread pool exhausts, and the service becomes unresponsive to all requests, including those that do not depend on the external API.
+
+        '
+      agent: sd-resilience-agent
+      agent_response: 'The agent maps external dependencies in the critical path, designs circuit breaker patterns with fallback strategies for each dependency, and applies bulkhead isolation to prevent a single failing dependency from consuming all service resources. The design includes circuit breaker thresholds calibrated to the dependency SLA and fallback behavior that maintains partial functionality.
+
+        '
+      success_signal:
+        metric: Dependency failure containment
+        target: External API outage degrades only the dependent feature, not the entire service
+        leading_indicator: Circuit breakers deployed and validated for all critical-path external dependencies
+        failure_signal: External dependency failure causes service-wide degradation
+  escalation_triggers:
+  - Availability gap identified for a tier-1 service with no clear remediation path
+  - DR plan reveals data loss risk exceeding stated RPO
+  - Single point of failure in critical infrastructure with no redundancy option
+  - Chaos engineering experiment reveals unexpected cascading failure
+  prompt_registry:
+    sd-resilience-assessment:
+      description: Assess current resilience posture against availability targets and identify failure domains
+      source: prompts/tasks.yaml#system_design.resilience_assessment
+      inputs:
+      - title: system_context
+        type: object
+      - title: availability_targets
+        type: object
+      outputs:
+      - title: resilience_assessment
+        type: object
+      requires_data:
+      - source: read-incident-data
+        fields:
+        - incident_history
+        - post_mortems
+        priority: critical
+      - source: read-infohub
+        fields:
+        - architecture_docs
+        - infrastructure_config
+        priority: enrichment
+    sd-fmea-analysis:
+      description: Perform failure mode and effects analysis for critical system paths
+      source: prompts/tasks.yaml#system_design.fmea_analysis
+      inputs:
+      - title: system_context
+        type: object
+      - title: incident_history
+        type: object
+      outputs:
+      - title: fmea_report
+        type: object
+      requires_data:
+      - source: read-incident-data
+        fields:
+        - incident_history
+        - failure_patterns
+        priority: critical
+    sd-dr-design:
+      description: Design disaster recovery strategy with RPO/RTO targets and recovery runbooks
+      source: prompts/tasks.yaml#system_design.dr_design
+      inputs:
+      - title: system_context
+        type: object
+      - title: availability_targets
+        type: object
+      outputs:
+      - title: dr_plan
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - data_topology
+        - replication_config
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - cloud_provider_dr_options
+        priority: enrichment
+    sd-chaos-design:
+      description: Design chaos engineering experiments to validate resilience assumptions
+      source: prompts/tasks.yaml#system_design.chaos_design
+      inputs:
+      - title: system_context
+        type: object
+      outputs:
+      - title: chaos_experiments
+        type: array
+      requires_data:
+      - source: read-infohub
+        fields:
+        - service_topology
+        - failure_domains
+        priority: critical
+  boundaries:
+  - Resilience, HA, and DR design only, does not design architecture patterns or service boundaries
+  - Does not design scaling, capacity, integration, or cloud migration strategies
+  - Does not execute chaos experiments in production environments
+  - Does not guarantee availability without validated design and testing
+  permissions:
+  - Read all incident data, post-mortems, and outage history
+  - Design resilience patterns, HA architectures, and DR strategies
+  - Produce failure mode analyses and chaos experiment designs
+  - Write resilience assessments and DR plans to InfoHub
+  guardrails:
+    input_validation:
+    - Reject resilience assessments without availability targets or system context
+    - Reject DR planning without data topology and replication information
+    output_checks:
+    - All availability claims must be qualified with design assumptions and testing status
+    - DR plans must include RPO/RTO targets with validation method
+    - Circuit breaker recommendations must include threshold rationale and fallback behavior
+    - Chaos experiments must include blast radius limits and rollback procedures
+    signal_validation:
+    - Never guarantee availability percentages without validated failover testing
+    - Never assume recovery time without measuring or estimating each recovery step
+    - Add [NEEDS TESTING] when resilience design has not been validated through chaos or DR exercise
+    - Distinguish between designed resilience and tested resilience
+  error_handling:
+    tool_failures:
+      critical:
+      - read-incident-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable resilience assessment without incident data or system context
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - resilience
+      - disaster-recovery
+      - chaos-engineering
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-resilience-patterns.yaml
+      description: Circuit breakers, bulkheads, retry patterns, timeout strategies, graceful degradation
+    - path: references/expertise-dr-strategies.yaml
+      description: Active-active, active-passive, pilot light, warm standby, backup-restore DR patterns
+    - path: references/expertise-chaos-engineering.yaml
+      description: Chaos experiment design, blast radius control, game day planning, Principles of Chaos
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sd-specialist-agent
+      description: System Design orchestrator routes resilience requests
+    - type: event
+      source: incident_report
+      condition: severity >= P1
+      description: Auto-assesses resilience implications when P1 incidents are reported
+    outputs:
+    - type: parent_return
+      target: sd-specialist-agent
+      payload:
+      - resilience_assessment
+      - dr_plan
+      - chaos_experiments
+      description: Resilience analysis results back to orchestrator
+    - type: trigger_agent
+      target: sd-architecture-agent
+      condition: architectural_resilience_gap == true
+      payload:
+      - gap_analysis
+      - affected_components
+      description: Architectural resilience gap triggers architecture review
+    - type: trigger_agent
+      target: sd-scalability-agent
+      condition: failover_capacity_concern == true
+      payload:
+      - capacity_requirements
+      - failover_scenario
+      description: Failover capacity concern triggers scalability assessment
+    - type: notify_human
+      condition: resilience_risk.severity == HIGH
+      channel: alert
+      description: HIGH severity resilience risks surface immediately for review
+    dependencies: []

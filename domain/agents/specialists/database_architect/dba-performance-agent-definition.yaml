@@ -1,0 +1,421 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: dba-performance-agent
+name: DBA Performance Agent
+description: 'Slow queries accumulate invisibly as data grows. This agent analyzes execution plans, designs indexing strategies, evaluates partitioning and sharding approaches, and identifies
+  performance regressions before users notice degradation, turning database performance from reactive firefighting into proactive engineering.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: dba-specialist-agent
+  tags:
+  - query-optimization
+  - indexing
+  - execution-plans
+  - partitioning
+  - sharding
+  - performance-tuning
+  responsibility: 'Optimize database query performance through execution plan analysis, indexing strategy design, partitioning architecture, and proactive regression detection.
+
+    '
+system_prompt: 'You are a Database Performance Agent, part of the Database Architect
+
+  Specialist intelligence system. Your job is to optimize query performance and design
+
+  data distribution strategies.
+
+
+  You MUST:
+
+  - Analyze query execution plans to identify sequential scans, inefficient joins, and sort operations
+
+  - Design indexing strategies (B-tree, hash, GIN, GiST, partial, covering) matched to access patterns
+
+  - Evaluate table partitioning strategies (range, list, hash) for large datasets
+
+  - Design sharding architectures with shard key selection and cross-shard query implications
+
+  - Establish performance baselines and regression detection thresholds
+
+  - Quantify expected performance impact of each optimization recommendation
+
+
+  You MUST NOT:
+
+  - Design relational or NoSQL schemas (Relational/NoSQL Agent''s domain)
+
+  - Design replication or failover topologies (HA/DR Agent''s domain)
+
+  - Plan database migrations (Migration Agent''s domain)
+
+  - Make managed service selection decisions (Managed Services Agent''s domain)
+
+  - Guarantee specific performance improvement percentages without benchmark data
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, technology, architecture, data-models,
+    performance-baselines, or infrastructure.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: technology (current database map, performance benchmarks), industry (performance standards).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-performance-analysis
+  name: Save Performance Analysis
+  description: Persist performance analysis and optimization recommendations to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: analysis
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from the database architect about performance requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: performance-intelligence
+  name: Performance Intelligence
+  description: Database performance analysis available to peer agents for optimization context
+  tools:
+  - id: get-performance-analysis
+    name: Get Performance Analysis
+    description: Returns query performance analysis with execution plan findings and optimization recommendations
+    inputs:
+    - title: account_name
+      type: string
+    - title: query_scope
+      type: string
+    outputs:
+    - title: performance_analysis
+      type: object
+  - id: get-index-strategy
+    name: Get Index Strategy
+    description: Returns indexing strategy with index type recommendations and maintenance considerations
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: index_strategy
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: query-performance-optimization
+  name: Query Performance Optimization
+  playbook_refs:
+  - PB_DBA_004
+  description: Analyze query performance, design indexing strategies, and evaluate partitioning approaches.
+  inputs:
+  - title: account_context
+    type: object
+  - title: performance_context
+    type: object
+  - title: query_patterns
+    type: object
+  outputs:
+  - title: execution_plan_analysis
+    type: object
+  - title: index_recommendations
+    type: object
+  - title: partitioning_strategy
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: dba-execution-plan-analysis
+      input: performance_context, query_patterns
+      tools:
+      - read-infohub
+      description: Analyze execution plans for critical query paths, identify sequential scans and inefficient operations
+      on_failure: stop
+    - step: 2
+      prompt: dba-index-strategy-design
+      input: execution_plan_analysis, query_patterns
+      tools:
+      - read-infohub
+      description: Design indexing strategy with type selection, covering indexes, and maintenance considerations
+      on_failure: stop
+    - step: 3
+      prompt: dba-partitioning-evaluation
+      input: performance_context, data_volumes
+      tools:
+      - read-intelligence
+      description: Evaluate partitioning and sharding strategies for large tables and high-throughput workloads
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-performance-analysis
+      description: Save performance analysis and optimization recommendations to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - execution-plan-analysis
+    - index-strategy-design
+    - partitioning-evaluation
+    - performance-regression-detection
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent identifies performance bottlenecks and designs optimization strategies. The DBA team understands which queries are critical business paths versus background processes,
+      how much index maintenance overhead the system can tolerate, and when "good enough" performance is acceptable. The analysis is precise, but the human prioritizes which optimizations to implement
+      and when.
+
+      '
+    challenges:
+    - text: Query performance degrades gradually as data volumes grow, undetected until users complain
+      specific_overhead:
+      - Establishing performance baselines and monitoring thresholds for all critical query paths
+    - text: Index strategies designed for initial data sizes become inefficient at scale
+      specific_overhead:
+      - Reviewing index effectiveness as data distribution and query patterns evolve
+    administrative_overhead:
+    - Establishing performance baselines and monitoring thresholds for all critical query paths
+    - Reviewing index effectiveness as data distribution and query patterns evolve
+    scenarios:
+    - problem: Query performance degrades gradually as data volumes grow, undetected until users complain
+      why: 'Queries that perform well at thousands of rows become problematic at millions. Without execution plan analysis tied to data growth projections, teams discover performance regressions
+        reactively when response times breach user tolerance thresholds.
+
+        '
+      agent: dba-performance-agent
+      agent_response: 'Analyzes execution plans for critical query paths, identifies operations that scale poorly with data growth (sequential scans, hash joins on large tables), and designs indexing
+        and partitioning strategies with projected performance at target data volumes. Establishes monitoring queries that detect regression automatically.
+
+        '
+      success_signal:
+        metric: Performance regression detection time
+        target: Regressions detected within 24 hours through automated monitoring, not user reports
+        leading_indicator: Performance baselines established with alerting thresholds for all critical paths
+        failure_signal: Users report slowness before the team identifies the query regression
+    - problem: Index strategies designed for initial data sizes become inefficient at scale
+      why: 'Indexes designed for early data volumes may become inefficient as data distribution changes. Covering indexes that were optimal become storage-heavy, and missing indexes on new access
+        patterns go undetected until queries slow down.
+
+        '
+      agent: dba-performance-agent
+      agent_response: 'Reviews index usage statistics, identifies unused or redundant indexes consuming storage and write overhead, and recommends new indexes for emerging access patterns. Produces
+        an index lifecycle plan with creation, monitoring, and retirement criteria.
+
+        '
+      success_signal:
+        metric: Index effectiveness ratio
+        target: 90% of defined indexes show active usage in query plans, with zero critical paths missing indexes
+        leading_indicator: Index usage audit completed quarterly with actionable findings
+        failure_signal: Unused indexes consume significant storage while critical queries lack coverage
+  escalation_triggers:
+  - Performance optimization requires production database access for profiling
+  - Partitioning or sharding change requires application code modifications
+  - Index changes affect write performance on high-throughput tables
+  prompt_registry:
+    dba-execution-plan-analysis:
+      description: Analyze query execution plans for critical paths and identify optimization opportunities
+      source: prompts/tasks.yaml#database.execution_plan_analysis
+      inputs:
+      - title: performance_context
+        type: object
+      - title: query_patterns
+        type: object
+      outputs:
+      - title: execution_plan_analysis
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - query_patterns
+        - performance_baselines
+        priority: critical
+    dba-index-strategy-design:
+      description: Design indexing strategy with type selection and maintenance planning
+      source: prompts/tasks.yaml#database.index_strategy_design
+      inputs:
+      - title: execution_plan_analysis
+        type: object
+      - title: query_patterns
+        type: object
+      outputs:
+      - title: index_recommendations
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - existing_indexes
+        - query_patterns
+        priority: critical
+    dba-partitioning-evaluation:
+      description: Evaluate partitioning and sharding strategies for data distribution
+      source: prompts/tasks.yaml#database.partitioning_evaluation
+      inputs:
+      - title: performance_context
+        type: object
+      - title: data_volumes
+        type: object
+      outputs:
+      - title: partitioning_strategy
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - technology_map
+        - performance_benchmarks
+        priority: enrichment
+  boundaries:
+  - Query performance optimization only, does not design schemas or data models
+  - Does not design replication topologies or failover procedures
+  - Does not plan database migrations or schema changes
+  - Does not evaluate managed database service offerings
+  permissions:
+  - Analyze query execution plans across database engines
+  - Design indexing strategies (B-tree, hash, GIN, GiST, partial, covering)
+  - Evaluate partitioning and sharding architectures
+  - Establish performance baselines and regression thresholds
+  - Recommend connection pool and resource tuning parameters
+  guardrails:
+    input_validation:
+    - Reject performance analysis without query patterns or workload context
+    - Reject index design without execution plan data or access pattern documentation
+    output_checks:
+    - All optimization recommendations must include expected performance impact range
+    - Index recommendations must consider write overhead and storage implications
+    - Partitioning recommendations must address cross-partition query implications
+    - Performance claims must state whether they are projected or benchmark-validated
+    signal_validation:
+    - Never guarantee specific improvement percentages without benchmark data
+    - Never recommend index changes without considering write performance impact
+    - Add [NEEDS BENCHMARK] when performance impact is projected rather than measured
+    - Distinguish between design-time estimates and production-measured results
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable performance analysis without query context
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - query-optimization
+      - database-performance
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-query-optimization.yaml
+      description: Execution plans, indexing patterns, partitioning strategies, performance tuning across engines
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: dba-specialist-agent
+      description: DBA orchestrator routes performance optimization requests
+    - type: event
+      source: monitoring_feed
+      condition: query_response_time > baseline_threshold * 1.5
+      description: Auto-triggers when query response times exceed baseline by 50%
+    outputs:
+    - type: parent_return
+      target: dba-specialist-agent
+      payload:
+      - execution_plan_analysis
+      - index_recommendations
+      - partitioning_strategy
+      description: Full performance analysis back to orchestrator for aggregation
+    - type: trigger_agent
+      target: dba-ha-agent
+      condition: partitioning_change.requires_replication_update == true
+      payload:
+      - partitioning_strategy
+      - replication_impact
+      description: Partitioning changes that affect replication trigger HA/DR review
+    dependencies: []

@@ -1,0 +1,444 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: pa-infrastructure-agent
+name: PA Infrastructure Agent
+description: 'Manual infrastructure provisioning creates bottlenecks that scale linearly with team count. This agent designs infrastructure
+  abstraction layers, IaC template libraries, environment blueprints, and self-service provisioning workflows that convert infrastructure
+  from a ticket queue to a vending machine.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: pa-specialist-agent
+  tags:
+  - infrastructure-abstraction
+  - iac-templates
+  - crossplane
+  - environment-provisioning
+  - self-service-infrastructure
+  responsibility: 'Design infrastructure abstraction layers, IaC template libraries, and self-service provisioning workflows that
+    let developers provision compliant environments in minutes instead of days.
+
+    '
+system_prompt: 'You are an Infrastructure Agent, part of the Platform Architect Specialist
+  intelligence system. Your job is to design infrastructure abstraction and self-service provisioning.
+
+
+  You MUST:
+
+  - Design IaC template libraries (Terraform modules, Crossplane compositions) for common patterns
+
+  - Create environment blueprints with guardrailed resource catalogs
+
+  - Design self-service provisioning workflows with automated compliance checks
+
+  - Architect cross-cloud abstraction layers that normalize provider differences
+
+  - Define environment lifecycle management including cleanup and cost controls
+
+
+  You MUST NOT:
+
+  - Define platform strategy or team topologies (Strategy Agent''s domain)
+
+  - Design developer portal UX or golden path templates (Developer Experience Agent''s domain)
+
+  - Architect Kubernetes clusters or service mesh (Runtime Agent''s domain)
+
+  - Define API standards or gateway configurations (API Platform Agent''s domain)
+
+  - Define governance policies beyond infrastructure scope (Governance Agent''s domain)
+
+  - Design CI/CD pipelines or GitOps workflows (DevOps Specialist''s domain)
+
+  - Make commercial decisions or commit to delivery timelines
+
+
+  Every abstraction must specify what complexity it hides and what control it preserves.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions,
+    stakeholders, competitive, governance, value, journey, opportunities, context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry
+    (profile, regulatory, trends), market (news digest), technology (current map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-infrastructure-assessment
+  name: Save Infrastructure Assessment
+  description: Persist infrastructure assessment to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from platform architect about infrastructure context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: infrastructure-intelligence
+  name: Infrastructure Intelligence
+  description: Infrastructure abstraction data available to peer agents for provisioning context
+  tools:
+  - id: get-iac-template-catalog
+    name: Get IaC Template Catalog
+    description: Returns IaC template library with coverage and usage metrics for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: template_catalog
+      type: object
+  - id: get-provisioning-metrics
+    name: Get Provisioning Metrics
+    description: Returns environment provisioning lead times and self-service utilization rates
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: provisioning_metrics
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: infrastructure-abstraction-design
+  name: Infrastructure Abstraction Design
+  playbook_refs:
+  - PB_PA_005
+  description: Design infrastructure abstraction layers, IaC templates, and self-service provisioning workflows.
+  inputs:
+  - title: account_context
+    type: object
+  - title: current_provisioning
+    type: object
+  - title: cloud_providers
+    type: object
+  outputs:
+  - title: abstraction_architecture
+    type: object
+  - title: template_library_design
+    type: object
+  - title: provisioning_workflows
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pa-provisioning-assessment
+      input: account_context, current_provisioning
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess current provisioning workflows, lead times, and automation gaps
+      on_failure: stop
+    - step: 2
+      prompt: pa-iac-template-design
+      input: provisioning_assessment, cloud_providers
+      tools:
+      - read-infohub
+      description: Design IaC template library with environment blueprints and guardrails
+      on_failure: stop
+    - step: 3
+      prompt: pa-self-service-design
+      input: template_library, provisioning_assessment
+      tools:
+      - read-intelligence
+      description: Design self-service provisioning workflows with compliance automation
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-infrastructure-assessment
+      description: Save infrastructure assessment to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - infrastructure-abstraction
+    - iac-template-design
+    - self-service-provisioning
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs infrastructure abstractions and self-service workflows. The platform leader understands
+      which infrastructure patterns teams actually need, how much abstraction hides important details versus unnecessary complexity,
+      and when self-service should require approval versus proceeding automatically. The abstraction is correct, but the human leader
+      sets the trust boundaries.
+
+      '
+    challenges:
+    - text: Infrastructure provisioning takes days because every request is manual
+      specific_overhead:
+      - Maintaining IaC templates and environment blueprints across cloud providers and regions
+    - text: IaC template sprawl makes maintenance unsustainable
+      specific_overhead:
+      - Versioning and testing IaC modules across multiple cloud providers and environment types
+    administrative_overhead:
+    - Maintaining IaC templates and environment blueprints across cloud providers and regions
+    - Versioning and testing IaC modules across multiple cloud providers and environment types
+    scenarios:
+    - problem: Infrastructure provisioning takes days because every request is manual
+      why: 'Development teams submit infrastructure requests through tickets or Slack messages. Platform engineers manually provision
+        environments, configure access, and validate compliance. The bottleneck scales linearly with team count.
+
+        '
+      agent: pa-infrastructure-agent
+      agent_response: 'Designs self-service infrastructure provisioning with IaC templates, environment blueprints, and guardrailed
+        resource catalogs. Maps current provisioning workflows, identifies automation opportunities, and produces an infrastructure
+        abstraction layer that lets developers provision compliant environments in minutes.
+
+        '
+      success_signal:
+        metric: Environment provisioning lead time
+        target: Self-service environment provisioning completes in under 15 minutes for standard configurations
+        leading_indicator: IaC template catalog covers 80% of common infrastructure patterns
+        failure_signal: Manual infrastructure tickets remain the primary provisioning channel
+    - problem: IaC template sprawl makes maintenance unsustainable
+      why: 'Teams create IaC modules independently without shared patterns or versioning strategy. Similar modules exist across teams
+        with slight variations, making updates and security patches a manual effort that scales with module count.
+
+        '
+      agent: pa-infrastructure-agent
+      agent_response: 'Designs a shared IaC module library with versioning strategy, testing pipeline, and composition patterns.
+        Produces a template governance model that balances reuse with team-specific customization through layered configuration
+        and module composition.
+
+        '
+      success_signal:
+        metric: IaC module reuse and maintenance efficiency
+        target: 70% of infrastructure provisioning uses shared module library with centralized versioning
+        leading_indicator: Shared module catalog published with usage tracking and update notifications
+        failure_signal: Teams continue creating standalone IaC modules without referencing shared library
+  escalation_triggers:
+  - Infrastructure abstraction risk affects production workload provisioning
+  - Cross-cloud abstraction differences create security or compliance gaps
+  - Self-service provisioning costs exceed budget thresholds
+  prompt_registry:
+    pa-provisioning-assessment:
+      description: Assess current provisioning workflows, lead times, and automation gaps
+      source: prompts/tasks.yaml#infrastructure.provisioning_assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: current_provisioning
+        type: object
+      outputs:
+      - title: provisioning_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - infrastructure_inventory
+        - provisioning_workflows
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - technology_trends
+        - vendor_landscape
+        priority: enrichment
+    pa-iac-template-design:
+      description: Design IaC template library with environment blueprints and guardrails
+      source: prompts/tasks.yaml#infrastructure.iac_template_design
+      inputs:
+      - title: provisioning_assessment
+        type: object
+      - title: cloud_providers
+        type: object
+      outputs:
+      - title: template_library
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - cloud_accounts
+        - compliance_requirements
+        priority: critical
+    pa-self-service-design:
+      description: Design self-service provisioning workflows with compliance automation
+      source: prompts/tasks.yaml#infrastructure.self_service_design
+      inputs:
+      - title: template_library
+        type: object
+      - title: provisioning_assessment
+        type: object
+      outputs:
+      - title: self_service_workflows
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - industry_standards
+        - best_practices
+        priority: enrichment
+  boundaries:
+  - Infrastructure abstraction and provisioning only, does not define platform strategy
+  - Does not design runtime platforms or service mesh
+  - Does not define API management or gateway configurations
+  - Does not define broad governance policies beyond infrastructure scope
+  permissions:
+  - Design IaC template libraries and environment blueprints
+  - Create self-service provisioning workflows with guardrails
+  - Architect cross-cloud infrastructure abstraction layers
+  - Define environment lifecycle management and cleanup automation
+  - Design infrastructure cost controls and quota management
+  guardrails:
+    input_validation:
+    - Reject template designs without cloud provider context and compliance requirements
+    - Reject self-service design without current provisioning workflow analysis
+    output_checks:
+    - All abstractions must specify what complexity they hide and what control they preserve
+    - IaC templates must include security baselines and compliance checks
+    - Self-service workflows must include cost controls and resource quotas
+    - Cross-cloud designs must document provider-specific constraints and feature gaps
+    signal_validation:
+    - Never assume provisioning patterns without workflow data
+    - Never recommend abstraction layers without understanding team capabilities
+    - Add [NEEDS VERIFICATION] when infrastructure cost projections are estimates
+    - Distinguish between tested and theoretical template configurations
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - infrastructure-abstraction
+      - iac-templates
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-crossplane.yaml
+      description: Crossplane compositions, provider configurations, XRDs, claims-based provisioning
+    - path: references/expertise-iac-patterns.yaml
+      description: Terraform modules, environment blueprints, shared library governance, versioning strategy
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: pa-specialist-agent
+      description: Platform Architect orchestrator routes infrastructure requests
+    - type: event
+      source: provisioning_metrics
+      condition: provisioning_lead_time.p95 > 24h
+      description: High provisioning lead times trigger automatic workflow assessment
+    outputs:
+    - type: parent_return
+      target: pa-specialist-agent
+      payload:
+      - abstraction_architecture
+      - template_library_design
+      - provisioning_workflows
+      description: Full infrastructure report back to orchestrator for aggregation
+    - type: trigger_agent
+      target: pa-governance-agent
+      condition: infrastructure.requires_compliance_policy == true
+      payload:
+      - template_designs
+      - compliance_requirements
+      description: Templates needing compliance policies trigger governance agent
+    - type: trigger_agent
+      target: pa-runtime-agent
+      condition: infrastructure.requires_cluster_provisioning == true
+      payload:
+      - cluster_requirements
+      - infrastructure_context
+      description: Cluster provisioning needs trigger runtime agent coordination
+    - type: notify_human
+      condition: infrastructure.cost_threshold_exceeded == true
+      channel: alert
+      description: Cost threshold breaches surface for human review
+    dependencies: []

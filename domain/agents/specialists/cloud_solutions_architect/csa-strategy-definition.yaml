@@ -1,0 +1,510 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: csa-strategy-agent
+name: CSA Strategy Agent
+description: >
+  Cloud strategy decisions shape the technology direction for years. This agent evaluates
+  cloud providers against workload requirements, designs hybrid and multi-cloud strategies,
+  and produces migration roadmaps, ensuring every platform choice is backed by evidence
+  rather than familiarity.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: csa-specialist-agent
+  tags:
+  - cloud-strategy
+  - provider-evaluation
+  - multi-cloud
+  - hybrid-cloud
+  - migration-planning
+  responsibility: >
+    Evaluate cloud providers, design multi-cloud and hybrid strategies, and produce
+    migration roadmaps with trade-off analysis and evidence-based recommendations.
+system_prompt: >
+  You are a Cloud Strategy Agent, part of the Cloud Solutions Architect intelligence
+  system. Your job is to evaluate cloud platforms and design adoption strategies.
+
+
+  You MUST:
+
+  - Evaluate cloud providers against explicit workload requirements, not general preference
+
+  - Score provider capabilities across cost, compliance, operational, and technical dimensions
+
+  - Design hybrid and multi-cloud strategies with clear rationale for each provider's role
+
+  - Produce migration roadmaps with workload disposition (rehost, replatform, refactor)
+
+  - Assess organizational readiness across people, process, and technology dimensions
+
+  - Identify vendor lock-in risks and portability constraints for each recommendation
+
+
+  You MUST NOT:
+
+  - Recommend a provider without structured evaluation against requirements
+
+  - Design landing zones or account structures (Landing Zone Agent's domain)
+
+  - Model costs or commitment strategies (Cost Agent's domain)
+
+  - Assess compliance controls (Compliance Agent's domain)
+
+  - Assume team cloud skills without assessment evidence
+
+  - Make commercial decisions about vendor contracts
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-cloud-environment
+  name: Read Cloud Environment
+  description: Access current cloud environment configuration, service inventory, and architecture documentation
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: provider
+    type: string
+  outputs:
+  - title: environment_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access cloud environment data, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No environment data found, request manual input
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-strategy-assessment
+  name: Save Strategy Assessment
+  description: Persist cloud strategy assessment to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from cloud solutions architect about strategy context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: strategy-intelligence
+  name: Strategy Intelligence
+  description: Cloud strategy data available to peer agents for architecture context enrichment
+  tools:
+  - id: get-provider-evaluation
+    name: Get Provider Evaluation
+    description: Returns scored provider evaluation against workload requirements for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: evaluation
+      type: object
+  - id: get-migration-roadmap
+    name: Get Migration Roadmap
+    description: Returns migration roadmap with workload disposition and timeline
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: roadmap
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: cloud-strategy-evaluation
+  name: Cloud Strategy Evaluation
+  playbook_refs:
+  - PB_CSA_001
+  description: Evaluate cloud providers against workload requirements and produce a scored strategy recommendation.
+  inputs:
+  - title: account_context
+    type: object
+  - title: workload_requirements
+    type: object
+  - title: organizational_constraints
+    type: object
+  outputs:
+  - title: provider_evaluation
+    type: object
+  - title: strategy_recommendation
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: csa-workload-profiling
+      input: account_context, workload_requirements
+      tools:
+      - read-cloud-environment
+      - read-infohub
+      description: Profile workloads by compute, storage, networking, and compliance requirements
+      on_failure: stop
+    - step: 2
+      prompt: csa-provider-scoring
+      input: workload_requirements, organizational_constraints
+      tools:
+      - read-intelligence
+      description: Score providers across cost, compliance, operational, and technical dimensions
+      on_failure: stop
+    - step: 3
+      prompt: csa-strategy-synthesis
+      input: provider_evaluation
+      tools:
+      - save-strategy-assessment
+      description: Synthesize evaluation into strategy recommendation with trade-offs and lock-in risks
+      on_failure: stop
+- component_type: Flow
+  id: migration-approach-design
+  name: Migration Approach Design
+  playbook_refs:
+  - PB_CSA_001
+  - PB_CSA_007
+  description: Design migration approach with workload disposition, wave planning, and readiness assessment.
+  inputs:
+  - title: account_context
+    type: object
+  - title: workload_inventory
+    type: object
+  - title: target_architecture
+    type: object
+  outputs:
+  - title: migration_plan
+    type: object
+  - title: readiness_assessment
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: csa-workload-disposition
+      input: workload_inventory, target_architecture
+      tools:
+      - read-cloud-environment
+      - read-infohub
+      description: Classify each workload as rehost, replatform, refactor, retain, or retire
+      on_failure: stop
+    - step: 2
+      prompt: csa-readiness-assessment
+      input: account_context
+      tools:
+      - read-intelligence
+      description: Assess organizational readiness across people, process, and technology
+      on_failure: skip_with_warning
+    - step: 3
+      prompt: csa-wave-planning
+      input: workload_inventory, readiness_assessment
+      tools:
+      - save-strategy-assessment
+      description: Design migration waves with dependencies, risk sequencing, and validation criteria
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - provider-evaluation
+    - multi-cloud-strategy
+    - migration-planning
+    - cloud-maturity-assessment
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent evaluates providers and designs strategies. The human architect understands
+      the organizational dynamics behind provider selection: which executive champions which
+      cloud, which teams will resist change, and how aggressive the timeline can be without
+      breaking delivery. The agent produces the evidence, but the human navigates the politics.
+    challenges:
+    - text: Provider selection decisions are driven by team familiarity rather than workload fit
+      specific_overhead:
+      - Researching and comparing provider service catalogs across multiple evaluation dimensions
+    - text: Multi-cloud strategies lack a coherent operating model, creating operational fragmentation
+      specific_overhead:
+      - Documenting provider-specific operational procedures and cross-cloud integration patterns
+    - text: Migration timelines are set by business deadlines rather than technical readiness
+      specific_overhead:
+      - Assessing organizational readiness across people, process, and technology dimensions
+    - text: Vendor lock-in risks are invisible until the first attempt to move a workload
+      specific_overhead:
+      - Mapping data gravity, API dependencies, and proprietary service usage per workload
+    - text: Cloud maturity assessments produce reports but not actionable improvement plans
+      specific_overhead:
+      - Translating assessment findings into sequenced remediation with effort estimates
+    administrative_overhead:
+    - Researching and comparing provider service catalogs across multiple evaluation dimensions
+    - Documenting provider-specific operational procedures and cross-cloud integration patterns
+    - Assessing organizational readiness across people, process, and technology dimensions
+    - Mapping data gravity, API dependencies, and proprietary service usage per workload
+    scenarios:
+    - problem: Provider selection took 6 months and still lacked stakeholder consensus
+      why: >
+        Without a structured framework comparing capabilities against workload requirements,
+        provider evaluation becomes opinion-driven. Teams champion the platform they know, and
+        leadership lacks a defensible basis for deciding.
+      agent: csa-strategy-agent
+      agent_response: >
+        The agent produces a scored evaluation framework mapping workload requirements to
+        provider capabilities across cost, compliance, operational, and technical dimensions.
+        Each score is backed by evidence from provider documentation, reducing the decision
+        from subjective debate to defensible analysis.
+      success_signal:
+        metric: Provider selection decision cycle time
+        target: Reduce evaluation from months to weeks with documented decision rationale
+        leading_indicator: Evaluation framework accepted by stakeholders before detailed analysis
+        failure_signal: Provider decision revisited because evaluation gaps surface post-selection
+    - problem: Multi-cloud strategy exists on paper but creates operational chaos in practice
+      why: >
+        Organizations adopt multiple clouds for capability access but lack a unified operating
+        model. Each cloud has different identity, networking, and deployment patterns, and teams
+        build expertise silos rather than cross-cloud competency.
+      agent: csa-strategy-agent
+      agent_response: >
+        The agent designs a multi-cloud operating model that defines each provider's role based
+        on workload fit, maps shared capabilities (identity, networking, observability) to
+        cross-cloud patterns, and identifies where provider-specific approaches are justified
+        versus where portability is required.
+      success_signal:
+        metric: Cross-cloud operational consistency
+        target: Shared operating procedures cover identity, networking, and deployment across all providers
+        leading_indicator: Operating model document reviewed and accepted by platform team leads
+        failure_signal: Teams maintain separate operational procedures per cloud with no cross-cloud standards
+  escalation_triggers:
+  - Provider strategy conflicts with enterprise technology direction
+  - Migration timeline creates unacceptable risk for production workloads
+  - Multi-cloud operating model requires organizational restructuring
+  - Vendor lock-in risk exceeds organizational risk tolerance
+  prompt_registry:
+    csa-workload-profiling:
+      description: Profile workloads by compute, storage, networking, and compliance requirements for provider evaluation
+      source: prompts/tasks.yaml#cloud_strategy.workload_profiling
+      inputs:
+      - title: account_name
+        type: string
+      - title: workload_inventory
+        type: object
+      outputs:
+      - title: workload_profiles
+        type: object
+      requires_data:
+      - source: read-cloud-environment
+        fields:
+        - service_inventory
+        - architecture_docs
+        priority: critical
+      - source: read-infohub
+        fields:
+        - account_context
+        - technology_landscape
+        priority: enrichment
+    csa-provider-scoring:
+      description: Score cloud providers against workload requirements across cost, compliance, operational, and technical dimensions
+      source: prompts/tasks.yaml#cloud_strategy.provider_scoring
+      inputs:
+      - title: workload_profiles
+        type: object
+      - title: organizational_constraints
+        type: object
+      outputs:
+      - title: provider_scores
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - vendor_landscape
+        - market_trends
+        priority: enrichment
+    csa-strategy-synthesis:
+      description: Synthesize provider evaluation into strategy recommendation with trade-offs and lock-in risks
+      source: prompts/tasks.yaml#cloud_strategy.strategy_synthesis
+      inputs:
+      - title: provider_scores
+        type: object
+      outputs:
+      - title: strategy_recommendation
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - decisions
+        - governance
+        priority: enrichment
+  boundaries:
+  - Does not design landing zones or account structures (Landing Zone Agent's domain)
+  - Does not model costs or commitment strategies (Cost Agent's domain)
+  - Does not assess compliance controls (Compliance Agent's domain)
+  - Does not execute well-architected reviews (Well-Architected Agent's domain)
+  - Does not make commercial decisions about vendor contracts
+  permissions:
+  - Evaluate cloud providers against workload requirements
+  - Design hybrid and multi-cloud strategies
+  - Produce migration roadmaps with workload disposition
+  - Assess organizational cloud maturity
+  - Identify vendor lock-in risks and portability constraints
+  guardrails:
+    input_validation:
+    - Reject strategy evaluations without workload requirements or business context
+    - Reject provider scoring without explicit evaluation criteria
+    output_checks:
+    - All provider scores must reference specific capability evidence
+    - Lock-in risks must identify the specific service or API creating dependency
+    - Migration timelines must include validation checkpoints and rollback criteria
+    - Strategy recommendations must state assumptions and constraints
+    signal_validation:
+    - Never recommend a provider without structured evaluation evidence
+    - Never assume organizational readiness without assessment data
+    - Add [NEEDS VERIFICATION] when provider capability is unconfirmed
+    - Distinguish between GA and preview services in recommendations
+  error_handling:
+    tool_failures:
+      critical:
+      - read-cloud-environment
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable strategy without cloud environment data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - cloud-strategy
+      - provider-evaluation
+      - migration-planning
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-cloud-providers.yaml
+      description: AWS, Azure, GCP service catalogs, capability comparisons, and pricing models
+    - path: references/expertise-migration-patterns.yaml
+      description: Migration methodologies, workload disposition frameworks, and readiness models
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: csa-specialist-agent
+      description: CSA orchestrator routes strategy evaluation requests
+    - type: event
+      source: cloud_environment_feed
+      condition: new_provider_announcement OR service_deprecation_notice
+      description: Auto-scans when provider announces service changes affecting customer workloads
+    - type: schedule
+      cadence: quarterly
+      window: first_week
+      description: Quarterly cloud strategy review across active engagements
+    outputs:
+    - type: parent_return
+      target: csa-specialist-agent
+      payload:
+      - provider_evaluation
+      - strategy_recommendation
+      - migration_roadmap
+      description: Full strategy assessment back to orchestrator for aggregation
+    - type: trigger_agent
+      target: csa-landing-zone-agent
+      condition: strategy_approved == true AND landing_zone_required == true
+      payload:
+      - target_providers
+      - governance_requirements
+      - network_topology_requirements
+      description: Approved strategy triggers landing zone design
+    - type: trigger_agent
+      target: csa-cost-agent
+      condition: migration_plan.status == draft_complete
+      payload:
+      - workload_disposition
+      - target_providers
+      - timeline
+      description: Migration plan triggers cost modeling
+    - type: notify_human
+      condition: lock_in_risk.severity == HIGH
+      channel: alert
+      description: HIGH severity lock-in risks surface immediately for architect review
+    dependencies: []

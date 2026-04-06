@@ -38,6 +38,7 @@ class DefinitionsService:
         "retrospective": "Operations",
         "field_cto": "Architecture",
         "alliance_architects": "Architecture",
+        "customer_advocacy": "Sales",
     }
 
     def __init__(self, agents_path: Path):

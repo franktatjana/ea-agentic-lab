@@ -1,0 +1,485 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: obs-cost-optimization-agent
+name: OBS Cost Optimization Agent
+description: 'Manages the economics of observability by analyzing data volumes, retention policies,
+  sampling strategies, and cardinality patterns. This agent ensures observability investments deliver
+  maximum operational value per dollar spent without creating blind spots.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: observability-specialist-agent
+  tags:
+  - observability
+  - cost-optimization
+  - data-retention
+  - sampling-strategy
+  - cardinality-control
+  responsibility: 'Analyze observability costs, optimize data retention policies, design sampling
+    strategies, and control metric cardinality to maximize operational value within budget constraints.
+
+    '
+system_prompt: 'You are a Cost Optimization Agent, part of the Observability Specialist
+  intelligence system. Your job is to optimize observability economics.
+
+
+  You MUST:
+
+  - Analyze observability data volume by source, type, and value contribution
+
+  - Design retention policies that balance investigation needs with cost
+
+  - Recommend sampling strategies (head, tail, adaptive) with impact analysis
+
+  - Identify and remediate cardinality explosions in metric dimensions
+
+  - Model cost projections for data growth scenarios
+
+  - Classify telemetry by operational value (critical, useful, noise)
+
+  - Produce cost optimization roadmaps with estimated savings
+
+
+  You MUST NOT:
+
+  - Design observability architectures or SLO frameworks (Monitoring Design Agent''s domain)
+
+  - Evaluate platform maturity or compare vendors (Platform Assessment Agent''s domain)
+
+  - Architect data collection pipelines (Data Pipeline Agent''s domain)
+
+  - Design incident response workflows (Incident Readiness Agent''s domain)
+
+  - Implement APM or distributed tracing (APM Agent''s domain)
+
+
+  Every cost recommendation must include the operational risk of the
+
+  proposed change, not just the savings estimate.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target
+    specific data: billing data, data volume metrics, retention configurations.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: technology (pricing models),
+    market (vendor pricing trends), industry (compliance retention requirements).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: read-usage-analytics
+  name: Read Usage Analytics
+  description: Access observability platform usage data, ingest rates, query patterns, and cost allocation
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: time_period
+    type: string
+  - title: breakdown_dimension
+    type: string
+  outputs:
+  - title: usage_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: USAGE_DATA_UNAVAILABLE
+      guidance: Request usage data from user via ask-user, note gap
+- component_type: ClientTool
+  id: save-cost-analysis
+  name: Save Cost Analysis
+  description: Persist cost optimization analysis and recommendations to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: analysis
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from observability specialist about cost context or budget constraints
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: cost-optimization-intelligence
+  name: Cost Optimization Intelligence
+  description: Cost analysis data available to peer agents for budget context
+  tools:
+  - id: get-cost-breakdown
+    name: Get Cost Breakdown
+    description: Returns observability cost breakdown by source, type, and value classification
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: cost_breakdown
+      type: object
+  - id: get-optimization-recommendations
+    name: Get Optimization Recommendations
+    description: Returns cost optimization recommendations with savings estimates and risk assessment
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: recommendations
+      type: array
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: cost-impact-analysis
+  name: Cost Impact Analysis
+  playbook_refs:
+  - PB_OBS_005
+  description: Analyze observability costs by source and value, identify optimization opportunities with risk assessment.
+  inputs:
+  - title: account_context
+    type: object
+  - title: billing_period
+    type: string
+  - title: budget_target
+    type: number
+  outputs:
+  - title: cost_analysis
+    type: object
+  - title: optimization_roadmap
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: obs-cost-volume-analysis
+      input: account_context, billing_period
+      tools:
+      - read-infohub
+      - read-usage-analytics
+      description: Break down data volume by source, classify by operational value, identify top cost drivers
+      on_failure: stop
+    - step: 2
+      prompt: obs-optimization-recommendations
+      input: cost_analysis, budget_target
+      tools:
+      - read-intelligence
+      description: Generate optimization recommendations with savings estimates and operational risk per change
+      on_failure: stop
+    - step: 3
+      action: persist
+      tools:
+      - save-cost-analysis
+      description: Save cost analysis and optimization roadmap to InfoHub
+      on_failure: stop
+- component_type: Flow
+  id: cardinality-audit
+  name: Cardinality Audit
+  playbook_refs:
+  - PB_OBS_008
+  description: Audit metric cardinality, identify explosion risks, and recommend dimension reduction strategies.
+  inputs:
+  - title: account_context
+    type: object
+  - title: metric_namespaces
+    type: array
+  outputs:
+  - title: cardinality_report
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: obs-cardinality-scan
+      input: account_context, metric_namespaces
+      tools:
+      - read-infohub
+      - read-usage-analytics
+      description: Scan metric dimensions, identify high-cardinality series, and calculate growth trajectories
+      on_failure: stop
+    - step: 2
+      prompt: obs-cardinality-remediation
+      input: cardinality_report
+      tools:
+      - save-cost-analysis
+      description: Recommend dimension reduction, aggregation rules, and relabeling strategies
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - cost-analysis
+    - retention-optimization
+    - sampling-strategy
+    - cardinality-control
+    - budget-modeling
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent models costs and recommends optimizations, but the engineering
+      leader decides which cost trade-offs are acceptable. Reducing log retention saves money
+      but shortens the investigation window. Aggressive sampling reduces volume but risks
+      missing rare failure modes. Every optimization is a trade-off the human must own.
+
+      '
+    challenges:
+    - text: Cost optimization creates observability blind spots when cuts are too aggressive
+      specific_overhead:
+      - Modeling operational risk for each cost reduction recommendation
+    - text: Cardinality explosions surface gradually until they cause platform performance issues
+      specific_overhead:
+      - Tracking cardinality growth trends across metric namespaces over time
+    - text: Data retention policies conflict with compliance and security audit requirements
+      specific_overhead:
+      - Cross-referencing retention recommendations against regulatory and compliance mandates
+    administrative_overhead:
+    - Modeling operational risk for each cost reduction recommendation
+    - Tracking cardinality growth trends across metric namespaces over time
+    scenarios:
+    - problem: Observability costs grow linearly with infrastructure while budgets remain flat
+      why: 'Every new service, container, and endpoint adds telemetry volume. Without value-based
+        classification, all data receives equal treatment, and costs scale with infrastructure
+        growth regardless of whether the data contributes to operational outcomes.
+
+        '
+      agent: obs-cost-optimization-agent
+      agent_response: 'Classifies telemetry by operational value (critical for SLO measurement,
+        useful for investigation, noise), recommends tiered retention and sampling strategies
+        per classification, and models the cost impact with operational risk for each tier.
+
+        '
+      success_signal:
+        metric: Observability cost per service
+        target: Reduce cost per monitored service by 30% while maintaining SLO measurement coverage
+        leading_indicator: Value classification completed for all data sources
+        failure_signal: Cost reduction causes SLO measurement gap or investigation blind spot
+    - problem: Metric cardinality explosion degrades query performance
+      why: 'High-cardinality labels (user IDs, request IDs, unbounded tag values) create millions
+        of unique time series. Query performance degrades, storage costs spike, and eventually
+        the monitoring platform becomes slow when operators need it most.
+
+        '
+      agent: obs-cost-optimization-agent
+      agent_response: 'Audits metric dimensions, identifies cardinality offenders, and recommends
+        relabeling rules, aggregation strategies, and recording rules that preserve query
+        utility while controlling series count.
+
+        '
+      success_signal:
+        metric: Active time series count reduction
+        target: Reduce active series count by 40% without losing operational query coverage
+        leading_indicator: Cardinality audit identifies top offenders with remediation plan
+        failure_signal: Query performance remains degraded after remediation
+  escalation_triggers:
+  - Cost optimization requires vendor contract renegotiation
+  - Retention policy change conflicts with compliance requirements
+  - Cardinality remediation requires application code changes beyond observability scope
+  prompt_registry:
+    obs-cost-volume-analysis:
+      description: Break down data volume by source and classify by operational value
+      source: prompts/tasks.yaml#cost_optimization.cost_volume_analysis
+      inputs:
+      - title: account_name
+        type: string
+      - title: billing_period
+        type: string
+      outputs:
+      - title: cost_analysis
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - billing_data
+        - data_sources
+        priority: critical
+      - source: read-usage-analytics
+        fields:
+        - ingest_rates
+        - query_patterns
+        priority: critical
+    obs-optimization-recommendations:
+      description: Generate optimization recommendations with savings and risk estimates
+      source: prompts/tasks.yaml#cost_optimization.optimization_recommendations
+      inputs:
+      - title: cost_analysis
+        type: object
+      - title: budget_target
+        type: number
+      outputs:
+      - title: recommendations
+        type: array
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - pricing_models
+        - compliance_requirements
+        priority: enrichment
+    obs-cardinality-scan:
+      description: Scan metric dimensions and identify high-cardinality series
+      source: prompts/tasks.yaml#cost_optimization.cardinality_scan
+      inputs:
+      - title: metric_namespaces
+        type: array
+      outputs:
+      - title: cardinality_report
+        type: object
+      requires_data:
+      - source: read-usage-analytics
+        fields:
+        - metric_series_counts
+        - label_distributions
+        priority: critical
+  boundaries:
+  - Cost analysis and recommendation only, does not modify platform configurations
+  - Does not design observability architectures or SLO frameworks
+  - Does not implement sampling or retention changes in production
+  - Does not negotiate vendor contracts
+  permissions:
+  - Analyze observability data volumes and cost allocation
+  - Recommend retention policy changes with risk assessment
+  - Design sampling strategies with impact analysis
+  - Audit metric cardinality and recommend remediation
+  guardrails:
+    input_validation:
+    - Reject cost analysis without billing data or usage metrics
+    - Reject retention changes without compliance context
+    output_checks:
+    - Every savings estimate must include operational risk assessment
+    - Retention recommendations must note compliance implications
+    - Sampling strategies must quantify expected data loss rate
+    - Cardinality recommendations must verify query coverage is preserved
+    signal_validation:
+    - Never recommend retention reduction without compliance cross-check
+    - Never claim savings without volume-based cost modeling
+    - Add [RISK] tag when optimization may impact SLO measurement
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      - read-usage-analytics
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce cost analysis without billing and usage data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark compliance checks as incomplete
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - cost-optimization
+      - data-management
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-sre-and-platforms.yaml
+      description: Platform cost patterns, data lifecycle management
+    - path: references/expertise-three-pillars.yaml
+      description: Data volume characteristics per pillar for cost modeling
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: observability-specialist-agent
+      description: Orchestrator routes cost optimization requests
+    - type: downstream
+      source: obs-data-pipeline-agent
+      signal: high_volume_estimate
+      description: High pipeline volume estimates trigger cost analysis
+    - type: schedule
+      cadence: monthly
+      description: Monthly cost review for active accounts
+    outputs:
+    - type: parent_return
+      target: observability-specialist-agent
+      payload:
+      - cost_analysis
+      - optimization_roadmap
+      - cardinality_report
+      description: Full cost analysis back to orchestrator
+    - type: trigger_agent
+      target: obs-data-pipeline-agent
+      condition: optimization_requires_pipeline_changes == true
+      payload:
+      - sampling_requirements
+      - routing_changes
+      description: Sampling or routing changes trigger pipeline redesign
+    dependencies: []

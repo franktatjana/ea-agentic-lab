@@ -6,7 +6,9 @@ Technical documentation for the EA Agentic Lab, organized by reader intent. Whet
 
 | I want to... | Start here |
 |---|---|
-| Get oriented as a new team member | [HANDBOOK.md](HANDBOOK.md) → [Understanding the System](guides/understanding-the-system.md) |
+| Follow a guided reading order (spine) | [START_HERE.md](START_HERE.md) |
+| Get oriented as a new team member | [overview/executive-summary.md](overview/executive-summary.md) → [HANDBOOK.md](HANDBOOK.md) → [Understanding the System](guides/understanding-the-system.md) |
+| Find YAML and vault paths in the repo | [reference/repository-paths.md](reference/repository-paths.md) |
 | See what the system does for my role (AE, SA, CSM) | [End-to-End Walkthrough by Role](guides/end-to-end-walkthrough.md) |
 | Understand how a specific agent works | [Agent Profiles Index](reference/agent-profiles/index.md) |
 | Apply a specific workflow (POC, CSP, RFP, value engineering) | [Guides for Practitioners](guides/for-practitioners/) |
@@ -21,6 +23,8 @@ Technical documentation for the EA Agentic Lab, organized by reader intent. Whet
 
 ```text
 docs/
+├── START_HERE.md              # Spine: practitioner / developer / architecture tracks
+├── overview/                  # Executive summary (in-app readable)
 ├── operating-model/           # Who does what, when?
 ├── architecture/              # How is it designed?
 │   ├── agents/                #   Agent system design
@@ -33,7 +37,7 @@ docs/
 ├── decisions/                 # Why was this decided?
 ├── planning/                  # Where are we?
 │   └── archive/               #   Historical audits and completed work
-├── HANDBOOK.md                # One-page orientation for new team members
+├── HANDBOOK.md                # Practitioner handbook (roles, vaults, workflows)
 ├── DOCUMENTATION_PRINCIPLES.md # Writing standards for this project
 └── llms.txt                   # LLM-readable project summary
 ```
@@ -56,7 +60,7 @@ Defines who is responsible for what, during which phase of an engagement. Covers
 
 ## Architecture
 
-The system implements 40 agent definitions across 13 roles for strategic account management. Role agents exercise judgment and make recommendations; sub-agents handle specialized tasks under their parent role; 10 governance agents enforce process quality automatically. The taxonomy is defined in DDR-021. These documents describe the design.
+The system implements 196 agent definitions across 25 teams for strategic account management. Role agents exercise judgment and make recommendations; sub-agents handle specialized tasks under their parent role; 10 governance agents enforce process quality automatically. The taxonomy is defined in DDR-021. These documents describe the design.
 
 ### Agents
 
@@ -144,9 +148,10 @@ Static lookup materials: catalogs, quick-reference cards, and terminology. These
 | [tech-signal-map.md](reference/tech-signal-map.md) | Technology signal intelligence |
 | [TERMINOLOGY_MODEL.md](reference/TERMINOLOGY_MODEL.md) | Project terminology and definitions |
 | [blueprint-catalog.md](reference/blueprint-catalog.md) | Blueprint composition: archetypes, tracks, domains |
+| [repository-paths.md](reference/repository-paths.md) | Where `domain/` and `vault/` files live (repo root paths) |
 | [external-infohub-reference.md](reference/external-infohub-reference.md) | Customer-facing InfoHub reference |
 | [internal-infohub-reference.md](reference/internal-infohub-reference.md) | Vendor-internal InfoHub reference |
-| [agent-profiles/](reference/agent-profiles/index.md) | Individual agent profile cards (40 definitions) |
+| [agent-profiles/](reference/agent-profiles/index.md) | Individual agent profile cards (196 definitions) |
 
 ---
 

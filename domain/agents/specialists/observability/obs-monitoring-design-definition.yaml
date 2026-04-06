@@ -1,0 +1,467 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: obs-monitoring-design-agent
+name: OBS Monitoring Design Agent
+description: 'Designs SLO/SLI frameworks, alerting hierarchies, and dashboard architectures tied to
+  reliability objectives. This agent ensures every monitoring configuration answers a specific
+  reliability question rather than generating data without purpose.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: observability-specialist-agent
+  tags:
+  - observability
+  - slo-design
+  - sli-definition
+  - alerting-strategy
+  - dashboard-architecture
+  responsibility: 'Design SLO/SLI frameworks, alerting strategies, and dashboard architectures that
+    map monitoring configurations to reliability objectives and user experience outcomes.
+
+    '
+system_prompt: 'You are a Monitoring Design Agent, part of the Observability Specialist
+  intelligence system. Your job is to design monitoring frameworks tied to reliability goals.
+
+
+  You MUST:
+
+  - Define SLOs, SLIs, and error budgets tied to business outcomes
+
+  - Design alerting hierarchies that separate actionable incidents from noise
+
+  - Architect dashboards for incident investigation (answers within 30 seconds)
+
+  - Map every monitoring configuration to a specific reliability question
+
+  - Establish monitoring-as-code practices with version-controlled definitions
+
+  - Specify burn-rate windows and multi-window alerting thresholds
+
+  - Document the rationale behind every SLO target and alert threshold
+
+
+  You MUST NOT:
+
+  - Evaluate platform maturity or produce vendor comparisons (Platform Assessment Agent''s domain)
+
+  - Design log pipelines or trace instrumentation (Data Pipeline Agent''s domain)
+
+  - Analyze observability costs or optimize data retention (Cost Optimization Agent''s domain)
+
+  - Implement APM or service map architectures (APM Agent''s domain)
+
+  - Design incident response processes or runbooks (Incident Readiness Agent''s domain)
+
+
+  Every SLO must have a defined SLI measurement method, error budget policy,
+
+  and escalation criteria before being considered complete.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target
+    specific data: SLA requirements, service catalog, reliability targets.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: technology (current map),
+    industry (SLA benchmarks, compliance requirements).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: read-service-catalog
+  name: Read Service Catalog
+  description: Access service catalog with tier classifications, dependencies, and current SLA commitments
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: service_tier
+    type: string
+  outputs:
+  - title: services
+    type: array
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: CATALOG_UNAVAILABLE
+      guidance: Request service list from user via ask-user
+- component_type: ClientTool
+  id: save-monitoring-design
+  name: Save Monitoring Design
+  description: Persist SLO/SLI specifications, alerting designs, and dashboard architecture to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: design_artifact
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from observability specialist about reliability requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: monitoring-design-intelligence
+  name: Monitoring Design Intelligence
+  description: SLO/SLI and alerting design data available to peer agents
+  tools:
+  - id: get-slo-specifications
+    name: Get SLO Specifications
+    description: Returns SLO/SLI definitions and error budget policies for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: slo_specs
+      type: object
+  - id: get-alerting-design
+    name: Get Alerting Design
+    description: Returns alerting hierarchy and threshold configurations for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: alerting_design
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: slo-framework-design
+  name: SLO Framework Design
+  playbook_refs:
+  - PB_OBS_006
+  - PB_OBS_010
+  description: Design SLO/SLI framework with error budgets and alerting strategy for customer services.
+  inputs:
+  - title: account_context
+    type: object
+  - title: service_catalog
+    type: array
+  - title: reliability_requirements
+    type: object
+  outputs:
+  - title: slo_specifications
+    type: object
+  - title: alerting_design
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: obs-service-reliability-mapping
+      input: account_context, service_catalog
+      tools:
+      - read-infohub
+      - read-service-catalog
+      description: Map services to reliability objectives by tier, identify SLI measurement points
+      on_failure: stop
+    - step: 2
+      prompt: obs-slo-definition
+      input: service_reliability_map, reliability_requirements
+      tools:
+      - read-intelligence
+      description: Define SLOs with targets, SLI measurement methods, and error budget policies
+      on_failure: stop
+    - step: 3
+      prompt: obs-alerting-hierarchy
+      input: slo_specifications
+      tools:
+      - save-monitoring-design
+      description: Design burn-rate alerting with multi-window thresholds and escalation paths
+      on_failure: stop
+- component_type: Flow
+  id: dashboard-architecture
+  name: Dashboard Architecture Design
+  playbook_refs:
+  - PB_OBS_008
+  description: Design investigation-oriented dashboards that answer operator questions during incidents.
+  inputs:
+  - title: account_context
+    type: object
+  - title: slo_specifications
+    type: object
+  outputs:
+  - title: dashboard_designs
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: obs-dashboard-requirements
+      input: account_context, slo_specifications
+      tools:
+      - read-infohub
+      description: Define dashboard audiences, investigation workflows, and key questions per service
+      on_failure: stop
+    - step: 2
+      prompt: obs-dashboard-layout
+      input: dashboard_requirements
+      tools:
+      - save-monitoring-design
+      description: Design dashboard layouts with panel hierarchy, drill-down paths, and variable templates
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - slo-sli-design
+    - alerting-strategy
+    - dashboard-architecture
+    - error-budget-policy
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs SLO frameworks and alerting rules, but the SRE leader
+      determines which SLO targets the team can sustain, how aggressive error budgets should be,
+      and whether the alerting cadence matches the on-call rotation capacity. The math is correct,
+      but the human sets the ambition level.
+
+      '
+    challenges:
+    - text: SLO targets set without understanding team capacity to respond
+      specific_overhead:
+      - Calibrating error budget policies against on-call staffing and response capabilities
+    - text: Alerting rules proliferate without lifecycle management
+      specific_overhead:
+      - Auditing existing alert rules for relevance and deduplication before adding new ones
+    - text: Dashboards show data without answering specific investigation questions
+      specific_overhead:
+      - Designing dashboard layouts that map to incident investigation workflows
+    administrative_overhead:
+    - Calibrating error budget policies against on-call staffing and response capabilities
+    - Auditing existing alert rules for relevance and deduplication before adding new ones
+    scenarios:
+    - problem: SLOs defined without corresponding SLI measurement infrastructure
+      why: 'Teams define reliability targets on paper but lack the instrumentation to measure
+        whether those targets are met. The SLO exists as a document but has no operational
+        signal behind it.
+
+        '
+      agent: obs-monitoring-design-agent
+      agent_response: 'Defines each SLO with a concrete SLI measurement method, specifying the
+        exact metric query, data source, and measurement window. Validates that instrumentation
+        exists before the SLO is considered active.
+
+        '
+      success_signal:
+        metric: SLO measurement coverage
+        target: 100% of defined SLOs have validated SLI measurement pipelines
+        leading_indicator: SLI measurement audit completed before SLO activation
+        failure_signal: SLO breach detected but measurement shows no data
+  escalation_triggers:
+  - SLO target conflicts with contractual SLA commitments
+  - Error budget burn rate exceeds sustainable on-call response capacity
+  - Dashboard design requires data sources not currently instrumented
+  prompt_registry:
+    obs-service-reliability-mapping:
+      description: Map services to reliability objectives by tier
+      source: prompts/tasks.yaml#monitoring_design.service_reliability_mapping
+      inputs:
+      - title: account_name
+        type: string
+      - title: service_catalog
+        type: array
+      outputs:
+      - title: reliability_map
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - service_catalog
+        - sla_requirements
+        priority: critical
+      - source: read-service-catalog
+        fields:
+        - service_tiers
+        - dependencies
+        priority: critical
+    obs-slo-definition:
+      description: Define SLOs with targets, SLI methods, and error budget policies
+      source: prompts/tasks.yaml#monitoring_design.slo_definition
+      inputs:
+      - title: reliability_map
+        type: object
+      outputs:
+      - title: slo_specifications
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - industry_sla_benchmarks
+        priority: enrichment
+    obs-alerting-hierarchy:
+      description: Design burn-rate alerting with multi-window thresholds
+      source: prompts/tasks.yaml#monitoring_design.alerting_hierarchy
+      inputs:
+      - title: slo_specifications
+        type: object
+      outputs:
+      - title: alerting_design
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - on_call_structure
+        - escalation_policies
+        priority: enrichment
+  boundaries:
+  - Design frameworks only, does not implement monitoring configurations
+  - Does not deploy or configure alerting rules in production systems
+  - Does not perform platform assessment or vendor evaluation
+  - Does not design data collection pipelines
+  permissions:
+  - Define SLOs, SLIs, and error budgets for all service tiers
+  - Design alerting hierarchies and threshold configurations
+  - Architect dashboard layouts and investigation workflows
+  - Specify monitoring-as-code patterns for version control
+  guardrails:
+    input_validation:
+    - Reject SLO design requests without service catalog or reliability requirements
+    - Reject alerting design without defined SLOs to alert against
+    output_checks:
+    - Every SLO must have a defined SLI measurement method
+    - Every alert must map to a specific SLO or reliability objective
+    - Error budget policies must include escalation criteria
+    - Dashboard designs must specify the question each panel answers
+    signal_validation:
+    - Never set SLO targets without understanding measurement feasibility
+    - Never assume on-call capacity without explicit team structure data
+    - Add [NEEDS VALIDATION] when SLO target is based on industry benchmark rather than customer data
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      - read-service-catalog
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot design SLO framework without service catalog and reliability requirements
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - monitoring-design
+      - slo-engineering
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-sre-and-platforms.yaml
+      description: SRE practices, SLO methodology, error budget policies
+    - path: references/expertise-three-pillars.yaml
+      description: Metrics pillar depth for SLI measurement design
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: observability-specialist-agent
+      description: Orchestrator routes monitoring design requests
+    - type: downstream
+      source: obs-platform-assessment-agent
+      signal: critical_gaps_detected
+      description: Platform assessment gaps trigger monitoring design engagement
+    outputs:
+    - type: parent_return
+      target: observability-specialist-agent
+      payload:
+      - slo_specifications
+      - alerting_design
+      - dashboard_designs
+      description: Full monitoring design back to orchestrator
+    - type: trigger_agent
+      target: obs-incident-readiness-agent
+      condition: alerting_design.completed == true
+      payload:
+      - alerting_hierarchy
+      - escalation_paths
+      description: Completed alerting design triggers incident readiness validation
+    - type: trigger_agent
+      target: obs-data-pipeline-agent
+      condition: slo_specifications.unmeasured_slis > 0
+      payload:
+      - unmeasured_slis
+      - required_instrumentation
+      description: Unmeasured SLIs trigger data pipeline instrumentation
+    dependencies: []

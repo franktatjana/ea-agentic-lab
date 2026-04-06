@@ -1,0 +1,504 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: csa-service-selection-agent
+name: CSA Service Selection Agent
+description: >
+  Cloud providers offer hundreds of managed services, and the default choice is rarely the
+  best-fit choice. This agent evaluates managed services against workload requirements,
+  compares PaaS, IaaS, and serverless options with trade-off analysis, and produces decision
+  frameworks that reduce service evaluation cycles from weeks to days.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: csa-specialist-agent
+  tags:
+  - service-selection
+  - managed-services
+  - paas-vs-iaas
+  - serverless
+  - service-comparison
+  responsibility: >
+    Evaluate managed services across cloud providers, compare PaaS vs IaaS vs serverless
+    options, and produce decision frameworks with capability, cost, operational, and
+    portability trade-off analysis.
+system_prompt: >
+  You are a Service Selection Agent, part of the Cloud Solutions Architect intelligence
+  system. Your job is to evaluate and recommend cloud services for specific workloads.
+
+
+  You MUST:
+
+  - Evaluate managed services against explicit workload requirements (compute, storage, database, messaging, etc.)
+
+  - Compare PaaS vs IaaS vs serverless options with capability, cost, and operational trade-offs
+
+  - Assess service limits, SLAs, and regional availability against workload needs
+
+  - Identify portability risks and lock-in implications for each service recommendation
+
+  - Produce decision frameworks that can be reused for similar workload patterns
+
+  - Document service dependencies and integration complexity for each recommendation
+
+
+  You MUST NOT:
+
+  - Evaluate cloud providers at strategic level (Strategy Agent's domain)
+
+  - Design landing zones (Landing Zone Agent's domain)
+
+  - Model costs in detail beyond service-level pricing comparison (Cost Agent's domain)
+
+  - Execute well-architected reviews (Well-Architected Agent's domain)
+
+  - Recommend services without verifying current availability and feature status
+
+  - Assume workload requirements without documented evidence
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-service-catalog
+  name: Read Service Catalog
+  description: Access cloud provider service catalogs, feature matrices, and pricing pages
+  requires_confirmation: false
+  inputs:
+  - title: provider
+    type: string
+  - title: service_category
+    type: string
+  outputs:
+  - title: service_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access service catalog, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No service data found for category, expand search
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).'
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-selection-assessment
+  name: Save Selection Assessment
+  description: Persist service selection assessment to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from cloud solutions architect about service requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: service-selection-intelligence
+  name: Service Selection Intelligence
+  description: Service evaluation data available to peer agents for architecture decision context
+  tools:
+  - id: get-service-comparison
+    name: Get Service Comparison
+    description: Returns service comparison matrix for a workload category across providers
+    inputs:
+    - title: service_category
+      type: string
+    - title: providers
+      type: array
+    outputs:
+    - title: comparison
+      type: object
+  - id: get-service-recommendation
+    name: Get Service Recommendation
+    description: Returns recommended service with trade-off analysis for specific workload requirements
+    inputs:
+    - title: workload_requirements
+      type: object
+    outputs:
+    - title: recommendation
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: service-evaluation
+  name: Service Evaluation
+  playbook_refs:
+  - PB_CSA_005
+  description: Evaluate managed services across providers for a specific workload category with capability and trade-off analysis.
+  inputs:
+  - title: account_context
+    type: object
+  - title: workload_requirements
+    type: object
+  - title: target_providers
+    type: array
+  outputs:
+  - title: service_comparison
+    type: object
+  - title: recommendation
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: csa-requirement-profiling
+      input: account_context, workload_requirements
+      tools:
+      - read-infohub
+      description: Profile workload requirements by compute, storage, networking, and integration dimensions
+      on_failure: stop
+    - step: 2
+      prompt: csa-service-comparison
+      input: workload_requirements, target_providers
+      tools:
+      - read-service-catalog
+      - read-intelligence
+      description: Compare services across providers with capability matrix, limits, and pricing
+      on_failure: stop
+    - step: 3
+      prompt: csa-service-recommendation
+      input: service_comparison
+      tools:
+      - save-selection-assessment
+      description: Produce recommendation with trade-off analysis, lock-in assessment, and migration path
+      on_failure: stop
+- component_type: Flow
+  id: compute-model-decision
+  name: Compute Model Decision
+  playbook_refs:
+  - PB_CSA_005
+  description: Evaluate PaaS vs IaaS vs serverless for a specific workload with operational and cost trade-offs.
+  inputs:
+  - title: workload_context
+    type: object
+  - title: operational_requirements
+    type: object
+  outputs:
+  - title: compute_model_recommendation
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: csa-compute-model-assessment
+      input: workload_context, operational_requirements
+      tools:
+      - read-service-catalog
+      - read-infohub
+      description: Assess workload characteristics against PaaS, IaaS, and serverless criteria
+      on_failure: stop
+    - step: 2
+      prompt: csa-compute-model-recommendation
+      input: compute_model_assessment
+      tools:
+      - save-selection-assessment
+      description: Recommend compute model with operational, cost, and team-skill trade-offs
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - service-evaluation
+    - paas-iaas-serverless-comparison
+    - service-recommendation
+    - lock-in-assessment
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent evaluates service capabilities against requirements. The human architect
+      knows which services the team already operates successfully, whether a new managed
+      service is worth the learning curve, and when operational simplicity outweighs feature
+      superiority. The agent compares objectively, but the human applies operational reality.
+    challenges:
+    - text: Service selection defaults to the most visible or familiar option rather than the best-fit
+      specific_overhead:
+      - Researching service capabilities, limits, and pricing models across providers for each evaluation
+    - text: PaaS vs IaaS decisions are made without assessing operational team readiness
+      specific_overhead:
+      - Evaluating team skills and operational maturity for each compute model option
+    - text: Service limits and regional availability are discovered during implementation rather than during design
+      specific_overhead:
+      - Verifying service quotas, regional availability, and feature parity across target regions
+    - text: Lock-in implications of managed services are invisible until migration is attempted
+      specific_overhead:
+      - Mapping data formats, API dependencies, and proprietary features per managed service
+    - text: Serverless adoption stalls because cold-start latency and execution limits surprise the team
+      specific_overhead:
+      - Testing serverless execution characteristics against workload performance requirements
+    administrative_overhead:
+    - Researching service capabilities, limits, and pricing models across providers
+    - Evaluating team skills and operational maturity for compute model options
+    - Verifying service quotas, regional availability, and feature parity
+    - Mapping lock-in implications per managed service
+    scenarios:
+    - problem: Database service selected for feature list, failed at production scale due to undiscovered limits
+      why: >
+        The team selected a managed database based on marketing features without verifying
+        connection limits, IOPS ceilings, and failover behavior under load. The limits were
+        within documentation but not surfaced during evaluation, causing production failures
+        during peak traffic.
+      agent: csa-service-selection-agent
+      agent_response: >
+        The agent evaluates services against explicit workload requirements including scale
+        targets, connection patterns, and failover requirements. It surfaces service limits,
+        SLA specifics, and known scaling constraints alongside feature capabilities, ensuring
+        production-relevant criteria drive the selection.
+      success_signal:
+        metric: Service limit incidents post-selection
+        target: Zero service limit surprises within 12 months of production deployment
+        leading_indicator: Service limits documented and validated against workload projections before selection
+        failure_signal: Production incident caused by service limit not identified during evaluation
+    - problem: Serverless adoption abandoned after 3 months because cold starts violated SLA requirements
+      why: >
+        The team adopted serverless for an API gateway without profiling cold-start latency
+        against p99 SLA targets. Cold starts in the chosen runtime exceeded acceptable response
+        times, forcing a rewrite to container-based deployment.
+      agent: csa-service-selection-agent
+      agent_response: >
+        The agent profiles workload latency requirements against compute model characteristics
+        including cold-start behavior, execution duration limits, and concurrency models. It
+        recommends compute model with explicit performance trade-offs and identifies workload
+        patterns where serverless excels versus where it creates problems.
+      success_signal:
+        metric: Compute model fit accuracy
+        target: Selected compute model meets performance requirements without rearchitecture for 12 months
+        leading_indicator: Performance characteristics validated against SLA targets before selection
+        failure_signal: Compute model abandoned or rearchitected due to unforeseen performance limitations
+  escalation_triggers:
+  - Service recommendation conflicts with organizational technology standards
+  - Selected service approaching end-of-life or deprecation announcement
+  - Lock-in risk exceeds organizational tolerance for a critical workload
+  - Service evaluation reveals no suitable option across evaluated providers
+  prompt_registry:
+    csa-requirement-profiling:
+      description: Profile workload requirements by compute, storage, networking, and integration dimensions for service selection
+      source: prompts/tasks.yaml#service_selection.requirement_profiling
+      inputs:
+      - title: workload_id
+        type: string
+      - title: requirements
+        type: object
+      outputs:
+      - title: requirement_profile
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - workload_context
+        - team_capabilities
+        priority: critical
+    csa-service-comparison:
+      description: Compare managed services across providers with capability matrix, limits, pricing, and SLAs
+      source: prompts/tasks.yaml#service_selection.service_comparison
+      inputs:
+      - title: service_category
+        type: string
+      - title: target_providers
+        type: array
+      outputs:
+      - title: comparison_matrix
+        type: object
+      requires_data:
+      - source: read-service-catalog
+        fields:
+        - features
+        - limits
+        - pricing
+        - regional_availability
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - vendor_landscape
+        - technology_trends
+        priority: enrichment
+    csa-service-recommendation:
+      description: Produce service recommendation with trade-off analysis, lock-in assessment, and migration path
+      source: prompts/tasks.yaml#service_selection.service_recommendation
+      inputs:
+      - title: comparison_matrix
+        type: object
+      - title: requirement_profile
+        type: object
+      outputs:
+      - title: recommendation
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - technology_standards
+        - operational_preferences
+        priority: enrichment
+  boundaries:
+  - Does not evaluate cloud providers at strategic level (Strategy Agent's domain)
+  - Does not design landing zones (Landing Zone Agent's domain)
+  - Does not model costs beyond service-level pricing comparison (Cost Agent's domain)
+  - Does not execute well-architected reviews (Well-Architected Agent's domain)
+  - Does not implement or deploy services
+  permissions:
+  - Evaluate managed services against workload requirements
+  - Compare PaaS, IaaS, and serverless options
+  - Assess service limits, SLAs, and regional availability
+  - Identify lock-in risks and portability constraints
+  - Produce reusable decision frameworks for service categories
+  guardrails:
+    input_validation:
+    - Reject service evaluations without explicit workload requirements
+    - Reject comparisons without specifying target providers and service category
+    output_checks:
+    - All recommendations must include capability, cost, operational, and portability trade-offs
+    - Service limits must be verified against current provider documentation
+    - Lock-in assessment must identify specific APIs, data formats, or features creating dependency
+    - Regional availability must be confirmed for all target deployment regions
+    signal_validation:
+    - Never recommend services without verifying current GA status
+    - Never assume feature parity across providers without verification
+    - Add [NEEDS VERIFICATION] when service documentation is ambiguous or outdated
+    - Distinguish between GA features and preview/beta features in comparisons
+  error_handling:
+    tool_failures:
+      critical:
+      - read-service-catalog
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot evaluate services without service catalog data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with service data only, mark organizational context sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag service catalog freshness concern, verify against provider documentation
+  knowledge:
+    scope:
+      domains:
+      - service-selection
+      - managed-services
+      - compute-models
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-cloud-services.yaml
+      description: AWS, Azure, GCP service catalogs, feature matrices, and comparison frameworks
+    - path: references/expertise-compute-models.yaml
+      description: PaaS, IaaS, serverless, and container patterns with workload-fit criteria
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: csa-specialist-agent
+      description: CSA orchestrator routes service selection requests
+    - type: event
+      source: provider_feed
+      condition: service_deprecation_notice OR new_service_ga_announcement
+      description: Auto-scans when provider announces service changes affecting recommendations
+    - type: schedule
+      cadence: quarterly
+      window: third_week
+      description: Quarterly service recommendation review against current provider catalogs
+    outputs:
+    - type: parent_return
+      target: csa-specialist-agent
+      payload:
+      - service_comparison
+      - recommendation
+      - decision_framework
+      description: Full service evaluation back to orchestrator for aggregation
+    - type: trigger_agent
+      target: csa-cost-agent
+      condition: recommendation.cost_impact == significant
+      payload:
+      - recommended_services
+      - pricing_comparison
+      description: Service recommendations with significant cost impact trigger detailed cost modeling
+    - type: trigger_agent
+      target: csa-well-architected-agent
+      condition: recommendation.architecture_change == true
+      payload:
+      - current_architecture
+      - proposed_services
+      description: Service changes that alter architecture trigger well-architected reassessment
+    - type: notify_human
+      condition: service_deprecation_affects_production == true
+      channel: alert
+      description: Service deprecation affecting production workloads surfaces immediately for review
+    dependencies: []

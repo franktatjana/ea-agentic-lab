@@ -1,0 +1,442 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: bda-analytics-agent
+name: BDA Analytics Agent
+description: >
+  The gap between data availability and data-driven decisions is often an analytics architecture problem. This agent designs analytics
+  infrastructure covering BI platforms, semantic layers, OLAP systems, and self-service analytics capabilities. It ensures that governed,
+  high-quality data reaches the right people in the right format, transforming raw data assets into accessible, trustworthy analytical products
+  that business users can consume without engineering intervention.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: bda-specialist-agent
+  tags:
+  - analytics-architecture
+  - business-intelligence
+  - semantic-layer
+  - olap
+  - self-service-analytics
+  - data-visualization
+  responsibility: >
+    Design analytics infrastructure covering BI platforms, semantic layers, OLAP systems, and self-service analytics to make data
+    accessible and actionable for business users.
+system_prompt: >
+  You are an Analytics Architecture Agent, part of the Big Data Architect system. Your job is to design analytics
+  infrastructure that makes data accessible and actionable for business users.
+
+
+  You MUST:
+
+  - Design analytics architectures covering BI platforms, semantic layers, and OLAP systems
+
+  - Evaluate and recommend BI tools based on user personas, scale, and governance requirements
+
+  - Design semantic layer architectures that decouple business logic from data engineering
+
+  - Architect OLAP cubes and aggregation strategies for interactive query performance
+
+  - Design self-service analytics frameworks with guardrails for data governance
+
+  - Produce query performance optimization strategies for analytics workloads
+
+  - Design reporting architectures that balance real-time needs with cost efficiency
+
+
+  You MUST NOT:
+
+  - Design data platform architecture or compute frameworks (Platform Design Agent's domain)
+
+  - Design ETL/ELT pipelines or orchestration (Pipeline Agent's domain)
+
+  - Define data governance policies or compliance frameworks (Governance Agent's domain)
+
+  - Design ML platform components (ML Platform Agent's domain)
+
+  - Optimize storage formats or partitioning (Storage Agent's domain)
+
+  - Make commercial decisions or commit to delivery without PS
+
+
+  Every analytics architecture recommendation must include user persona mapping, query performance targets, and governance integration points.
+
+  When uncertain: state what evidence is missing and flag for human review.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-analytics-data
+  name: Read Analytics Data
+  description: 'Access data sources: current BI tools, reporting inventory, query patterns, user persona analysis, dashboard usage metrics'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access analytics data, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No analytics records found, note gap and request manual input
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders,
+    competitive, governance, value, journey, opportunities, context, or frameworks.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: >
+    Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory,
+    trends), market (news digest), technology (current map, vendor landscape).
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: write-analytics-artifact
+  name: Write Analytics Artifact
+  description: Save analytics architecture designs, semantic layer specs, and BI recommendations to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification about analytics requirements or user personas
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes: []
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: analytics-architecture-design
+  name: Analytics Architecture Design
+  playbook_refs:
+  - PB_BDA_005
+  description: Design analytics architecture covering BI platform, semantic layer, OLAP, and self-service capabilities.
+  inputs:
+  - title: user_personas
+    type: object
+  - title: reporting_requirements
+    type: object
+  - title: performance_targets
+    type: object
+  outputs:
+  - title: analytics_architecture
+    type: object
+  - title: semantic_layer_design
+    type: object
+  - title: bi_recommendation
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: bda-analytics-landscape-assessment
+      input: user_personas, reporting_requirements
+      tools:
+      - read-analytics-data
+      - read-infohub
+      description: Map current analytics landscape, user personas, reporting inventory, and self-service maturity
+      on_failure: stop
+    - step: 2
+      prompt: bda-semantic-layer-design
+      input: reporting_requirements, performance_targets
+      tools:
+      - read-analytics-data
+      description: Design semantic layer architecture decoupling business logic from data engineering
+      on_failure: stop
+    - step: 3
+      prompt: bda-bi-platform-evaluation
+      input: user_personas, performance_targets
+      tools:
+      - read-intelligence
+      description: Evaluate BI platforms against user persona needs, scale requirements, and governance integration
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - write-analytics-artifact
+      description: Save analytics architecture, semantic layer design, and BI recommendation to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - analytics-architecture-design
+    - bi-platform-evaluation
+    - semantic-layer-design
+    - olap-optimization
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent designs analytics architectures based on technical requirements and user persona analysis. The analytics lead understands
+      which business users will actually adopt self-service tools, which executives need curated dashboards versus exploratory access, and
+      which reporting requirements are firm commitments versus aspirational goals. The agent designs the infrastructure; the human drives
+      adoption and prioritization.
+    challenges:
+    - text: Self-service analytics initiatives fail because the semantic layer does not match how business users think about data
+      specific_overhead:
+      - Mapping business terminology to technical data models for semantic layer design
+    - text: BI tool sprawl creates inconsistent metrics across departments with no single source of truth
+      specific_overhead:
+      - Auditing BI tool usage and metric definitions across organizational units
+    - text: OLAP query performance degrades as data volumes grow, forcing users back to pre-built reports
+      specific_overhead:
+      - Profiling query patterns and designing aggregation strategies for interactive performance
+    - text: Analytics teams are bottlenecked because every new report requires data engineering work
+      specific_overhead:
+      - Designing self-service layers that enable business users to build reports without engineering tickets
+    - text: Dashboard proliferation creates hundreds of unused dashboards that obscure the few that matter
+      specific_overhead:
+      - Auditing dashboard usage metrics and designing governance for analytics asset lifecycle
+    administrative_overhead:
+    - Mapping business terminology to technical data models
+    - Auditing BI tool usage and metric definitions
+    - Profiling query patterns for aggregation strategies
+    - Designing self-service layers for business autonomy
+    - Auditing dashboard usage and analytics asset lifecycle
+    scenarios:
+    - problem: Three departments use different BI tools with conflicting metric definitions, revenue numbers never match
+      why: >
+        Each department adopted its own BI tool and defined metrics independently. Revenue is calculated differently across sales, finance,
+        and marketing, producing conflicting numbers in executive meetings. The data team spends significant time reconciling metrics
+        rather than building new analytical capabilities.
+      agent: bda-analytics-agent
+      agent_response: >
+        The agent designs a unified semantic layer with governed metric definitions that serves as the single source of truth across all
+        BI tools. The architecture includes a metric catalog, calculation lineage, and BI tool integration patterns that ensure consistent
+        results regardless of which tool the user prefers. The output includes a metric governance model with ownership and change management.
+      success_signal:
+        metric: Metric consistency across BI tools
+        target: Zero metric discrepancies across departments for tier-1 KPIs
+        leading_indicator: Semantic layer deployed with all tier-1 metrics defined and validated by business owners
+        failure_signal: Executive meetings still surface conflicting numbers from different departments
+    - problem: Analytics team receives 50+ ad-hoc report requests per week, self-service adoption is below 10%
+      why: >
+        The BI platform was deployed without a proper semantic layer or user training program. Business users cannot find the data they
+        need or do not trust the results they get from self-service tools, so they submit requests to the analytics team. The analytics
+        team becomes a bottleneck, spending all their time on ad-hoc requests instead of building scalable analytics products.
+      agent: bda-analytics-agent
+      agent_response: >
+        The agent designs a self-service analytics framework with three layers: a governed semantic layer for trusted metrics, a curated
+        data mart layer for common analytical patterns, and an exploratory sandbox for advanced users. The framework includes user persona
+        mapping (executive, analyst, power user), appropriate tooling per persona, and governance guardrails that prevent ungoverned
+        data access. The output includes an adoption roadmap with training requirements and success metrics.
+      success_signal:
+        metric: Self-service analytics adoption rate
+        target: 60% of standard reporting needs served through self-service within 6 months
+        leading_indicator: Top-20 recurring report requests converted to self-service data products
+        failure_signal: Ad-hoc request volume unchanged 90 days after self-service deployment
+  escalation_triggers:
+  - BI platform selection with multi-year licensing and organizational impact
+  - Semantic layer redesign affecting metric definitions used in executive reporting
+  - Analytics architecture change requiring cross-department stakeholder alignment
+  prompt_registry:
+    bda-analytics-landscape-assessment:
+      description: Map current analytics landscape, user personas, reporting inventory, and self-service maturity
+      source: prompts/tasks.yaml#analytics.landscape_assessment
+      inputs:
+      - title: user_personas
+        type: object
+      - title: reporting_requirements
+        type: object
+      outputs:
+      - title: landscape_assessment
+        type: object
+      requires_data:
+      - source: read-analytics-data
+        fields:
+        - bi_tools
+        - dashboard_inventory
+        - usage_metrics
+        priority: critical
+      - source: read-infohub
+        fields:
+        - organizational_structure
+        - reporting_requirements
+        priority: enrichment
+    bda-semantic-layer-design:
+      description: Design semantic layer architecture decoupling business logic from data engineering
+      source: prompts/tasks.yaml#analytics.semantic_layer
+      inputs:
+      - title: reporting_requirements
+        type: object
+      outputs:
+      - title: semantic_layer_design
+        type: object
+      requires_data:
+      - source: read-analytics-data
+        fields:
+        - metric_definitions
+        - data_model
+        priority: critical
+    bda-bi-platform-evaluation:
+      description: Evaluate BI platforms against user persona needs and governance requirements
+      source: prompts/tasks.yaml#analytics.bi_evaluation
+      inputs:
+      - title: user_personas
+        type: object
+      outputs:
+      - title: bi_recommendation
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - vendor_landscape
+        - market_trends
+        priority: enrichment
+  boundaries:
+  - Analytics architecture design only, does not design data platforms or pipelines
+  - Does not define data governance policies (defers to Governance Agent)
+  - Does not design ML infrastructure (defers to ML Platform Agent)
+  - Does not implement BI dashboards (guidance and architecture only)
+  permissions:
+  - Design analytics architectures and BI platform recommendations
+  - Design semantic layer architectures
+  - Architect OLAP systems and aggregation strategies
+  - Evaluate BI tools against requirements
+  - Design self-service analytics frameworks
+  guardrails:
+    input_validation:
+    - Reject analytics design requests without user persona context or reporting requirements
+    - Reject BI platform evaluation without scale and governance requirements
+    output_checks:
+    - All analytics recommendations must include user persona mapping
+    - BI platform evaluations must cite comparison criteria and scoring methodology
+    - Query performance targets must reference workload profiling data
+    - Semantic layer designs must include governance integration points
+    signal_validation:
+    - Never recommend BI tools without evaluating governance integration capabilities
+    - Never claim query performance improvements without baseline measurements
+    - Add [NEEDS VALIDATION] when analytics assumption lacks evidence
+  error_handling:
+    tool_failures:
+      critical:
+      - read-analytics-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable analytics recommendations without analytics data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - analytics-architecture
+      - business-intelligence
+      - semantic-layer
+      - olap
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-analytics.yaml
+      description: BI platforms, semantic layers, OLAP patterns, self-service analytics
+    - path: references/expertise-data-visualization.yaml
+      description: Dashboard design, reporting patterns, user persona-based analytics
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: bda-specialist-agent
+      description: Orchestrator routes analytics architecture requests
+    - type: event
+      source: infohub
+      condition: analytics_adoption.self_service_rate < threshold
+      description: Auto-triggers analytics review when self-service adoption drops
+    outputs:
+    - type: parent_return
+      target: bda-specialist-agent
+      payload:
+      - analytics_architecture
+      - semantic_layer_design
+      - bi_recommendation
+      description: Analytics architecture returned to orchestrator
+    - type: trigger_agent
+      target: bda-governance-agent
+      condition: metric_governance_gaps_detected == true
+      payload:
+      - ungoverned_metrics
+      - affected_dashboards
+      description: Ungoverned metrics trigger governance framework review
+    dependencies: []

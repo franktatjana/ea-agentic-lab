@@ -1,0 +1,437 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: pa-runtime-agent
+name: PA Runtime Agent
+description: 'Kubernetes complexity overwhelms application teams who just want to deploy their code. This agent designs container
+  orchestration architectures, service mesh configurations, and runtime platform abstractions that hide cluster complexity while
+  maintaining operational control for platform teams.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: pa-specialist-agent
+  tags:
+  - container-orchestration
+  - kubernetes
+  - service-mesh
+  - runtime-platform
+  - multi-tenancy
+  responsibility: 'Design container orchestration architectures, service mesh configurations, and runtime platform abstractions that
+    balance application team simplicity with platform team operational control.
+
+    '
+system_prompt: 'You are a Runtime Agent, part of the Platform Architect Specialist
+  intelligence system. Your job is to design container runtime platforms.
+
+
+  You MUST:
+
+  - Design Kubernetes cluster architectures with multi-tenancy, namespace strategy, and RBAC
+
+  - Evaluate and design service mesh configurations (Istio, Linkerd, Cilium) for inter-service communication
+
+  - Create runtime abstractions that hide Kubernetes primitives from application teams
+
+  - Design resource management, autoscaling, and quota strategies
+
+  - Produce runtime platform security designs covering pod security, network policies, and image management
+
+
+  You MUST NOT:
+
+  - Define platform strategy or team topologies (Strategy Agent''s domain)
+
+  - Design developer portal UX or golden path templates (Developer Experience Agent''s domain)
+
+  - Define API standards or gateway configurations (API Platform Agent''s domain)
+
+  - Design IaC templates for cloud infrastructure (Infrastructure Agent''s domain)
+
+  - Define governance policies or compliance rules (Governance Agent''s domain)
+
+  - Design CI/CD pipelines or container build processes (DevOps Specialist''s domain)
+
+  - Make commercial decisions or commit to delivery timelines
+
+
+  Every architecture must specify the abstraction boundary between platform and application teams.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions,
+    stakeholders, competitive, governance, value, journey, opportunities, context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry
+    (profile, regulatory, trends), market (news digest), technology (current map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-runtime-assessment
+  name: Save Runtime Assessment
+  description: Persist runtime platform assessment to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from platform architect about runtime context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: runtime-intelligence
+  name: Runtime Platform Intelligence
+  description: Runtime platform data available to peer agents for infrastructure context
+  tools:
+  - id: get-cluster-architecture
+    name: Get Cluster Architecture
+    description: Returns Kubernetes cluster architecture and multi-tenancy design for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: cluster_architecture
+      type: object
+  - id: get-service-mesh-design
+    name: Get Service Mesh Design
+    description: Returns service mesh configuration and inter-service communication design
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: mesh_design
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: runtime-platform-design
+  name: Runtime Platform Design
+  playbook_refs:
+  - PB_PA_003
+  description: Design container orchestration architecture, service mesh, and runtime abstractions.
+  inputs:
+  - title: account_context
+    type: object
+  - title: workload_requirements
+    type: object
+  - title: current_runtime
+    type: object
+  outputs:
+  - title: cluster_architecture
+    type: object
+  - title: service_mesh_design
+    type: object
+  - title: abstraction_layer
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pa-runtime-assessment
+      input: account_context, current_runtime
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess current runtime platform maturity and workload patterns
+      on_failure: stop
+    - step: 2
+      prompt: pa-cluster-architecture-design
+      input: workload_requirements, runtime_assessment
+      tools:
+      - read-infohub
+      description: Design Kubernetes cluster architecture with multi-tenancy and namespace strategy
+      on_failure: stop
+    - step: 3
+      prompt: pa-service-mesh-design
+      input: cluster_architecture, workload_requirements
+      tools:
+      - read-intelligence
+      description: Design service mesh for inter-service communication, security, and observability
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-runtime-assessment
+      description: Save runtime platform assessment to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - kubernetes-architecture
+    - service-mesh-design
+    - runtime-abstraction
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs cluster architectures and service mesh configurations. The platform leader understands
+      which workload patterns teams actually use, how much Kubernetes complexity the organization can absorb, and when managed services
+      are a better fit than self-managed clusters. The architecture is correct, but the human leader knows the team.
+
+      '
+    challenges:
+    - text: Kubernetes complexity overwhelms application teams who just want to deploy
+      specific_overhead:
+      - Abstracting Kubernetes primitives into developer-friendly deployment interfaces
+    - text: Multi-tenancy boundaries are unclear, causing resource contention and security concerns
+      specific_overhead:
+      - Designing namespace strategies and RBAC policies that balance isolation with operational efficiency
+    administrative_overhead:
+    - Abstracting Kubernetes primitives into developer-friendly deployment interfaces
+    - Designing namespace strategies and RBAC policies that balance isolation with operational efficiency
+    scenarios:
+    - problem: Kubernetes complexity overwhelms application teams who just want to deploy
+      why: 'Application developers need to understand pods, services, ingress, configmaps, secrets, RBAC, and resource limits just
+        to deploy a service. This cognitive load slows delivery and creates deployment errors when teams copy YAML manifests they
+        do not understand.
+
+        '
+      agent: pa-runtime-agent
+      agent_response: 'Designs runtime abstraction layers that expose simple deployment interfaces (e.g., workload specifications)
+        while hiding Kubernetes primitives. Produces a developer-facing API that maps application intent to Kubernetes resources,
+        with platform-managed defaults for networking, security, and resource management.
+
+        '
+      success_signal:
+        metric: Developer deployment self-sufficiency
+        target: 90% of application deployments completed without platform team assistance
+        leading_indicator: Developer-facing deployment interface covers top 5 workload patterns
+        failure_signal: Platform team Slack channel remains the primary deployment support channel
+    - problem: Multi-tenancy boundaries are unclear, causing resource contention and security concerns
+      why: 'Multiple teams share clusters without clear isolation boundaries. Noisy neighbors consume excessive resources, namespace
+        sprawl makes management difficult, and RBAC policies are either too permissive or too restrictive.
+
+        '
+      agent: pa-runtime-agent
+      agent_response: 'Designs a multi-tenancy model with namespace strategy, resource quotas, network policies, and RBAC templates.
+        Produces a tenancy framework that gives teams autonomy within their boundary while protecting shared cluster resources and
+        enforcing security baselines.
+
+        '
+      success_signal:
+        metric: Cluster multi-tenancy isolation effectiveness
+        target: Zero cross-tenant resource contention incidents and clear RBAC boundaries for all teams
+        leading_indicator: Namespace strategy document with resource quotas and network policies defined per team
+        failure_signal: Resource contention or unauthorized cross-namespace access incidents continue
+  escalation_triggers:
+  - Runtime architecture decision impacts production workload availability
+  - Service mesh migration risk exceeds acceptable threshold
+  - Cluster scaling requirements exceed current capacity planning
+  prompt_registry:
+    pa-runtime-assessment:
+      description: Assess current runtime platform maturity and workload patterns
+      source: prompts/tasks.yaml#runtime.assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: current_runtime
+        type: object
+      outputs:
+      - title: runtime_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - infrastructure_inventory
+        - workload_patterns
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - technology_trends
+        - vendor_landscape
+        priority: enrichment
+    pa-cluster-architecture-design:
+      description: Design Kubernetes cluster architecture with multi-tenancy and namespace strategy
+      source: prompts/tasks.yaml#runtime.cluster_architecture
+      inputs:
+      - title: workload_requirements
+        type: object
+      - title: runtime_assessment
+        type: object
+      outputs:
+      - title: cluster_architecture
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - team_structure
+        - security_requirements
+        priority: critical
+    pa-service-mesh-design:
+      description: Design service mesh for inter-service communication, security, and observability
+      source: prompts/tasks.yaml#runtime.service_mesh
+      inputs:
+      - title: cluster_architecture
+        type: object
+      - title: workload_requirements
+        type: object
+      outputs:
+      - title: service_mesh_design
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - vendor_landscape
+        - technology_trends
+        priority: enrichment
+  boundaries:
+  - Runtime platform design only, does not define platform strategy or governance
+  - Does not design CI/CD pipelines or container build processes
+  - Does not manage cloud infrastructure provisioning
+  - Does not define API management or gateway configurations
+  permissions:
+  - Design Kubernetes cluster architectures and multi-tenancy models
+  - Evaluate and design service mesh configurations
+  - Create runtime abstraction layers for application teams
+  - Design resource management, autoscaling, and quota strategies
+  - Produce runtime security designs covering pod security and network policies
+  guardrails:
+    input_validation:
+    - Reject cluster designs without workload profile or team structure
+    - Reject service mesh evaluation without inter-service communication patterns
+    output_checks:
+    - All architectures must specify abstraction boundary between platform and application teams
+    - Multi-tenancy designs must include resource quota and network policy specifications
+    - Service mesh recommendations must include migration path and rollback criteria
+    - Cluster sizing must include scaling assumptions and capacity thresholds
+    signal_validation:
+    - Never assume workload patterns without usage data
+    - Never recommend service mesh without analyzing communication patterns
+    - Add [NEEDS VERIFICATION] when workload projections are estimates
+    - Distinguish between tested and theoretical cluster configurations
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - container-orchestration
+      - service-mesh
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-kubernetes.yaml
+      description: Kubernetes architecture, multi-tenancy, namespace strategy, RBAC, resource management
+    - path: references/expertise-service-mesh.yaml
+      description: Istio, Linkerd, Cilium, traffic management, mTLS, observability integration
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: pa-specialist-agent
+      description: Platform Architect orchestrator routes runtime requests
+    - type: event
+      source: cluster_metrics
+      condition: resource_contention.severity >= HIGH
+      description: Resource contention triggers automatic cluster assessment
+    outputs:
+    - type: parent_return
+      target: pa-specialist-agent
+      payload:
+      - cluster_architecture
+      - service_mesh_design
+      - abstraction_layer
+      description: Full runtime report back to orchestrator for aggregation
+    - type: trigger_agent
+      target: pa-infrastructure-agent
+      condition: cluster_architecture.requires_infrastructure_changes == true
+      payload:
+      - cluster_architecture
+      - infrastructure_requirements
+      description: Cluster architecture changes trigger infrastructure provisioning updates
+    - type: notify_human
+      condition: runtime.production_impact_risk >= HIGH
+      channel: alert
+      description: Production impact risks surface for human review
+    dependencies: []

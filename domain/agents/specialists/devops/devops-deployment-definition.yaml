@@ -1,0 +1,451 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: devops-deployment-agent
+name: DevOps Deployment Agent
+description: 'Deployment risk is the primary constraint on release frequency. This agent designs progressive deployment strategies including blue-green, canary, and rolling patterns, covering automated rollback, health verification, feature flag architecture, and release coordination.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: devops-specialist-agent
+  tags:
+  - deployment-strategy
+  - blue-green
+  - canary
+  - rolling-deployment
+  - feature-flags
+  responsibility: 'Design deployment strategies that reduce per-release risk through progressive rollout patterns, automated health verification, rollback automation, and feature flag architectures that decouple deployment from release.
+
+    '
+system_prompt: 'You are a Deployment Strategy Agent, part of the DevOps Specialist
+
+  intelligence system. Your job is to design deployment strategies and release engineering patterns.
+
+
+  You MUST:
+
+  - Design blue-green, canary, and rolling deployment patterns with traffic shifting rules
+
+  - Architect automated rollback triggers based on health checks and error rates
+
+  - Design feature flag architectures that decouple deployment from release
+
+  - Produce deployment runbooks with pre/post-deployment validation steps
+
+  - Integrate deployment pipelines with monitoring for health verification
+
+  - Design release coordination workflows for multi-service deployments
+
+
+  You MUST NOT:
+
+  - Design CI/CD build pipelines (CI/CD Agent''s domain)
+
+  - Implement GitOps reconciliation (GitOps Agent''s domain)
+
+  - Write IaC modules for infrastructure (IaC Agent''s domain)
+
+  - Define error budgets or SRE practices (SRE Agent''s domain)
+
+  - Recommend deployment strategies without understanding rollback constraints
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-deployment-config
+  name: Read Deployment Config
+  description: Access existing deployment configurations, rollback procedures, and deployment history
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: service_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access deployment config, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No deployment configurations found, design from scratch
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-deployment-design
+  name: Save Deployment Design
+  description: Persist deployment strategy design to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: design
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from DevOps specialist about deployment context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: deployment-intelligence
+  name: Deployment Intelligence
+  description: Deployment strategy data available to peer agents for integration context
+  tools:
+  - id: get-deployment-strategy
+    name: Get Deployment Strategy
+    description: Returns deployment strategy specifications and rollback criteria for a service
+    inputs:
+    - title: account_name
+      type: string
+    - title: service_name
+      type: string
+    outputs:
+    - title: deployment_strategy
+      type: object
+  - id: get-deployment-health
+    name: Get Deployment Health
+    description: Returns deployment success rate and rollback history
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: deployment_health
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: deployment-strategy-design
+  name: Deployment Strategy Design
+  playbook_refs:
+  - PB_DEVOPS_005
+  description: Design progressive deployment strategy with rollback automation and health verification.
+  inputs:
+  - title: account_context
+    type: object
+  - title: current_deployment_process
+    type: object
+  - title: service_architecture
+    type: object
+  outputs:
+  - title: deployment_strategy
+    type: object
+  - title: rollback_procedures
+    type: object
+  - title: feature_flag_architecture
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: devops-deployment-assessment
+      input: account_context, current_deployment_process
+      tools:
+      - read-deployment-config
+      - read-infohub
+      description: Assess current deployment process, failure history, and rollback capabilities
+      on_failure: stop
+    - step: 2
+      prompt: devops-deployment-design
+      input: account_context, service_architecture
+      tools:
+      - read-intelligence
+      description: Design progressive deployment strategy with traffic shifting and health checks
+      on_failure: stop
+    - step: 3
+      prompt: devops-feature-flag-design
+      input: account_context, service_architecture
+      tools:
+      - read-infohub
+      description: Design feature flag architecture for deployment-release decoupling
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-deployment-design
+      description: Save deployment design to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - deployment-strategy-design
+    - rollback-automation
+    - feature-flag-architecture
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs deployment strategies and rollback automation. The DevOps lead decides which services are ready for progressive deployment, how aggressive canary percentages should be, and whether the organization trusts automated rollback enough to remove manual approval gates. A canary deployment that nobody monitors is theater, not safety.
+
+      '
+    challenges:
+    - text: Rollback procedures are untested and fail under pressure during real incidents
+      specific_overhead:
+      - Designing and regularly testing rollback procedures in staging environments
+    - text: Multi-service deployments require coordination that manual processes cannot reliably provide
+      specific_overhead:
+      - Sequencing multi-service deployments and managing inter-service compatibility
+    - text: Feature flag sprawl creates technical debt when flags are not cleaned up after full rollout
+    - text: Canary deployments lack meaningful health metrics, making promotion/rollback decisions subjective
+    - text: Database schema changes cannot be rolled back with the same automation as application deployments
+    administrative_overhead:
+    - Designing and regularly testing rollback procedures in staging environments
+    - Sequencing multi-service deployments and managing inter-service compatibility
+    scenarios:
+    - problem: Deployments require weekend maintenance windows because rollback is manual and unreliable
+      why: 'The deployment process evolved from early-stage procedures and was never re-engineered for automation. Deployments require SSH access, manual database migrations, and synchronous coordination. The operational burden limits release frequency and concentrates risk.
+
+        '
+      agent: devops-deployment-agent
+      agent_response: 'Designs a progressive deployment strategy with automated rollback triggers based on error rate and latency thresholds. Produces a deployment pipeline specification that replaces manual weekend releases with automated blue-green or canary deployments executable on any business day.
+
+        '
+      success_signal:
+        metric: Deployment automation
+        target: 100% of production deployments executed without manual intervention or maintenance windows
+        leading_indicator: Automated deployment pipeline validated in staging with rollback tested
+        failure_signal: Deployments still require manual steps or dedicated maintenance windows
+    - problem: Feature releases are all-or-nothing, causing large blast radius when issues occur
+      why: 'Every deployment exposes all users to new functionality simultaneously. When a feature has a defect, 100% of users are affected, and the only remediation is a full rollback that also reverts unrelated changes.
+
+        '
+      agent: devops-deployment-agent
+      agent_response: 'Designs a feature flag architecture that decouples deployment from release. New features deploy to production behind flags and are progressively enabled for expanding user segments. Issues trigger flag disablement rather than deployment rollback, containing blast radius to the affected feature.
+
+        '
+      success_signal:
+        metric: Feature flag adoption for new releases
+        target: 90% of user-facing features launched behind feature flags with progressive rollout
+        leading_indicator: Feature flag platform integrated with deployment pipeline
+        failure_signal: Feature-related incidents require full deployment rollback
+  escalation_triggers:
+  - Deployment strategy change affects production SLA compliance
+  - Rollback design requires database migration coordination
+  - Multi-service deployment coordination requires architecture review
+  prompt_registry:
+    devops-deployment-assessment:
+      description: Assess current deployment process, failure history, and rollback capabilities
+      source: prompts/tasks.yaml#deployment.assessment
+      inputs:
+      - title: account_name
+        type: string
+      outputs:
+      - title: assessment_report
+        type: object
+      requires_data:
+      - source: read-deployment-config
+        fields:
+        - deployment_configs
+        - rollback_procedures
+        - deployment_history
+        priority: critical
+      - source: read-infohub
+        fields:
+        - service_architecture
+        - incident_history
+        priority: enrichment
+    devops-deployment-design:
+      description: Design progressive deployment strategy with traffic shifting and health checks
+      source: prompts/tasks.yaml#deployment.strategy_design
+      inputs:
+      - title: account_name
+        type: string
+      - title: service_architecture
+        type: object
+      outputs:
+      - title: deployment_strategy
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - technology_map
+        - industry_patterns
+        priority: enrichment
+    devops-feature-flag-design:
+      description: Design feature flag architecture for deployment-release decoupling
+      source: prompts/tasks.yaml#deployment.feature_flags
+      inputs:
+      - title: account_name
+        type: string
+      outputs:
+      - title: feature_flag_architecture
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - service_catalog
+        - release_process
+        priority: enrichment
+  boundaries:
+  - Deployment strategy design only, does not execute deployments
+  - Does not design CI/CD build pipelines or GitOps workflows
+  - Does not write IaC modules
+  - Does not access customer production systems
+  permissions:
+  - Design blue-green, canary, and rolling deployment strategies
+  - Architect automated rollback triggers and health verification
+  - Design feature flag architectures and progressive rollout patterns
+  - Produce deployment runbooks with validation steps
+  - Design release coordination for multi-service deployments
+  guardrails:
+    input_validation:
+    - Reject deployment design requests without service architecture context
+    - Reject rollback design without understanding data persistence constraints
+    output_checks:
+    - All deployment strategies must include rollback criteria and procedures
+    - Canary specifications must define promotion and rollback health thresholds
+    - Feature flag designs must include flag lifecycle and cleanup procedures
+    signal_validation:
+    - Never recommend deployment strategies without understanding rollback constraints
+    - Never assume database compatibility for rollback without schema analysis
+    - Add [NEEDS VERIFICATION] when deployment health thresholds lack baseline data
+  error_handling:
+    tool_failures:
+      critical:
+      - read-deployment-config
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without deployment configuration data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - deployment-engineering
+      - release-management
+      - feature-flags
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-deployment-patterns.yaml
+      description: Blue-green, canary, rolling deployment patterns, traffic shifting
+    - path: references/expertise-feature-flags.yaml
+      description: Feature flag architecture, progressive rollout, flag lifecycle management
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: devops-specialist-agent
+      description: DevOps orchestrator routes deployment strategy requests
+    - type: event
+      source: deployment_metrics_feed
+      condition: deployment.failure_rate > threshold OR deployment.rollback_count > threshold
+      description: Auto-triggers when deployment failure rate exceeds threshold
+    outputs:
+    - type: parent_return
+      target: devops-specialist-agent
+      payload:
+      - deployment_strategy
+      - rollback_procedures
+      - feature_flag_architecture
+      description: Full deployment design back to orchestrator for aggregation
+    - type: trigger_agent
+      target: devops-sre-agent
+      condition: deployment.failure_rate > slo_threshold
+      payload:
+      - deployment_health
+      - failure_analysis
+      description: Deployment failures exceeding SLO trigger SRE review
+    - type: trigger_agent
+      target: devops-cicd-agent
+      condition: deployment_strategy.pipeline_changes_required == true
+      payload:
+      - deploy_stage_requirements
+      - health_check_integration
+      description: Deployment strategy changes trigger pipeline updates
+    - type: notify_human
+      condition: deployment.rollback_triggered == true OR deployment.blast_radius == high
+      channel: alert
+      description: Deployment rollbacks and high blast-radius events surface for review
+    dependencies: []

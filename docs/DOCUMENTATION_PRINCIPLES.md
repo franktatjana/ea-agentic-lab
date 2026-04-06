@@ -340,6 +340,25 @@ Before saving any artifact (meeting note, decision, risk, action, canvas), verif
 
 ---
 
+## Documentation browser (`/docs`)
+
+Markdown under `docs/` is served by the web app at `/docs` (see ADR-005). To keep the tree navigable and searchable by title:
+
+- **Prefer links that stay under `docs/`** so relative links resolve inside the browser (cross-links to `domain/` or `vault/` should go through [reference/repository-paths.md](reference/repository-paths.md) or plain path text, not `../domain/...` markdown links).
+- **YAML frontmatter** (optional but recommended on index pages and new guides):
+
+| Field | Purpose |
+|-------|---------|
+| `title` | Sidebar and search label in the docs UI |
+| `order` | Sort hint within a folder (lower first) |
+| `audience` | `practitioner`, `developer`, or `both` (for humans; machines can use `summary`) |
+| `summary` | One line; use for scannable indexes and future full-text search |
+| `related` | List of paths to sibling docs (informational; not auto-rendered yet) |
+
+**Spine:** New readers should be able to start at [START_HERE.md](START_HERE.md) and reach handbooks, guides, and architecture in a deliberate order.
+
+---
+
 ## References
 
 - [Beyond Human-Readable: Writing Documentation for AI](https://www.linkedin.com/pulse/beyond-human-readable-writing-documentation-ai-sivakumar-yepuru-awmbe/) - Sivakumar Yepuru

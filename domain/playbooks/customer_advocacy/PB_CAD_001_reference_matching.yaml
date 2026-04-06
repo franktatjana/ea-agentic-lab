@@ -1,0 +1,454 @@
+# disclaimer
+# This playbook is part of a reference architecture
+# framework. It defines agent behavior specifications,
+# not production-ready operational procedures.
+# Framework references (advocate matching, fatigue
+# management, etc.) are industry-standard methodologies
+# cited for educational context.
+
+# PLAYBOOK: Reference Matching for Active Deals
+# Framework operationalization for AI agents
+
+# ==============================================================================
+# PLAYBOOK METADATA
+# ==============================================================================
+playbook_id: "PB_CAD_001"
+framework_name: "Customer Reference Matching"
+framework_source: "Customer Advocacy Best Practices + Deal Support Methodology"
+intended_agent_role: "cad-agent"
+secondary_agents: ["AE Agent", "CA Agent", "VE Agent"]
+playbook_mode: "GENERATIVE"
+playbook_category: "pursuit_sales_support"
+
+primary_objective: "Match qualified customer advocates to active deal reference requests by industry, use case, deployment scale, and persona, delivering ranked recommendations with talking points within 48 hours while protecting advocate health"
+
+vault_routing:
+  primary_vault: "Internal Account Hub"
+  rationale: "Reference match reports contain advocate names, participation history, fatigue scores, and deal-specific talking points that are vendor-internal. Sharing advocate details externally would violate consent boundaries."
+  secondary_outputs:
+    - vault: "Customer InfoHub"
+      artifact: "Sanitized reference availability confirmation shared with requesting AE for prospect coordination"
+    - vault: "Global Knowledge Vault"
+      artifact: "Anonymized matching patterns and advocate utilization trends (quarterly aggregation)"
+
+flow_bindings:
+  description: "Maps playbook phases to the agent flows that execute them"
+  bindings:
+    - phase: "Request Intake and Prioritization"
+      agent: cad-agent
+      flow: reference-request-intake
+      context: "Parse deal context, extract matching dimensions, assign urgency tier"
+    - phase: "Advocate Pool Screening"
+      agent: cad-agent-proactive
+      flow: advocate-pool-scan
+      context: "Filter advocate registry by consent status, availability, fatigue score, and matching dimensions"
+    - phase: "Multi-Dimension Matching"
+      agent: cad-agent-analytical
+      flow: reference-matching
+      context: "Score and rank advocates across industry, use case, deployment scale, persona, and geography"
+    - phase: "Fatigue and Availability Check"
+      agent: cad-agent-proactive
+      flow: advocate-health-check
+      context: "Verify participation thresholds, flag at-risk advocates, enforce max 4 activities per quarter"
+    - phase: "Talking Points Generation"
+      agent: cad-agent
+      flow: talking-points-assembly
+      context: "Generate deal-specific talking points, highlight shared context between advocate and prospect"
+    - phase: "Match Delivery and Tracking"
+      agent: cad-agent
+      flow: match-fulfillment
+      context: "Deliver ranked matches to requesting AE, track fulfillment time and outcome"
+
+when_not_to_use:
+  - "Reference request is for a customer not yet in the advocate program (route to recruitment)"
+  - "Customer has an open escalation or at-risk health score (escalate to CA Agent first)"
+  - "Request is for a logo-only mention, not a live reference conversation"
+  - "Requesting AE has not provided deal context (industry, use case, persona)"
+  - "Deal is in early discovery with no defined technical requirements"
+
+raci:
+  responsible:
+    role: "CAD Agent"
+    agent: "cad_agent"
+    description: "Screens advocate pool, scores matches across dimensions, generates talking points, and delivers ranked reference recommendations"
+
+  accountable:
+    role: "Customer Advocacy Manager"
+    human_required: true
+    description: "Approves reference matches for strategic accounts and high-profile advocates, ensures advocate experience quality"
+    approval_actions:
+      - "approve"
+      - "request_revision"
+      - "override_match"
+
+  consulted:
+    - role: "AE Agent"
+      on_steps: ["request_intake", "deal_context_enrichment"]
+    - role: "CA Agent"
+      on_steps: ["advocate_health_verification", "customer_sentiment_check"]
+    - role: "VE Agent"
+      on_steps: ["technical_alignment_validation"]
+
+  informed:
+    - role: "AE Agent"
+      notify_on: ["match_delivered", "no_match_available"]
+    - role: "CA Agent"
+      notify_on: ["advocate_activated", "fatigue_threshold_approaching"]
+    - role: "Sales Leadership"
+      notify_on: ["strategic_deal_reference_gap"]
+
+# ==============================================================================
+# TRIGGER CONDITIONS
+# ==============================================================================
+trigger_conditions:
+  automatic:
+    - event: "reference_request_submitted"
+      description: "AE or sales team submits a reference request through the system"
+
+    - event: "deal_stage_advance"
+      signal_filter: "stage IN ['evaluation', 'negotiation', 'procurement']"
+      description: "Deal advances to a stage where peer validation typically accelerates close"
+
+    - event: "competitive_deal_flagged"
+      description: "Deal flagged as competitive displacement, reference becomes urgent"
+      condition: "$.deal.competitive_threat == true"
+
+    - event: "prospect_requests_reference"
+      description: "Prospect explicitly asks to speak with an existing customer"
+
+  manual:
+    - "AE requests reference match: '/reference match {deal_id}'"
+    - "Sales leadership requests reference for strategic pursuit"
+    - "Customer success identifies referenceable customer for proactive match"
+
+  conditional:
+    - condition: "$.deal.stage >= 'evaluation' AND $.deal.reference_attached == false"
+      description: "Deal in evaluation or later without an attached reference"
+
+    - condition: "$.deal.competitive_threat == true AND $.deal.stage >= 'discovery'"
+      description: "Competitive deal in any stage past discovery needs proactive reference"
+
+# ==============================================================================
+# REQUIRED INPUTS
+# ==============================================================================
+required_inputs:
+  mandatory:
+    - artifact: "Reference request with deal context (deal_id, account, stage)"
+    - artifact: "Target industry or vertical"
+    - artifact: "Primary use case or solution area"
+    - artifact: "Buyer persona (technical, business, executive)"
+
+  optional:
+    - artifact: "Deployment scale (SMB, mid-market, enterprise, global)"
+      use: "Narrow matches to similar-scale deployments"
+    - artifact: "Geography preference"
+      use: "Match advocates in same region or timezone for scheduling"
+    - artifact: "Competitive context (incumbent vendor being displaced)"
+      use: "Prioritize advocates who migrated from the same competitor"
+    - artifact: "Specific product or feature emphasis"
+      use: "Filter for advocates using specific capabilities"
+    - artifact: "Timeline urgency (standard, urgent, critical)"
+      use: "Adjust prioritization and expand search radius for urgent requests"
+
+  minimum_data_threshold:
+    - "Deal ID and account name provided"
+    - "At least industry OR use case specified"
+    - "Buyer persona identified"
+
+# ==============================================================================
+# KEY QUESTIONS TO EXTRACT
+# ==============================================================================
+key_questions:
+  deal_context:
+    - "What industry and sub-vertical is the prospect in?"
+    - "What is the primary use case the prospect is evaluating?"
+    - "What deployment scale is the prospect considering (users, data volume, geographic scope)?"
+    - "Who is the primary buyer persona (CISO, CTO, VP Engineering, line-of-business leader)?"
+    - "Is there a competitive displacement in play, and if so, which vendor?"
+    - "What is the deal stage and expected close date?"
+
+  matching_requirements:
+    - "Does the prospect need a reference in the same regulatory environment (HIPAA, PCI, GDPR)?"
+    - "Does the reference need to speak to migration experience from a specific platform?"
+    - "Is the prospect looking for outcomes at a similar scale or complexity?"
+    - "Does the prospect prefer a reference in the same geography or timezone?"
+    - "Are there specific metrics the prospect wants to hear about (ROI, time-to-value, reduction percentages)?"
+
+  advocate_readiness:
+    - "Which advocates have active consent for reference calls?"
+    - "Which advocates are below their quarterly participation threshold?"
+    - "Which advocates have recent positive engagement signals (NPS, support satisfaction, renewal)?"
+    - "Are any top-match advocates currently unavailable (travel, quarter-end, personal leave)?"
+
+  fulfillment_logistics:
+    - "What is the preferred reference format (live call, written quote, video testimonial, site visit)?"
+    - "What is the timeline for the reference activity?"
+    - "Does the AE need prep materials or talking points for the advocate?"
+
+# ==============================================================================
+# DECISION LOGIC
+# ==============================================================================
+decision_logic:
+  rules:
+    # Standard reference match with strong candidates
+    - id: "strong_match_available"
+      condition: "matching_advocates.count >= 3 AND top_match.score >= 0.8"
+      severity: "LOW"
+      output_type: "Reference Match Report"
+      decision:
+        title: "Strong reference matches available for {deal_id}"
+        context: "Multiple qualified advocates match the deal requirements"
+        recommendation: "Deliver top 3 ranked matches with talking points"
+        actions:
+          - "Generate ranked match list with scores and rationale"
+          - "Prepare deal-specific talking points per advocate"
+          - "Verify top match availability before delivery"
+          - "Log match against deal for fulfillment tracking"
+
+    # Limited matches, expand search
+    - id: "limited_match_pool"
+      condition: "matching_advocates.count < 3 AND matching_advocates.count >= 1"
+      severity: "MEDIUM"
+      output_type: "Reference Match Report + Coverage Gap Alert"
+      decision:
+        title: "Limited reference matches for {deal_id}, expanding criteria"
+        context: "Fewer than 3 advocates match all dimensions, relaxing secondary criteria"
+        recommendation: "Deliver available matches and flag coverage gap for recruitment"
+        actions:
+          - "Deliver best available matches with dimension gaps noted"
+          - "Relax geography and scale dimensions to find additional candidates"
+          - "Create coverage gap alert for advocate recruitment pipeline"
+          - "Suggest alternative proof points (case studies, quotes) to supplement"
+
+    # No matching advocates
+    - id: "no_match_available"
+      condition: "matching_advocates.count == 0"
+      severity: "HIGH"
+      output_type: "Coverage Gap Alert + Alternative Recommendations"
+      decision:
+        title: "No reference matches for {deal_id}, critical coverage gap"
+        context: "No advocates in the pool match the required dimensions"
+        recommendation: "Escalate coverage gap and provide alternative proof points"
+        actions:
+          - "Notify AE that no live reference is available for this combination"
+          - "Provide alternative proof points: case studies, analyst reports, peer review excerpts"
+          - "Create urgent recruitment target for the missing segment"
+          - "Escalate to Customer Advocacy Manager for strategic intervention"
+
+    # Top match has fatigue risk
+    - id: "top_match_fatigue_risk"
+      condition: "top_match.quarterly_activities >= 3"
+      severity: "MEDIUM"
+      output_type: "Reference Match Report + Fatigue Warning"
+      decision:
+        title: "Top reference match for {deal_id} approaching fatigue threshold"
+        context: "Best-matched advocate has participated in 3+ activities this quarter"
+        recommendation: "Offer alternative advocates first, escalate to manager if AE insists on top match"
+        actions:
+          - "Present alternative advocates with comparable profiles"
+          - "Flag fatigue risk with participation history"
+          - "If AE requests the fatigued advocate, require manager approval"
+          - "Schedule recognition activity for the over-utilized advocate"
+
+    # Competitive displacement deal
+    - id: "competitive_reference_needed"
+      condition: "deal.competitive_threat == true AND competitor_migration_advocates.count >= 1"
+      severity: "HIGH"
+      output_type: "Competitive Reference Match"
+      decision:
+        title: "Competitive reference match for {deal_id} against {competitor}"
+        context: "Prospect is displacing a competitor, migration reference needed"
+        recommendation: "Prioritize advocates who migrated from the same competitor"
+        actions:
+          - "Filter for advocates with documented migration from {competitor}"
+          - "Highlight migration-specific talking points (timeline, challenges, outcomes)"
+          - "Prepare competitive differentiation context for the reference call"
+          - "Notify CI Agent of competitive reference engagement for tracking"
+
+    # Urgent request with short timeline
+    - id: "urgent_reference_request"
+      condition: "request.urgency == 'critical' AND deal.close_date_days <= 14"
+      severity: "HIGH"
+      output_type: "Expedited Reference Match"
+      decision:
+        title: "Urgent reference needed for {deal_id} closing in {close_date_days} days"
+        context: "Deal closing imminently, reference needed to unblock procurement"
+        recommendation: "Expedite matching, expand criteria, engage manager for direct outreach"
+        actions:
+          - "Expand matching radius to adjacent industries and use cases"
+          - "Check advocate availability for same-week scheduling"
+          - "Engage Customer Advocacy Manager for direct outreach if needed"
+          - "Offer written testimonial or video as faster alternatives to live call"
+
+# ==============================================================================
+# EXPECTED OUTPUTS
+# ==============================================================================
+expected_outputs:
+  primary_artifact:
+    path: "{realm}/{node}/internal-infohub/advocacy/reference_match_{deal_id}_{date}.md"
+    format: "markdown"
+    sections:
+      - request_summary
+      - ranked_matches
+      - talking_points
+      - fatigue_assessment
+      - alternative_proof_points
+      - fulfillment_tracking
+
+    schema:
+      request_summary:
+        deal_id: "string"
+        account: "string"
+        stage: "string"
+        industry: "string"
+        use_case: "string"
+        persona: "string"
+        urgency: "enum[standard|urgent|critical]"
+        competitive_context: "string|null"
+
+      ranked_matches:
+        type: "array"
+        items:
+          rank: "integer"
+          advocate_id: "string"
+          advocate_company: "string"
+          match_score: "float (0.0-1.0)"
+          dimension_scores:
+            industry: "float"
+            use_case: "float"
+            scale: "float"
+            persona: "float"
+            geography: "float"
+          consent_status: "enum[active|pending|expired]"
+          quarterly_activities: "integer"
+          fatigue_risk: "enum[LOW|MEDIUM|HIGH]"
+          last_activity_date: "date"
+          maturity_tier: "enum[new|established|champion|ambassador]"
+          match_rationale: "string"
+
+      talking_points:
+        type: "array"
+        items:
+          advocate_id: "string"
+          shared_context: "array[string] (commonalities between advocate and prospect)"
+          outcome_highlights: "array[string] (metrics and results to emphasize)"
+          topics_to_avoid: "array[string] (sensitive areas per advocate preferences)"
+          suggested_questions: "array[string] (questions prospect should ask)"
+
+      fatigue_assessment:
+        advocates_at_threshold: "integer"
+        advocates_over_threshold: "integer"
+        pool_utilization_distribution: "string (summary of even vs. concentrated usage)"
+        recommendations: "array[string]"
+
+  coverage_gap_alerts:
+    path: "{realm}/advocacy/coverage_gaps/"
+    create_if: "matching_advocates.count < 3"
+    template: "Coverage gap with segment details and recruitment priority"
+
+  fulfillment_tracking:
+    path: "{realm}/advocacy/fulfillment/"
+    create_if: "always"
+    fields:
+      - request_id: "string"
+      - request_date: "date"
+      - match_delivered_date: "date|null"
+      - fulfillment_hours: "number"
+      - outcome: "enum[fulfilled|partial|no_match|cancelled]"
+
+  notifications:
+    - recipient: "AE Agent"
+      condition: "always"
+      message: "Reference match report ready for {deal_id}: {match_count} advocates matched"
+
+    - recipient: "CA Agent"
+      condition: "advocate_activated == true"
+      message: "Advocate {advocate_id} activated for reference call on {deal_id}"
+
+    - recipient: "Customer Advocacy Manager"
+      condition: "no_match_available == true OR urgent_request == true"
+      message: "Reference gap or urgent request for {deal_id} requires intervention"
+
+    - recipient: "Sales Leadership"
+      condition: "strategic_deal == true AND no_match_available == true"
+      message: "Strategic deal {deal_id} has no matching customer references"
+
+# ==============================================================================
+# STOP CONDITIONS
+# ==============================================================================
+stop_conditions:
+  escalate_to_human:
+    - condition: "advocate_has_open_escalation"
+      reason: "Matched advocate has an active support escalation or at-risk health score"
+      action: "Do not activate advocate, escalate to CA Agent for health assessment first"
+
+    - condition: "advocate_consent_expired"
+      reason: "Best match has expired consent, cannot contact without renewal"
+      action: "Flag for consent renewal outreach by Customer Advocacy Manager"
+
+    - condition: "all_matches_fatigued"
+      reason: "All matching advocates are at or above quarterly participation threshold"
+      action: "Escalate to manager for pool expansion or threshold override decision"
+
+    - condition: "deal_involves_sensitive_customer"
+      reason: "Reference request involves a customer with NDA restrictions or PR sensitivity"
+      action: "Route to Customer Advocacy Manager and Legal for approval"
+
+  insufficient_data:
+    - "No industry or use case specified in the reference request"
+    - "Deal context missing (no stage, no account, no persona)"
+    - "Advocate registry data stale (last sync > 30 days)"
+
+  ambiguity_signals:
+    - "Multiple conflicting persona requirements in the request"
+    - "Unclear whether request is for live reference or written testimonial"
+    - "AE requests a specific advocate by name without matching rationale"
+
+  human_judgment_required:
+    - "Selecting between equally-scored advocates with different strengths"
+    - "Deciding whether to activate a high-value advocate for a mid-tier deal"
+    - "Evaluating whether an advocate's recent experience is still relevant"
+    - "Overriding fatigue threshold for a critical deal"
+
+# ==============================================================================
+# VALIDATION CHECKS
+# ==============================================================================
+validation_checks:
+  pre_execution:
+    - "Reference request contains deal_id and at least two matching dimensions"
+    - "Advocate registry is current (last sync within 7 days)"
+    - "Requesting AE has active deal in pipeline system"
+
+  post_execution:
+    - "At least one match delivered OR coverage gap alert created"
+    - "All recommended advocates have active consent status"
+    - "No recommended advocate exceeds quarterly participation threshold without manager override"
+    - "Talking points are deal-specific, not generic templates"
+    - "Fulfillment time logged against 48-hour SLA"
+
+  output_quality:
+    - "Match scores reflect actual dimension alignment, not inflated estimates"
+    - "Fatigue risk accurately reflects current quarter participation count"
+    - "Talking points reference specific advocate outcomes, not generic value statements"
+    - "Alternative proof points provided when live reference pool is thin"
+    - "Coverage gap alerts include specific recruitment criteria for the missing segment"
+
+# ==============================================================================
+# EXECUTION METADATA
+# ==============================================================================
+estimated_execution_time: "15-30 minutes (agent matching) + 1-4 hours (advocate outreach and scheduling)"
+frequency: "Per reference request (typically 15-30 per week across the portfolio)"
+human_review_required: true
+approval_workflow:
+  - reviewer: "CAD Agent"
+    approval_gate: "Validate match quality, fatigue scores, and consent status"
+  - reviewer: "Customer Advocacy Manager"
+    condition: "strategic_deal == true OR advocate_tier == 'ambassador'"
+    approval_gate: "Approve activation of high-value advocates for strategic pursuits"
+  - reviewer: "CA Agent"
+    condition: "advocate_health_score < 70"
+    approval_gate: "Confirm advocate is in good standing before activation"
+
+last_updated: "2026-03-26"
+version: "1.0"
+status: "draft"

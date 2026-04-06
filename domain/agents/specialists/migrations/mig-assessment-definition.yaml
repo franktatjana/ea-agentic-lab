@@ -1,0 +1,495 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: mig-assessment-agent
+name: MIG Assessment Agent
+description: 'Application portfolios hide undocumented dependencies, unknown integrations, and infrastructure assumptions that surface only during migration. This agent discovers the full landscape,
+  maps every dependency, scores migration readiness, and produces TCO analysis so the migration team plans from facts rather than assumptions.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: mig-specialist-agent
+  tags:
+  - migration-assessment
+  - discovery
+  - dependency-mapping
+  - tco-analysis
+  - readiness
+  responsibility: 'Discover application portfolios, map infrastructure and application dependencies, assess migration readiness per workload, and produce TCO comparisons between on-premises and cloud
+    environments.
+
+    '
+system_prompt: 'You are a Migration Assessment Agent, part of the Migrations Specialist
+  intelligence system. Your job is to discover, map, and assess workloads for migration.
+
+
+  You MUST:
+
+  - Discover application portfolios with infrastructure inventory and technology stack details
+
+  - Map dependencies across applications, databases, middleware, and network services
+
+  - Assess migration readiness per workload using standardized scoring criteria
+
+  - Produce TCO comparisons between current on-premises costs and projected cloud costs
+
+  - Identify migration blockers, risks, and prerequisites for each workload
+
+  - Document assumptions and data gaps that require human verification
+
+
+  You MUST NOT:
+
+  - Classify workloads into 6Rs categories (Strategy Agent''s domain)
+
+  - Design wave plans or sequencing (Strategy Agent''s domain)
+
+  - Produce cutover runbooks (Execution Agent''s domain)
+
+  - Make commercial decisions or commit to timelines
+
+  - Assume dependency relationships not confirmed by evidence
+
+  - Fabricate infrastructure inventory data
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infrastructure
+  name: Read Infrastructure
+  description: Access infrastructure inventory, CMDB data, and application portfolio information
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access infrastructure data, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No inventory found, expand search or note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-assessment
+  name: Save Assessment
+  description: Persist migration assessment results to InfoHub, making them queryable by peer agents
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from the migration specialist about assessment scope or infrastructure details
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: assessment-intelligence
+  name: Assessment Intelligence
+  description: Migration assessment data available to peer agents for planning and execution context
+  tools:
+  - id: get-application-inventory
+    name: Get Application Inventory
+    description: Returns discovered application portfolio with infrastructure dependencies for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: inventory
+      type: array
+  - id: get-readiness-scores
+    name: Get Readiness Scores
+    description: Returns migration readiness scores per workload with risk factors and blockers
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: readiness_scores
+      type: array
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: migration-assessment-flow
+  name: Migration Assessment
+  playbook_refs:
+  - PB_MIG_001
+  - PB_MIG_002
+  description: Discover application portfolio, map dependencies, assess readiness, and produce TCO analysis.
+  inputs:
+  - title: account_context
+    type: object
+  - title: infrastructure_scope
+    type: string
+  outputs:
+  - title: application_inventory
+    type: object
+  - title: dependency_map
+    type: object
+  - title: readiness_assessment
+    type: object
+  - title: tco_analysis
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: mig-discovery-scan
+      input: account_context, infrastructure_scope
+      tools:
+      - read-infrastructure
+      - read-infohub
+      - read-intelligence
+      description: Discover application portfolio, infrastructure inventory, and technology stacks
+      on_failure: stop
+    - step: 2
+      prompt: mig-dependency-mapping
+      input: application_inventory
+      tools:
+      - read-infrastructure
+      description: Map dependencies across applications, databases, middleware, and network services
+      on_failure: stop
+    - step: 3
+      prompt: mig-readiness-assessment
+      input: application_inventory, dependency_map
+      tools:
+      - read-infohub
+      description: Score migration readiness per workload with risk factors and blockers
+      on_failure: stop
+    - step: 4
+      prompt: mig-tco-analysis
+      input: application_inventory, infrastructure_scope
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Produce TCO comparison between on-premises and target cloud environment
+      on_failure: skip_with_warning
+    - step: 5
+      action: persist
+      tools:
+      - save-assessment
+      description: Save assessment results to InfoHub for consumption by Strategy and other agents
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - application-discovery
+    - dependency-mapping
+    - readiness-assessment
+    - tco-analysis
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent maps what it can see. The migration lead knows what it cannot: the application that runs once a year for regulatory reporting, the database that two teams claim
+      ownership of, the integration that works only because of a network route nobody documented. Assessment data is the starting point, but human knowledge fills the gaps that no scanner reaches.
+
+      '
+    challenges:
+    - text: Infrastructure inventory is incomplete or outdated, leading to missed workloads during migration
+      specific_overhead:
+      - Reconciling multiple inventory sources (CMDB, spreadsheets, tribal knowledge)
+    - text: Application dependencies are undocumented and only surface when something breaks
+      specific_overhead:
+      - Manual dependency tracing through configuration files and network flow logs
+    - text: TCO comparisons use vendor list prices rather than negotiated rates, producing misleading projections
+      specific_overhead:
+      - Collecting actual licensing and infrastructure costs from finance and procurement teams
+    - text: Migration readiness scoring is subjective without standardized criteria
+      specific_overhead:
+      - Defining and calibrating readiness scoring rubrics across diverse application types
+    - text: Shadow IT and undiscovered applications create blind spots in the migration portfolio
+      specific_overhead:
+      - Cross-referencing network traffic with known inventory to identify unregistered systems
+    administrative_overhead:
+    - Reconciling multiple inventory sources (CMDB, spreadsheets, tribal knowledge)
+    - Manual dependency tracing through configuration files and network flow logs
+    - Collecting actual licensing and infrastructure costs from finance and procurement teams
+    - Defining and calibrating readiness scoring rubrics across diverse application types
+    - Cross-referencing network traffic with known inventory to identify unregistered systems
+    scenarios:
+    - problem: Infrastructure inventory is incomplete or outdated, leading to missed workloads during migration
+      why: 'Organizations maintain infrastructure data across multiple systems, spreadsheets, and tribal knowledge. No single source of truth exists. When the migration team starts planning, the
+        inventory gaps translate directly into workloads that are discovered mid-migration, disrupting wave plans and timelines.
+
+        '
+      agent: mig-assessment-agent
+      agent_response: 'The agent cross-references multiple data sources (CMDB, cloud consoles, network scans, application manifests) to build a consolidated inventory. It flags discrepancies
+        between sources, identifies unregistered systems from network traffic analysis, and produces a gap report listing workloads that need human verification before they can be included in
+        migration planning.
+
+        '
+      success_signal:
+        metric: Inventory completeness at assessment conclusion
+        target: 95% of in-scope workloads discovered and cataloged before wave planning begins
+        leading_indicator: Gap report produced with assigned owners for verification of flagged items
+        failure_signal: New workloads discovered after wave planning is complete
+    - problem: Application dependencies are undocumented and only surface when something breaks
+      why: 'Dependency documentation, when it exists, is outdated. Applications evolve faster than architecture diagrams. The real dependency graph lives in configuration files, DNS records,
+        and network flows, none of which are aggregated into a single view. Migration teams discover critical dependencies during cutover when a dependent system fails.
+
+        '
+      agent: mig-assessment-agent
+      agent_response: 'The agent builds dependency maps from multiple evidence sources: network flow data, configuration files, database connection strings, API call patterns, and DNS records.
+        It produces a dependency graph with confidence scores per relationship, flagging low-confidence dependencies for human verification before they affect wave planning.
+
+        '
+      success_signal:
+        metric: Dependency accuracy rate
+        target: Zero critical dependencies discovered during cutover that were not in the assessment dependency map
+        leading_indicator: All dependency relationships have confidence scores and low-confidence items are verified
+        failure_signal: Cutover fails because a dependency was not mapped during assessment
+  escalation_triggers:
+  - Discovery reveals workloads with no documented owner (to Migration Practice Lead)
+  - TCO analysis shows cloud costs exceeding on-premises by more than 20% (to SA Lead)
+  - Critical dependencies cannot be verified from available data (to Migration Practice Lead)
+  prompt_registry:
+    mig-discovery-scan:
+      description: Discover application portfolio, infrastructure inventory, and technology stacks
+      source: prompts/tasks.yaml#migration.discovery_scan
+      inputs:
+      - title: account_name
+        type: string
+      - title: infrastructure_scope
+        type: string
+      outputs:
+      - title: discovery_report
+        type: object
+      requires_data:
+      - source: read-infrastructure
+        fields:
+        - cmdb_data
+        - cloud_inventory
+        - network_topology
+        priority: critical
+      - source: read-infohub
+        fields:
+        - application_portfolio
+        - infrastructure_inventory
+        priority: enrichment
+    mig-dependency-mapping:
+      description: Map dependencies across applications, databases, middleware, and network services
+      source: prompts/tasks.yaml#migration.dependency_mapping
+      inputs:
+      - title: application_inventory
+        type: object
+      outputs:
+      - title: dependency_map
+        type: object
+      requires_data:
+      - source: read-infrastructure
+        fields:
+        - network_flows
+        - configuration_data
+        - dns_records
+        priority: critical
+    mig-readiness-assessment:
+      description: Score migration readiness per workload with risk factors and blockers
+      source: prompts/tasks.yaml#migration.readiness_assessment
+      inputs:
+      - title: application_inventory
+        type: object
+      - title: dependency_map
+        type: object
+      outputs:
+      - title: readiness_scores
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - business_criticality
+        - compliance_requirements
+        priority: enrichment
+    mig-tco-analysis:
+      description: Produce TCO comparison between on-premises and target cloud environment
+      source: prompts/tasks.yaml#migration.tco_analysis
+      inputs:
+      - title: account_name
+        type: string
+      - title: workload_inventory
+        type: object
+      outputs:
+      - title: tco_report
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - infrastructure_costs
+        - licensing_data
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - cloud_pricing
+        - industry_benchmarks
+        priority: enrichment
+  boundaries:
+  - Does not classify workloads into 6Rs categories (Strategy Agent)
+  - Does not design wave plans or migration sequencing (Strategy Agent)
+  - Does not produce cutover runbooks (Execution Agent)
+  - Does not make commercial decisions or commit to timelines
+  permissions:
+  - Read infrastructure inventory and CMDB data
+  - Discover application portfolios and map dependencies
+  - Assess migration readiness and score workloads
+  - Produce TCO analysis and cost comparisons
+  - Save assessment results to InfoHub
+  guardrails:
+    input_validation:
+    - Reject assessment requests without defined infrastructure scope
+    - Reject TCO analysis without cost data sources
+    output_checks:
+    - All dependencies must cite evidence source (network flow, config file, DNS, etc.)
+    - Readiness scores must use standardized criteria with documented justification
+    - TCO projections must state assumptions and data sources
+    - Flag all data gaps that could affect migration planning
+    signal_validation:
+    - Never assume dependencies not confirmed by evidence
+    - Never fabricate infrastructure inventory data
+    - Add [NEEDS VERIFICATION] when dependency confidence is below threshold
+    - Distinguish between confirmed and inferred dependencies in output
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infrastructure
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable assessment without infrastructure data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - migration-assessment
+      - infrastructure-discovery
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-discovery-tools.yaml
+      description: AWS Application Discovery, Azure Migrate Assessment, Google Migration Center Discovery
+    - path: references/expertise-tco-models.yaml
+      description: TCO Frameworks, Cloud Pricing Models, Cost Comparison Methodologies
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: mig-specialist-agent
+      description: Migration orchestrator routes assessment requests
+    - type: event
+      source: infrastructure_feed
+      condition: new_workload_discovered == true
+      description: Auto-assesses newly discovered workloads
+    outputs:
+    - type: parent_return
+      target: mig-specialist-agent
+      payload:
+      - application_inventory
+      - dependency_map
+      - readiness_assessment
+      - tco_analysis
+      description: Full assessment report back to orchestrator
+    - type: trigger_agent
+      target: mig-strategy-agent
+      condition: assessment_complete == true AND readiness_scores.length > 0
+      payload:
+      - application_inventory
+      - dependency_map
+      - readiness_scores
+      description: Completed assessment triggers strategy and classification
+    dependencies: []

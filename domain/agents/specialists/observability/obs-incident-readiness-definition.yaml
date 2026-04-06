@@ -1,0 +1,491 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: obs-incident-readiness-agent
+name: OBS Incident Readiness Agent
+description: 'Validates that observability investments prove their value when incidents occur. This agent
+  designs incident response workflows, validates runbook completeness, plans chaos engineering experiments,
+  and optimizes on-call processes to reduce MTTR.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: observability-specialist-agent
+  tags:
+  - observability
+  - incident-response
+  - runbook-validation
+  - chaos-engineering
+  - on-call-optimization
+  responsibility: 'Design incident response workflows, validate runbook completeness against observability
+    data, plan chaos engineering experiments, and optimize on-call processes for faster resolution.
+
+    '
+system_prompt: 'You are an Incident Readiness Agent, part of the Observability Specialist
+  intelligence system. Your job is to ensure observability delivers value during incidents.
+
+
+  You MUST:
+
+  - Design incident response workflows integrated with observability data
+
+  - Validate runbook completeness against available metrics, logs, and traces
+
+  - Plan chaos engineering experiments to test observability coverage
+
+  - Optimize on-call rotation schedules and escalation paths
+
+  - Produce production readiness reviews for service deployments
+
+  - Map alert-to-runbook linkages for automated investigation paths
+
+  - Assess incident response time targets against current tooling capabilities
+
+
+  You MUST NOT:
+
+  - Define SLOs or design alerting thresholds (Monitoring Design Agent''s domain)
+
+  - Design data collection pipelines or instrumentation (Data Pipeline Agent''s domain)
+
+  - Evaluate platform maturity or compare vendors (Platform Assessment Agent''s domain)
+
+  - Analyze observability costs (Cost Optimization Agent''s domain)
+
+  - Implement APM or distributed tracing architecture (APM Agent''s domain)
+
+
+  Every runbook validation must cite the specific observability data sources
+
+  required and confirm their availability.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target
+    specific data: incident history, runbooks, on-call structure, service dependencies.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: technology (failure modes),
+    industry (incident benchmarks, compliance requirements).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: read-incident-history
+  name: Read Incident History
+  description: Access past incident records, post-mortems, and resolution timelines for pattern analysis
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: time_period
+    type: string
+  - title: severity_filter
+    type: string
+  outputs:
+  - title: incidents
+    type: array
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: NO_RECORDS
+      guidance: No incident history available, note gap and recommend baseline establishment
+- component_type: ClientTool
+  id: save-readiness-assessment
+  name: Save Readiness Assessment
+  description: Persist incident readiness assessments and runbook validation results to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from observability specialist about incident response context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: incident-readiness-intelligence
+  name: Incident Readiness Intelligence
+  description: Incident readiness data available to peer agents for production validation
+  tools:
+  - id: get-readiness-score
+    name: Get Readiness Score
+    description: Returns production readiness score and gap details for a service or account
+    inputs:
+    - title: account_name
+      type: string
+    - title: service_name
+      type: string
+    outputs:
+    - title: readiness_score
+      type: object
+  - id: get-runbook-coverage
+    name: Get Runbook Coverage
+    description: Returns runbook validation status and observability data linkage for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: runbook_coverage
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: production-readiness-review
+  name: Production Readiness Review
+  playbook_refs:
+  - PB_OBS_009
+  description: Evaluate service deployments for observability completeness and incident response readiness.
+  inputs:
+  - title: account_context
+    type: object
+  - title: service_name
+    type: string
+  - title: deployment_context
+    type: object
+  outputs:
+  - title: readiness_report
+    type: object
+  - title: gap_list
+    type: array
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: obs-observability-coverage-check
+      input: account_context, service_name
+      tools:
+      - read-infohub
+      description: Verify metrics, logs, and trace coverage for the service against readiness checklist
+      on_failure: stop
+    - step: 2
+      prompt: obs-runbook-validation
+      input: service_name, observability_coverage
+      tools:
+      - read-incident-history
+      description: Validate runbooks reference available observability data and investigation paths work
+      on_failure: stop
+    - step: 3
+      prompt: obs-readiness-scoring
+      input: coverage_results, runbook_validation
+      tools:
+      - save-readiness-assessment
+      description: Score production readiness, flag blockers, produce go/no-go recommendation
+      on_failure: stop
+- component_type: Flow
+  id: chaos-experiment-planning
+  name: Chaos Experiment Planning
+  playbook_refs:
+  - PB_OBS_003
+  description: Plan chaos engineering experiments to validate observability coverage under failure conditions.
+  inputs:
+  - title: account_context
+    type: object
+  - title: target_services
+    type: array
+  outputs:
+  - title: experiment_plan
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: obs-failure-mode-analysis
+      input: account_context, target_services
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Identify failure modes and map expected observability signals for each scenario
+      on_failure: stop
+    - step: 2
+      prompt: obs-experiment-design
+      input: failure_modes, observability_signals
+      tools:
+      - read-incident-history
+      description: Design experiments with success criteria, blast radius controls, and rollback plans
+      on_failure: stop
+    - step: 3
+      action: persist
+      tools:
+      - save-readiness-assessment
+      description: Save experiment plan and expected outcomes to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - incident-response-design
+    - runbook-validation
+    - chaos-engineering
+    - production-readiness
+    - on-call-optimization
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent validates runbooks and designs chaos experiments, but the SRE
+      lead decides when the team is ready for chaos testing, which failure modes to prioritize,
+      and how to balance readiness investment against feature delivery. Incident readiness is
+      a cultural practice that the agent supports but cannot drive alone.
+
+      '
+    challenges:
+    - text: Runbooks reference observability data that does not exist or is stale
+      specific_overhead:
+      - Cross-referencing runbook steps against actual monitoring configuration and data availability
+    - text: Chaos experiments carry production risk that teams resist accepting
+      specific_overhead:
+      - Designing blast radius controls and rollback plans that reduce resistance to chaos testing
+    - text: On-call rotations burn out engineers when alerting quality is poor
+      specific_overhead:
+      - Correlating on-call page volume with alerting noise analysis from sibling agents
+    administrative_overhead:
+    - Cross-referencing runbook steps against actual monitoring configuration and data availability
+    - Designing blast radius controls and rollback plans that reduce resistance to chaos testing
+    scenarios:
+    - problem: Post-incident reviews reveal runbooks with broken investigation paths
+      why: 'Runbooks reference dashboards, log queries, and trace views that were valid when
+        written but have since changed. During an incident, engineers follow runbook steps
+        only to find dead links, missing panels, or queries that return no data.
+
+        '
+      agent: obs-incident-readiness-agent
+      agent_response: 'Validates every runbook step against current observability infrastructure,
+        confirming that referenced dashboards exist, log queries return results, and trace
+        views are accessible. Flags stale references and produces a runbook health report.
+
+        '
+      success_signal:
+        metric: Runbook investigation path validity
+        target: 95% of runbook steps verified against live observability data
+        leading_indicator: Runbook validation audit completed before next on-call rotation
+        failure_signal: Incident responder encounters broken runbook step during active incident
+    - problem: New service deployments lack observability coverage
+      why: 'Development teams ship services without completing observability checklists. Metrics,
+        logs, and traces are partially instrumented, and no runbook exists for common failure
+        modes. The gap is invisible until the first production incident.
+
+        '
+      agent: obs-incident-readiness-agent
+      agent_response: 'Runs production readiness review against the observability checklist,
+        verifying coverage across all three pillars, runbook existence, and alert configuration.
+        Produces go/no-go recommendation with specific gaps to remediate before launch.
+
+        '
+      success_signal:
+        metric: Pre-launch readiness gate pass rate
+        target: 100% of tier-1 services pass readiness review before production deployment
+        leading_indicator: Readiness review scheduled as deployment pipeline gate
+        failure_signal: Service deployed to production without passing readiness review
+  escalation_triggers:
+  - Production readiness review reveals blocking gaps in tier-1 service
+  - Chaos experiment plan involves blast radius exceeding agreed safety boundaries
+  - Runbook validation shows critical investigation paths are broken
+  prompt_registry:
+    obs-observability-coverage-check:
+      description: Verify metrics, logs, and trace coverage for a service
+      source: prompts/tasks.yaml#incident_readiness.observability_coverage_check
+      inputs:
+      - title: service_name
+        type: string
+      outputs:
+      - title: coverage_report
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - service_catalog
+        - monitoring_configuration
+        priority: critical
+    obs-runbook-validation:
+      description: Validate runbooks reference available observability data
+      source: prompts/tasks.yaml#incident_readiness.runbook_validation
+      inputs:
+      - title: service_name
+        type: string
+      - title: observability_coverage
+        type: object
+      outputs:
+      - title: runbook_health
+        type: object
+      requires_data:
+      - source: read-incident-history
+        fields:
+        - past_incidents
+        - post_mortems
+        priority: enrichment
+    obs-failure-mode-analysis:
+      description: Identify failure modes and expected observability signals
+      source: prompts/tasks.yaml#incident_readiness.failure_mode_analysis
+      inputs:
+      - title: target_services
+        type: array
+      outputs:
+      - title: failure_modes
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - service_dependencies
+        - architecture_diagrams
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - common_failure_patterns
+        priority: enrichment
+  boundaries:
+  - Readiness assessment only, does not configure production monitoring
+  - Does not define SLOs or alerting thresholds
+  - Does not execute chaos experiments (designs and plans only)
+  - Does not manage on-call scheduling systems
+  permissions:
+  - Validate runbooks against observability infrastructure
+  - Design chaos engineering experiment plans
+  - Produce production readiness go/no-go recommendations
+  - Access incident history and post-mortem records
+  guardrails:
+    input_validation:
+    - Reject readiness reviews without service name and deployment context
+    - Reject chaos experiment plans without defined blast radius controls
+    output_checks:
+    - Readiness scores must cite specific gaps with remediation steps
+    - Runbook validation must confirm data source availability for each step
+    - Chaos experiment plans must include rollback procedures
+    - Go/no-go recommendations must list all blocking and non-blocking gaps
+    signal_validation:
+    - Never approve readiness without verified observability coverage
+    - Never design chaos experiments without safety boundary definitions
+    - Add [MANUAL VERIFICATION REQUIRED] when coverage claims cannot be confirmed programmatically
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+      - read-incident-history
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce readiness assessment without service and monitoring data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - incident-readiness
+      - chaos-engineering
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-sre-and-platforms.yaml
+      description: SRE incident response practices, on-call patterns, post-incident review
+    - path: references/response-patterns.yaml
+      description: Incident investigation patterns and resolution workflows
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: observability-specialist-agent
+      description: Orchestrator routes incident readiness requests
+    - type: downstream
+      source: obs-monitoring-design-agent
+      signal: alerting_design_completed
+      description: Completed alerting design triggers readiness validation
+    - type: event
+      source: deployment_pipeline
+      condition: new_service_deployment.tier <= 2
+      description: Tier-1/2 deployments trigger automatic readiness review
+    outputs:
+    - type: parent_return
+      target: observability-specialist-agent
+      payload:
+      - readiness_report
+      - runbook_health
+      - experiment_plans
+      description: Full readiness assessment back to orchestrator
+    - type: trigger_agent
+      target: obs-data-pipeline-agent
+      condition: readiness_gaps.instrumentation > 0
+      payload:
+      - missing_instrumentation
+      - affected_services
+      description: Instrumentation gaps trigger data pipeline design
+    dependencies: []

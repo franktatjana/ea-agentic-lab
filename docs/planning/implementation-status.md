@@ -1,7 +1,7 @@
 # EA Agentic Lab - Implementation Status
 
 **Last Updated:** 2026-03-13
-**Status:** Domain model defined, 149 playbooks authored, 40 agent definitions across 13 roles, web application functional with 28 pages covering dashboard, canvas, agents, blueprints, orchestration, and presentation views
+**Status:** Domain model defined, 158 playbooks authored, 196 agent definitions across 25 teams, web application functional with 28 pages covering dashboard, canvas, agents, blueprints, orchestration, and presentation views
 
 ---
 
@@ -19,9 +19,9 @@ The domain layer (`domain/`) contains all business logic definitions: agents, pl
 
 | Component | Count | Location | Status |
 |-----------|-------|----------|--------|
-| Playbook YAMLs | 149 | `domain/playbooks/{team}/` | Authored |
-| Agent configs | 40 | `domain/agents/{team}/agents/` | Configured |
-| Personality specs | 40 | `domain/agents/{team}/personalities/` | Configured |
+| Playbook YAMLs | 158 | `domain/playbooks/{team}/` | Authored |
+| Agent configs | 196 | `domain/agents/{team}/agents/` | Configured |
+| Personality specs | 196 | `domain/agents/{team}/personalities/` | Configured |
 | Skill definitions | 8 | `domain/agents/{team}/skills/` | Authored |
 | Task prompt files | 17 | `domain/agents/{team}/prompts/tasks.yaml` | Authored |
 | Templates | 8 | `domain/playbooks/templates/` | Authored |
@@ -29,9 +29,9 @@ The domain layer (`domain/`) contains all business logic definitions: agents, pl
 | Operational playbooks | 8 | `domain/playbooks/operational/` | Authored |
 | Catalogs | 5 | `domain/catalogs/` | Authored |
 
-### 2. Agents (40 definitions, 13 roles)
+### 2. Agents (196 definitions, 25 teams)
 
-All agents have YAML configuration, personality specifications with anti-hallucination controls, and task prompts (CAF format). None have runtime implementations yet. Taxonomy defined in [DDR-021](../decisions/DDR_021_agent_taxonomy.md).
+All agents have YAML configuration, personality specifications with anti-hallucination controls, and task prompts (CAF format). None have runtime implementations yet. Taxonomy defined in [DDR-021](../decisions/DDR_021_agent_taxonomy.md). The system has grown through holonic decomposition of most roles and addition of 11 specialist sub-domains.
 
 **Leadership (2 roles, 2 agents):**
 
@@ -40,7 +40,7 @@ All agents have YAML configuration, personality specifications with anti-halluci
 | Senior Manager Agent | `leadership/` | 10+ |
 | PM Agent | `product_managers/` | 10+ |
 
-**Sales (4 roles, 4 agents):**
+**Sales (5 roles, 5 agents):**
 
 | Agent | Team | Tasks |
 |-------|------|-------|
@@ -48,8 +48,9 @@ All agents have YAML configuration, personality specifications with anti-halluci
 | VE Agent | `value_engineering/` | 25+ |
 | Partner Agent | `partners/` | 10+ |
 | Hyperscaler Account Manager Agent | `hyperscaler_account_managers/` | 10+ |
+| Customer Advocate Agent | `customer_advocacy/` | 10+ |
 
-**Architecture (3 roles, 16 agents):**
+**Architecture (3 roles, 16 agents + 11 specialist domains):**
 
 | Agent | Type | Tasks |
 |-------|------|-------|
@@ -65,7 +66,6 @@ All agents have YAML configuration, personality specifications with anti-halluci
 | Specialist Engagement Agent | External sub-agent | 10+ |
 | Security Specialist | Domain sub-agent | 12 playbooks |
 | Observability Specialist | Domain sub-agent | 10 playbooks |
-| Search Specialist | Domain sub-agent | 10 playbooks |
 | InfoSec Agent | Standalone role (peer to SA) | 10+ |
 | CA Agent | Role | 18+ |
 | Retrospective Agent | CA sub-agent | - |
@@ -115,7 +115,7 @@ Playbooks are organized by team ownership using the `PB_PREFIX_NNN` ID scheme. E
 | Solution Architects | 5 | TOGAF ADM, Sizing Estimation, Solution Description, Five Whys, TECHDRIVE |
 | Customer Architects | 12 | Health Score, Success Plan, Journey VoC, Guidelines, Training, Adoption, Cadence Calls, Health Triage, Track/Escalate/Review Support |
 | Specialists: Security | 12 | Technical validation, RFx, solution scoping, use cases, migration, POC, battlecard |
-| Specialists: Search | 10 | Validation, RFx, schema design, relevance tuning, vector search, RAG |
+| ~~Specialists: Search~~ | ~~10~~ | ~~Removed (no agent definition)~~ |
 | Specialists: Observability | 10 | Discovery, demo, validation, SLO/SLI, APM, platform architecture |
 | Account Executives | 5 | Retrospective, Account Planning, Sales QBR, Opportunity Consult, MEDDPICC |
 | Account Intelligence | 3 | Initial Research, Org Mapping, Periodic Refresh |
@@ -268,7 +268,7 @@ ea-agentic-lab/
 ├── application/                  # Application (Streamlit UI + Swift iOS + Python backend)
 ├── data/                         # Runtime data
 ├── domain/
-│   ├── agents/                   # 40 definitions across 13 roles
+│   ├── agents/                   # 196 definitions across 25 teams
 │   │   └── {team}/
 │   │       ├── agents/           # Agent config YAML
 │   │       ├── personalities/    # Personality specs
@@ -299,7 +299,7 @@ ea-agentic-lab/
 ### Built (domain layer)
 
 - 149 playbook definitions covering strategy, technical, customer success, specialist, operational, delivery, product management, partner, and admin workflows
-- 40 agent definitions with personality specs, anti-hallucination controls, and 200+ task prompts across 13 roles
+- 196 agent definitions with personality specs, anti-hallucination controls, and 200+ task prompts across 25 teams
 - Three-vault knowledge architecture with vault routing on all playbooks
 - 32 decision records (25 DDR + 7 ADR)
 - 8 canvas specifications for visual artifacts

@@ -1,0 +1,442 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: devops-cicd-agent
+name: DevOps CI/CD Agent
+description: 'Slow pipelines and fragile builds are invisible taxes on every engineering team. This agent designs CI/CD pipeline architectures optimized for speed, reliability, and developer feedback loops, covering build optimization, test execution strategy, artifact management, and pipeline-as-code patterns.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: devops-specialist-agent
+  tags:
+  - cicd
+  - pipeline-design
+  - build-optimization
+  - artifact-management
+  responsibility: 'Design CI/CD pipeline architectures that maximize build speed, minimize failure rates, and provide fast developer feedback through optimized stages, caching, parallelization, and artifact management.
+
+    '
+system_prompt: 'You are a CI/CD Pipeline Design Agent, part of the DevOps Specialist
+
+  intelligence system. Your job is to design and optimize CI/CD pipelines.
+
+
+  You MUST:
+
+  - Analyze pipeline stage durations and identify bottlenecks
+
+  - Design pipeline architectures with optimized build, test, and deploy stages
+
+  - Recommend caching strategies, parallelization, and selective execution
+
+  - Architect artifact management with container registries and package repositories
+
+  - Produce pipeline-as-code specifications with expected performance targets
+
+  - Design pipeline security gates and compliance validation stages
+
+
+  You MUST NOT:
+
+  - Design GitOps workflows or drift detection (GitOps Agent''s domain)
+
+  - Architect infrastructure provisioning (IaC Agent''s domain)
+
+  - Define deployment strategies (Deployment Agent''s domain)
+
+  - Make decisions about error budgets or SRE practices (SRE Agent''s domain)
+
+  - Invent build-time benchmarks without measurement data
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-pipeline-config
+  name: Read Pipeline Config
+  description: Access existing CI/CD pipeline configurations and build logs for analysis
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: repository
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access pipeline config, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No pipeline configurations found, note gap
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-pipeline-design
+  name: Save Pipeline Design
+  description: Persist pipeline architecture design to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: design
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from DevOps specialist about pipeline context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: pipeline-intelligence
+  name: Pipeline Intelligence
+  description: CI/CD pipeline data available to peer agents for integration context
+  tools:
+  - id: get-pipeline-architecture
+    name: Get Pipeline Architecture
+    description: Returns CI/CD pipeline architecture and stage specifications for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: pipeline_design
+      type: object
+  - id: get-build-metrics
+    name: Get Build Metrics
+    description: Returns pipeline performance metrics including duration, failure rate, and bottlenecks
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: build_metrics
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: cicd-pipeline-design
+  name: CI/CD Pipeline Design
+  playbook_refs:
+  - PB_DEVOPS_002
+  description: Design optimized CI/CD pipeline architecture with build analysis, stage optimization, and artifact management.
+  inputs:
+  - title: account_context
+    type: object
+  - title: current_pipeline
+    type: object
+  - title: technology_stack
+    type: object
+  outputs:
+  - title: pipeline_architecture
+    type: object
+  - title: optimization_recommendations
+    type: object
+  - title: artifact_strategy
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: devops-pipeline-audit
+      input: account_context, current_pipeline
+      tools:
+      - read-pipeline-config
+      - read-infohub
+      description: Audit current pipeline stages, measure durations, classify bottlenecks
+      on_failure: stop
+    - step: 2
+      prompt: devops-pipeline-design
+      input: account_context, technology_stack
+      tools:
+      - read-intelligence
+      description: Design optimized pipeline architecture with parallelization and caching
+      on_failure: stop
+    - step: 3
+      prompt: devops-artifact-strategy
+      input: account_context, technology_stack
+      tools:
+      - read-infohub
+      description: Design artifact management, container registry, and versioning strategy
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-pipeline-design
+      description: Save pipeline design to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - pipeline-architecture
+    - build-optimization
+    - artifact-management
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs optimal pipeline architectures. The DevOps lead decides which optimizations to prioritize based on team capacity, risk tolerance for changing established workflows, and the organizational readiness to adopt pipeline-as-code practices. Fast pipelines that nobody trusts are worse than slow pipelines that work reliably.
+
+      '
+    challenges:
+    - text: Pipeline durations grow as codebases scale, eroding developer feedback loops
+      specific_overhead:
+      - Measuring stage-level build times and identifying caching opportunities
+    - text: Flaky tests cause false failures that train teams to ignore pipeline results
+      specific_overhead:
+      - Quarantining flaky tests and tracking test reliability metrics
+    - text: Artifact versioning inconsistencies cause deployment confusion across environments
+    - text: Pipeline configurations are copy-pasted across repositories without standardization
+    - text: Security scanning stages add latency without clear remediation workflows
+    administrative_overhead:
+    - Measuring stage-level build times and identifying caching opportunities
+    - Quarantining flaky tests and tracking test reliability metrics
+    scenarios:
+    - problem: CI/CD pipelines take 45+ minutes, so developers batch changes and skip local validation
+      why: 'Pipeline stages accumulate over time without performance review. Sequential test execution, missing caches, and unnecessary rebuild steps compound into build times that make rapid iteration impossible.
+
+        '
+      agent: devops-cicd-agent
+      agent_response: 'Audits pipeline stages by duration contribution, identifies parallelizable test suites, designs layer-aware caching for container builds, and produces an optimized pipeline spec with stage-level time targets.
+
+        '
+      success_signal:
+        metric: Pipeline duration reduction
+        target: Reduce P50 pipeline duration below 15 minutes
+        leading_indicator: Stage-level timing analysis completed with optimization plan
+        failure_signal: Developers continue batching changes due to slow feedback
+    - problem: Multiple teams maintain separate pipeline configurations with inconsistent quality gates
+      why: 'Each team created their own CI configuration from scratch, resulting in different testing standards, security checks, and deployment patterns. There is no shared pipeline library, and improvements in one team do not propagate to others.
+
+        '
+      agent: devops-cicd-agent
+      agent_response: 'Designs a shared pipeline template library with composable stages, standardized quality gates, and team-specific extension points. Produces a migration plan from per-repo configurations to the shared library with backward compatibility.
+
+        '
+      success_signal:
+        metric: Pipeline template adoption
+        target: 80% of repositories using shared pipeline templates within two quarters
+        leading_indicator: Template library published with migration guide for top-10 repositories
+        failure_signal: Teams continue maintaining independent pipeline configurations
+  escalation_triggers:
+  - Pipeline architecture change affects production deployment reliability
+  - Build infrastructure scaling requires budget approval
+  - Security gate design requires compliance team validation
+  prompt_registry:
+    devops-pipeline-audit:
+      description: Audit existing CI/CD pipeline stages, measure durations, and classify bottlenecks
+      source: prompts/tasks.yaml#cicd.pipeline_audit
+      inputs:
+      - title: account_name
+        type: string
+      - title: repository
+        type: string
+      outputs:
+      - title: audit_report
+        type: object
+      requires_data:
+      - source: read-pipeline-config
+        fields:
+        - pipeline_yaml
+        - build_logs
+        priority: critical
+      - source: read-infohub
+        fields:
+        - technology_stack
+        - team_structure
+        priority: enrichment
+    devops-pipeline-design:
+      description: Design optimized pipeline architecture with parallelization, caching, and stage ordering
+      source: prompts/tasks.yaml#cicd.pipeline_design
+      inputs:
+      - title: account_name
+        type: string
+      - title: audit_results
+        type: object
+      outputs:
+      - title: pipeline_architecture
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - technology_map
+        - vendor_landscape
+        priority: enrichment
+    devops-artifact-strategy:
+      description: Design artifact management, container registry, and versioning strategy
+      source: prompts/tasks.yaml#cicd.artifact_strategy
+      inputs:
+      - title: account_name
+        type: string
+      outputs:
+      - title: artifact_strategy
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - deployment_targets
+        - environment_list
+        priority: enrichment
+  boundaries:
+  - Pipeline design and optimization only, does not manage infrastructure provisioning
+  - Does not design deployment strategies or GitOps workflows
+  - Does not define SRE practices or error budgets
+  - Does not access customer production systems
+  permissions:
+  - Analyze CI/CD pipeline configurations and build logs
+  - Design pipeline architectures with optimized stages
+  - Recommend caching, parallelization, and selective execution strategies
+  - Design artifact management and container registry architectures
+  - Produce pipeline-as-code specifications
+  guardrails:
+    input_validation:
+    - Reject pipeline design requests without technology stack context
+    - Reject optimization requests without baseline build-time data or access to pipeline configs
+    output_checks:
+    - All optimization claims must reference measured baseline data
+    - Pipeline specifications must include expected duration targets per stage
+    - Artifact strategies must address versioning, retention, and cleanup policies
+    signal_validation:
+    - Never estimate build-time improvements without baseline measurements
+    - Never recommend tool changes without migration impact assessment
+    - Add [NEEDS VERIFICATION] when optimization estimates lack production data
+  error_handling:
+    tool_failures:
+      critical:
+      - read-pipeline-config
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without pipeline configuration data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - cicd
+      - build-optimization
+      - artifact-management
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-cicd-patterns.yaml
+      description: Pipeline architecture patterns, build optimization, caching strategies
+    - path: references/expertise-artifact-management.yaml
+      description: Container registries, package repositories, versioning strategies
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: devops-specialist-agent
+      description: DevOps orchestrator routes CI/CD pipeline requests
+    - type: event
+      source: pipeline_metrics_feed
+      condition: build_duration.p95 > threshold OR failure_rate > threshold
+      description: Auto-triggers when pipeline performance degrades
+    outputs:
+    - type: parent_return
+      target: devops-specialist-agent
+      payload:
+      - pipeline_architecture
+      - optimization_recommendations
+      - artifact_strategy
+      description: Full pipeline design back to orchestrator for aggregation
+    - type: trigger_agent
+      target: devops-deployment-agent
+      condition: pipeline_architecture.deploy_stage.updated == true
+      payload:
+      - deploy_stage_spec
+      - artifact_format
+      description: Pipeline deploy stage changes trigger deployment strategy review
+    - type: notify_human
+      condition: optimization.estimated_improvement > 50%
+      channel: alert
+      description: Large optimization opportunities surface for prioritization
+    dependencies: []

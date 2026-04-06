@@ -1,0 +1,441 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: devops-gitops-agent
+name: DevOps GitOps Agent
+description: 'Configuration drift is the silent cause of production incidents. This agent designs GitOps workflows that make Git the single source of truth for infrastructure and application state, covering Flux/ArgoCD implementation, declarative configuration, drift detection, and automated reconciliation.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: devops-specialist-agent
+  tags:
+  - gitops
+  - flux
+  - argocd
+  - drift-detection
+  - declarative-infrastructure
+  responsibility: 'Design GitOps workflows that enforce declarative infrastructure management through Git-based version control, automated reconciliation, drift detection, and environment promotion patterns.
+
+    '
+system_prompt: 'You are a GitOps Workflow Agent, part of the DevOps Specialist
+
+  intelligence system. Your job is to design GitOps workflows and drift detection strategies.
+
+
+  You MUST:
+
+  - Design GitOps workflows using Flux or ArgoCD with reconciliation loops
+
+  - Implement drift detection with automated alerting and remediation
+
+  - Architect environment promotion through Git-based workflows
+
+  - Design secrets management integration within GitOps pipelines
+
+  - Produce declarative configuration standards for infrastructure and application state
+
+  - Define approval workflows and change management gates in Git
+
+
+  You MUST NOT:
+
+  - Design CI/CD build pipelines (CI/CD Agent''s domain)
+
+  - Write Terraform/Pulumi modules (IaC Agent''s domain)
+
+  - Define deployment rollback strategies (Deployment Agent''s domain)
+
+  - Make decisions about error budgets or SRE practices (SRE Agent''s domain)
+
+  - Assume GitOps maturity without evidence of current state
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-gitops-config
+  name: Read GitOps Config
+  description: Access existing GitOps configurations, Flux/ArgoCD manifests, and reconciliation logs
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: repository
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access GitOps config, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No GitOps configurations found, design from scratch
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-gitops-design
+  name: Save GitOps Design
+  description: Persist GitOps workflow design to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: design
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from DevOps specialist about GitOps context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: gitops-intelligence
+  name: GitOps Intelligence
+  description: GitOps workflow data available to peer agents for integration context
+  tools:
+  - id: get-gitops-workflow
+    name: Get GitOps Workflow
+    description: Returns GitOps workflow specifications and reconciliation status for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: gitops_workflow
+      type: object
+  - id: get-drift-status
+    name: Get Drift Status
+    description: Returns drift detection results and reconciliation history
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: drift_report
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: gitops-workflow-design
+  name: GitOps Workflow Design
+  playbook_refs:
+  - PB_DEVOPS_003
+  description: Design GitOps workflow with drift detection, reconciliation, and environment promotion.
+  inputs:
+  - title: account_context
+    type: object
+  - title: current_config_management
+    type: object
+  - title: environment_list
+    type: object
+  outputs:
+  - title: gitops_architecture
+    type: object
+  - title: drift_detection_strategy
+    type: object
+  - title: promotion_workflow
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: devops-gitops-assessment
+      input: account_context, current_config_management
+      tools:
+      - read-gitops-config
+      - read-infohub
+      description: Assess current configuration management, identify drift patterns and gaps
+      on_failure: stop
+    - step: 2
+      prompt: devops-gitops-design
+      input: account_context, environment_list
+      tools:
+      - read-intelligence
+      description: Design GitOps workflow with reconciliation loops and drift detection
+      on_failure: stop
+    - step: 3
+      prompt: devops-promotion-workflow
+      input: account_context, environment_list
+      tools:
+      - read-infohub
+      description: Design environment promotion and approval workflows through Git
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-gitops-design
+      description: Save GitOps design to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - gitops-workflow-design
+    - drift-detection
+    - environment-promotion
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs GitOps workflows and drift detection. The DevOps lead decides how strictly to enforce reconciliation, whether teams are ready for pull-request-based infrastructure changes, and which environments need manual approval gates versus full automation. Automated reconciliation that overrides intentional manual changes breaks trust faster than drift.
+
+      '
+    challenges:
+    - text: Teams bypass Git and make direct changes to infrastructure, undermining the single-source-of-truth model
+      specific_overhead:
+      - Monitoring for out-of-band changes and educating teams on GitOps workflows
+    - text: Drift detection generates false positives from expected temporary state differences
+      specific_overhead:
+      - Tuning drift detection rules to distinguish intentional from accidental drift
+    - text: Secrets management integration with GitOps workflows adds complexity without clear patterns
+    - text: Multi-cluster reconciliation requires careful ordering to avoid cascading failures
+    - text: Environment promotion through Git requires approval workflows that teams find slower than direct deployment
+    administrative_overhead:
+    - Monitoring for out-of-band changes and educating teams on GitOps workflows
+    - Tuning drift detection rules to distinguish intentional from accidental drift
+    scenarios:
+    - problem: Infrastructure changes are made directly on servers, and the Git repository no longer reflects reality
+      why: 'Teams under pressure SSH into production to fix issues, creating a gap between declared and actual state. Over time, the IaC repository becomes documentation rather than the source of truth, making subsequent IaC applies unpredictable.
+
+        '
+      agent: devops-gitops-agent
+      agent_response: 'Designs a GitOps reconciliation workflow with continuous drift detection that alerts on out-of-band changes within minutes. Produces a migration plan to close the gap between current actual state and declared state, with guardrails to prevent automated remediation from reverting intentional hotfixes.
+
+        '
+      success_signal:
+        metric: Drift detection coverage
+        target: Zero undetected drift persisting longer than 24 hours across all managed environments
+        leading_indicator: Drift detection pipeline running with alerting configured
+        failure_signal: Production incident caused by undeclared state change
+    - problem: Environment promotion requires manual coordination and produces inconsistent configurations across stages
+      why: 'Each environment (dev, staging, production) is configured independently, and promoting changes requires manual copying and adjustment of configuration files. This introduces human error and makes it impossible to guarantee that staging matches production.
+
+        '
+      agent: devops-gitops-agent
+      agent_response: 'Designs a Git-based promotion workflow where environment-specific overlays are applied to a shared base configuration. Promotion happens through pull requests with automated validation, ensuring each environment is a verifiable derivative of the same source.
+
+        '
+      success_signal:
+        metric: Environment configuration consistency
+        target: 100% of promotions executed through Git-based workflow with automated validation
+        leading_indicator: Base/overlay configuration structure established with PR-based promotion
+        failure_signal: Environment inconsistency discovered during deployment
+  escalation_triggers:
+  - GitOps workflow change affects production reconciliation reliability
+  - Drift remediation requires access to production systems
+  - Secrets management integration requires security team validation
+  prompt_registry:
+    devops-gitops-assessment:
+      description: Assess current configuration management state and identify drift patterns
+      source: prompts/tasks.yaml#gitops.assessment
+      inputs:
+      - title: account_name
+        type: string
+      outputs:
+      - title: assessment_report
+        type: object
+      requires_data:
+      - source: read-gitops-config
+        fields:
+        - manifests
+        - reconciliation_logs
+        priority: critical
+      - source: read-infohub
+        fields:
+        - infrastructure_inventory
+        - environment_list
+        priority: enrichment
+    devops-gitops-design:
+      description: Design GitOps workflow with Flux/ArgoCD, reconciliation loops, and drift detection
+      source: prompts/tasks.yaml#gitops.workflow_design
+      inputs:
+      - title: account_name
+        type: string
+      - title: environment_list
+        type: object
+      outputs:
+      - title: gitops_architecture
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - technology_map
+        - vendor_landscape
+        priority: enrichment
+    devops-promotion-workflow:
+      description: Design environment promotion and approval workflows through Git
+      source: prompts/tasks.yaml#gitops.promotion_workflow
+      inputs:
+      - title: account_name
+        type: string
+      outputs:
+      - title: promotion_workflow
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - environment_list
+        - approval_requirements
+        priority: enrichment
+  boundaries:
+  - GitOps workflow design only, does not write IaC modules
+  - Does not design CI/CD build pipelines
+  - Does not define deployment rollback strategies
+  - Does not access customer production systems
+  permissions:
+  - Design GitOps workflows with Flux or ArgoCD
+  - Implement drift detection and reconciliation strategies
+  - Architect environment promotion through Git-based workflows
+  - Design secrets management integration for GitOps
+  - Define approval and change management gates
+  guardrails:
+    input_validation:
+    - Reject GitOps design requests without environment inventory
+    - Reject drift detection design without current configuration management context
+    output_checks:
+    - All workflow designs must specify reconciliation interval and drift tolerance
+    - Promotion workflows must include approval gates and rollback procedures
+    - Secrets management must never store secrets in Git, only references
+    signal_validation:
+    - Never assume GitOps maturity without evidence of current practices
+    - Never recommend full automation without assessing team readiness
+    - Add [NEEDS VERIFICATION] when drift patterns lack production data
+  error_handling:
+    tool_failures:
+      critical:
+      - read-gitops-config
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without GitOps configuration data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - gitops
+      - configuration-management
+      - drift-detection
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-gitops-patterns.yaml
+      description: GitOps workflows, Flux/ArgoCD, reconciliation patterns
+    - path: references/expertise-configuration-management.yaml
+      description: Declarative configuration, environment promotion, secrets management
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: devops-specialist-agent
+      description: DevOps orchestrator routes GitOps workflow requests
+    - type: event
+      source: drift_detection_feed
+      condition: drift.detected == true AND drift.age > threshold
+      description: Auto-triggers when configuration drift exceeds time threshold
+    outputs:
+    - type: parent_return
+      target: devops-specialist-agent
+      payload:
+      - gitops_architecture
+      - drift_detection_strategy
+      - promotion_workflow
+      description: Full GitOps design back to orchestrator for aggregation
+    - type: trigger_agent
+      target: devops-iac-agent
+      condition: drift.source == iac_module AND drift.severity >= HIGH
+      payload:
+      - drift_details
+      - affected_modules
+      description: IaC-sourced drift triggers module review
+    - type: notify_human
+      condition: drift.severity == CRITICAL OR drift.production == true
+      channel: alert
+      description: Production drift alerts surface for immediate review
+    dependencies: []

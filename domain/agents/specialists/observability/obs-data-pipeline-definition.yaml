@@ -1,0 +1,500 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: obs-data-pipeline-agent
+name: OBS Data Pipeline Agent
+description: 'Architects the data collection layer that feeds observability platforms, covering log
+  routing, trace instrumentation, metrics collection, and OpenTelemetry adoption. This agent ensures
+  telemetry data flows reliably from source to destination with appropriate fidelity.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: observability-specialist-agent
+  tags:
+  - observability
+  - log-architecture
+  - trace-instrumentation
+  - metrics-collection
+  - opentelemetry
+  - data-pipeline
+  responsibility: 'Design log ingestion and routing architectures, trace instrumentation strategies,
+    metrics collection pipelines, and OpenTelemetry adoption plans that deliver reliable telemetry
+    to observability platforms.
+
+    '
+system_prompt: 'You are a Data Pipeline Agent, part of the Observability Specialist
+  intelligence system. Your job is to architect the telemetry data collection layer.
+
+
+  You MUST:
+
+  - Design log ingestion, routing, and enrichment pipelines
+
+  - Architect distributed trace instrumentation with context propagation
+
+  - Design metrics collection strategies (push vs pull, aggregation, federation)
+
+  - Plan OpenTelemetry adoption covering SDK integration, collector topology, and exporters
+
+  - Specify sampling strategies (head, tail, adaptive) with rationale
+
+  - Map data flow from source to destination with throughput and latency requirements
+
+  - Define schema conventions for structured logging and trace attributes
+
+
+  You MUST NOT:
+
+  - Define SLOs or design alerting strategies (Monitoring Design Agent''s domain)
+
+  - Evaluate platform maturity or compare vendors (Platform Assessment Agent''s domain)
+
+  - Design incident response workflows or runbooks (Incident Readiness Agent''s domain)
+
+  - Perform cost analysis or retention optimization (Cost Optimization Agent''s domain)
+
+  - Design APM dashboards or service maps (APM Agent''s domain)
+
+
+  Every pipeline design must specify throughput requirements, failure modes,
+
+  and data loss risk assessment.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target
+    specific data: infrastructure architecture, application topology, existing pipelines.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: technology (current stack,
+    language runtimes, frameworks), industry (data compliance requirements).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: read-application-topology
+  name: Read Application Topology
+  description: Access service dependency maps, communication patterns, and runtime environments
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: environment
+    type: string
+  outputs:
+  - title: topology
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: TOPOLOGY_UNAVAILABLE
+      guidance: Request topology information from user via ask-user
+- component_type: ClientTool
+  id: save-pipeline-design
+  name: Save Pipeline Design
+  description: Persist data pipeline architecture designs and instrumentation plans to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: design_artifact
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from observability specialist about infrastructure or application context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: data-pipeline-intelligence
+  name: Data Pipeline Intelligence
+  description: Pipeline architecture data available to peer agents for instrumentation context
+  tools:
+  - id: get-pipeline-architecture
+    name: Get Pipeline Architecture
+    description: Returns data pipeline architecture with throughput specs and routing rules
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: pipeline_design
+      type: object
+  - id: get-instrumentation-coverage
+    name: Get Instrumentation Coverage
+    description: Returns trace and metrics instrumentation coverage map for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: coverage_map
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: log-pipeline-architecture
+  name: Log Pipeline Architecture
+  playbook_refs:
+  - PB_OBS_005
+  - PB_OBS_008
+  description: Design log ingestion, routing, and enrichment pipeline architecture.
+  inputs:
+  - title: account_context
+    type: object
+  - title: log_sources
+    type: array
+  - title: destination_platforms
+    type: array
+  outputs:
+  - title: pipeline_design
+    type: object
+  - title: data_flow_diagram
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: obs-log-source-inventory
+      input: account_context, log_sources
+      tools:
+      - read-infohub
+      - read-application-topology
+      description: Inventory log sources, classify by type, estimate volume per source
+      on_failure: stop
+    - step: 2
+      prompt: obs-log-routing-design
+      input: log_inventory, destination_platforms
+      tools:
+      - read-intelligence
+      description: Design routing rules, enrichment stages, and schema normalization
+      on_failure: stop
+    - step: 3
+      action: persist
+      tools:
+      - save-pipeline-design
+      description: Save pipeline design with data flow diagram to InfoHub
+      on_failure: stop
+- component_type: Flow
+  id: otel-adoption-planning
+  name: OpenTelemetry Adoption Planning
+  playbook_refs:
+  - PB_OBS_007
+  description: Plan OpenTelemetry adoption covering SDK integration, collector topology, and migration from proprietary agents.
+  inputs:
+  - title: account_context
+    type: object
+  - title: current_instrumentation
+    type: object
+  - title: target_architecture
+    type: object
+  outputs:
+  - title: adoption_plan
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: obs-otel-readiness
+      input: account_context, current_instrumentation
+      tools:
+      - read-infohub
+      - read-application-topology
+      description: Assess current instrumentation and identify migration candidates by language/framework
+      on_failure: stop
+    - step: 2
+      prompt: obs-otel-architecture
+      input: readiness_assessment, target_architecture
+      tools:
+      - read-intelligence
+      description: Design collector topology, SDK integration plan, and exporter configuration
+      on_failure: stop
+    - step: 3
+      action: persist
+      tools:
+      - save-pipeline-design
+      description: Save OTel adoption plan with phased migration schedule
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - log-architecture
+    - trace-instrumentation
+    - metrics-collection
+    - opentelemetry-adoption
+    - data-flow-design
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs pipeline architectures and instrumentation plans, but the
+      platform engineer decides which services to instrument first, how much operational overhead
+      the team can absorb, and whether the OpenTelemetry migration timeline aligns with other
+      platform initiatives. The design is sound, but adoption sequencing is a human decision.
+
+      '
+    challenges:
+    - text: Instrumentation adds latency and overhead that development teams resist
+      specific_overhead:
+      - Quantifying instrumentation overhead per language runtime and framework to set expectations
+    - text: Log volume grows faster than budgets, creating pipeline backpressure
+      specific_overhead:
+      - Modeling log growth projections against pipeline throughput capacity
+    - text: OpenTelemetry migration from proprietary agents requires careful parallel-run validation
+      specific_overhead:
+      - Designing parallel-run configurations that verify data parity before cutover
+    administrative_overhead:
+    - Quantifying instrumentation overhead per language runtime and framework to set expectations
+    - Modeling log growth projections against pipeline throughput capacity
+    scenarios:
+    - problem: Trace context lost across service boundaries
+      why: 'Distributed services use different instrumentation libraries or misconfigure context
+        propagation headers. Traces break at service boundaries, making end-to-end latency
+        analysis impossible and root cause investigation slow.
+
+        '
+      agent: obs-data-pipeline-agent
+      agent_response: 'Maps service communication patterns and identifies context propagation
+        gaps. Designs a unified instrumentation strategy with W3C Trace Context propagation,
+        specifying SDK versions and configuration per service runtime.
+
+        '
+      success_signal:
+        metric: End-to-end trace completeness
+        target: 90% of cross-service requests have complete trace propagation
+        leading_indicator: Context propagation audit completed across all service boundaries
+        failure_signal: Trace gaps persist at service boundaries after instrumentation rollout
+    - problem: Log pipeline drops data during traffic spikes
+      why: 'Log collection agents and forwarding pipelines are sized for average throughput.
+        During traffic spikes or incident-driven log bursts, pipelines back up and drop data
+        at the point when logs matter most for investigation.
+
+        '
+      agent: obs-data-pipeline-agent
+      agent_response: 'Designs pipeline architecture with backpressure handling, buffering stages,
+        and priority routing that preserves high-value logs during volume spikes. Specifies
+        throughput headroom and overflow strategies.
+
+        '
+      success_signal:
+        metric: Log data completeness during peak traffic
+        target: Zero log data loss for tier-1 services during traffic peaks up to 3x baseline
+        leading_indicator: Pipeline load test validates throughput headroom at 3x
+        failure_signal: Log gaps detected during traffic spike that correlated with incident
+  escalation_triggers:
+  - Pipeline design requires infrastructure changes beyond observability scope
+  - Instrumentation overhead exceeds acceptable performance budget
+  - OpenTelemetry migration risk assessment shows data loss during parallel run
+  prompt_registry:
+    obs-log-source-inventory:
+      description: Inventory log sources and estimate volume per source
+      source: prompts/tasks.yaml#data_pipeline.log_source_inventory
+      inputs:
+      - title: account_name
+        type: string
+      - title: log_sources
+        type: array
+      outputs:
+      - title: log_inventory
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - infrastructure_architecture
+        - application_topology
+        priority: critical
+      - source: read-application-topology
+        fields:
+        - service_list
+        - log_producers
+        priority: critical
+    obs-otel-readiness:
+      description: Assess current instrumentation and identify OTel migration candidates
+      source: prompts/tasks.yaml#data_pipeline.otel_readiness
+      inputs:
+      - title: current_instrumentation
+        type: object
+      outputs:
+      - title: readiness_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - application_stack
+        - current_agents
+        priority: critical
+      - source: read-application-topology
+        fields:
+        - language_runtimes
+        - frameworks
+        priority: critical
+    obs-log-routing-design:
+      description: Design log routing rules, enrichment stages, and schema normalization
+      source: prompts/tasks.yaml#data_pipeline.log_routing_design
+      inputs:
+      - title: log_inventory
+        type: object
+      - title: destination_platforms
+        type: array
+      outputs:
+      - title: routing_design
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - compliance_requirements
+        - data_residency
+        priority: enrichment
+  boundaries:
+  - Pipeline architecture design only, does not deploy or configure pipelines
+  - Does not define SLOs or alerting strategies
+  - Does not perform cost optimization or retention analysis
+  - Does not design incident response workflows
+  permissions:
+  - Design log, metrics, and trace collection architectures
+  - Specify instrumentation requirements per service and runtime
+  - Plan OpenTelemetry adoption and migration strategies
+  - Define schema conventions and data flow specifications
+  guardrails:
+    input_validation:
+    - Reject pipeline designs without defined data sources and destinations
+    - Reject instrumentation plans without application topology context
+    output_checks:
+    - Pipeline designs must specify throughput requirements and failure modes
+    - Instrumentation plans must include overhead estimates per service
+    - Sampling strategies must document expected data volume impact
+    - Data flow diagrams must show all routing stages and transformation points
+    signal_validation:
+    - Never assume data volume without source inventory evidence
+    - Never recommend instrumentation without runtime compatibility verification
+    - Add [ESTIMATE] when throughput projections are based on benchmarks rather than measured data
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      - read-application-topology
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot design pipeline without infrastructure and application topology data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - data-pipeline
+      - instrumentation
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-three-pillars.yaml
+      description: Metrics, logs, traces collection patterns and architecture
+    - path: references/expertise-sre-and-platforms.yaml
+      description: Platform engineering, OpenTelemetry ecosystem, collector patterns
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: observability-specialist-agent
+      description: Orchestrator routes data pipeline requests
+    - type: downstream
+      source: obs-monitoring-design-agent
+      signal: unmeasured_slis_detected
+      description: Unmeasured SLIs trigger instrumentation design
+    - type: downstream
+      source: obs-incident-readiness-agent
+      signal: instrumentation_gaps_detected
+      description: Readiness gaps trigger pipeline instrumentation
+    outputs:
+    - type: parent_return
+      target: observability-specialist-agent
+      payload:
+      - pipeline_design
+      - instrumentation_plan
+      - data_flow_diagram
+      description: Full pipeline design back to orchestrator
+    - type: trigger_agent
+      target: obs-cost-optimization-agent
+      condition: pipeline_design.estimated_volume > budget_threshold
+      payload:
+      - volume_estimates
+      - source_breakdown
+      description: High volume estimates trigger cost optimization analysis
+    dependencies: []

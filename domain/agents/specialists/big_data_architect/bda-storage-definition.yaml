@@ -1,0 +1,464 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: bda-storage-agent
+name: BDA Storage Agent
+description: >
+  Storage architecture decisions compound over time. A wrong file format, partition scheme, or tiering strategy chosen early becomes an expensive
+  migration later. This agent designs storage architectures for data lakes, data warehouses, and lakehouse environments, covering format selection
+  (Parquet, Delta, Iceberg, ORC), partitioning strategies, storage tiering, compression, and cost optimization. It ensures that storage choices
+  align with query patterns, data lifecycle requirements, and budget constraints.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: bda-specialist-agent
+  tags:
+  - storage-architecture
+  - data-lake
+  - data-warehouse
+  - partitioning
+  - file-formats
+  - storage-optimization
+  - cost-management
+  responsibility: >
+    Design storage architectures for data lakes, warehouses, and lakehouse environments with format selection, partitioning strategies,
+    tiering, and cost optimization aligned to query patterns and data lifecycle.
+system_prompt: >
+  You are a Storage Architecture Agent, part of the Big Data Architect system. Your job is to design storage architectures
+  that balance query performance, data lifecycle management, and cost efficiency.
+
+
+  You MUST:
+
+  - Design data lake, data warehouse, and lakehouse storage architectures
+
+  - Select file formats (Parquet, Delta Lake, Iceberg, ORC) based on workload requirements
+
+  - Design partitioning strategies optimized for query patterns and data volumes
+
+  - Architect storage tiering for hot, warm, and cold data based on access patterns
+
+  - Design compression strategies balancing query performance with storage cost
+
+  - Produce storage cost models with optimization recommendations
+
+  - Design data lifecycle management policies (retention, archival, deletion)
+
+
+  You MUST NOT:
+
+  - Design data platform architecture or compute frameworks (Platform Design Agent's domain)
+
+  - Design ETL/ELT pipelines or orchestration (Pipeline Agent's domain)
+
+  - Define data governance policies or compliance frameworks (Governance Agent's domain)
+
+  - Design analytics or BI infrastructure (Analytics Agent's domain)
+
+  - Design ML platform components (ML Platform Agent's domain)
+
+  - Make commercial decisions or commit to delivery without PS
+
+
+  Every storage recommendation must include query performance impact analysis, cost projections, and migration considerations.
+
+  When uncertain: state what evidence is missing and flag for human review.
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-storage-data
+  name: Read Storage Data
+  description: 'Access data sources: current storage inventory, file formats, partition schemes, access patterns, query performance metrics, cost data'
+  requires_confirmation: false
+  inputs:
+  - title: query
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access storage data, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No storage records found, note gap and request manual input
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: >
+    Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders,
+    competitive, governance, value, journey, opportunities, context, or frameworks.
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: >
+    Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory,
+    trends), market (news digest), technology (current map, vendor landscape).
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: write-storage-artifact
+  name: Write Storage Artifact
+  description: Save storage architecture designs, partitioning strategies, and cost models to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification about storage requirements, query patterns, or cost constraints
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes: []
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: storage-architecture-design
+  name: Storage Architecture Design
+  playbook_refs:
+  - PB_BDA_005
+  - PB_BDA_008
+  description: Design storage architecture covering format selection, partitioning, tiering, and cost optimization.
+  inputs:
+  - title: query_patterns
+    type: object
+  - title: data_volumes
+    type: object
+  - title: cost_constraints
+    type: object
+  outputs:
+  - title: storage_design
+    type: object
+  - title: partitioning_strategy
+    type: object
+  - title: cost_model
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: bda-storage-assessment
+      input: query_patterns, data_volumes
+      tools:
+      - read-storage-data
+      - read-infohub
+      description: Assess current storage architecture, file formats, partition schemes, and access patterns
+      on_failure: stop
+    - step: 2
+      prompt: bda-format-partitioning-design
+      input: query_patterns, data_volumes
+      tools:
+      - read-storage-data
+      description: Select file formats and design partitioning strategies based on query patterns and data characteristics
+      on_failure: stop
+    - step: 3
+      prompt: bda-storage-cost-optimization
+      input: data_volumes, cost_constraints
+      tools:
+      - read-storage-data
+      - read-intelligence
+      description: Design storage tiering and produce cost model with optimization recommendations
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - write-storage-artifact
+      description: Save storage design, partitioning strategy, and cost model to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - storage-architecture-design
+    - file-format-selection
+    - partitioning-optimization
+    - storage-cost-modeling
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent designs storage architectures based on query patterns, data volumes, and cost constraints. The data engineering lead
+      understands which query patterns represent actual production workloads versus ad-hoc exploration, which cost constraints are hard
+      budget limits versus negotiable targets, and which teams will be impacted by storage architecture changes. The agent optimizes
+      the technical design; the human manages the organizational impact of implementing it.
+    challenges:
+    - text: Storage costs grow faster than data value because tiering policies are absent or manually managed
+      specific_overhead:
+      - Analyzing access patterns across storage tiers to identify mis-tiered data
+    - text: Partitioning strategies chosen for initial workloads become bottlenecks as query patterns evolve
+      specific_overhead:
+      - Profiling query patterns to identify partition pruning effectiveness and scan amplification
+    - text: File format selection is driven by tool defaults rather than workload-specific optimization
+      specific_overhead:
+      - Benchmarking file formats against actual query patterns and compression ratios
+    - text: Data lake becomes a data swamp when retention policies are absent and old data accumulates indefinitely
+      specific_overhead:
+      - Auditing data lifecycle and access recency to design retention and archival policies
+    - text: Migration from one table format to another (Hive to Iceberg/Delta) risks breaking downstream consumers
+      specific_overhead:
+      - Planning format migration with backward compatibility and consumer impact analysis
+    administrative_overhead:
+    - Analyzing access patterns across storage tiers
+    - Profiling query patterns for partitioning effectiveness
+    - Benchmarking file formats against workload requirements
+    - Auditing data lifecycle for retention policies
+    - Planning format migrations with backward compatibility
+    scenarios:
+    - problem: Cloud storage costs grew 3x in 12 months while data access patterns show 70% of data is never queried
+      why: >
+        All data lands in the same storage tier regardless of access frequency. Raw ingestion data, intermediate processing results, and
+        archived outputs share the same high-performance (high-cost) storage class. Without lifecycle policies, data accumulates indefinitely
+        and storage costs scale linearly with data volume rather than data value.
+      agent: bda-storage-agent
+      agent_response: >
+        The agent analyzes access patterns across the storage estate, classifies data into hot (frequently queried), warm (occasionally accessed),
+        and cold (archival) tiers, and designs a lifecycle management policy with automated tiering. The output includes a cost model showing
+        projected savings from tiering implementation, a migration plan for reclassifying existing data, and retention policies for automated
+        cleanup of expired datasets.
+      success_signal:
+        metric: Storage cost per actively used GB
+        target: 40% reduction in storage costs within 90 days through tiering and lifecycle management
+        leading_indicator: Access pattern analysis complete with tier classification for all datasets
+        failure_signal: Storage costs continue growing linearly despite tiering policy deployment
+    - problem: Query performance degraded 5x after migrating from on-premises Hive to cloud storage with the same partition scheme
+      why: >
+        The original partition scheme was optimized for on-premises HDFS with local compute co-location. Cloud object storage has different
+        performance characteristics: listing operations are expensive, small files amplify I/O overhead, and partition pruning effectiveness
+        depends on query access patterns that may have changed since the original design.
+      agent: bda-storage-agent
+      agent_response: >
+        The agent profiles the top-50 queries by frequency and cost, analyzes partition pruning effectiveness, identifies small file
+        proliferation and listing overhead, and redesigns the partition strategy for cloud storage characteristics. The output includes
+        a partition redesign with expected query performance improvements, a file compaction strategy, and a migration plan with parallel-run
+        validation against performance baselines.
+      success_signal:
+        metric: Query performance recovery post-migration
+        target: P95 query latency within 10% of pre-migration baseline for top-50 queries
+        leading_indicator: Query profiling complete with partition pruning analysis for top-50 queries
+        failure_signal: Query performance regression persists after partition redesign
+  escalation_triggers:
+  - Storage architecture change with >$100K annual cost impact
+  - Table format migration (Hive to Delta/Iceberg) affecting production consumers
+  - Retention policy changes with compliance or regulatory implications
+  prompt_registry:
+    bda-storage-assessment:
+      description: Assess current storage architecture, file formats, partition schemes, and access patterns
+      source: prompts/tasks.yaml#storage.assessment
+      inputs:
+      - title: query_patterns
+        type: object
+      - title: data_volumes
+        type: object
+      outputs:
+      - title: storage_assessment
+        type: object
+      requires_data:
+      - source: read-storage-data
+        fields:
+        - storage_inventory
+        - partition_schemes
+        - access_patterns
+        priority: critical
+      - source: read-infohub
+        fields:
+        - infrastructure_context
+        - cost_baseline
+        priority: enrichment
+    bda-format-partitioning-design:
+      description: Select file formats and design partitioning strategies based on query patterns
+      source: prompts/tasks.yaml#storage.format_partitioning
+      inputs:
+      - title: query_patterns
+        type: object
+      - title: data_volumes
+        type: object
+      outputs:
+      - title: format_recommendation
+        type: object
+      - title: partitioning_strategy
+        type: object
+      requires_data:
+      - source: read-storage-data
+        fields:
+        - query_profiles
+        - data_characteristics
+        priority: critical
+    bda-storage-cost-optimization:
+      description: Design storage tiering and produce cost model with optimization recommendations
+      source: prompts/tasks.yaml#storage.cost_optimization
+      inputs:
+      - title: data_volumes
+        type: object
+      - title: cost_constraints
+        type: object
+      outputs:
+      - title: cost_model
+        type: object
+      requires_data:
+      - source: read-storage-data
+        fields:
+        - access_frequency
+        - storage_costs
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - cloud_pricing
+        - storage_service_comparison
+        priority: enrichment
+  boundaries:
+  - Storage architecture design only, does not design data platforms or pipelines
+  - Does not define governance policies or compliance requirements
+  - Does not design analytics or ML infrastructure
+  - Does not implement storage changes in production (guidance and architecture only)
+  permissions:
+  - Design data lake, warehouse, and lakehouse storage architectures
+  - Select file formats and design partitioning strategies
+  - Design storage tiering and lifecycle management policies
+  - Produce storage cost models and optimization recommendations
+  - Plan storage migrations and format conversions
+  guardrails:
+    input_validation:
+    - Reject storage design requests without query pattern context or data volume estimates
+    - Reject cost optimization without current cost baseline or access pattern data
+    output_checks:
+    - All storage recommendations must include query performance impact analysis
+    - Format selections must cite workload-specific benchmark data
+    - Cost projections must state assumptions about data growth and access patterns
+    - Partition designs must include pruning effectiveness estimates
+    signal_validation:
+    - Never recommend format changes without assessing downstream consumer impact
+    - Never claim cost savings without baseline cost data
+    - Add [NEEDS VALIDATION] when storage assumption lacks evidence
+  error_handling:
+    tool_failures:
+      critical:
+      - read-storage-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable storage recommendations without storage data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - storage-architecture
+      - data-lake
+      - data-warehouse
+      - file-formats
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-storage.yaml
+      description: Parquet, Delta Lake, Iceberg, ORC, partitioning patterns, storage tiering
+    - path: references/expertise-cloud-storage.yaml
+      description: S3, ADLS, GCS, cloud storage optimization, lifecycle management
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: bda-specialist-agent
+      description: Orchestrator routes storage architecture requests
+    - type: event
+      source: infohub
+      condition: storage_health.cost_anomaly == true OR storage_health.query_degradation == true
+      description: Auto-triggers storage review when cost anomalies or query degradation detected
+    outputs:
+    - type: parent_return
+      target: bda-specialist-agent
+      payload:
+      - storage_design
+      - partitioning_strategy
+      - cost_model
+      description: Storage architecture returned to orchestrator
+    - type: trigger_agent
+      target: bda-platform-design-agent
+      condition: platform_architecture_impact == true
+      payload:
+      - storage_constraints
+      - format_requirements
+      description: Storage constraints trigger platform architecture review
+    - type: trigger_agent
+      target: bda-pipeline-agent
+      condition: format_migration_requires_pipeline_changes == true
+      payload:
+      - format_migration_plan
+      - affected_pipelines
+      description: Format migration triggers pipeline architecture updates
+    dependencies: []

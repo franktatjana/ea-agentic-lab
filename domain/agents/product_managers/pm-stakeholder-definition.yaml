@@ -1,0 +1,581 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: pm-stakeholder-agent
+name: PM Stakeholder Alignment Agent
+description: 'Aha! research shows sales-product trust erosion manifests as direct confrontation, subversion (going directly to engineering), or covert coordination against
+  product plans, and 70% of key functions operate out of sync losing up to 25% of revenue to strategic misalignment (Xenoss). This agent monitors the health
+  of the product-sales relationship using trust health indicators, detects warning signals like bypass incidents and attendance drops, manages cross-functional
+  alignment cadences, tracks feature request lifecycle through every stage, and maintains transparency mechanisms so that trust erosion is caught early and
+  addressed before it becomes structural.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: pm-agent
+  tags:
+  - stakeholder-alignment
+  - trust-health
+  - cross-functional-cadence
+  - request-lifecycle
+  - escalation-framework
+  - transparency
+  responsibility: 'Monitor product-sales trust health, detect warning signals, manage cross-functional alignment cadences, track feature request lifecycle, maintain transparency
+    mechanisms, and ensure decision rationale is documented and communicated for every declined or deferred request.
+
+    '
+system_prompt: 'You are a Stakeholder Alignment Agent, part of the Product Manager
+
+  intelligence system. Your job is to monitor the health of the product-sales relationship,
+
+  detect trust erosion signals, and ensure cross-functional alignment stays on track.
+
+
+  You MUST:
+
+  - Monitor trust health indicators: bypass incident frequency, meeting attendance trends, unauthorized feature promise count, win/loss feedback flow continuity
+
+  - Detect warning signals: sales going directly to engineering, meeting attendance dropping below thresholds, feature promises made without product involvement, win/loss feedback stopping
+
+  - Manage cross-functional alignment cadences: weekly product-sales sync, monthly cross-functional review, quarterly planning review
+
+  - Track feature request lifecycle: submitted → triaged → assessed → prioritized → committed → delivered/declined
+
+  - Maintain transparency mechanisms: request portal usage, roadmap visibility metrics, decision log completeness
+
+  - Manage the escalation framework across 4 levels: standard request, priority escalation, executive escalation, market-level threat
+
+  - Document and communicate decision rationale for every declined or deferred request
+
+
+  You MUST NOT:
+
+  - Track or deduplicate individual feature requests (Feature Gap Agent''s domain)
+
+  - Set roadmap priorities or apply prioritization frameworks (Roadmap Alignment Agent''s domain)
+
+  - Aggregate customer feedback or run sentiment analysis (Feedback Synthesis Agent''s domain)
+
+  - Build competitive matrices or monitor competitor releases (Competitive Intelligence Agent''s domain)
+
+  - Prepare release content or field enablement materials (Release Communication Agent''s domain)
+
+
+  Every trust health assessment must cite the specific signals observed, the source data, and the time window analyzed.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: alignment_cadences, request_lifecycle, trust_metrics, escalation_records.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (stakeholder map, org dynamics), industry (alignment benchmarks).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: read-communications
+  name: Read Communications
+  description: Access Slack threads, email content, CRM notes, and meeting records for bypass detection and attendance tracking
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  - title: time_period
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access communications, flag as data gap in trust assessment
+    - error_code: NO_RECORDS
+      guidance: No communications found for period, expand search or note gap
+- component_type: ClientTool
+  id: save-alignment-report
+  name: Save Alignment Report
+  description: Persist trust health assessment, alignment cadence status, and request lifecycle reports to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: alignment_report
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from PM about trust signal interpretation or escalation context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: alignment-intelligence
+  name: Alignment Intelligence
+  description: Stakeholder alignment data available to peer agents for trust health and request lifecycle context
+  tools:
+  - id: get-trust-health
+    name: Get Trust Health
+    description: Returns trust health score with signal breakdown including bypass incidents, attendance trends, and feedback flow status
+    inputs:
+    - title: account_name
+      type: string
+    - title: time_period
+      type: string
+    outputs:
+    - title: trust_health
+      type: object
+  - id: get-request-lifecycle-status
+    name: Get Request Lifecycle Status
+    description: Returns current lifecycle stage and SLA status for a feature request or set of requests by account
+    inputs:
+    - title: request_id
+      type: string
+    - title: account_name
+      type: string
+    outputs:
+    - title: lifecycle_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: trust-health-assessment
+  name: Trust Health Assessment
+  playbook_refs:
+  - PB_PM_006
+  description: Monitor trust health indicators across product-sales relationship, detect warning signals, and recommend interventions before trust erosion becomes structural.
+  inputs:
+  - title: account_name
+    type: string
+  - title: time_period
+    type: string
+  - title: signal_sources
+    type: array
+  outputs:
+  - title: trust_health_report
+    type: object
+  - title: warning_signals
+    type: array
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pm-trust-signal-collection
+      input: account_name, time_period, signal_sources
+      tools:
+      - read-communications
+      - read-infohub
+      description: Collect trust health signals from communications, meeting records, CRM, and bypass detection channels
+      on_failure: stop
+    - step: 2
+      prompt: pm-trust-health-scoring
+      input: trust_signals
+      tools:
+      - read-infohub
+      description: Score trust health across dimensions, compare against prior period, identify deterioration patterns
+      on_failure: stop
+    - step: 3
+      prompt: pm-intervention-recommendation
+      input: trust_health_score, warning_signals
+      description: Generate intervention recommendations matched to detected signal severity and escalation level
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-alignment-report
+      description: Save trust health assessment with signal evidence, scores, and intervention recommendations
+      on_failure: stop
+- component_type: Flow
+  id: request-lifecycle-management
+  name: Request Lifecycle Management
+  playbook_refs:
+  - PB_PM_006
+  description: Track feature requests through lifecycle stages, ensure SLA adherence at each transition, and document decision rationale for every declined or deferred request.
+  inputs:
+  - title: account_name
+    type: string
+  - title: request_ids
+    type: array
+  - title: lifecycle_scope
+    type: string
+  outputs:
+  - title: lifecycle_report
+    type: object
+  - title: sla_violations
+    type: array
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pm-lifecycle-status-scan
+      input: account_name, request_ids, lifecycle_scope
+      tools:
+      - read-infohub
+      description: Scan all tracked requests for current lifecycle stage, time-in-stage, and SLA adherence
+      on_failure: stop
+    - step: 2
+      prompt: pm-lifecycle-sla-check
+      input: lifecycle_statuses
+      tools:
+      - read-infohub
+      description: Identify SLA breaches, stalled requests, and requests lacking decision rationale documentation
+      on_failure: stop
+    - step: 3
+      prompt: pm-decision-communication-check
+      input: sla_violations, stalled_requests
+      description: Verify that every declined or deferred request has documented rationale communicated to the requesting stakeholder
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-alignment-report
+      description: Save lifecycle report with SLA status, stalled requests, and communication gaps
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - trust-health-monitoring
+    - bypass-detection
+    - alignment-cadence-management
+    - request-lifecycle-tracking
+    - escalation-framework
+    - decision-rationale-transparency
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent monitors signals and tracks lifecycle stages, but the PM owns the relationships and makes the escalation calls.
+      Trust health scores and bypass detection surface patterns, but the PM interprets context, decides when a pattern warrants direct intervention,
+      and leads the conversations that rebuild trust. The agent tracks, but the PM acts.
+
+      '
+    challenges:
+    - text: Trust erosion between product and sales manifests gradually through indirect signals like bypass incidents and attendance drops, and by the time the pattern is visible to human observation the relationship damage requires months to repair
+      specific_overhead:
+      - Manually tracking meeting attendance across weekly syncs, monthly reviews, and quarterly planning
+      - Cross-referencing Slack, email, and CRM to detect bypass patterns where sales contacts engineering directly
+    - text: Cross-functional alignment cadences lose effectiveness when attendance declines or agenda quality degrades, but without systematic tracking the PM does not know which cadence is failing until a stakeholder complaint surfaces
+      specific_overhead:
+      - Maintaining cadence health dashboards across weekly, monthly, and quarterly rhythms
+      - Preparing cadence effectiveness reports comparing attendance, action-item completion, and agenda coverage
+    - text: Feature request lifecycle tracking across tools (CRM, Jira, Productboard, Slack) requires manual reconciliation, and requests that stall between stages go unnoticed until the requesting stakeholder escalates or disengages
+      specific_overhead:
+      - Reconciling request status across multiple systems to determine true lifecycle stage
+      - Identifying requests stuck in a stage beyond SLA without automated threshold alerts
+    - text: Decision rationale for declined or deferred requests is often undocumented or communicated verbally, leaving stakeholders without a record of why their request was not prioritized and fueling perceptions of arbitrary decision-making
+      specific_overhead:
+      - Writing decision rationale documents for every declined or deferred request after planning sessions
+      - Distributing rationale to the right stakeholders and confirming receipt and understanding
+    scenarios:
+    - problem: Sales bypass pattern detected, with reps contacting engineering directly to get features built outside the roadmap process
+      why: 'When sales loses confidence in the product prioritization process, reps route requests directly to sympathetic engineers rather than through the
+        formal intake process. This creates unplanned work, misaligned engineering effort, and compounds the trust erosion as product leadership
+        discovers commitments made without their input.
+
+        '
+      agent: pm-stakeholder-agent
+      agent_response: 'The agent detects bypass patterns by monitoring engineering-to-sales direct communication channels, flagging conversations that contain
+        feature commitment language without product involvement. Trust health score reflects the bypass frequency, and the agent recommends specific
+        interventions: re-establishing intake process visibility, scheduling a trust-reset meeting, or escalating if bypass volume warrants.
+
+        '
+      success_signal:
+        metric: Bypass incident detection and resolution time
+        target: Bypass patterns detected within 48 hours and intervention initiated within one week
+        leading_indicator: Bypass incidents declining quarter-over-quarter after intervention
+        failure_signal: Bypass patterns discovered only when unplanned engineering work surfaces in sprint review
+    - problem: Feature request lifecycle stalled without communication, with requests sitting in assessment stage for weeks with no status update to the requesting stakeholder
+      why: 'Requests enter the lifecycle through intake but stall when the responsible party does not advance them within SLA. Without automated
+        stage-transition tracking, the stall is invisible until the stakeholder follows up or gives up, both of which damage trust.
+
+        '
+      agent: pm-stakeholder-agent
+      agent_response: 'The agent monitors time-in-stage for all tracked requests against defined SLAs, flags breaches, and verifies that communication has
+        occurred at each transition. Stalled requests surface in the lifecycle report with days-in-stage and last-communication timestamp so the PM
+        can intervene before the stakeholder needs to ask.
+
+        '
+      success_signal:
+        metric: Request lifecycle SLA adherence
+        target: 95% of requests transition between stages within defined SLA with documented communication
+        leading_indicator: Stakeholders reference lifecycle status proactively rather than asking for updates
+        failure_signal: Requests discovered stalled only when stakeholders escalate or disengage
+  escalation_triggers:
+  - 3+ bypass incidents detected in a single quarter
+  - Product-sales sync attendance drops below 50% for two consecutive sessions
+  - Unauthorized feature promise detected in customer-facing communication
+  - Request lifecycle SLA breach for request linked to deal above revenue threshold
+  prompt_registry:
+    pm-trust-signal-collection:
+      description: Collect trust health signals from communications, meetings, and CRM for bypass detection and attendance tracking
+      source: prompts/tasks.yaml#stakeholder_alignment.trust_signal_collection
+      inputs:
+      - title: account_name
+        type: string
+      - title: time_period
+        type: string
+      - title: signal_sources
+        type: array
+      outputs:
+      - title: trust_signals
+        type: array
+      requires_data:
+      - source: read-communications
+        fields:
+        - slack_threads
+        - email_content
+        - crm_notes
+        - meeting_attendance
+        priority: critical
+    pm-trust-health-scoring:
+      description: Score trust health across dimensions and identify deterioration patterns
+      source: prompts/tasks.yaml#stakeholder_alignment.trust_health_scoring
+      inputs:
+      - title: trust_signals
+        type: array
+      outputs:
+      - title: trust_health_score
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - prior_trust_scores
+        - baseline_metrics
+        priority: enrichment
+    pm-intervention-recommendation:
+      description: Generate intervention recommendations matched to detected signal severity
+      source: prompts/tasks.yaml#stakeholder_alignment.intervention_recommendation
+      inputs:
+      - title: trust_health_score
+        type: object
+      - title: warning_signals
+        type: array
+      outputs:
+      - title: interventions
+        type: array
+      requires_data:
+      - source: read-infohub
+        fields:
+        - prior_interventions
+        - escalation_history
+        priority: enrichment
+    pm-lifecycle-status-scan:
+      description: Scan all tracked requests for current lifecycle stage and SLA adherence
+      source: prompts/tasks.yaml#stakeholder_alignment.lifecycle_status_scan
+      inputs:
+      - title: account_name
+        type: string
+      - title: request_ids
+        type: array
+      - title: lifecycle_scope
+        type: string
+      outputs:
+      - title: lifecycle_statuses
+        type: array
+      requires_data:
+      - source: read-infohub
+        fields:
+        - request_records
+        - lifecycle_sla_definitions
+        priority: critical
+    pm-lifecycle-sla-check:
+      description: Identify SLA breaches and requests lacking decision rationale
+      source: prompts/tasks.yaml#stakeholder_alignment.lifecycle_sla_check
+      inputs:
+      - title: lifecycle_statuses
+        type: array
+      outputs:
+      - title: sla_violations
+        type: array
+      - title: stalled_requests
+        type: array
+      requires_data:
+      - source: read-infohub
+        fields:
+        - sla_thresholds
+        - decision_log
+        priority: critical
+    pm-decision-communication-check:
+      description: Verify declined or deferred requests have documented and communicated rationale
+      source: prompts/tasks.yaml#stakeholder_alignment.decision_communication_check
+      inputs:
+      - title: sla_violations
+        type: array
+      - title: stalled_requests
+        type: array
+      outputs:
+      - title: communication_gaps
+        type: array
+      requires_data:
+      - source: read-communications
+        fields:
+        - decision_notifications
+        - stakeholder_acknowledgments
+        priority: enrichment
+  boundaries:
+  - Does not track or deduplicate individual feature requests (Feature Gap Agent)
+  - Does not set roadmap priorities or apply prioritization frameworks (Roadmap Alignment Agent)
+  - Does not aggregate customer feedback or run sentiment analysis (Feedback Synthesis Agent)
+  - Does not build competitive matrices or monitor competitor releases (Competitive Intelligence Agent)
+  - Does not prepare release content or field enablement materials (Release Communication Agent)
+  permissions:
+  - Monitor trust health indicators across product-sales communications
+  - Detect bypass incidents and unauthorized feature promises
+  - Track cross-functional alignment cadence attendance and effectiveness
+  - Monitor feature request lifecycle stage transitions and SLA adherence
+  - Verify decision rationale documentation and communication for declined requests
+  - Write alignment reports and trust health assessments to InfoHub
+  guardrails:
+    input_validation:
+    - Reject trust health assessment without specified time period or signal sources
+    - Reject lifecycle management without account name or request identifiers
+    output_checks:
+    - Every trust health score must cite specific signals observed with source and timestamp
+    - Bypass detection must include evidence trail from communication source
+    - Lifecycle reports must show time-in-stage and last-communication timestamp per request
+    - Intervention recommendations must cite the signal severity that triggered them
+    signal_validation:
+    - Never infer bypass intent without communication evidence
+    - Add [NEEDS VERIFICATION] when attendance data is incomplete or sourced from a single channel
+    - Distinguish between systemic trust erosion and isolated incidents in output
+  error_handling:
+    tool_failures:
+      critical:
+      - read-communications
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable trust health assessment without communications data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - stakeholder-alignment
+      - cross-functional-cadence
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/cross-functional-alignment.yaml
+      description: Trust health indicator taxonomy, alignment cadence templates, request lifecycle stage definitions, escalation framework levels, transparency mechanism specifications
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: pm-agent
+      description: PM orchestrator routes stakeholder alignment requests
+    - type: event
+      source: communications_feed
+      condition: bypass_pattern.detected == true
+      description: Bypass detection in communications triggers immediate trust health review
+    - type: schedule
+      cadence: weekly
+      window: Friday 09:00-10:00
+      description: Weekly trust health scan across all active product-sales relationships
+    outputs:
+    - type: parent_return
+      target: pm-agent
+      payload:
+      - trust_health_report
+      - warning_signals
+      - lifecycle_report
+      description: Full alignment assessment back to orchestrator for aggregation
+    - type: trigger_agent
+      target: pm-roadmap-agent
+      condition: request.lifecycle_stage == prioritization
+      payload:
+      - request_details
+      - business_context
+      description: Requests reaching prioritization stage routed to Roadmap Alignment Agent for framework scoring
+    - type: trigger_agent
+      target: pm-feedback-agent
+      condition: sentiment.negative == true AND sentiment.linked_to_trust_erosion == true
+      payload:
+      - sentiment_data
+      - trust_context
+      description: Negative sentiment linked to trust erosion triggers feedback synthesis for broader pattern analysis
+    - type: notify_human
+      condition: trust_health.warning_signal == true
+      channel: alert
+      description: Trust health warning signals surface immediately for PM review and intervention decision
+    dependencies: []

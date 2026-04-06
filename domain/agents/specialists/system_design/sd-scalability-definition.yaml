@@ -1,0 +1,452 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sd-scalability-agent
+name: SD Scalability Agent
+description: 'Systems that work at current load often fail unpredictably when traffic grows. This agent provides expert guidance on horizontal and vertical scaling strategies, load balancing, caching architectures, capacity planning, and auto-scaling policies. It produces capacity models, scaling strategies, and resource sizing recommendations grounded in production data and growth projections.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: sd-specialist-agent
+  tags:
+  - scaling
+  - load-balancing
+  - caching
+  - capacity-planning
+  - auto-scaling
+  responsibility: 'Design scaling strategies, produce capacity models, recommend caching architectures, and validate resource sizing against production load and growth projections.
+
+    '
+system_prompt: 'You are a Scalability Agent, part of the System Design Specialist
+  intelligence system. Your job is to design scaling strategies and capacity plans.
+
+
+  You MUST:
+
+  - Analyze current load patterns and identify scalability ceilings
+
+  - Design horizontal and vertical scaling strategies with clear triggers and limits
+
+  - Architect caching layers (application, distributed, CDN) with invalidation strategies
+
+  - Design load balancing topologies with health checking and failover
+
+  - Produce capacity models with growth projections and resource sizing
+
+  - Define auto-scaling policies with scaling triggers, cooldown periods, and cost guardrails
+
+  - Identify stateful components that constrain horizontal scaling
+
+
+  You MUST NOT:
+
+  - Design architecture patterns or service boundaries (Architecture Agent''s domain)
+
+  - Design resilience or DR patterns (Resilience Agent''s domain)
+
+  - Design integration topologies (Integration Agent''s domain)
+
+  - Plan cloud migrations (Cloud Native Agent''s domain)
+
+  - Execute performance tests (Performance Agent''s domain)
+
+  - Assume traffic patterns without data or stated assumptions
+
+
+  Every scaling recommendation must include the assumptions behind the model
+
+  so the customer can validate inputs and adjust as actual data becomes available.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-load-data
+  name: Read Load Data
+  description: Access load metrics, traffic patterns, and resource utilization data
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access load data, flag as data gap and use stated assumptions
+    - error_code: NO_RECORDS
+      guidance: No load data found, request from user or use industry benchmarks
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: architecture, infrastructure, capacity, context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: write-scalability-artifact
+  name: Write Scalability Artifact
+  description: Save capacity models, scaling strategies, and sizing recommendations to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from user about load patterns or growth projections
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes: []
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: scalability-assessment
+  name: Scalability Assessment and Planning
+  playbook_refs:
+  - PB_SD_003
+  description: Assess current scalability posture, identify ceilings, and produce capacity models with scaling strategies.
+  inputs:
+  - title: system_context
+    type: object
+  - title: load_patterns
+    type: object
+  - title: growth_projections
+    type: object
+  outputs:
+  - title: scalability_assessment
+    type: object
+  - title: capacity_model
+    type: object
+  - title: scaling_strategy
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sd-load-analysis
+      input: system_context, load_patterns
+      tools:
+      - read-load-data
+      - read-infohub
+      description: Analyze current load patterns, resource utilization, and identify scalability ceilings
+      on_failure: stop
+    - step: 2
+      prompt: sd-capacity-model
+      input: system_context, growth_projections
+      tools:
+      - read-load-data
+      - read-intelligence
+      description: Produce capacity model with growth projections, resource sizing, and cost estimates
+      on_failure: stop
+    - step: 3
+      prompt: sd-scaling-strategy
+      input: system_context, load_patterns
+      tools:
+      - read-infohub
+      description: Design scaling strategy with auto-scaling policies, caching layers, and load balancing
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - write-scalability-artifact
+      description: Save capacity model and scaling strategy to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - scalability-assessment
+    - capacity-planning
+    - caching-architecture
+    - load-balancing-design
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent models capacity and designs scaling strategies. The engineering leader knows the real growth trajectory, budget constraints for infrastructure, and which services the business will prioritize when scaling resources are limited. The model is accurate, but the human leader decides where to invest.
+
+      '
+    challenges:
+    - text: Scalability assumptions are never validated until production load exposes the ceiling
+      specific_overhead:
+      - Retrofitting scaling solutions during incidents instead of designing them proactively
+    - text: Caching strategies are applied without invalidation planning, causing stale data in production
+      specific_overhead:
+      - Debugging data consistency issues caused by cache invalidation failures
+    - text: Auto-scaling policies are too aggressive or too conservative because they lack load profile data
+      specific_overhead:
+      - Tuning auto-scaling parameters through trial and error in production
+    - text: Stateful components block horizontal scaling but are not identified until scale-out fails
+      specific_overhead:
+      - Re-architecting stateful services under pressure when the scaling ceiling is hit
+    - text: Capacity plans use vendor T-shirt sizing instead of actual load data, leading to over or under-provisioning
+      specific_overhead:
+      - Adjusting infrastructure sizing repeatedly because initial estimates were not grounded in data
+    administrative_overhead:
+    - Maintaining capacity models and updating growth projections quarterly
+    - Documenting scaling trigger thresholds and auto-scaling policy configurations
+    scenarios:
+    - problem: A service scales out successfully but database connections exhaust the connection pool, causing cascading failures
+      why: 'Application tier auto-scaling was configured without considering the database connection limit. Each new instance opens connections to the database, and the pool saturates before the application tier reaches its target replica count.
+
+        '
+      agent: sd-scalability-agent
+      agent_response: 'The agent identifies stateful dependencies in the scaling path, models connection pool limits against scaling targets, and designs a connection pooling strategy (PgBouncer, ProxySQL) that decouples application scaling from database connection limits. The capacity model includes database connection budget as a scaling constraint.
+
+        '
+      success_signal:
+        metric: Scaling event success rate
+        target: 100% of auto-scaling events complete without database connection exhaustion
+        leading_indicator: Connection pool sizing validated against maximum replica count before scaling policy activation
+        failure_signal: Scaling event triggers connection pool exhaustion or database errors
+    - problem: Peak traffic events cause service degradation because capacity headroom was based on average load rather than peak load
+      why: 'Capacity planning used average daily traffic as the baseline, ignoring seasonal peaks, marketing campaign spikes, and burst patterns. The system runs comfortably at average load but degrades during peaks that exceed provisioned capacity.
+
+        '
+      agent: sd-scalability-agent
+      agent_response: 'The agent analyzes historical traffic patterns to identify peak-to-average ratios, designs a capacity model that accounts for burst headroom, and defines auto-scaling policies with pre-warming triggers for predictable peaks. The model includes cost comparison between always-provisioned and burst-scaling approaches.
+
+        '
+      success_signal:
+        metric: Peak traffic handling without degradation
+        target: System maintains performance SLOs during peak events up to the designed burst capacity
+        leading_indicator: Peak-to-average ratio documented and capacity model includes burst headroom
+        failure_signal: Performance degradation during a traffic peak that falls within the designed capacity range
+  escalation_triggers:
+  - Capacity model reveals infrastructure cost exceeding budget thresholds
+  - Scaling ceiling identified for a tier-1 service with no clear horizontal scaling path
+  - Database scaling constraint that requires architectural change
+  - Growth projection suggests current architecture cannot support 12-month traffic forecast
+  prompt_registry:
+    sd-load-analysis:
+      description: Analyze current load patterns, resource utilization, and identify scalability ceilings
+      source: prompts/tasks.yaml#system_design.load_analysis
+      inputs:
+      - title: system_context
+        type: object
+      - title: load_patterns
+        type: object
+      outputs:
+      - title: load_analysis
+        type: object
+      requires_data:
+      - source: read-load-data
+        fields:
+        - traffic_metrics
+        - resource_utilization
+        - peak_patterns
+        priority: critical
+      - source: read-infohub
+        fields:
+        - infrastructure_config
+        - service_topology
+        priority: enrichment
+    sd-capacity-model:
+      description: Produce capacity model with growth projections and resource sizing
+      source: prompts/tasks.yaml#system_design.capacity_model
+      inputs:
+      - title: system_context
+        type: object
+      - title: growth_projections
+        type: object
+      outputs:
+      - title: capacity_model
+        type: object
+      requires_data:
+      - source: read-load-data
+        fields:
+        - historical_traffic
+        - resource_consumption
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - industry_benchmarks
+        - growth_trends
+        priority: enrichment
+    sd-scaling-strategy:
+      description: Design scaling strategy with auto-scaling policies and caching architecture
+      source: prompts/tasks.yaml#system_design.scaling_strategy
+      inputs:
+      - title: system_context
+        type: object
+      - title: load_patterns
+        type: object
+      outputs:
+      - title: scaling_strategy
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - infrastructure_config
+        - cost_constraints
+        priority: critical
+  boundaries:
+  - Scaling and capacity planning only, does not design architecture patterns or service boundaries
+  - Does not design resilience, DR, integration, or cloud migration strategies
+  - Does not execute performance tests or load tests
+  - Does not make infrastructure procurement decisions
+  permissions:
+  - Read all load data, traffic metrics, and resource utilization
+  - Design scaling strategies and auto-scaling policies
+  - Produce capacity models and resource sizing recommendations
+  - Write scaling strategies and capacity models to InfoHub
+  guardrails:
+    input_validation:
+    - Reject capacity planning without load data or stated growth assumptions
+    - Reject scaling strategy design without system context and current architecture
+    output_checks:
+    - All capacity models must include explicit assumptions and a validation checkpoint
+    - Scaling recommendations must include cost implications
+    - Auto-scaling policies must include cooldown periods and cost guardrails
+    - Caching recommendations must include invalidation strategy
+    signal_validation:
+    - Never assume traffic patterns without data or stated assumptions
+    - Never guarantee capacity without stating the assumptions behind the model
+    - Add [NEEDS VALIDATION] when sizing is based on estimated rather than measured load
+    - Distinguish between measured capacity limits and theoretical limits
+  error_handling:
+    tool_failures:
+      critical:
+      - read-load-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable capacity model without load data or stated assumptions
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - scalability
+      - capacity-planning
+      - caching
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-scalability-patterns.yaml
+      description: Horizontal/vertical scaling, sharding, partitioning, replication strategies
+    - path: references/expertise-caching.yaml
+      description: Caching layers, invalidation patterns, CDN strategies, distributed cache design
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sd-specialist-agent
+      description: System Design orchestrator routes scalability requests
+    - type: event
+      source: capacity_alert
+      condition: resource_utilization > 80_percent
+      description: Auto-assesses when resource utilization approaches capacity limits
+    outputs:
+    - type: parent_return
+      target: sd-specialist-agent
+      payload:
+      - scalability_assessment
+      - capacity_model
+      - scaling_strategy
+      description: Scalability analysis results back to orchestrator
+    - type: trigger_agent
+      target: sd-performance-agent
+      condition: scaling_ceiling_identified == true
+      payload:
+      - bottleneck_analysis
+      - affected_services
+      description: Scaling ceiling triggers performance assessment for bottleneck services
+    - type: trigger_agent
+      target: sd-architecture-agent
+      condition: architectural_scaling_constraint == true
+      payload:
+      - constraint_details
+      - affected_components
+      description: Architectural scaling constraint triggers architecture review
+    - type: notify_human
+      condition: capacity_risk.severity == HIGH
+      channel: alert
+      description: HIGH severity capacity risks surface immediately for review
+    dependencies: []

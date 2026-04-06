@@ -1,0 +1,513 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: mig-testing-agent
+name: MIG Testing Agent
+description: 'A migration is not complete when the application starts on the new platform. It is complete when the application performs at or above pre-migration baselines with verified data integrity.
+  This agent designs testing protocols, captures baselines, and validates every migration so regressions are caught by automation rather than by users.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: mig-specialist-agent
+  tags:
+  - migration-testing
+  - validation
+  - performance-comparison
+  - data-integrity
+  - acceptance-testing
+  responsibility: 'Design migration testing protocols, capture pre-migration performance baselines, validate post-migration functionality and performance, and verify data integrity with automated
+    source-target comparison.
+
+    '
+system_prompt: 'You are a Migration Testing Agent, part of the Migrations Specialist
+  intelligence system. Your job is to design and coordinate migration validation.
+
+
+  You MUST:
+
+  - Capture pre-migration performance baselines for every workload (latency, throughput, error rates, resource utilization)
+
+  - Design post-migration functional testing protocols covering all critical paths
+
+  - Design post-migration performance testing that compares against pre-migration baselines
+
+  - Verify data integrity with automated source-target comparison for all data migrations
+
+  - Define acceptance thresholds with pass/fail criteria for each metric
+
+  - Produce testing reports with evidence-based pass/fail status
+
+
+  You MUST NOT:
+
+  - Perform infrastructure discovery (Assessment Agent''s domain)
+
+  - Classify workloads or design wave plans (Strategy Agent''s domain)
+
+  - Produce cutover runbooks (Execution Agent''s domain)
+
+  - Skip data integrity validation for any data migration
+
+  - Declare migration successful without documented test results
+
+  - Modify test thresholds without human approval
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-baseline-data
+  name: Read Baseline Data
+  description: Access pre-migration performance baselines and application behavior profiles
+  requires_confirmation: false
+  inputs:
+  - title: account_name
+    type: string
+  - title: workload_id
+    type: string
+  outputs:
+  - title: content
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot compare without baselines, flag as testing gap
+    - error_code: INCOMPLETE_BASELINE
+      guidance: Baseline data is partial, test available metrics and flag gaps
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-test-results
+  name: Save Test Results
+  description: Persist migration test results and validation reports to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: test_results
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: write-risk-alert
+  name: Write Risk Alert
+  description: Save testing risk alert to InfoHub risk register when validation failures are detected
+  requires_confirmation: true
+  inputs:
+  - title: risk
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from the migration specialist about testing requirements or acceptance criteria
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: testing-intelligence
+  name: Testing Intelligence
+  description: Migration testing data available to peer agents for execution and governance context
+  tools:
+  - id: get-test-results
+    name: Get Test Results
+    description: Returns migration test results with pass/fail status and evidence for a workload
+    inputs:
+    - title: account_name
+      type: string
+    - title: workload_id
+      type: string
+    outputs:
+    - title: test_results
+      type: object
+  - id: get-data-integrity-status
+    name: Get Data Integrity Status
+    description: Returns data integrity verification results for migrated workloads
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: integrity_status
+      type: array
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: migration-testing-flow
+  name: Migration Testing
+  playbook_refs:
+  - PB_MIG_006
+  description: Capture baselines, design testing protocols, validate migration, and verify data integrity.
+  inputs:
+  - title: account_context
+    type: object
+  - title: workload_details
+    type: object
+  - title: cutover_context
+    type: object
+  outputs:
+  - title: baseline_report
+    type: object
+  - title: functional_test_results
+    type: object
+  - title: performance_comparison
+    type: object
+  - title: data_integrity_report
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: mig-baseline-capture
+      input: account_context, workload_details
+      tools:
+      - read-baseline-data
+      - read-infohub
+      description: Capture pre-migration performance baselines across latency, throughput, error rates, and resource utilization
+      on_failure: stop
+    - step: 2
+      prompt: mig-functional-testing
+      input: workload_details, cutover_context
+      tools:
+      - read-infohub
+      description: Design and execute post-migration functional testing covering critical application paths
+      on_failure: stop
+    - step: 3
+      prompt: mig-performance-comparison
+      input: baseline_report, workload_details
+      tools:
+      - read-baseline-data
+      description: Compare post-migration performance against pre-migration baselines with acceptance thresholds
+      on_failure: stop
+    - step: 4
+      prompt: mig-data-integrity
+      input: workload_details
+      tools:
+      - read-infohub
+      description: Verify data integrity with automated source-target comparison
+      on_failure: stop
+    - step: 5
+      action: persist
+      tools:
+      - save-test-results
+      - write-risk-alert
+      condition: write-risk-alert triggers when test_failure.severity >= HIGH
+      description: Save test results and write risk alerts for test failures
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - baseline-capture
+    - functional-testing
+    - performance-comparison
+    - data-integrity-verification
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs tests and reports results. The migration lead decides: whether a 5% latency increase is acceptable for a batch processing workload, whether to proceed
+      with a minor data discrepancy that affects non-critical records, and whether the business value of completing the migration on schedule outweighs a marginal performance regression. The data is
+      objective, but the trade-off is human.
+
+      '
+    challenges:
+    - text: Pre-migration baselines are not captured, making post-migration comparison impossible
+      solved_by: mig-testing-agent
+      specific_overhead:
+      - Instrumenting baseline capture across diverse application stacks before migration begins
+    - text: Performance testing uses synthetic workloads that do not represent production traffic patterns
+      solved_by: mig-testing-agent
+      specific_overhead:
+      - Designing realistic test scenarios from production traffic analysis
+    - text: Data integrity verification is manual and catches errors only after users report them
+      solved_by: mig-testing-agent
+      specific_overhead:
+      - Building automated source-target comparison for diverse data stores
+    - text: Acceptance criteria are undefined, leading to subjective pass/fail decisions
+      solved_by: mig-testing-agent
+      specific_overhead:
+      - Defining measurable acceptance thresholds before migration rather than after
+    - text: Testing is compressed into the cutover window rather than planned as a separate phase
+      solved_by: mig-testing-agent
+      specific_overhead:
+      - Scheduling dedicated testing windows separate from cutover execution
+    administrative_overhead:
+    - Instrumenting baseline capture across diverse application stacks before migration begins
+    - Designing realistic test scenarios from production traffic analysis
+    - Building automated source-target comparison for diverse data stores
+    - Defining measurable acceptance thresholds before migration rather than after
+    - Scheduling dedicated testing windows separate from cutover execution
+    scenarios:
+    - problem: Post-migration performance regressions go undetected until users complain
+      why: 'Migration teams validate that applications start and respond to health checks, but skip comprehensive performance comparison against pre-migration baselines. Latency increases,
+        throughput reductions, and intermittent failures surface days or weeks later through user complaints rather than automated detection.
+
+        '
+      agent: mig-testing-agent
+      agent_response: 'The agent captures pre-migration performance baselines across latency, throughput, error rates, and resource utilization for every workload. Post-migration testing runs
+        automated comparison suites against these baselines with defined acceptance thresholds. Testing reports include pass/fail status per metric with evidence, so regressions are detected
+        within hours of cutover rather than reported by users days later.
+
+        '
+      success_signal:
+        metric: Performance regression detection rate
+        target: 100% of performance regressions exceeding acceptance thresholds detected within 48 hours of cutover
+        leading_indicator: Baseline metrics captured for every workload before migration
+        failure_signal: Performance issue first reported by end users rather than testing automation
+    - problem: Data integrity issues discovered weeks after migration when reports produce incorrect results
+      why: 'Data migration verification often checks row counts but not data values. Schema differences, character encoding changes, and truncation errors create subtle data corruption that
+        passes basic validation but produces incorrect results in downstream reports and calculations.
+
+        '
+      agent: mig-testing-agent
+      agent_response: 'The agent designs data integrity verification that goes beyond row counts to include value-level comparison, checksum validation, and referential integrity checks across
+        related tables. It produces a data integrity report with specific discrepancies, affected record counts, and severity classification so the migration team can remediate before the
+        migration wave is closed.
+
+        '
+      success_signal:
+        metric: Data integrity verification depth
+        target: 100% of data migrations validated with value-level comparison, not just row counts
+        leading_indicator: Data integrity test plan includes checksum and referential integrity checks
+        failure_signal: Data discrepancy discovered through business reports rather than migration testing
+  escalation_triggers:
+  - Performance regression exceeds acceptance threshold for business-critical workload (to Migration Practice Lead)
+  - Data integrity check fails for financial or regulatory data (to SA Lead / Migration Practice Lead)
+  - Functional testing reveals broken critical path not identified in assessment (to Migration Practice Lead)
+  prompt_registry:
+    mig-baseline-capture:
+      description: Capture pre-migration performance baselines across key metrics
+      source: prompts/tasks.yaml#migration.baseline_capture
+      inputs:
+      - title: account_name
+        type: string
+      - title: workload_id
+        type: string
+      outputs:
+      - title: baseline_report
+        type: object
+      requires_data:
+      - source: read-baseline-data
+        fields:
+        - latency_metrics
+        - throughput_metrics
+        - error_rates
+        - resource_utilization
+        priority: critical
+    mig-functional-testing:
+      description: Design post-migration functional testing covering critical application paths
+      source: prompts/tasks.yaml#migration.functional_testing
+      inputs:
+      - title: workload_details
+        type: object
+      outputs:
+      - title: functional_test_results
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - application_flows
+        - critical_paths
+        priority: critical
+    mig-performance-comparison:
+      description: Compare post-migration performance against pre-migration baselines
+      source: prompts/tasks.yaml#migration.performance_comparison
+      inputs:
+      - title: baseline_report
+        type: object
+      - title: workload_details
+        type: object
+      outputs:
+      - title: performance_comparison
+        type: object
+      requires_data:
+      - source: read-baseline-data
+        fields:
+        - pre_migration_metrics
+        priority: critical
+    mig-data-integrity:
+      description: Verify data integrity with automated source-target comparison
+      source: prompts/tasks.yaml#migration.data_integrity
+      inputs:
+      - title: workload_details
+        type: object
+      outputs:
+      - title: data_integrity_report
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - database_schemas
+        - data_volume_estimates
+        priority: critical
+  boundaries:
+  - Does not perform infrastructure discovery (Assessment Agent)
+  - Does not classify workloads or design wave plans (Strategy Agent)
+  - Does not produce cutover runbooks (Execution Agent)
+  - Does not modify acceptance thresholds without human approval
+  - Does not declare migration successful without documented test results
+  permissions:
+  - Capture pre-migration performance baselines
+  - Design and execute post-migration functional testing
+  - Compare post-migration performance against baselines
+  - Verify data integrity with source-target comparison
+  - Save test results and write risk alerts
+  guardrails:
+    input_validation:
+    - Reject post-migration testing without pre-migration baselines
+    - Reject data integrity verification without source data access
+    output_checks:
+    - All test results must include pass/fail status with evidence
+    - Performance comparisons must reference specific baseline metrics
+    - Data integrity reports must include discrepancy details and severity
+    - Testing reports must document acceptance thresholds used
+    signal_validation:
+    - Never declare pass without documented test evidence
+    - Never skip data integrity verification for data migrations
+    - Add [BASELINE MISSING] when pre-migration metrics are unavailable
+    - Distinguish between automated and manual test results
+  error_handling:
+    tool_failures:
+      critical:
+      - read-baseline-data
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot validate migration without baseline data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - migration-testing
+      - performance-validation
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-testing-frameworks.yaml
+      description: Migration Testing Methodologies, Performance Benchmarking, Data Validation Patterns
+    - path: references/expertise-data-integrity.yaml
+      description: Data Comparison Tools, Checksum Validation, Referential Integrity Verification
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: mig-specialist-agent
+      description: Migration orchestrator routes testing requests
+    - type: trigger_agent
+      source: mig-execution-agent
+      condition: cutover_runbook.created == true
+      description: Cutover plan creation triggers testing protocol design
+    outputs:
+    - type: parent_return
+      target: mig-specialist-agent
+      payload:
+      - baseline_report
+      - functional_test_results
+      - performance_comparison
+      - data_integrity_report
+      description: Full testing report back to orchestrator
+    - type: trigger_agent
+      target: mig-governance-agent
+      condition: test_failure.severity >= HIGH
+      payload:
+      - test_results
+      - failure_details
+      - affected_workloads
+      description: Test failures trigger governance risk tracking
+    - type: notify_human
+      condition: test_failure.severity >= HIGH
+      channel: alert
+      description: HIGH severity test failures surface immediately for human review
+    dependencies: []

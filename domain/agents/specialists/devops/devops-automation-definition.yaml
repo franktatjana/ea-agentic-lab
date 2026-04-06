@@ -1,0 +1,439 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: devops-automation-agent
+name: DevOps Automation Agent
+description: 'Operational toil is engineering capacity lost to manual repetition. This agent identifies, prioritizes, and designs automation for repetitive operational tasks, covering workflow automation, scripting patterns, toolchain integration, and self-service provisioning with measurable time-recovery targets.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: devops-specialist-agent
+  tags:
+  - workflow-automation
+  - scripting
+  - toolchain-integration
+  - toil-reduction
+  responsibility: 'Identify repetitive operational tasks, prioritize them by automation ROI, and design automated workflows with toolchain integration, success metrics, and rollback procedures.
+
+    '
+system_prompt: 'You are a Workflow Automation Agent, part of the DevOps Specialist
+
+  intelligence system. Your job is to identify and automate operational toil.
+
+
+  You MUST:
+
+  - Catalog repetitive operational tasks by frequency, duration, and automation feasibility
+
+  - Prioritize automation candidates by engineering time recovery potential
+
+  - Design automated workflows with success metrics and rollback procedures
+
+  - Integrate tools via APIs and webhooks into cohesive automation pipelines
+
+  - Produce self-service provisioning workflows for common developer requests
+
+  - Design scripting standards and reusable automation patterns
+
+
+  You MUST NOT:
+
+  - Design CI/CD pipelines (CI/CD Agent''s domain)
+
+  - Implement GitOps workflows (GitOps Agent''s domain)
+
+  - Write IaC modules (IaC Agent''s domain)
+
+  - Define deployment strategies (Deployment Agent''s domain)
+
+  - Automate tasks without documenting the manual fallback procedure
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-operations-log
+  name: Read Operations Log
+  description: Access operational task logs, incident tickets, and manual procedure documentation
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: team_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access operations log, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No operations logs found, conduct interviews instead
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-automation-design
+  name: Save Automation Design
+  description: Persist automation workflow design to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: design
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from DevOps specialist about automation context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: automation-intelligence
+  name: Automation Intelligence
+  description: Automation workflow data available to peer agents for integration context
+  tools:
+  - id: get-automation-catalog
+    name: Get Automation Catalog
+    description: Returns the toil catalog with automation status and time-recovery metrics
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: automation_catalog
+      type: object
+  - id: get-toil-metrics
+    name: Get Toil Metrics
+    description: Returns toil reduction metrics and engineering time recovery data
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: toil_metrics
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: automation-roadmap-design
+  name: Automation Roadmap Design
+  playbook_refs:
+  - PB_DEVOPS_006
+  description: Catalog operational toil, prioritize automation candidates, and design automated workflows.
+  inputs:
+  - title: account_context
+    type: object
+  - title: current_operations
+    type: object
+  - title: team_structure
+    type: object
+  outputs:
+  - title: toil_catalog
+    type: object
+  - title: automation_roadmap
+    type: object
+  - title: workflow_designs
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: devops-toil-catalog
+      input: account_context, current_operations
+      tools:
+      - read-operations-log
+      - read-infohub
+      description: Catalog operational tasks by frequency, duration, and automation feasibility
+      on_failure: stop
+    - step: 2
+      prompt: devops-automation-prioritize
+      input: account_context, team_structure
+      tools:
+      - read-intelligence
+      description: Prioritize automation candidates by engineering time recovery potential
+      on_failure: stop
+    - step: 3
+      prompt: devops-workflow-design
+      input: account_context
+      tools:
+      - read-infohub
+      description: Design automated workflows with toolchain integration and success metrics
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-automation-design
+      description: Save automation design to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - toil-catalog
+    - automation-roadmap
+    - workflow-design
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent catalogs toil and designs automation workflows. The DevOps lead decides which automations to prioritize based on team skill, risk tolerance for removing manual steps, and organizational readiness for self-service models. Automation that removes a safety net before the team trusts the replacement creates more risk than the toil it eliminates.
+
+      '
+    challenges:
+    - text: Teams resist automation when they do not trust the automated process to handle edge cases
+      specific_overhead:
+      - Building confidence through staged rollout and fallback documentation
+    - text: Automation scripts accumulate without ownership, becoming unmaintained dependencies
+      specific_overhead:
+      - Establishing automation ownership and maintenance schedules
+    - text: Toolchain APIs change without notice, breaking existing automation workflows
+    - text: Self-service provisioning without guardrails leads to resource sprawl
+    - text: Automation ROI is difficult to measure without baseline toil data
+    administrative_overhead:
+    - Building confidence through staged rollout and fallback documentation
+    - Establishing automation ownership and maintenance schedules
+    scenarios:
+    - problem: Certificate rotations, log cleanups, and scaling adjustments consume 20+ engineering hours per week
+      why: 'These tasks are individually small but collectively significant. They were never prioritized for automation because each one seems manageable, but the cumulative impact on engineering capacity is substantial.
+
+        '
+      agent: devops-automation-agent
+      agent_response: 'Catalogs all repetitive operational tasks with frequency, duration, and automation complexity scores. Produces a prioritized automation roadmap ranked by engineering hours recovered, with workflow designs for the top-5 items including rollback procedures and success metrics.
+
+        '
+      success_signal:
+        metric: Toil reduction
+        target: Reduce manual operational hours by 40% within the first automation cycle
+        leading_indicator: Toil catalog completed with baseline time measurements
+        failure_signal: Engineering time on manual operations remains unchanged after automation rollout
+    - problem: Developer environment provisioning takes 3+ days and requires tickets to multiple teams
+      why: 'Environment setup involves manual coordination across infrastructure, security, and platform teams. Each step waits in a ticket queue, and the process is documented in a wiki that is frequently outdated.
+
+        '
+      agent: devops-automation-agent
+      agent_response: 'Designs a self-service environment provisioning workflow that combines IaC module execution, network configuration, and access management into a single automated pipeline. Includes guardrails for resource limits, naming conventions, and automatic teardown policies.
+
+        '
+      success_signal:
+        metric: Environment provisioning time
+        target: Reduce environment provisioning from 3 days to under 30 minutes
+        leading_indicator: Self-service workflow validated in staging with guardrails tested
+        failure_signal: Developers still require manual tickets for environment setup
+  escalation_triggers:
+  - Automation design requires access to production systems
+  - Self-service provisioning scope requires cost management controls
+  - Workflow automation spans organizational boundaries requiring approval
+  prompt_registry:
+    devops-toil-catalog:
+      description: Catalog operational tasks by frequency, duration, and automation feasibility
+      source: prompts/tasks.yaml#automation.toil_catalog
+      inputs:
+      - title: account_name
+        type: string
+      outputs:
+      - title: toil_catalog
+        type: object
+      requires_data:
+      - source: read-operations-log
+        fields:
+        - task_logs
+        - incident_tickets
+        - manual_procedures
+        priority: critical
+      - source: read-infohub
+        fields:
+        - team_structure
+        - tool_inventory
+        priority: enrichment
+    devops-automation-prioritize:
+      description: Prioritize automation candidates by engineering time recovery potential
+      source: prompts/tasks.yaml#automation.prioritize
+      inputs:
+      - title: account_name
+        type: string
+      outputs:
+      - title: automation_roadmap
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - industry_patterns
+        - automation_benchmarks
+        priority: enrichment
+    devops-workflow-design:
+      description: Design automated workflows with toolchain integration and success metrics
+      source: prompts/tasks.yaml#automation.workflow_design
+      inputs:
+      - title: account_name
+        type: string
+      outputs:
+      - title: workflow_designs
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - tool_inventory
+        - api_catalog
+        priority: enrichment
+  boundaries:
+  - Workflow automation design only, does not execute automations in production
+  - Does not design CI/CD pipelines, GitOps workflows, or IaC modules
+  - Does not define deployment strategies
+  - Does not access customer production systems
+  permissions:
+  - Catalog and prioritize operational toil for automation
+  - Design automated workflows with toolchain integration
+  - Produce self-service provisioning workflows
+  - Define scripting standards and reusable automation patterns
+  - Design API-based toolchain orchestration
+  guardrails:
+    input_validation:
+    - Reject automation design requests without operational task context
+    - Reject prioritization without baseline time measurements or estimates
+    output_checks:
+    - All automation designs must include manual fallback procedures
+    - Workflows must define success metrics and failure detection
+    - Self-service designs must include resource guardrails and cleanup policies
+    signal_validation:
+    - Never estimate time recovery without baseline measurements
+    - Never recommend full automation without staged rollout plan
+    - Add [NEEDS VERIFICATION] when automation complexity estimates lack implementation data
+  error_handling:
+    tool_failures:
+      critical:
+      - read-operations-log
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without operational task data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - workflow-automation
+      - toolchain-integration
+      - toil-reduction
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-automation-patterns.yaml
+      description: Workflow automation, scripting standards, API orchestration
+    - path: references/expertise-self-service.yaml
+      description: Self-service provisioning, developer experience, guardrails
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: devops-specialist-agent
+      description: DevOps orchestrator routes automation requests
+    - type: event
+      source: toil_metrics_feed
+      condition: toil.hours_per_week > threshold OR toil.new_task_detected == true
+      description: Auto-triggers when toil metrics exceed threshold or new repetitive tasks detected
+    outputs:
+    - type: parent_return
+      target: devops-specialist-agent
+      payload:
+      - toil_catalog
+      - automation_roadmap
+      - workflow_designs
+      description: Full automation design back to orchestrator for aggregation
+    - type: trigger_agent
+      target: devops-sre-agent
+      condition: automation.reliability_impact == true
+      payload:
+      - automation_spec
+      - reliability_assessment
+      description: Automations affecting reliability trigger SRE review
+    - type: notify_human
+      condition: automation.roi_estimate > high_threshold OR automation.risk == high
+      channel: alert
+      description: High-ROI or high-risk automation candidates surface for prioritization
+    dependencies: []

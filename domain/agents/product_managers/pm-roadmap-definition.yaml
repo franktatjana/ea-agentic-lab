@@ -1,0 +1,477 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: pm-roadmap-agent
+name: PM Roadmap Alignment Agent
+description: 'Roadmap prioritization is the top PM challenge (ProductPlan 2025), with 48% citing reactive-versus-proactive imbalance and 44% struggling with competing priorities. This agent applies
+  consistent prioritization frameworks that weight revenue impact, strategic alignment, customer frequency, and competitive urgency, then generates decision rationale
+  documentation so stakeholders see not just what was prioritized but why, and what was deprioritized with the evidence behind that call.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: pm-agent
+  tags:
+  - roadmap-alignment
+  - prioritization
+  - backlog-scoring
+  - technical-debt
+  - decision-rationale
+  responsibility: 'Apply prioritization frameworks to align roadmap with customer demand, generate decision rationale, score backlog items, and translate technical debt into business-impact language.
+
+    '
+system_prompt: 'You are a Roadmap Alignment Agent, part of the Product Manager
+
+  intelligence system. Your job is to ensure the product roadmap reflects verified
+
+  customer demand and that prioritization decisions are transparent and evidence-based.
+
+
+  You MUST:
+
+  - Apply prioritization frameworks (RICE, weighted scoring, value vs. effort) to all incoming requests
+
+  - Generate decision rationale documents explaining why items were prioritized, deprioritized, or deferred
+
+  - Score backlog items using consistent criteria: revenue impact, strategic alignment, customer frequency, competitive urgency
+
+  - Translate technical debt into business-impact language: which features it blocks, which SLAs it threatens, what cost-of-delay accumulates
+
+  - Map active deal requirements to roadmap items and surface timing dependencies
+
+  - Surface conflicts between strategic roadmap vision and deal-driven urgency with evidence for both sides
+
+
+  You MUST NOT:
+
+  - Track or deduplicate individual feature requests (Feature Gap Agent''s domain)
+
+  - Aggregate or synthesize customer feedback (Feedback Synthesis Agent''s domain)
+
+  - Monitor competitor releases or build competitive matrices (Competitive Intelligence Agent''s domain)
+
+  - Distribute release information or prepare enablement content (Release Communication Agent''s domain)
+
+  - Manage sales-product trust or escalation patterns (Stakeholder Alignment Agent''s domain)
+
+
+  Every prioritization decision must cite the framework applied, the scoring inputs, and the rationale.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: roadmap_items, feature_backlog, deal_context, release_timelines.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: industry (trends, regulatory), technology (current map), market (competitive landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-roadmap-analysis
+  name: Save Roadmap Analysis
+  description: Persist roadmap alignment analysis, prioritization rationale, and backlog scores to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: analysis
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from PM about prioritization criteria or roadmap context
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: roadmap-intelligence
+  name: Roadmap Intelligence
+  description: Roadmap alignment data available to peer agents for deal and capability context
+  tools:
+  - id: get-roadmap-alignment
+    name: Get Roadmap Alignment
+    description: Returns roadmap alignment status for a feature or deal requirement, including timing and dependencies
+    inputs:
+    - title: feature_area
+      type: string
+    - title: account_name
+      type: string
+    outputs:
+    - title: alignment_status
+      type: object
+  - id: get-prioritization-rationale
+    name: Get Prioritization Rationale
+    description: Returns decision rationale for a prioritized or deprioritized backlog item
+    inputs:
+    - title: item_id
+      type: string
+    outputs:
+    - title: rationale
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: roadmap-alignment
+  name: Roadmap Alignment Analysis
+  playbook_refs:
+  - PB_PM_002
+  description: Analyze roadmap alignment with customer requirements, apply prioritization framework, and generate decision rationale.
+  inputs:
+  - title: account_name
+    type: string
+  - title: feature_area
+    type: string
+  - title: deal_requirements
+    type: object
+  outputs:
+  - title: alignment_report
+    type: object
+  - title: decision_rationale
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pm-roadmap-dependency
+      input: account_name, feature_area, deal_requirements
+      tools:
+      - read-infohub
+      description: Map deal requirements to roadmap items, surface timing dependencies and conflicts
+      on_failure: stop
+    - step: 2
+      prompt: pm-backlog-scoring
+      input: alignment_report
+      tools:
+      - read-infohub
+      description: Score backlog items using RICE or weighted scoring against revenue impact, strategic fit, frequency, competitive urgency
+      on_failure: stop
+    - step: 3
+      prompt: pm-decision-rationale
+      input: scored_items
+      description: Generate transparent decision rationale explaining prioritization with cited evidence
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-roadmap-analysis
+      description: Save alignment report, scores, and rationale to InfoHub
+      on_failure: stop
+- component_type: Flow
+  id: technical-debt-translation
+  name: Technical Debt Business Case
+  playbook_refs:
+  - PB_PM_002
+  description: Translate technical debt items into business-impact language with cost-of-delay calculation and feature-blocking analysis.
+  inputs:
+  - title: debt_items
+    type: array
+  - title: roadmap_context
+    type: object
+  outputs:
+  - title: business_case
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pm-debt-impact-analysis
+      input: debt_items, roadmap_context
+      tools:
+      - read-infohub
+      description: Map each debt item to features it blocks, SLAs it threatens, and velocity impact it creates
+      on_failure: stop
+    - step: 2
+      prompt: pm-cost-of-delay
+      input: debt_impact_analysis
+      description: Calculate cost-of-delay for deferring each debt item using dependency chain and revenue linkage
+      on_failure: skip_with_warning
+    - step: 3
+      action: persist
+      tools:
+      - save-roadmap-analysis
+      description: Save business case with impact analysis and cost-of-delay metrics
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - roadmap-alignment
+    - backlog-scoring
+    - decision-rationale-generation
+    - technical-debt-translation
+    - cost-of-delay-calculation
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent applies frameworks and calculates scores. The PM decides which framework applies to the current context, overrides scoring when strategic
+      judgment dictates, and owns the conversation with engineering leadership about what gets built when. Frameworks inform, but the PM prioritizes.
+
+      '
+    challenges:
+    - text: Roadmap prioritization is the top PM challenge (ProductPlan 2025), with 48% citing reactive-versus-proactive imbalance and 44% struggling with competing priorities, because without a consistent scoring framework every planning cycle becomes a political negotiation rather than an evidence-based decision
+      specific_overhead:
+      - Building priority-scoring models that weight revenue, strategy, frequency, and urgency
+      - Regenerating prioritization rationale documents after every planning cycle
+    - text: Technical debt is systematically deprioritized because sales cannot sell it and PMs cannot quantify it in business terms, but accumulated debt increases incident frequency by 2-3x and slows feature velocity by 20-40%, eventually blocking the features sales is asking for
+      specific_overhead:
+      - Translating technical debt items into business-impact language manually
+      - Calculating cost-of-delay for deferred debt without automated dependency tracking
+    - text: Deal-driven urgency conflicts with strategic roadmap vision, and without transparent decision rationale stakeholders perceive prioritization as arbitrary, eroding trust between product and field teams
+      specific_overhead:
+      - Generating post-decision documentation explaining why items were deprioritized
+      - Tracking which deals are affected by each prioritization decision
+    - text: Backlog items accumulate without consistent scoring, making it impossible to compare the relative value of a security enhancement, a feature request from the largest account, and a performance improvement that engineering insists is critical
+      specific_overhead:
+      - Applying scoring criteria manually to each backlog item as it arrives
+      - Maintaining scoring consistency across items entered by different teams
+    scenarios:
+    - problem: Roadmap priorities do not reflect deal urgency and product loses revenue
+      why: 'Product roadmaps are driven by strategic vision and engineering capacity, but active deals create time-sensitive feature needs. When deal urgency does not factor into
+        prioritization, the sales team loses deals waiting for capabilities that the product team does not know are blocking revenue.
+
+        '
+      agent: pm-roadmap-agent
+      agent_response: 'The agent maps deal requirements to roadmap items, quantifies revenue impact of feature delivery timing, and provides product leadership with a deal-weighted
+        prioritization overlay alongside the strategic roadmap. Decision rationale documents make the tradeoffs visible to all stakeholders.
+
+        '
+      success_signal:
+        metric: Deal-impacted feature visibility in roadmap planning
+        target: 100% of features blocking deals above threshold visible in roadmap prioritization
+        leading_indicator: Product planning sessions include deal-impact data for contested priorities
+        failure_signal: Deal lost because a feature was deprioritized without awareness of revenue impact
+    - problem: Technical debt accumulates until it blocks feature delivery
+      why: 'Without business-impact translation, technical debt items sit in the backlog as engineering concerns that product leadership does not feel urgency to address. The compounding
+        effect only becomes visible when a high-priority feature cannot be built because of accumulated debt.
+
+        '
+      agent: pm-roadmap-agent
+      agent_response: 'The agent translates each debt item into business language: which features it blocks, which SLAs it threatens, and what cost-of-delay accumulates per sprint
+        of deferral. Product leadership can compare debt against feature work using the same economic framework.
+
+        '
+      success_signal:
+        metric: Technical debt business case completion rate
+        target: Every debt item proposed for sprint has a business-impact translation before planning
+        leading_indicator: Engineering and product reference business case when discussing debt priorities
+        failure_signal: Debt items deferred repeatedly without understanding downstream feature impact
+  escalation_triggers:
+  - Deal-blocking feature not on roadmap with revenue above threshold
+  - Technical debt item blocking 3+ planned features
+  - Prioritization conflict between strategic vision and field demand unresolvable by framework
+  - Cost-of-delay for deferred item exceeds escalation threshold
+  prompt_registry:
+    pm-roadmap-dependency:
+      description: Map deal requirements to roadmap items and surface timing dependencies
+      source: prompts/tasks.yaml#roadmap.roadmap_dependency
+      inputs:
+      - title: account_name
+        type: string
+      - title: feature_area
+        type: string
+      - title: deal_requirements
+        type: object
+      outputs:
+      - title: alignment_report
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - roadmap_items
+        - release_timelines
+        - feature_dependencies
+        priority: critical
+    pm-backlog-scoring:
+      description: Score backlog items using consistent prioritization framework
+      source: prompts/tasks.yaml#roadmap.backlog_scoring
+      inputs:
+      - title: alignment_report
+        type: object
+      outputs:
+      - title: scored_items
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - deal_values
+        - customer_frequency
+        - competitive_urgency
+        priority: critical
+    pm-decision-rationale:
+      description: Generate transparent decision rationale for prioritization outcomes
+      source: prompts/tasks.yaml#roadmap.decision_rationale
+      inputs:
+      - title: scored_items
+        type: object
+      outputs:
+      - title: rationale_document
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - scoring_inputs
+        - stakeholder_context
+        priority: enrichment
+  boundaries:
+  - Does not track or deduplicate individual feature requests (Feature Gap Agent)
+  - Does not aggregate or synthesize customer feedback (Feedback Synthesis Agent)
+  - Does not monitor competitor releases (Competitive Intelligence Agent)
+  - Does not distribute release information (Release Communication Agent)
+  - Does not manage sales-product trust (Stakeholder Alignment Agent)
+  permissions:
+  - Apply prioritization frameworks to backlog items
+  - Generate decision rationale documents
+  - Map deal requirements to roadmap timing
+  - Translate technical debt into business impact
+  - Write roadmap alignment reports to InfoHub
+  guardrails:
+    input_validation:
+    - Reject prioritization without scoring criteria or framework specification
+    - Reject roadmap alignment without deal context or feature area
+    output_checks:
+    - Every prioritization decision must cite framework applied and scoring inputs
+    - Technical debt translations must link to specific features blocked and SLAs threatened
+    - Decision rationale must address both the prioritized and deprioritized items
+    - Cost-of-delay must cite the dependency chain and revenue linkage
+    signal_validation:
+    - Never commit to delivery dates (flag as PM Director decision)
+    - Add [NEEDS VERIFICATION] when scoring inputs are estimated rather than measured
+    - Distinguish between strategic priority and deal-driven urgency in output
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable prioritization without roadmap and deal data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - roadmap-management
+      - prioritization-frameworks
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/prioritization-frameworks.yaml
+      description: RICE scoring methodology, weighted scoring templates, value-vs-effort matrices, cost-of-delay calculation models
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: pm-agent
+      description: PM orchestrator routes roadmap alignment requests
+    - type: event
+      source: pm-feature-gap-agent
+      condition: gap.severity == deal_blocking AND gap.revenue_at_risk > threshold
+      description: Deal-blocking gap triggers automatic roadmap alignment review
+    - type: schedule
+      cadence: bi-weekly
+      window: Thursday 09:00-10:00
+      description: Bi-weekly backlog scoring refresh aligned with sprint planning
+    outputs:
+    - type: parent_return
+      target: pm-agent
+      payload:
+      - alignment_report
+      - decision_rationale
+      - scored_items
+      description: Full roadmap analysis back to orchestrator for aggregation
+    - type: trigger_agent
+      target: pm-release-agent
+      condition: roadmap_item.status_changed == true AND roadmap_item.customer_facing == true
+      payload:
+      - roadmap_change
+      - affected_accounts
+      description: Customer-facing roadmap changes trigger release communication preparation
+    - type: trigger_agent
+      target: pm-stakeholder-agent
+      condition: prioritization.request_declined == true AND request.deal_value > threshold
+      payload:
+      - decision_rationale
+      - declined_request
+      - affected_accounts
+      description: Declined high-value requests trigger stakeholder trust monitoring
+    - type: notify_human
+      condition: prioritization.conflict_unresolvable == true
+      channel: alert
+      description: Framework-unresolvable prioritization conflicts surface for PM Director decision
+    dependencies: []

@@ -1,0 +1,453 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: sd-architecture-agent
+name: SD Architecture Patterns Agent
+description: 'Architecture patterns are the structural foundation of every system. This agent provides expert guidance on microservices design, event-driven architecture, domain-driven design, CQRS, and architectural decomposition strategies. It produces architecture blueprints, bounded context maps, and architecture decision records grounded in established patterns and validated against customer constraints.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: sd-specialist-agent
+  tags:
+  - microservices
+  - event-driven
+  - domain-driven-design
+  - cqrs
+  - architecture-patterns
+  responsibility: 'Analyze system architecture, recommend design patterns, produce architecture blueprints, and document decisions with tradeoff analysis.
+
+    '
+system_prompt: 'You are an Architecture Patterns Agent, part of the System Design Specialist
+  intelligence system. Your job is to design and evaluate system architecture patterns.
+
+
+  You MUST:
+
+  - Evaluate current architecture patterns and identify anti-patterns and structural weaknesses
+
+  - Design microservices architectures with clear service boundaries and data ownership
+
+  - Apply domain-driven design to identify bounded contexts and aggregate boundaries
+
+  - Design event-driven architectures with ordering guarantees and idempotency contracts
+
+  - Recommend CQRS patterns where read/write separation delivers measurable benefit
+
+  - Produce architecture decision records with alternatives considered and tradeoff analysis
+
+  - Map every design decision to a specific non-functional requirement
+
+
+  You MUST NOT:
+
+  - Design scaling or capacity plans (Scalability Agent''s domain)
+
+  - Design resilience or DR patterns (Resilience Agent''s domain)
+
+  - Design integration topologies (Integration Agent''s domain)
+
+  - Plan cloud migrations (Cloud Native Agent''s domain)
+
+  - Conduct performance testing (Performance Agent''s domain)
+
+  - Invent architecture fitness metrics without measurement criteria
+
+
+  Every architecture recommendation must cite the pattern source and include
+
+  the tradeoffs that make it appropriate for this specific context.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-architecture-docs
+  name: Read Architecture Documentation
+  description: Access existing architecture documents, diagrams, and technical specifications
+  requires_confirmation: false
+  inputs:
+  - title: source_type
+    type: string
+  - title: account_name
+    type: string
+  outputs:
+  - title: content
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot access architecture documentation, flag as data gap
+    - error_code: NO_RECORDS
+      guidance: No architecture documentation found, note gap and request from user
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: architecture, decisions, technology, context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: write-architecture-artifact
+  name: Write Architecture Artifact
+  description: Save architecture blueprints, ADRs, and design documents to InfoHub
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from user about architecture context or requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes: []
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: architecture-pattern-assessment
+  name: Architecture Pattern Assessment
+  playbook_refs:
+  - PB_SD_001
+  - PB_SD_002
+  - PB_SD_009
+  description: Assess current architecture patterns, identify anti-patterns, and produce architecture blueprints with ADRs.
+  inputs:
+  - title: system_context
+    type: object
+  - title: architecture_docs
+    type: object
+  - title: non_functional_requirements
+    type: object
+  outputs:
+  - title: architecture_assessment
+    type: object
+  - title: architecture_blueprint
+    type: object
+  - title: adrs
+    type: array
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: sd-architecture-review
+      input: system_context, architecture_docs
+      tools:
+      - read-architecture-docs
+      - read-infohub
+      description: Review current architecture, identify patterns and anti-patterns, map dependencies
+      on_failure: stop
+    - step: 2
+      prompt: sd-ddd-analysis
+      input: system_context
+      tools:
+      - read-architecture-docs
+      description: Perform domain-driven design analysis, identify bounded contexts and aggregate boundaries
+      on_failure: skip_with_warning
+    - step: 3
+      prompt: sd-architecture-design
+      input: system_context, non_functional_requirements
+      tools:
+      - read-intelligence
+      description: Design target architecture with pattern selection, tradeoff analysis, and ADR production
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - write-architecture-artifact
+      description: Save architecture blueprint and ADRs to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - architecture-pattern-assessment
+    - microservices-design
+    - domain-driven-design
+    - architecture-decision-records
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs architectures based on patterns and technical constraints. The engineering leader knows which architectural complexity the team can absorb, which patterns will actually be maintained, and how aggressive the decomposition timeline can be without destabilizing delivery. The architecture is technically sound, but the human leader ensures it matches organizational capability.
+
+      '
+    challenges:
+    - text: Architecture decisions are made in meetings but never documented, losing rationale over time
+      specific_overhead:
+      - Reconstructing why a particular pattern was chosen months after the original discussion
+    - text: Microservices boundaries follow team structure instead of domain boundaries, creating distributed monoliths
+      specific_overhead:
+      - Coordinating cross-service deployments because service boundaries cut across business capabilities
+    - text: Event-driven designs lack explicit ordering guarantees and idempotency contracts
+      specific_overhead:
+      - Debugging data inconsistencies caused by out-of-order event processing in production
+    - text: CQRS is applied uniformly instead of selectively, adding complexity where simple CRUD suffices
+      specific_overhead:
+      - Maintaining separate read and write models for domains that do not benefit from the separation
+    - text: Architecture assessments produce generic recommendations disconnected from customer constraints
+      specific_overhead:
+      - Translating abstract pattern descriptions into actionable implementation guidance for the customer team
+    administrative_overhead:
+    - Documenting architecture decisions and maintaining ADR repositories
+    - Producing bounded context maps and service dependency diagrams
+    scenarios:
+    - problem: A monolith decomposition creates tightly coupled services that require coordinated deployments
+      why: 'Service boundaries were drawn along code module lines rather than domain boundaries, creating services that share databases and call each other synchronously for every operation.
+
+        '
+      agent: sd-architecture-agent
+      agent_response: 'The agent performs DDD analysis to identify bounded contexts, redesigns service boundaries around business capabilities, defines data ownership per service, and produces a migration strategy using the strangler fig pattern.
+
+        '
+      success_signal:
+        metric: Service deployment independence
+        target: 80% of services deploy independently without cross-team coordination
+        leading_indicator: Bounded context map validated with domain experts
+        failure_signal: Services still require coordinated releases after decomposition
+    - problem: Architecture decisions are revisited repeatedly because the original rationale was never captured
+      why: 'Decisions made in design reviews and whiteboard sessions are not documented. When team members change or requirements evolve, the same debates happen again without the context of why the original choice was made.
+
+        '
+      agent: sd-architecture-agent
+      agent_response: 'The agent produces architecture decision records for each significant decision, documenting context, alternatives considered, tradeoffs, and the rationale for the chosen approach. ADRs become the reference for future discussions.
+
+        '
+      success_signal:
+        metric: Architecture decision documentation rate
+        target: 100% of significant architecture decisions have corresponding ADRs
+        leading_indicator: ADR template adopted and first batch of decisions documented
+        failure_signal: Team revisits a decision that has a documented ADR but nobody references it
+  escalation_triggers:
+  - Architecture recommendation with significant structural risk
+  - Domain decomposition affecting multiple teams or organizational boundaries
+  - Pattern selection with long-term lock-in implications
+  - Architecture assessment revealing critical structural flaws
+  prompt_registry:
+    sd-architecture-review:
+      description: Review current system architecture, identify patterns, anti-patterns, and structural risks
+      source: prompts/tasks.yaml#system_design.architecture_review
+      inputs:
+      - title: system_context
+        type: object
+      - title: architecture_docs
+        type: object
+      outputs:
+      - title: architecture_assessment
+        type: object
+      requires_data:
+      - source: read-architecture-docs
+        fields:
+        - diagrams
+        - specifications
+        - code_structure
+        priority: critical
+      - source: read-infohub
+        fields:
+        - technology_stack
+        - architecture_history
+        priority: enrichment
+    sd-ddd-analysis:
+      description: Perform domain-driven design analysis to identify bounded contexts and service boundaries
+      source: prompts/tasks.yaml#system_design.ddd_analysis
+      inputs:
+      - title: system_context
+        type: object
+      outputs:
+      - title: bounded_context_map
+        type: object
+      requires_data:
+      - source: read-architecture-docs
+        fields:
+        - domain_model
+        - business_processes
+        priority: critical
+    sd-architecture-design:
+      description: Design target architecture with pattern selection and tradeoff analysis
+      source: prompts/tasks.yaml#system_design.architecture_design
+      inputs:
+      - title: system_context
+        type: object
+      - title: non_functional_requirements
+        type: object
+      outputs:
+      - title: architecture_blueprint
+        type: object
+      - title: adrs
+        type: array
+      requires_data:
+      - source: read-architecture-docs
+        fields:
+        - current_architecture
+        - constraints
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - technology_trends
+        - vendor_landscape
+        priority: enrichment
+  boundaries:
+  - Architecture patterns and design only, does not design scaling or capacity plans
+  - Does not design resilience, DR, integration, or cloud migration strategies
+  - Does not conduct performance testing or benchmarking
+  - Does not make technology procurement decisions
+  permissions:
+  - Read all architecture documentation and technical specifications
+  - Design and evaluate architecture patterns
+  - Produce architecture decision records
+  - Write architecture blueprints and bounded context maps to InfoHub
+  guardrails:
+    input_validation:
+    - Reject architecture assessments without system context or documentation
+    - Reject pattern recommendations without stated non-functional requirements
+    output_checks:
+    - All pattern recommendations must cite source (Fowler, Evans, cloud provider docs)
+    - Every ADR must include alternatives considered and explicit tradeoffs
+    - Decomposition recommendations must include migration path, not just target state
+    - Complexity assessments must be justified with specific coupling/cohesion indicators
+    signal_validation:
+    - Never recommend patterns without stating the tradeoffs for this specific context
+    - Never claim a pattern eliminates a problem without stating residual risks
+    - Add [NEEDS VALIDATION] when recommendation is based on incomplete architecture documentation
+    - Distinguish between confirmed anti-patterns and suspected design smells
+  error_handling:
+    tool_failures:
+      critical:
+      - read-architecture-docs
+      enrichment:
+      - read-infohub
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable architecture assessment without architecture documentation
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - architecture-patterns
+      - domain-driven-design
+      - microservices
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-architecture-patterns.yaml
+      description: Microservices patterns, event-driven architecture, CQRS, saga patterns, anti-patterns
+    - path: references/expertise-ddd.yaml
+      description: Bounded contexts, aggregates, domain events, strategic and tactical DDD patterns
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: sd-specialist-agent
+      description: System Design orchestrator routes architecture pattern requests
+    - type: event
+      source: architecture_change
+      condition: significant_architecture_change_detected
+      description: Auto-assesses when major architecture changes are submitted
+    outputs:
+    - type: parent_return
+      target: sd-specialist-agent
+      payload:
+      - architecture_assessment
+      - architecture_blueprint
+      - adrs
+      description: Architecture analysis results back to orchestrator
+    - type: trigger_agent
+      target: sd-integration-agent
+      condition: new_service_boundaries_defined == true
+      payload:
+      - bounded_context_map
+      - service_interfaces
+      description: New service boundaries trigger integration design review
+    - type: trigger_agent
+      target: sd-resilience-agent
+      condition: critical_architecture_risk_detected == true
+      payload:
+      - risk_assessment
+      - affected_components
+      description: Critical architecture risk triggers resilience assessment
+    - type: notify_human
+      condition: architecture_risk.severity == HIGH
+      channel: alert
+      description: HIGH severity architecture risks surface immediately for review
+    dependencies: []

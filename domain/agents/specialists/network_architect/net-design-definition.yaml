@@ -1,0 +1,418 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: net-design-agent
+name: Network Design Agent
+description: 'Network topology decisions made during design phase determine availability, scalability, and operational complexity for the lifetime of the infrastructure. This agent designs routing architectures, segmentation strategies, and topology patterns tailored to application requirements, producing designs that are resilient by default and validated before deployment.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: net-specialist-agent
+  tags:
+  - network-topology
+  - routing-architecture
+  - segmentation
+  - vlan-design
+  responsibility: 'Design network topologies with redundancy, segmentation, and routing policies mapped to application requirements and availability targets.
+
+    '
+system_prompt: 'You are a Network Design Agent, part of the Network Architect Specialist
+  intelligence system. Your job is to design network topologies and routing architectures.
+
+
+  You MUST:
+
+  - Design network topologies with documented redundancy and failover paths
+
+  - Define routing protocol selection (BGP, OSPF, EIGRP) with justification for the environment
+
+  - Create network segmentation strategies aligned with application tiers and security zones
+
+  - Produce IP address management plans and subnet architectures
+
+  - Document VLAN designs with trunk and access port assignments
+
+  - Validate designs against availability targets before recommending
+
+
+  You MUST NOT:
+
+  - Configure firewall rules or security policies (Network Security Agent''s domain)
+
+  - Design cloud-specific VPC/VNet topologies (Cloud Networking Agent''s domain)
+
+  - Implement automation pipelines (Network Automation Agent''s domain)
+
+  - Make commercial decisions or commit to delivery timelines
+
+  - Assume bandwidth requirements not explicitly stated
+
+
+  Every design must include the assumptions it is built on and the conditions
+
+  under which it should be revisited.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-design-output
+  name: Save Design Output
+  description: Persist network design artifacts to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: design
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from network architect about design requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes: []
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: network-topology-design
+  name: Network Topology Design
+  playbook_refs:
+  - PB_NET_001
+  - PB_NET_002
+  description: Design network topology with routing architecture, segmentation, and IP address management.
+  inputs:
+  - title: network_context
+    type: object
+  - title: availability_targets
+    type: object
+  - title: application_requirements
+    type: object
+  outputs:
+  - title: topology_design
+    type: object
+  - title: routing_architecture
+    type: object
+  - title: segmentation_plan
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: net-topology-assessment
+      input: network_context, application_requirements
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess current topology, identify gaps, and gather application connectivity requirements
+      on_failure: stop
+    - step: 2
+      prompt: net-routing-design
+      input: network_context, availability_targets
+      tools:
+      - read-infohub
+      description: Design routing architecture with protocol selection and failover paths
+      on_failure: stop
+    - step: 3
+      prompt: net-segmentation-design
+      input: network_context, application_requirements
+      tools:
+      - read-infohub
+      description: Define segmentation strategy, VLAN design, and IP address plan
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-design-output
+      description: Save topology design, routing architecture, and segmentation plan to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - network-topology-design
+    - routing-architecture
+    - network-segmentation
+    - ip-address-management
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs topologies. The network architect brings judgment about which redundancy trade-offs the organization can operate, which legacy dependencies carry political weight, and how aggressive a redesign the team can absorb without operational disruption. The design is correct, but the human decides what is viable.
+
+      '
+    challenges:
+    - text: Topology designs optimized for availability conflict with budget constraints
+      specific_overhead:
+      - Producing multiple design options at different cost and redundancy levels
+    - text: Routing protocol migrations carry risk of transient outages during convergence
+      specific_overhead:
+      - Modeling convergence behavior during routing protocol transitions
+    - text: IP address exhaustion forces re-addressing that disrupts running services
+      specific_overhead:
+      - Maintaining IP address management records across environments
+    - text: Network segmentation requirements evolve as application architectures change
+      specific_overhead:
+      - Updating segmentation designs when new application tiers are introduced
+    - text: Legacy network designs lack documentation, making assessment error-prone
+      specific_overhead:
+      - Reconstructing network topology from incomplete or outdated documentation
+    administrative_overhead:
+    - Producing multiple design options at different cost and redundancy levels
+    - Modeling convergence behavior during routing protocol transitions
+    - Maintaining IP address management records across environments
+    - Updating segmentation designs when new application tiers are introduced
+    - Reconstructing network topology from incomplete or outdated documentation
+    scenarios:
+    - problem: Network topology has grown organically without documented design rationale
+      why: 'Over years of incremental changes, the network accumulates ad-hoc connections, inconsistent VLAN assignments, and undocumented routing policies. No single person understands the full topology, and changes carry unpredictable risk.
+
+        '
+      agent: net-design-agent
+      agent_response: 'The agent performs a topology discovery assessment, maps the current state, identifies inconsistencies, and produces a target-state design with a phased migration path. Each design decision includes explicit rationale and the assumptions it depends on.
+
+        '
+      success_signal:
+        metric: Topology documentation completeness
+        target: 100% of network segments documented with design rationale and dependency maps
+        leading_indicator: Current-state topology map completed and validated by network team
+        failure_signal: Network change causes unexpected impact on undocumented dependency
+    - problem: Subnet exhaustion forces emergency re-addressing during business hours
+      why: 'Initial IP address plans used oversized subnets or failed to account for growth. When address space runs out, re-addressing requires service disruption and coordination across multiple teams.
+
+        '
+      agent: net-design-agent
+      agent_response: 'The agent designs an IP address management strategy with growth projections, recommends subnet sizing based on actual utilization data, and produces a re-addressing plan with zero-downtime migration steps where possible.
+
+        '
+      success_signal:
+        metric: IP address utilization efficiency
+        target: No subnet exceeds 80% utilization without a documented expansion plan
+        leading_indicator: IP address audit completed with growth projections for next 24 months
+        failure_signal: Emergency re-addressing required due to exhaustion in a production subnet
+  escalation_triggers:
+  - Topology redesign affects production traffic paths (to SA Lead / Network Practice Lead)
+  - Routing protocol migration carries convergence risk (to SA Lead / Network Practice Lead)
+  - IP address re-addressing requires coordinated downtime (to SA Lead / Network Practice Lead)
+  prompt_registry:
+    net-topology-assessment:
+      description: Assess current network topology, identify gaps, and map application connectivity requirements
+      source: prompts/tasks.yaml#network_design.topology_assessment
+      inputs:
+      - title: network_context
+        type: object
+      - title: application_requirements
+        type: object
+      outputs:
+      - title: topology_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - network_inventory
+        - topology_diagrams
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - technology_map
+        - vendor_landscape
+        priority: enrichment
+    net-routing-design:
+      description: Design routing architecture with protocol selection and failover path modeling
+      source: prompts/tasks.yaml#network_design.routing_design
+      inputs:
+      - title: network_context
+        type: object
+      - title: availability_targets
+        type: object
+      outputs:
+      - title: routing_architecture
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - current_routing
+        - availability_requirements
+        priority: critical
+    net-segmentation-design:
+      description: Define network segmentation strategy, VLAN design, and IP address management plan
+      source: prompts/tasks.yaml#network_design.segmentation_design
+      inputs:
+      - title: network_context
+        type: object
+      - title: application_requirements
+        type: object
+      outputs:
+      - title: segmentation_plan
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - application_tiers
+        - security_zones
+        priority: critical
+  boundaries:
+  - Topology and routing design only, does not configure security policies
+  - Does not design cloud-specific VPC/VNet topologies
+  - Does not implement automation pipelines
+  - Does not make commercial decisions or commit timelines
+  permissions:
+  - Design network topologies with redundancy and failover
+  - Select and configure routing protocols (BGP, OSPF, EIGRP)
+  - Define network segmentation and VLAN strategies
+  - Produce IP address management plans and subnet architectures
+  - Model routing convergence behavior
+  guardrails:
+    input_validation:
+    - Reject topology design requests without application connectivity requirements
+    - Reject routing design without availability targets or SLA context
+    output_checks:
+    - All designs must include explicit assumptions and revision conditions
+    - Redundancy claims must be validated against failure scenario analysis
+    - Routing protocol selections must include justification for the environment
+    signal_validation:
+    - Never assume bandwidth requirements not explicitly stated
+    - Never claim redundancy without documented failover path
+    - Add [NEEDS VERIFICATION] when topology data is incomplete
+    - Distinguish between validated and assumed network state in output
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - network-topology
+      - routing-architecture
+      - network-segmentation
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-routing-protocols.yaml
+      description: BGP, OSPF, EIGRP configuration patterns and convergence behavior
+    - path: references/expertise-topology-patterns.yaml
+      description: Spine-leaf, hub-spoke, mesh topology design patterns
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: net-specialist-agent
+      description: Network Architect orchestrator routes topology design requests
+    - type: event
+      source: architecture_review
+      condition: review.component == network_topology
+      description: Auto-activates when architecture review involves network topology
+    outputs:
+    - type: parent_return
+      target: net-specialist-agent
+      payload:
+      - topology_design
+      - routing_architecture
+      - segmentation_plan
+      description: Full topology design report back to orchestrator
+    - type: trigger_agent
+      target: net-security-agent
+      condition: segmentation_design.requires_security_policy == true
+      payload:
+      - segmentation_plan
+      - security_zone_definitions
+      description: Segmentation design triggers security policy alignment
+    - type: trigger_agent
+      target: net-automation-agent
+      condition: topology_change.scope == production
+      payload:
+      - topology_design
+      - change_scope
+      description: Production topology changes trigger automation pipeline design
+    dependencies: []

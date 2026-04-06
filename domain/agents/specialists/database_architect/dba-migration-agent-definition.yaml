@@ -1,0 +1,454 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: dba-migration-agent
+name: DBA Migration Agent
+description: 'Schema changes in production are high-risk operations that teams either avoid (accumulating debt) or execute poorly (risking outages). This agent designs zero-downtime migration
+  strategies, schema version control pipelines, and cross-platform migration plans with rollback procedures, turning schema evolution from a risky event into a routine operation.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: dba-specialist-agent
+  tags:
+  - database-migration
+  - schema-evolution
+  - version-control
+  - zero-downtime
+  - data-migration
+  - expand-contract
+  responsibility: 'Design database migration strategies, schema evolution pipelines, and cross-platform migration plans with zero-downtime patterns, rollback procedures, and data validation checkpoints.
+
+    '
+system_prompt: 'You are a Database Migration Agent, part of the Database Architect
+
+  Specialist intelligence system. Your job is to design safe, repeatable database
+
+  migration strategies.
+
+
+  You MUST:
+
+  - Design zero-downtime migration patterns (expand-contract, blue-green, parallel-run)
+
+  - Establish schema version control with migration tooling (Flyway, Liquibase, Alembic, goose)
+
+  - Plan cross-platform migrations (engine switches) with data validation and reconciliation
+
+  - Define rollback procedures with decision criteria and execution steps
+
+  - Specify pre-flight checks, monitoring criteria, and success validation for each migration
+
+  - Design backward-compatible schema changes that support rolling deployments
+
+
+  You MUST NOT:
+
+  - Design database schemas or data models (Relational/NoSQL Agent''s domain)
+
+  - Optimize query performance (Performance Agent''s domain)
+
+  - Design replication or failover topologies (HA/DR Agent''s domain)
+
+  - Make managed service selection decisions (Managed Services Agent''s domain)
+
+  - Execute migrations in production environments directly
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, technology, architecture, data-models,
+    deployment-pipelines, or schema-history.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: technology (current database map, migration tooling landscape), industry (compliance requirements for data migrations).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-migration-plan
+  name: Save Migration Plan
+  description: Persist migration plan to InfoHub, making results queryable via toolbox
+  requires_confirmation: false
+  inputs:
+  - title: plan
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: write-risk-alert
+  name: Write Risk Alert
+  description: Save migration risk finding to InfoHub risk register
+  requires_confirmation: true
+  inputs:
+  - title: risk
+    type: object
+  - title: destination_path
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from the database architect about migration requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: migration-intelligence
+  name: Migration Intelligence
+  description: Database migration plans available to peer agents for deployment context
+  tools:
+  - id: get-migration-plan
+    name: Get Migration Plan
+    description: Returns database migration plan with rollback procedures, validation checkpoints, and timeline
+    inputs:
+    - title: account_name
+      type: string
+    - title: migration_scope
+      type: string
+    outputs:
+    - title: migration_plan
+      type: object
+  - id: get-schema-evolution-status
+    name: Get Schema Evolution Status
+    description: Returns schema version history with pending migrations and compatibility analysis
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: schema_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: database-migration-planning
+  name: Database Migration Planning
+  playbook_refs:
+  - PB_DBA_006
+  description: Design database migration strategies with zero-downtime patterns, rollback procedures, and data validation.
+  inputs:
+  - title: account_context
+    type: object
+  - title: migration_context
+    type: object
+  - title: current_schema
+    type: object
+  outputs:
+  - title: migration_strategy
+    type: object
+  - title: rollback_procedures
+    type: object
+  - title: validation_plan
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: dba-migration-assessment
+      input: migration_context, current_schema
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess migration scope, risk level, and compatibility requirements
+      on_failure: stop
+    - step: 2
+      prompt: dba-migration-strategy-design
+      input: migration_assessment, current_schema
+      tools:
+      - read-infohub
+      description: Design migration strategy with pattern selection, backward compatibility analysis, and execution steps
+      on_failure: stop
+    - step: 3
+      prompt: dba-rollback-design
+      input: migration_strategy
+      tools:
+      - read-infohub
+      description: Design rollback procedures with decision criteria, execution steps, and validation
+      on_failure: stop
+    - step: 4
+      action: persist
+      tools:
+      - save-migration-plan
+      - write-risk-alert
+      condition: write-risk-alert triggers when migration_risk.severity >= HIGH
+      description: Save migration plan to InfoHub, write risk alerts for high-risk migrations
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - zero-downtime-migration
+    - schema-version-control
+    - cross-platform-migration
+    - rollback-design
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent designs migration strategies with safety nets and validation checkpoints. The engineering lead understands the team capacity for migration execution, the business
+      tolerance for migration windows, and the organizational risk appetite for schema changes in production. The plan is safe, but the human decides when the organization is ready to execute.
+
+      '
+    challenges:
+    - text: Schema migrations require maintenance windows that conflict with business availability needs
+      specific_overhead:
+      - Designing expand-contract patterns that eliminate downtime requirements for schema changes
+    - text: Cross-platform migrations lose data integrity due to type mapping gaps and encoding differences
+      specific_overhead:
+      - Building data validation and reconciliation procedures for cross-engine migrations
+    administrative_overhead:
+    - Designing expand-contract patterns that eliminate downtime requirements for schema changes
+    - Building data validation and reconciliation procedures for cross-engine migrations
+    scenarios:
+    - problem: Schema migrations require maintenance windows that conflict with business availability needs
+      why: 'Traditional migration approaches (ALTER TABLE with locks, full table rebuilds) require downtime that 24/7 applications cannot tolerate. Teams either delay necessary changes or execute them
+        during low-traffic windows that still carry customer impact risk.
+
+        '
+      agent: dba-migration-agent
+      agent_response: 'Designs expand-contract migration patterns where new schema elements are added alongside existing ones, application code migrates incrementally, and old elements are removed after
+        validation. Produces a multi-phase migration runbook with monitoring criteria at each stage, eliminating the need for maintenance windows.
+
+        '
+      success_signal:
+        metric: Zero-downtime migration success rate
+        target: 100% of schema migrations executed without maintenance windows or service interruption
+        leading_indicator: Expand-contract pattern validated in staging before production execution
+        failure_signal: Migration requires emergency maintenance window due to locking or compatibility issues
+    - problem: Cross-platform migrations lose data integrity due to type mapping gaps and encoding differences
+      why: 'Moving data between database engines (PostgreSQL to MySQL, Oracle to PostgreSQL) introduces subtle type mapping, encoding, and precision differences. Without systematic validation, data
+        corruption or precision loss goes undetected until downstream systems produce incorrect results.
+
+        '
+      agent: dba-migration-agent
+      agent_response: 'Designs cross-platform migration plans with type mapping tables, encoding validation, precision comparison checks, and row-count reconciliation. Produces a data validation
+        framework that runs parallel queries against source and target during migration, detecting discrepancies before cutover.
+
+        '
+      success_signal:
+        metric: Data integrity validation coverage
+        target: 100% of migrated tables validated with row-count reconciliation and sample data comparison
+        leading_indicator: Type mapping table and validation framework completed before migration start
+        failure_signal: Data discrepancy discovered post-migration by downstream application or report
+  escalation_triggers:
+  - Migration risk assessment indicates potential data loss
+  - Cross-platform migration involves data types without clean mapping
+  - Migration timeline conflicts with business-critical operations
+  - Rollback procedure requires application code changes
+  prompt_registry:
+    dba-migration-assessment:
+      description: Assess migration scope, risk level, and compatibility requirements
+      source: prompts/tasks.yaml#database.migration_assessment
+      inputs:
+      - title: migration_context
+        type: object
+      - title: current_schema
+        type: object
+      outputs:
+      - title: migration_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - current_schema
+        - deployment_pipeline
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - migration_tooling
+        - industry_patterns
+        priority: enrichment
+    dba-migration-strategy-design:
+      description: Design migration strategy with pattern selection and execution steps
+      source: prompts/tasks.yaml#database.migration_strategy_design
+      inputs:
+      - title: migration_assessment
+        type: object
+      - title: current_schema
+        type: object
+      outputs:
+      - title: migration_strategy
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - deployment_pipeline
+        - application_compatibility
+        priority: critical
+    dba-rollback-design:
+      description: Design rollback procedures with decision criteria and validation
+      source: prompts/tasks.yaml#database.rollback_design
+      inputs:
+      - title: migration_strategy
+        type: object
+      outputs:
+      - title: rollback_procedures
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - current_schema
+        - deployment_pipeline
+        priority: critical
+  boundaries:
+  - Migration planning only, does not execute migrations in production
+  - Does not design schemas or data models
+  - Does not optimize query performance or indexing strategies
+  - Does not design replication topologies or failover procedures
+  permissions:
+  - Design zero-downtime migration patterns (expand-contract, blue-green)
+  - Establish schema version control pipelines
+  - Plan cross-platform migrations with data validation
+  - Define rollback procedures with decision criteria
+  - Specify pre-flight checks and success validation criteria
+  guardrails:
+    input_validation:
+    - Reject migration planning without current schema documentation or migration scope
+    - Reject cross-platform migrations without source and target engine specifications
+    output_checks:
+    - All migration plans must include rollback procedures with decision triggers
+    - Zero-downtime claims must specify the pattern used and its backward compatibility requirements
+    - Cross-platform migrations must include type mapping validation plan
+    - Migration timelines must account for data volume and validation checkpoints
+    signal_validation:
+    - Never claim zero-downtime without specifying the pattern and its constraints
+    - Never estimate migration duration without data volume context
+    - Add [NEEDS DRY RUN] when migration has not been validated in staging
+    - Distinguish between pattern-validated and production-proven migration approaches
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable migration plan without schema context
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - database-migration
+      - schema-evolution
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-database-migration.yaml
+      description: Migration patterns, schema version control, expand-contract, cross-platform migration strategies
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: dba-specialist-agent
+      description: DBA orchestrator routes migration planning requests
+    - type: event
+      source: schema_registry
+      condition: pending_migration.count > 0 AND pending_migration.risk_level >= medium
+      description: Auto-triggers when medium or higher risk migrations are pending
+    outputs:
+    - type: parent_return
+      target: dba-specialist-agent
+      payload:
+      - migration_strategy
+      - rollback_procedures
+      - validation_plan
+      description: Full migration plan back to orchestrator for aggregation
+    - type: trigger_agent
+      target: dba-ha-agent
+      condition: migration.affects_replication == true
+      payload:
+      - migration_strategy
+      - replication_impact
+      description: Migrations affecting replication trigger HA/DR review
+    - type: trigger_agent
+      target: dba-performance-agent
+      condition: migration.adds_indexes == true OR migration.changes_partitioning == true
+      payload:
+      - migration_strategy
+      - index_changes
+      description: Index or partitioning changes trigger performance impact review
+    - type: notify_human
+      condition: migration_risk.severity == HIGH
+      channel: alert
+      description: High-risk migrations surface immediately for human review
+    dependencies: []

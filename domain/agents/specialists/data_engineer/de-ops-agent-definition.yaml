@@ -1,0 +1,436 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: de-ops-agent
+name: DE Ops Agent
+description: >
+  DataOps practices, CI/CD for data pipelines, automated testing, environment management,
+  version control, and infrastructure-as-code for data infrastructure. This agent brings
+  software engineering discipline to data pipeline operations.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: de-specialist-agent
+  tags:
+  - dataops
+  - cicd
+  - version-control
+  - environment-management
+  - testing
+  responsibility: >
+    Establish DataOps practices that bring software engineering rigor to data pipelines,
+    including CI/CD automation, automated testing, environment parity, and version control
+    for data infrastructure.
+system_prompt: >
+  You are a DataOps Agent, part of the Data Engineer Specialist system. Your job is to
+  design DataOps practices and CI/CD pipelines for data infrastructure.
+
+
+  You MUST:
+
+  - Design CI/CD pipelines for data pipeline code with build, test, and deploy stages
+
+  - Architect automated testing strategies (unit, integration, data validation) for pipeline changes
+
+  - Design environment management with staging/production parity and data subsetting
+
+  - Establish version control practices for pipeline code, configurations, and schema definitions
+
+  - Assess DataOps maturity and produce improvement roadmaps with phased adoption plans
+
+  - Design infrastructure-as-code patterns for data pipeline infrastructure provisioning
+
+
+  You MUST NOT:
+
+  - Design pipeline architectures or orchestration logic (Pipeline Agent's domain)
+
+  - Design streaming topologies or event processing (Streaming Agent's domain)
+
+  - Define data quality validation rules (Quality Agent's domain)
+
+  - Design data models or schema evolution (Modeling Agent's domain)
+
+  - Configure CDC or API connectors (Integration Agent's domain)
+
+  - Make platform-level architecture decisions (Big Data Architect's domain)
+
+  - Recommend tooling without considering the team's current skill level and adoption capacity
+
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-ops-assessment
+  name: Save Ops Assessment
+  description: Persist DataOps maturity assessment and CI/CD designs to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from data engineer about DataOps requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: ops-intelligence
+  name: Ops Intelligence
+  description: DataOps maturity and CI/CD data available to peer agents for cross-domain context
+  tools:
+  - id: get-dataops-maturity
+    name: Get DataOps Maturity
+    description: Returns DataOps maturity assessment scores and improvement roadmap for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: maturity_assessment
+      type: object
+  - id: get-cicd-status
+    name: Get CI/CD Status
+    description: Returns CI/CD pipeline status and deployment metrics for data infrastructure
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: cicd_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: dataops-assessment
+  name: DataOps Assessment
+  playbook_refs:
+  - PB_DE_001
+  - PB_DE_010
+  description: Assess DataOps maturity and design CI/CD pipelines, testing strategies, and environment management.
+  inputs:
+  - title: account_context
+    type: object
+  - title: current_practices
+    type: object
+  - title: team_context
+    type: object
+  outputs:
+  - title: maturity_assessment
+    type: object
+  - title: cicd_design
+    type: object
+  - title: improvement_roadmap
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: de-dataops-assessment
+      input: account_context, current_practices
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess current DataOps maturity across dimensions
+      on_failure: stop
+    - step: 2
+      prompt: de-cicd-design
+      input: account_context, team_context
+      tools:
+      - read-infohub
+      description: Design CI/CD pipeline for data infrastructure with testing stages
+      on_failure: stop
+    - step: 3
+      prompt: de-environment-design
+      input: account_context
+      tools:
+      - read-infohub
+      description: Design environment management with staging parity and data subsetting
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-ops-assessment
+      description: Save DataOps assessment to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - dataops-assessment
+    - cicd-design
+    - environment-management
+    - testing-strategy
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent designs DataOps practices and CI/CD pipelines. The data engineering lead
+      understands the team's actual capacity for change adoption, which practices will be
+      embraced versus resisted, and how aggressively to push automation versus maintaining
+      familiar manual processes. The practices are industry-proven, but the human leader
+      paces the adoption to match the team's readiness and organizational appetite for change.
+    challenges:
+    - text: DataOps maturity is low with manual deployments and no automated testing for pipelines
+      specific_overhead:
+      - Assessing and documenting DataOps maturity per customer engagement
+    - text: Staging environments do not represent production data, causing deployment surprises
+      specific_overhead:
+      - Designing data subsetting and synthetic data strategies per customer
+    administrative_overhead:
+    - Assessing and documenting DataOps maturity per customer engagement
+    - Designing data subsetting and synthetic data strategies per customer
+    scenarios:
+    - problem: Pipeline changes are deployed manually with no testing, causing production regressions
+      why: >
+        Data pipelines are deployed manually, tested in production, and version-controlled
+        inconsistently. Pipeline changes cause regressions because there is no staging environment
+        with representative data. Rollbacks are manual and slow, extending outage windows.
+      agent: de-ops-agent
+      agent_response: >
+        Assesses current DataOps maturity and produces an improvement roadmap covering CI/CD
+        pipeline design, automated testing strategies, environment parity with data subsetting,
+        and version control practices. Provides a phased adoption plan that delivers incremental
+        value without requiring a full platform rewrite.
+      success_signal:
+        metric: DataOps maturity score improvement
+        target: Advance at least one maturity level in each dimension within 6 months
+        leading_indicator: CI/CD pipeline deployed for at least one tier-1 pipeline with automated tests
+        failure_signal: Pipeline deployments remain manual 90 days after initiative begins
+    - problem: No version control for pipeline configurations makes rollback impossible
+      why: >
+        Pipeline configurations, orchestration DAGs, and transformation logic are not version-controlled.
+        When a deployment fails, there is no previous version to roll back to. Recovery requires
+        manual reconstruction of the prior state from memory or backup snapshots.
+      agent: de-ops-agent
+      agent_response: >
+        Designs a version control strategy for all pipeline artifacts including DAG definitions,
+        transformation code, configuration files, and schema definitions. Implements git-based
+        workflows with branch protection, code review, and automated deployment from tagged releases.
+      success_signal:
+        metric: Pipeline artifact version control coverage
+        target: 100% of production pipeline artifacts under version control within 90 days
+        leading_indicator: Git repository structure defined with branch protection rules
+        failure_signal: Critical pipeline artifacts remain outside version control after 60 days
+  escalation_triggers:
+  - CI/CD pipeline failure blocks production deployment
+  - Environment parity issues cause deployment rollback
+  - DataOps tooling change requires infrastructure investment decision
+  prompt_registry:
+    de-dataops-assessment:
+      description: Assess current DataOps maturity across dimensions
+      source: prompts/tasks.yaml#ops.assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: current_practices
+        type: object
+      outputs:
+      - title: maturity_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - current_practices
+        - team_structure
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - industry_dataops_benchmarks
+        priority: enrichment
+    de-cicd-design:
+      description: Design CI/CD pipeline for data infrastructure
+      source: prompts/tasks.yaml#ops.cicd_design
+      inputs:
+      - title: account_name
+        type: string
+      - title: team_context
+        type: object
+      outputs:
+      - title: cicd_design
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - pipeline_inventory
+        - deployment_practices
+        priority: critical
+    de-environment-design:
+      description: Design environment management with staging parity and data subsetting
+      source: prompts/tasks.yaml#ops.environment_design
+      inputs:
+      - title: account_name
+        type: string
+      outputs:
+      - title: environment_design
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - infrastructure_context
+        - data_sensitivity
+        priority: critical
+  boundaries:
+  - DataOps practices and CI/CD only, does not design pipeline logic
+  - Does not handle streaming architecture or event processing
+  - Does not define data quality validation rules
+  - Does not design data models or schemas
+  permissions:
+  - Design CI/CD pipelines for data infrastructure
+  - Architect automated testing strategies for pipeline changes
+  - Design environment management with staging/production parity
+  - Establish version control practices for data artifacts
+  - Assess DataOps maturity and produce improvement roadmaps
+  guardrails:
+    input_validation:
+    - Reject DataOps assessment requests without current practices context
+    - Reject CI/CD design without team skill level and tooling context
+    output_checks:
+    - All CI/CD designs must include testing stages before production deployment
+    - Environment designs must address data sensitivity and subsetting requirements
+    - Improvement roadmaps must be phased with incremental milestones
+    signal_validation:
+    - Never recommend tooling without team skill level assessment
+    - Add [NEEDS TEAM ASSESSMENT] when adoption capacity is unknown
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - dataops
+      - cicd
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-dataops-practices.yaml
+      description: DataOps maturity models, CI/CD patterns, automated testing strategies
+    - path: references/expertise-iac-data.yaml
+      description: Infrastructure-as-code for data platforms, Terraform, environment management
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: de-specialist-agent
+      description: Data Engineer orchestrator routes DataOps requests
+    - type: event
+      source: deployment_metrics
+      condition: deployment_failure.rate > threshold
+      description: Auto-triggers assessment when deployment failure rates spike
+    - type: schedule
+      cadence: quarterly
+      description: Quarterly DataOps maturity re-assessment across active engagements
+    outputs:
+    - type: parent_return
+      target: de-specialist-agent
+      payload:
+      - maturity_assessment
+      - cicd_design
+      - improvement_roadmap
+      description: Full DataOps assessment back to orchestrator for aggregation
+    - type: trigger_agent
+      target: de-pipeline-agent
+      condition: cicd.pipeline_refactoring_needed == true
+      payload:
+      - refactoring_requirements
+      - deployment_constraints
+      description: CI/CD requirements that need pipeline refactoring trigger pipeline agent
+    - type: trigger_agent
+      target: de-quality-agent
+      condition: testing.data_validation_needed == true
+      payload:
+      - test_requirements
+      - validation_scope
+      description: Automated testing needs for data validation trigger quality agent
+    dependencies: []

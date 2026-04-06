@@ -1,0 +1,620 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: pm-release-agent
+name: PM Release Communication Agent
+description: 'McKinsey finds PMs spend just 12% of their day on cross-functional collaboration, and only 55% of product launches meet their timelines (Highspot), causing field
+  teams to sell against limitations already resolved in the latest release. This agent classifies releases by field impact, translates engineering release notes into field-ready
+  enablement content with value propositions per persona, prepares competitive positioning updates triggered by releases, manages beta program participant selection and feedback
+  collection, and prepares CAB session materials, ensuring release communications reach field teams with adequate lead time.
+
+  '
+metadata:
+  definition_version: 0.1.0
+  parent_agent: pm-agent
+  tags:
+  - release-communication
+  - field-enablement
+  - release-classification
+  - beta-programs
+  - cab-preparation
+  - competitive-positioning
+  responsibility: 'Classify releases by field impact, translate engineering release notes into field-ready enablement content, prepare release briefs with value propositions per
+    persona, create competitive positioning updates triggered by releases, manage beta program participant selection and feedback collection, prepare CAB session materials with
+    follow-through tracking, and ensure release communications reach field teams with adequate lead time.
+
+    '
+system_prompt: 'You are a Release Communication Agent, part of the Product Manager
+
+  intelligence system. Your job is to ensure field teams receive actionable release
+
+  content with adequate lead time so they never sell against limitations already resolved.
+
+
+  You MUST:
+
+  - Classify releases by field impact: major (new capabilities, positioning changes), minor (enhancements, UX improvements), patch (fixes, performance)
+
+  - Translate engineering release notes into field-ready enablement content with objection handling and competitive context
+
+  - Prepare release briefs with value proposition per persona: economic buyer (ROI, TCO impact), technical evaluator (architecture, integration), end user (workflow, productivity)
+
+  - Create competitive positioning updates triggered by releases that change the competitive landscape
+
+  - Manage beta program participant selection criteria, feedback collection schedules, and success metrics tracking
+
+  - Prepare CAB session materials including product topics, customer priorities, feedback summaries, and action item follow-through tracking
+
+  - Ensure release communications reach field teams with adequate lead time: 2 weeks for major releases, 1 week for minor releases
+
+
+  You MUST NOT:
+
+  - Track or deduplicate individual feature requests (Feature Gap Agent''s domain)
+
+  - Set roadmap priorities or score backlog (Roadmap Alignment Agent''s domain)
+
+  - Aggregate customer feedback (Feedback Synthesis Agent''s domain)
+
+  - Build competitive matrices (Competitive Intelligence Agent''s domain)
+
+  - Manage sales-product trust (Stakeholder Alignment Agent''s domain)
+
+
+  Every release communication must cite the release version, GA date, classification
+
+  level, and specific capabilities affected. Beta communications must include feedback
+
+  deadlines and success metrics.
+
+  '
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: release_notes, roadmap_items, feature_status, deal_context,
+    customer_feedback.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile), industry (regulatory context for release compliance), market (competitive landscape
+    for positioning updates).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: read-release-data
+  name: Read Release Data
+  description: Access release pipeline data including release notes, changelogs, beta feedback, and release candidate status
+  requires_confirmation: false
+  inputs:
+  - title: release_version
+    type: string
+  - title: data_type
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: release_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Cannot proceed without release data, stop and notify
+    - error_code: VERSION_NOT_FOUND
+      guidance: Release version does not exist in pipeline, verify with PM
+    - error_code: STALE_DATA
+      guidance: Release data may be outdated, flag for verification against engineering source
+- component_type: ClientTool
+  id: save-release-communication
+  name: Save Release Communication
+  description: Persist release communication artifacts, CAB materials, and beta program content to InfoHub and distribution channels
+  requires_confirmation: true
+  inputs:
+  - title: artifact
+    type: object
+  - title: artifact_type
+    type: string
+  - title: distribution_channels
+    type: array
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: medium
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from PM about release messaging strategy, CAB agenda, or beta participant selection
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: release-intelligence
+  name: Release Intelligence
+  description: Release communication data available to peer agents for deal and field context
+  tools:
+  - id: get-release-brief
+    name: Get Release Brief
+    description: Returns field-ready release brief for a specific version with value propositions per persona and competitive positioning impact
+    inputs:
+    - title: release_version
+      type: string
+    - title: persona
+      type: string
+    outputs:
+    - title: release_brief
+      type: object
+  - id: get-beta-status
+    name: Get Beta Status
+    description: Returns beta program status including participant list, feedback collection progress, and success metrics
+    inputs:
+    - title: program_id
+      type: string
+    outputs:
+    - title: beta_status
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: release-enablement
+  name: Release Enablement Package
+  playbook_refs:
+  - PB_PM_005
+  description: Classify release by field impact, build persona-specific enablement package with competitive positioning updates, and distribute to field teams with appropriate lead time.
+  inputs:
+  - title: release_version
+    type: string
+  - title: release_notes
+    type: string
+  - title: ga_date
+    type: string
+  outputs:
+  - title: release_brief
+    type: object
+  - title: competitive_positioning_update
+    type: object
+  - title: impact_assessment
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pm-release-classification
+      input: release_notes, release_version
+      tools:
+      - read-release-data
+      description: Classify release by field impact (major/minor/patch) and identify capabilities that change competitive positioning
+      on_failure: stop
+    - step: 2
+      prompt: pm-release-translation
+      input: classification, release_notes
+      tools:
+      - read-infohub
+      description: Translate engineering release notes into field-ready content with value propositions per persona (economic buyer, technical evaluator, end user)
+      on_failure: stop
+    - step: 3
+      prompt: pm-competitive-positioning
+      input: release_brief, classification
+      tools:
+      - read-intelligence
+      description: Create competitive positioning updates for capabilities that shift the competitive landscape
+      on_failure: skip_with_warning
+    - step: 4
+      prompt: pm-release-impact
+      input: release_brief, ga_date
+      tools:
+      - read-infohub
+      description: Assess impact on active deals, identify which gaps are now closed and which customers benefit
+      on_failure: skip_with_warning
+    - step: 5
+      action: persist
+      tools:
+      - save-release-communication
+      description: Save enablement package and distribute to field teams (2 weeks lead for major, 1 week for minor)
+      on_failure: stop
+- component_type: Flow
+  id: cab-preparation
+  name: CAB Session Preparation
+  playbook_refs:
+  - PB_PM_005
+  description: Prepare CAB session materials including product topics, customer priorities, feedback summaries, and action item follow-through tracking.
+  inputs:
+  - title: account_name
+    type: string
+  - title: cab_date
+    type: string
+  - title: proposed_topics
+    type: string
+  - title: known_priorities
+    type: string
+  outputs:
+  - title: cab_materials
+    type: object
+  - title: action_item_status
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: pm-cab-action-review
+      input: account_name, cab_date
+      tools:
+      - read-infohub
+      description: Review prior CAB action items and compile follow-through status for each outstanding item
+      on_failure: stop
+    - step: 2
+      prompt: pm-cab-prep
+      input: account_name, proposed_topics, known_priorities, action_item_status
+      tools:
+      - read-infohub
+      description: Compile product topics, customer priorities, and prior feedback summaries into structured CAB materials
+      on_failure: stop
+    - step: 3
+      prompt: pm-cab-agenda
+      input: cab_materials
+      description: Structure CAB agenda with time allocations, discussion guides, and decision points
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-release-communication
+      description: Save CAB materials and distribute to participants 3 business days before session
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - release-classification
+    - release-enablement
+    - persona-value-propositions
+    - competitive-positioning-updates
+    - beta-program-management
+    - cab-preparation
+    - field-communication-distribution
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: 'The agent prepares all release content, classifies impact, and builds enablement packages. The PM decides the messaging strategy for each release,
+      determines which beta participants to include based on relationship context, and owns the final narrative that goes to the field. The agent drafts, the PM approves and
+      shapes the story.
+
+      '
+    challenges:
+    - text: Release communications reach field teams after GA, causing SAs and AEs to sell against limitations already resolved, because translating engineering release notes into field-ready language takes 3-5 PM hours per release and PMs spend only 12% of their day on cross-functional collaboration (McKinsey)
+      specific_overhead:
+      - Classifying releases by field impact and determining lead time requirements
+      - Distributing release updates across regions, product lines, and team channels with adequate lead time
+    - text: Engineering-to-business translation fails when release notes describe implementation details rather than customer outcomes, and field teams cannot position capabilities they do not understand in business terms, leading to 55% of launches missing their timelines (Highspot)
+      specific_overhead:
+      - Translating technical changelog entries into persona-specific value propositions (economic buyer, technical evaluator, end user)
+      - Creating competitive positioning updates when releases shift the competitive landscape
+    - text: Beta program management complexity scales non-linearly with participant count, and without structured selection criteria, feedback collection schedules, and success metrics, beta programs produce anecdotal evidence rather than actionable product signals
+      specific_overhead:
+      - Defining participant selection criteria and managing recruitment across accounts
+      - Collecting structured feedback on schedule and tracking success metrics per participant
+    - text: CAB sessions lose strategic value when materials are prepared reactively without prior action item follow-through, structured agendas, or customer-specific priority context, turning advisory boards into unstructured complaint sessions
+      specific_overhead:
+      - Compiling prior action item status and tracking follow-through across sessions
+      - Building per-member priority summaries and structuring agendas with decision points
+    scenarios:
+    - problem: Major release requires full enablement package but field teams receive content after GA
+      why: 'A major release introduces capabilities that change competitive positioning and close known customer gaps, but the enablement package is not ready until after GA
+        because engineering release notes arrive late and translation into field-ready content is manual. Field teams continue positioning the old product state in active deals,
+        missing the window to leverage new capabilities.
+
+        '
+      agent: pm-release-agent
+      agent_response: 'The agent monitors the release pipeline for new release tags, classifies the release as major based on field impact, and triggers the enablement workflow
+        with 2-week lead time. It translates release notes into persona-specific value propositions, creates competitive positioning updates, assesses impact on active deals,
+        and distributes the complete enablement package to field teams before GA.
+
+        '
+      success_signal:
+        metric: Major release enablement lead time
+        target: Field teams receive complete enablement package at least 2 weeks before major release GA
+        leading_indicator: Deal teams reference new capabilities in customer conversations before GA date
+        failure_signal: Field teams discover major release capabilities from customer questions post-GA
+    - problem: Beta program feedback not incorporated into final release decisions
+      why: 'Beta participants invest time testing pre-release software and providing feedback, but without structured collection schedules and success metrics, feedback arrives
+        too late or too scattered to influence the final product. Participants lose trust in the program, reducing future participation willingness and severing a critical customer
+        input channel.
+
+        '
+      agent: pm-release-agent
+      agent_response: 'The agent manages beta program lifecycle: defines participant selection criteria with the PM, sets up structured feedback collection schedules with deadlines,
+        tracks success metrics per participant, and surfaces consolidated findings to the roadmap agent before release decisions are finalized. Participants receive communication
+        showing how their feedback shaped the product.
+
+        '
+      success_signal:
+        metric: Beta feedback incorporation rate
+        target: 80% of beta feedback items reviewed before release decision with disposition communicated to participants
+        leading_indicator: Beta participants confirm feedback receipt and see disposition updates
+        failure_signal: Beta program satisfaction drops below threshold or participant renewal rate declines
+  escalation_triggers:
+  - Major release within 2 weeks of GA without enablement package prepared
+  - Beta program satisfaction score below threshold
+  - CAB action items overdue by 2+ sessions without follow-through
+  - Minor release within 1 week of GA without field communication distributed
+  prompt_registry:
+    pm-release-classification:
+      description: Classify release by field impact level and identify competitive positioning changes
+      source: prompts/tasks.yaml#release.release_classification
+      inputs:
+      - title: release_notes
+        type: string
+      - title: release_version
+        type: string
+      outputs:
+      - title: classification
+        type: object
+      requires_data:
+      - source: read-release-data
+        fields:
+        - changelog
+        - capability_changes
+        - breaking_changes
+        priority: critical
+    pm-release-translation:
+      description: Translate engineering release notes into field-ready enablement content with persona-specific value propositions
+      source: prompts/tasks.yaml#release.release_translation
+      inputs:
+      - title: classification
+        type: object
+      - title: release_notes
+        type: string
+      outputs:
+      - title: release_brief
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - product_capabilities
+        - known_limitations
+        - active_objections
+        priority: critical
+    pm-competitive-positioning:
+      description: Create competitive positioning updates triggered by release capabilities
+      source: prompts/tasks.yaml#release.competitive_positioning
+      inputs:
+      - title: release_brief
+        type: object
+      - title: classification
+        type: object
+      outputs:
+      - title: positioning_update
+        type: object
+      requires_data:
+      - source: read-intelligence
+        fields:
+        - competitive_landscape
+        - market_positioning
+        priority: enrichment
+    pm-release-impact:
+      description: Assess release impact on active deals and identify gap closures
+      source: prompts/tasks.yaml#release.release_impact
+      inputs:
+      - title: release_brief
+        type: object
+      - title: ga_date
+        type: string
+      outputs:
+      - title: impact_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - active_deals
+        - known_gaps
+        - customer_requirements
+        priority: critical
+    pm-cab-action-review:
+      description: Review and compile follow-through status for prior CAB action items
+      source: prompts/tasks.yaml#release.cab_action_review
+      inputs:
+      - title: account_name
+        type: string
+      - title: cab_date
+        type: string
+      outputs:
+      - title: action_item_status
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - prior_cab_actions
+        - action_item_owners
+        - completion_status
+        priority: critical
+    pm-cab-prep:
+      description: Prepare CAB meeting materials with product topics and customer priorities
+      source: prompts/tasks.yaml#release.cab_prep
+      inputs:
+      - title: account_name
+        type: string
+      - title: proposed_topics
+        type: string
+      - title: known_priorities
+        type: string
+      - title: action_item_status
+        type: object
+      outputs:
+      - title: cab_materials
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - roadmap_items
+        - feature_status
+        - release_timelines
+        - customer_feedback_records
+        priority: critical
+    pm-cab-agenda:
+      description: Structure CAB session agenda with time allocations and decision points
+      source: prompts/tasks.yaml#release.cab_agenda
+      inputs:
+      - title: cab_materials
+        type: object
+      outputs:
+      - title: structured_agenda
+        type: object
+      requires_data: []
+  boundaries:
+  - Does not track or deduplicate individual feature requests (Feature Gap Agent)
+  - Does not set roadmap priorities or score backlog (Roadmap Alignment Agent)
+  - Does not aggregate customer feedback (Feedback Synthesis Agent)
+  - Does not build competitive matrices (Competitive Intelligence Agent)
+  - Does not manage sales-product trust (Stakeholder Alignment Agent)
+  permissions:
+  - Classify releases by field impact level (major/minor/patch)
+  - Translate engineering release notes into field-ready enablement content
+  - Prepare release briefs with value propositions per persona
+  - Create competitive positioning updates triggered by releases
+  - Manage beta program participant selection and feedback collection
+  - Prepare and distribute CAB session materials
+  - Distribute release communications with appropriate lead time
+  guardrails:
+    input_validation:
+    - Reject release communication without release version and GA date
+    - Reject CAB preparation without proposed topics or known priorities
+    - Reject beta program operations without participant selection criteria
+    output_checks:
+    - Every release communication must cite release version, GA date, classification level, and specific capabilities
+    - Release briefs must include value propositions for all three personas (economic buyer, technical evaluator, end user)
+    - Impact assessments must link to specific active deals and gap closures
+    - CAB materials must include prior action item follow-through status
+    - Beta communications must include feedback deadlines and success metrics
+    - Competitive positioning updates must cite the specific capability change driving the update
+    signal_validation:
+    - Never commit to feature delivery timelines (cite roadmap status only)
+    - Add [DRAFT] to release communications pending PM review
+    - Distinguish between GA features and beta/preview capabilities in all content
+    - Flag major releases without 2-week lead time as escalation
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      - read-release-data
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable release content without product and release data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark competitive positioning sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern, release content must reflect current product state
+  knowledge:
+    scope:
+      domains:
+      - release-management
+      - field-enablement
+      - beta-programs
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/release-communication-framework.yaml
+      description: Release classification criteria, persona value proposition templates, beta program management guidelines, CAB preparation checklists, field enablement content standards, competitive positioning update templates
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: pm-agent
+      description: PM orchestrator routes release communication requests
+    - type: event
+      source: release_pipeline
+      condition: release.tagged == true
+      description: New release tagged in pipeline triggers classification and enablement preparation
+    - type: event
+      source: pm-roadmap-agent
+      condition: roadmap_item.status_changed == true AND roadmap_item.customer_facing == true
+      description: Customer-facing roadmap changes trigger release communication preparation
+    outputs:
+    - type: parent_return
+      target: pm-agent
+      payload:
+      - release_brief
+      - competitive_positioning_update
+      - impact_assessment
+      - cab_materials
+      description: Full release content back to orchestrator for aggregation
+    - type: trigger_agent
+      target: pm-competitive-agent
+      condition: release.changes_competitive_positioning == true
+      payload:
+      - release_brief
+      - positioning_update
+      - affected_capability_areas
+      description: Release changes competitive positioning, trigger competitive intelligence update
+    - type: notify_human
+      condition: release.classification == major AND release.ga_date - today <= 14 AND enablement_package.status != distributed
+      channel: alert
+      description: Major release readiness gate, PM must approve enablement package before field distribution
+    dependencies: []

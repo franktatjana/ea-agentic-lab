@@ -2,7 +2,7 @@
 
 *All examples, companies, scenarios, and data in this project are hypothetical. Names, characters, and organizations are fictional. Any resemblance to actual persons, companies, or events is purely coincidental.*
 
-This handbook is for the people who use the system daily: Account Executives, Solutions Architects, Domain Specialists, Customer Success Managers, and Sales Leadership. It explains how to work with the platform, what agents do for you, and where to find what you need. If you haven't read the [Executive Summary](../EXECUTIVE_SUMMARY.md), start there for the big picture. For a deeper understanding of why each component exists and how they connect through real scenarios, see [Understanding the System](guides/understanding-the-system.md). To walk through a complete engagement from your role's perspective, see the [End-to-End Walkthrough](guides/end-to-end-walkthrough.md).
+This handbook is for the people who use the system daily: Account Executives, Solutions Architects, Domain Specialists, Customer Success Managers, and Sales Leadership. It explains how to work with the platform, what agents do for you, and where to find what you need. If you haven't read the [Executive Summary](overview/executive-summary.md), start there for the big picture. For reading order and entry points, see [Start here](START_HERE.md). For a deeper understanding of why each component exists and how they connect through real scenarios, see [Understanding the System](guides/understanding-the-system.md). To walk through a complete engagement from your role's perspective, see the [End-to-End Walkthrough](guides/end-to-end-walkthrough.md).
 
 ---
 
@@ -14,11 +14,11 @@ Every customer engagement follows the same logic: classify it, select the right 
 
 **Engagement Classification** determines what kind of deal this is, so the system adapts its governance to the engagement rather than applying a one-size-fits-all approach. Three independent dimensions combine to describe any engagement:
 
-- **Archetype** defines the motion: competitive displacement, greenfield adoption, consolidation, compliance, evaluation, renewal, expansion, or strategic partnership. Each archetype activates different playbooks and agent behaviors. See the [archetypes catalog](../domain/catalogs/archetypes.yaml) for definitions
+- **Archetype** defines the motion: competitive displacement, greenfield adoption, consolidation, compliance, evaluation, renewal, expansion, or strategic partnership. Each archetype activates different playbooks and agent behaviors. Definitions live in `domain/catalogs/archetypes.yaml` (see [Repository path locator](reference/repository-paths.md#classification-and-blueprint-sources))
 - **Domain** defines the technical area: security, search, observability, or platform. Each domain has its own specialist playbooks and evaluation checklists
-- **Track** defines the service tier: POC, economy, premium, or fast track. Each track sets different SLAs, cadences, and mandatory artifacts. See [engagement tracks](../domain/mappings/engagement_tracks.yaml) for details
+- **Track** defines the service tier: POC, economy, premium, or fast track. Each track sets different SLAs, cadences, and mandatory artifacts. Definitions live in `domain/mappings/engagement_tracks.yaml` (same locator)
 
-**Blueprints** are the governance templates that define which playbooks to run, which agents to involve, and what success looks like for a given classification. Without blueprints, someone would need to manually decide the right playbooks, agents, and cadence for every engagement. The system selects blueprints automatically based on classification. Browse the [reference blueprints](../domain/blueprints/) to see what's available.
+**Blueprints** are the governance templates that define which playbooks to run, which agents to involve, and what success looks like for a given classification. Without blueprints, someone would need to manually decide the right playbooks, agents, and cadence for every engagement. The system selects blueprints automatically based on classification. Reference templates live under `domain/blueprints/` ([locator](reference/repository-paths.md#classification-and-blueprint-sources)).
 
 **Playbooks** encode domain expertise as repeatable process so that every team member, regardless of experience, applies proven frameworks consistently. Strategic playbooks apply consulting frameworks (SWOT, Three Horizons, Value Engineering). Operational playbooks handle events (meeting notes, risk registration, action tracking). Specialist playbooks bring deep domain evaluation. Each playbook follows a trigger, input, execute, output, review pattern. See the [playbook catalog](reference/playbook-catalog.md) for the full library.
 
@@ -71,7 +71,7 @@ Your agents handle technical discovery, architecture assessment, and POC executi
 Your agents bring deep technical evaluation with domain-specific checklists that evolve from deal outcomes. Specialist playbooks define what "good" looks like for your domain.
 
 **Your key workflows:**
-- Run domain evaluation checklists: [Security](../domain/playbooks/specialists/security/checklists/), [Search](../domain/playbooks/specialists/search/checklists/), [Observability](../domain/playbooks/specialists/observability/checklists/)
+- Run domain evaluation checklists (paths under `domain/playbooks/specialists/…/checklists/`): see [Repository path locator — Specialist evaluation checklists](reference/repository-paths.md#specialist-evaluation-checklists)
 - Contribute to Knowledge Base best practices for your domain
 - Cross-pollinate patterns: what worked in security deals may apply to observability
 
@@ -143,7 +143,7 @@ The [RACI model](operating-model/raci-model.md) defines who is Responsible, Acco
 
 The best way to understand the system is to see it in action. The ACME demo customer shows a complete security consolidation deal with real stakeholders, risks, meetings, and framework analyses.
 
-- [ACME Engagement](../vault/ACME_CORP/SECURITY_CONSOLIDATION/) shows the full three-vault engagement structure
+- [ACME Engagement](reference/repository-paths.md#demo-and-sample-vault-acme) lists the `vault/` path for the full three-vault engagement structure
 - [Run the demo](guides/for-developers/run-demo.md) for a guided walkthrough of three scenarios
 
 ---
@@ -152,7 +152,9 @@ The best way to understand the system is to see it in action. The ACME demo cust
 
 | I want to... | Go to |
 |---------------|-------|
-| Understand the system at a glance | [Executive Summary](../EXECUTIVE_SUMMARY.md) |
+| Understand the system at a glance | [Executive Summary](overview/executive-summary.md) |
+| Reading order and doc spine | [Start here](START_HERE.md) |
+| Find YAML and vault paths in the repo | [Repository path locator](reference/repository-paths.md) |
 | Understand why each component exists | [Understanding the System](guides/understanding-the-system.md) |
 | Walk through a deal from my role's perspective | [End-to-End Walkthrough](guides/end-to-end-walkthrough.md) |
 | Look up a term | [Terminology Model](reference/TERMINOLOGY_MODEL.md) |

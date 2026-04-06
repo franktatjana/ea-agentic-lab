@@ -1,0 +1,442 @@
+agentspec_version: 26.1.0
+component_type: Agent
+id: de-integration-agent
+name: DE Integration Agent
+description: >
+  Data integration patterns, change data capture (CDC), API ingestion, SaaS connector
+  orchestration, and source onboarding. This agent standardizes how data enters the
+  platform from diverse source systems.
+metadata:
+  definition_version: 0.1.0
+  parent_agent: de-specialist-agent
+  tags:
+  - data-integration
+  - cdc
+  - api-ingestion
+  - connectors
+  - source-onboarding
+  responsibility: >
+    Design standardized integration patterns for data ingestion from databases, APIs, files,
+    and SaaS platforms, with CDC for real-time replication and repeatable source onboarding
+    workflows.
+system_prompt: >
+  You are a Data Integration Agent, part of the Data Engineer Specialist system. Your job is to
+  design data integration patterns and source onboarding workflows.
+
+
+  You MUST:
+
+  - Design CDC patterns with ordering guarantees, schema change propagation, and zero-data-loss
+
+  - Architect API ingestion workflows with pagination, rate limiting, and error handling
+
+  - Design file-based ingestion patterns with format detection, validation, and archiving
+
+  - Configure SaaS connector orchestration with sync mode selection and conflict resolution
+
+  - Standardize source onboarding with templatized workflows for common integration types
+
+  - Produce connector health monitoring strategies with freshness and completeness tracking
+
+
+  You MUST NOT:
+
+  - Design pipeline architectures or DAG orchestration (Pipeline Agent's domain)
+
+  - Design streaming topologies or event processing (Streaming Agent's domain)
+
+  - Define data quality validation rules (Quality Agent's domain)
+
+  - Design data models or schema evolution (Modeling Agent's domain)
+
+  - Set up CI/CD or environment management (Ops Agent's domain)
+
+  - Make platform-level architecture decisions (Big Data Architect's domain)
+
+  - Claim connector compatibility without verification against vendor documentation
+
+human_in_the_loop: true
+tools:
+- component_type: ClientTool
+  id: read-infohub
+  name: Read InfoHub
+  description: 'Access structured account data from the InfoHub vault. Use section parameter to target specific data: risks, decisions, stakeholders, competitive, governance, value, journey, opportunities,
+    context, or frameworks.
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: node_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: infohub_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Proceed with other data sources, flag output as incomplete
+    - error_code: SECTION_NOT_FOUND
+      guidance: Section does not exist for this account, skip and note gap
+    - error_code: STALE_DATA
+      guidance: Data exceeds freshness threshold, flag for human verification
+- component_type: ClientTool
+  id: read-intelligence
+  name: Read Intelligence
+  description: 'Access intelligence layer data for a realm. Sections: account (company profile, organigram, opportunity map), industry (profile, regulatory, trends), market (news digest), technology (current
+    map, vendor landscape).
+
+    '
+  requires_confirmation: false
+  inputs:
+  - title: realm_id
+    type: string
+  - title: section
+    type: string
+  - title: detail_level
+    type: string
+  outputs:
+  - title: intelligence_data
+    type: object
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+    error_responses:
+    - error_code: SOURCE_UNAVAILABLE
+      guidance: Skip intelligence enrichment, proceed with core data
+    - error_code: SECTION_NOT_FOUND
+      guidance: Intelligence section unavailable, note gap in output
+    - error_code: STALE_DATA
+      guidance: Intelligence may be outdated, flag for refresh
+- component_type: ClientTool
+  id: save-integration-assessment
+  name: Save Integration Assessment
+  description: Persist integration assessment and connector configurations to InfoHub
+  requires_confirmation: false
+  inputs:
+  - title: assessment
+    type: object
+  - title: account_name
+    type: string
+  outputs:
+  - title: status
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: service-registry
+- component_type: ClientTool
+  id: ask-user
+  name: Ask User
+  description: Request clarification from data engineer about integration requirements
+  requires_confirmation: false
+  inputs:
+  - title: question
+    type: string
+  outputs:
+  - title: answer
+    type: string
+  x-ea-agent:
+    risk: low
+    resolver: inline
+toolboxes:
+- component_type: Toolbox
+  id: integration-intelligence
+  name: Integration Intelligence
+  description: Integration and connector data available to peer agents for cross-domain context
+  tools:
+  - id: get-integration-inventory
+    name: Get Integration Inventory
+    description: Returns active integrations and connector configurations for an account
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: integrations
+      type: array
+  - id: get-connector-health
+    name: Get Connector Health
+    description: Returns connector health status, sync frequency, and freshness metrics
+    inputs:
+    - title: account_name
+      type: string
+    outputs:
+    - title: connector_health
+      type: object
+specialized_agents: []
+flows:
+- component_type: Flow
+  id: integration-design
+  name: Integration Design
+  playbook_refs:
+  - PB_DE_001
+  - PB_DE_005
+  description: Design data integration patterns with CDC, API ingestion, and source onboarding workflow.
+  inputs:
+  - title: account_context
+    type: object
+  - title: source_inventory
+    type: object
+  - title: integration_requirements
+    type: object
+  outputs:
+  - title: integration_blueprint
+    type: object
+  - title: cdc_design
+    type: object
+  - title: onboarding_workflow
+    type: object
+  x-ea-agent:
+    workflow_shorthand:
+    - step: 1
+      prompt: de-integration-assessment
+      input: account_context, source_inventory
+      tools:
+      - read-infohub
+      - read-intelligence
+      description: Assess current integration landscape and source system inventory
+      on_failure: stop
+    - step: 2
+      prompt: de-cdc-design
+      input: account_context, integration_requirements
+      tools:
+      - read-infohub
+      description: Design CDC patterns with ordering guarantees and schema change propagation
+      on_failure: stop
+    - step: 3
+      prompt: de-connector-design
+      input: source_inventory
+      tools:
+      - read-infohub
+      description: Design API and SaaS connector configurations with sync modes
+      on_failure: skip_with_warning
+    - step: 4
+      action: persist
+      tools:
+      - save-integration-assessment
+      description: Save integration assessment to InfoHub
+      on_failure: stop
+a2a:
+  agent_url: null
+  connection_config: null
+  agent_card:
+    protocol_version: '0.1'
+    capabilities:
+    - cdc-design
+    - api-ingestion
+    - connector-configuration
+    - source-onboarding
+    input_modes:
+    - text/plain
+    - application/json
+    output_modes:
+    - application/json
+    - text/markdown
+x-ea-agent:
+  profile:
+    human_matters_summary: >
+      The agent designs integration patterns and connector configurations. The data engineering
+      lead understands which source systems are politically sensitive (owned by other teams with
+      competing priorities), which API rate limits reflect real infrastructure constraints versus
+      conservative defaults, and which data sources are likely to change format or protocol
+      without notice. The integration design is technically correct, but the human leader
+      navigates the organizational dynamics of cross-team data access.
+    challenges:
+    - text: Every new data source requires a bespoke integration project with unpredictable timelines
+      specific_overhead:
+      - Documenting integration patterns and onboarding checklists per source type
+    - text: CDC implementations lose events during source system maintenance windows
+      specific_overhead:
+      - Designing and testing CDC recovery procedures per database platform
+    administrative_overhead:
+    - Documenting integration patterns and onboarding checklists per source type
+    - Designing and testing CDC recovery procedures per database platform
+    scenarios:
+    - problem: Every new data source requires a bespoke engineering project
+      why: >
+        Without standardized integration patterns, each new source is treated as a greenfield
+        project. Engineers build custom connectors, ad-hoc schema mappings, and one-off quality
+        checks. Onboarding times range from days to months depending on the engineer assigned.
+      agent: de-integration-agent
+      agent_response: >
+        Designs a standardized source onboarding framework with templatized connector patterns
+        for common integration types (CDC, REST API, file, SaaS). Produces an onboarding
+        checklist covering schema mapping, validation, monitoring, and documentation.
+      success_signal:
+        metric: New source onboarding time
+        target: Reduce average onboarding time to under 5 business days for standard types
+        leading_indicator: Connector templates available for the top 5 integration patterns
+        failure_signal: Onboarding times remain variable and engineer-dependent
+    - problem: CDC pipelines lose events during source database maintenance or failover
+      why: >
+        CDC configurations assume continuous source availability. During planned maintenance,
+        database failovers, or log rotation, the CDC connector loses its position in the
+        change stream. Recovery requires manual investigation to identify the gap window
+        and backfill missing records.
+      agent: de-integration-agent
+      agent_response: >
+        Designs CDC implementations with checkpoint-based recovery, gap detection through
+        sequence validation, and automated backfill procedures. Produces maintenance
+        runbooks that coordinate CDC pause/resume with database maintenance windows.
+      success_signal:
+        metric: CDC event loss during maintenance events
+        target: Zero data loss during planned maintenance with automated recovery
+        leading_indicator: Gap detection and recovery procedures tested against simulated failures
+        failure_signal: Manual intervention required to recover CDC state after maintenance
+  escalation_triggers:
+  - CDC data loss detected for regulated data source
+  - API integration failure affects production data freshness SLA
+  - Source system access requires cross-team coordination or security approval
+  prompt_registry:
+    de-integration-assessment:
+      description: Assess current integration landscape and source system inventory
+      source: prompts/tasks.yaml#integration.assessment
+      inputs:
+      - title: account_name
+        type: string
+      - title: source_inventory
+        type: object
+      outputs:
+      - title: integration_assessment
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - source_inventory
+        - current_integrations
+        priority: critical
+      - source: read-intelligence
+        fields:
+        - technology_map
+        - vendor_landscape
+        priority: enrichment
+    de-cdc-design:
+      description: Design CDC patterns with ordering guarantees and schema change propagation
+      source: prompts/tasks.yaml#integration.cdc_design
+      inputs:
+      - title: account_name
+        type: string
+      - title: integration_requirements
+        type: object
+      outputs:
+      - title: cdc_design
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - source_database_details
+        - ordering_requirements
+        priority: critical
+    de-connector-design:
+      description: Design API and SaaS connector configurations with sync modes
+      source: prompts/tasks.yaml#integration.connector_design
+      inputs:
+      - title: source_inventory
+        type: object
+      outputs:
+      - title: connector_configurations
+        type: object
+      requires_data:
+      - source: read-infohub
+        fields:
+        - api_specifications
+        - sync_requirements
+        priority: critical
+  boundaries:
+  - Data integration and source onboarding only, does not design pipelines or models
+  - Does not handle streaming architecture beyond CDC delivery
+  - Does not define data quality validation rules
+  - Does not manage CI/CD or deployments
+  permissions:
+  - Design CDC patterns for database replication
+  - Architect API ingestion workflows with error handling
+  - Configure SaaS connector sync modes and conflict resolution
+  - Design file-based ingestion patterns
+  - Standardize source onboarding workflows
+  guardrails:
+    input_validation:
+    - Reject integration design requests without source system inventory
+    - Reject CDC design without source database details and ordering requirements
+    output_checks:
+    - All CDC designs must specify ordering guarantees and recovery procedures
+    - API integrations must include rate limiting, pagination, and error handling
+    - Connector configurations must reference vendor documentation for compatibility
+    signal_validation:
+    - Never claim connector compatibility without verification against vendor docs
+    - Add [NEEDS VERIFICATION] when source system behavior is assumed rather than documented
+  error_handling:
+    tool_failures:
+      critical:
+      - read-infohub
+      enrichment:
+      - read-intelligence
+    on_critical_failure:
+      action: stop
+      emit_signal: SIG_CRITICAL_DATA_MISSING
+      guidance: Cannot produce reliable output without critical data
+    on_enrichment_failure:
+      action: continue_with_degradation
+      emit_signal: SIG_ENRICHMENT_UNAVAILABLE
+      guidance: Proceed with available data, mark affected sections low-confidence
+    on_stale_data:
+      action: warn_and_continue
+      emit_signal: SIG_STALE_DATA_USED
+      guidance: Flag freshness concern for human verification
+  knowledge:
+    scope:
+      domains:
+      - data-integration
+      - cdc
+      archetypes:
+      - enterprise
+      - mid-market
+    references:
+    - path: references/expertise-cdc-patterns.yaml
+      description: CDC frameworks (Debezium, Fivetran), log-based replication, ordering guarantees
+    - path: references/expertise-api-integration.yaml
+      description: REST API ingestion, pagination strategies, rate limiting, OAuth flows
+  autonomy:
+    triggers:
+    - type: parent_dispatch
+      source: de-specialist-agent
+      description: Data Engineer orchestrator routes integration design requests
+    - type: event
+      source: connector_health
+      condition: connector_failure.count > threshold
+      description: Auto-triggers assessment when connector failure rates spike
+    outputs:
+    - type: parent_return
+      target: de-specialist-agent
+      payload:
+      - integration_blueprint
+      - cdc_design
+      - onboarding_workflow
+      description: Full integration design back to orchestrator for aggregation
+    - type: trigger_agent
+      target: de-pipeline-agent
+      condition: integration.pipeline_routing_needed == true
+      payload:
+      - source_specification
+      - ingestion_output
+      description: Completed integrations that need pipeline routing trigger pipeline agent
+    - type: trigger_agent
+      target: de-quality-agent
+      condition: integration.validation_needed == true
+      payload:
+      - source_data_profile
+      - quality_requirements
+      description: New integrations trigger quality validation setup
+    - type: trigger_agent
+      target: de-modeling-agent
+      condition: integration.schema_mapping_needed == true
+      payload:
+      - source_schema
+      - target_requirements
+      description: Source schema mapping needs trigger modeling agent
+    dependencies: []
