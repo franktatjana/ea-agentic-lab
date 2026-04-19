@@ -9,6 +9,8 @@
 - RACI cross-reference validation in `validate_definitions.py --raci`: detects stale references, missing playbooks, orphan roles
 - RACI fix script `fix_raci.py`: automated repair of playbook_raci drift across all agent definitions
 - `role_context` profiles added to poc-agent, rfp-agent, infosec-agent, retrospective-agent, specialist-agent
+- `docs/architecture/system/orchestration-patterns.md`: maps the five canonical agentic patterns (prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer) to the ea-agentic-lab domain model with pattern combinations
+- Canvas data assemblers for the four remaining active canvas types: Problem-Solution Fit, Architecture Communication, Execution Map, QBR Tracking
 
 ### Changed
 
@@ -16,6 +18,8 @@
 - Docs browser default route opens `START_HERE.md`; Agents, Blueprints, and Playbook hub pages link to relevant architecture and reference docs.
 - Playbook RACI sections synced across 40 agent definitions: 126 stale entries removed, 54 missing playbooks added, 15 agents got new playbook_raci sections
 - Fixed `getRoleKey` in role-config.ts: Customer Advocacy (cad-agent) was misclassified as Customer Architect (ca) due to prefix collision
+- Frontend default theme switched from dark to light
+- Agent definitions service now caches parsed YAMLs in-memory and warms both `list_definitions` and `list_handoffs` during FastAPI lifespan startup, fixing the Render 30s request timeout on `/api/v1/definitions` (4.2s per-request re-parse of 196 YAMLs eliminated)
 
 ### Removed
 
