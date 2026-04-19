@@ -87,6 +87,10 @@ class CanvasService:
             "risk_governance": self._assemble_risk_governance_canvas,
             "value_stakeholders": self._assemble_value_stakeholders_canvas,
             "architecture_decision": self._assemble_architecture_decision_canvas,
+            "problem_solution_fit": self._assemble_problem_solution_fit_canvas,
+            "architecture_communication": self._assemble_architecture_communication_canvas,
+            "execution_map": self._assemble_execution_map_canvas,
+            "qbr_tracking": self._assemble_qbr_tracking_canvas,
         }
         return assemblers.get(normalized, self._assemble_generic)
 
@@ -641,6 +645,506 @@ class CanvasService:
         match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
         return match.group(1).strip() if match else ""
 
+    # -- Problem-Solution Fit Canvas --
+
+    def _assemble_problem_solution_fit_canvas(self, spec: dict, node_path: Path) -> list[dict[str, Any]]:
+        overview = self._load_yaml(node_path / "internal-infohub" / "context" / "node_overview.yaml") or {}
+        biz = overview.get("business_context", {})
+        stakeholders = self._load_yaml(node_path / "internal-infohub" / "context" / "stakeholder_map.yaml") or {}
+
+        sections: list[dict[str, Any]] = []
+
+        stk_list = stakeholders.get("stakeholders", [])
+        segment_items = []
+        for s in stk_list[:3]:
+            segment_items.append({
+                "name": s.get("title", s.get("name", "")),
+                "description": f'{s.get("name", "")}, {s.get("title", "")}',
+            })
+        if not segment_items:
+            segment_items = [
+                {"name": "IT Decision Makers", "description": "CTO, VP Engineering, Enterprise Architects"},
+                {"name": "Line of Business", "description": "VP Operations, Business Unit Leaders"},
+                {"name": "End Users", "description": "DevOps Engineers, Platform Teams"},
+            ]
+        sections.append({
+            "id": "customer_segments",
+            "label": "Customer Segment(s)",
+            "format": "structured",
+            "data": {s["name"]: s["description"] for s in segment_items},
+        })
+
+        drivers = biz.get("strategic_drivers", [])
+        pain_items = []
+        for d in drivers[:5]:
+            pain_items.append({
+                "text": d.get("driver", d.get("description", "")),
+                "status": d.get("urgency", "medium"),
+                "detail": d.get("description", ""),
+            })
+        if not pain_items:
+            pain_items = [
+                {"text": "Manual infrastructure provisioning takes 2-3 weeks per environment", "status": "critical", "detail": "Blocks development velocity"},
+                {"text": "No unified observability across hybrid cloud", "status": "high", "detail": "MTTR exceeds SLA targets by 40%"},
+                {"text": "Compliance drift detected only during quarterly audits", "status": "high", "detail": "Creates regulatory exposure window"},
+                {"text": "Vendor lock-in limits negotiation leverage", "status": "medium", "detail": "3-year contract renewal approaching"},
+                {"text": "Shadow IT adoption growing in business units", "status": "medium", "detail": "Security and cost governance gaps"},
+            ]
+        sections.append({
+            "id": "problems_pains",
+            "label": "Problems / Pains",
+            "format": "list_with_status",
+            "data": {"items": pain_items},
+        })
+
+        sections.append({
+            "id": "triggers_to_act",
+            "label": "Triggers to Act",
+            "format": "categorized",
+            "data": {"items": [
+                {"category": "Event", "text": "Board mandate to reduce cloud spend by 20% within 6 months"},
+                {"category": "Event", "text": "Failed compliance audit triggered remediation timeline"},
+                {"category": "Competitive", "text": "Competitor launched managed platform, customer teams asking for parity"},
+                {"category": "Internal", "text": "Key platform engineer resigned, tribal knowledge at risk"},
+            ]},
+        })
+
+        sections.append({
+            "id": "emotions",
+            "label": "Emotions",
+            "format": "two_column",
+            "data": {
+                "left_label": "Before",
+                "right_label": "After",
+                "left_items": ["Frustrated by slow delivery", "Anxious about compliance gaps", "Overwhelmed by tool sprawl"],
+                "right_items": ["Confident in platform stability", "In control of cost and compliance", "Focused on innovation, not firefighting"],
+            },
+        })
+
+        sections.append({
+            "id": "customer_limitations",
+            "label": "Customer Limitations",
+            "format": "categorized",
+            "data": {"items": [
+                {"category": "Budget", "text": "Capex-constrained, prefers opex model"},
+                {"category": "Skills", "text": "Small platform team (4 engineers), limited Kubernetes experience"},
+                {"category": "Timeline", "text": "Must show board-level results within current fiscal year"},
+                {"category": "Legacy", "text": "Cannot decommission mainframe workloads in phase 1"},
+                {"category": "Governance", "text": "Change advisory board meets bi-weekly, slows rollout"},
+            ]},
+        })
+
+        sections.append({
+            "id": "problem_root_cause",
+            "label": "Problem Root / Cause",
+            "format": "narrative",
+            "data": {
+                "summary": "Infrastructure was built organically over 8 years without platform strategy. Each team chose its own tooling, creating 14 disconnected deployment pipelines with no shared observability or policy layer. The root cause is not technical debt alone but the absence of a platform operating model.",
+                "objective": "Establish unified platform layer",
+            },
+        })
+
+        biz_case = biz.get("business_case_summary", {})
+        solution_text = biz_case.get("proposed_solution", "") if biz_case else ""
+        if not solution_text:
+            solution_text = "Unified platform layer with automated provisioning (minutes, not weeks), integrated observability across all environments, continuous compliance scanning with drift remediation, and abstraction layer that prevents vendor lock-in while preserving existing investments."
+        sections.append({
+            "id": "your_solution",
+            "label": "Your Solution",
+            "format": "narrative",
+            "data": {
+                "summary": solution_text,
+                "objective": "Platform-as-a-Product for internal teams",
+            },
+        })
+
+        sections.append({
+            "id": "available_solutions",
+            "label": "Available Solutions",
+            "format": "decision_cards",
+            "data": {"items": [
+                {"id": "DIY", "title": "Build In-House Platform", "category": "option", "status": "considered",
+                 "rationale": ["Full control", "No vendor dependency", "Custom fit"],
+                 "implications": ["12-18 month build", "Requires 3x current team", "Ongoing maintenance burden"]},
+                {"id": "Hyperscaler", "title": "Single Cloud Native (AWS/Azure/GCP)", "category": "option", "status": "eliminated",
+                 "rationale": ["Mature tooling", "Large ecosystem", "Managed services"],
+                 "implications": ["Deepens vendor lock-in", "Multi-cloud not addressed", "Compliance gaps remain"]},
+                {"id": "Proposed", "title": "Vendor Platform + Integration Layer", "category": "option", "status": "recommended",
+                 "rationale": ["Fastest time to value", "Multi-cloud ready", "Built-in compliance"],
+                 "implications": ["Vendor dependency (mitigated by abstraction)", "Requires change management"]},
+            ]},
+        })
+
+        sections.append({
+            "id": "behavior",
+            "label": "Current Behavior",
+            "format": "categorized",
+            "data": {"items": [
+                {"category": "High intensity", "text": "Manual ticket-based provisioning through ServiceNow"},
+                {"category": "High intensity", "text": "SSH into production for troubleshooting (no centralized logs)"},
+                {"category": "Medium intensity", "text": "Spreadsheet-based compliance tracking updated quarterly"},
+                {"category": "Low intensity", "text": "Ad-hoc cost reports pulled monthly from each cloud console"},
+            ]},
+        })
+
+        return sections
+
+    # -- Architecture Communication Canvas --
+
+    def _assemble_architecture_communication_canvas(self, spec: dict, node_path: Path) -> list[dict[str, Any]]:
+        overview = self._load_yaml(node_path / "internal-infohub" / "context" / "node_overview.yaml") or {}
+        risks_data = self._load_yaml(node_path / "internal-infohub" / "risks" / "risk_register.yaml") or {}
+        stakeholders = self._load_yaml(node_path / "internal-infohub" / "context" / "stakeholder_map.yaml") or {}
+        tech = overview.get("technical_context", {})
+
+        sections: list[dict[str, Any]] = []
+
+        biz = overview.get("business_context", {})
+        drivers = biz.get("strategic_drivers", [])
+        value_items = [d.get("driver", "") for d in drivers[:5]]
+        if not value_items:
+            value_items = [
+                "Reduce infrastructure provisioning from weeks to minutes",
+                "Unified observability across hybrid cloud",
+                "Continuous compliance with automated remediation",
+                "30% reduction in cloud operational costs",
+                "Developer self-service without compromising governance",
+            ]
+        sections.append({
+            "id": "value_proposition",
+            "label": "Value Proposition",
+            "format": "categorized",
+            "data": {"items": [{"category": "Business Goal", "text": v} for v in value_items]},
+        })
+
+        sections.append({
+            "id": "core_functions",
+            "label": "Core Functions",
+            "format": "categorized",
+            "data": {"items": [
+                {"category": "Provisioning", "text": "Self-service environment creation with policy guardrails"},
+                {"category": "Observability", "text": "Unified metrics, logs, and traces across all workloads"},
+                {"category": "Compliance", "text": "Continuous policy scanning with auto-remediation"},
+                {"category": "Cost Management", "text": "Real-time spend tracking with budget alerts and optimization"},
+                {"category": "Integration", "text": "API gateway for legacy and modern service communication"},
+                {"category": "Security", "text": "Zero-trust network policies and secret management"},
+            ]},
+        })
+
+        sections.append({
+            "id": "core_decisions",
+            "label": "Core Decisions",
+            "format": "decision_cards",
+            "data": {"items": [
+                {"id": "D1", "title": "Kubernetes as orchestration layer", "category": "architecture", "status": "decided",
+                 "rationale": "Industry standard, portable across clouds, large talent pool",
+                 "implications": ["Learning curve for operations team", "Need managed K8s service"]},
+                {"id": "D2", "title": "Event-driven integration over point-to-point", "category": "architecture", "status": "decided",
+                 "rationale": "Decouples services, enables async processing, scales independently",
+                 "implications": ["Eventual consistency trade-off", "Message broker becomes critical path"]},
+                {"id": "D3", "title": "GitOps for infrastructure management", "category": "operations", "status": "decided",
+                 "rationale": "Audit trail, rollback capability, declarative state management",
+                 "implications": ["All changes must go through git, no manual cluster modifications"]},
+            ]},
+        })
+
+        infra = tech.get("current_environment", {}).get("infrastructure", [])
+        tech_items = infra[:8] if infra else [
+            "Kubernetes (EKS / AKS)", "Terraform", "ArgoCD",
+            "Prometheus + Grafana", "Apache Kafka", "PostgreSQL",
+            "HashiCorp Vault", "Open Policy Agent",
+        ]
+        sections.append({
+            "id": "technologies",
+            "label": "Technologies",
+            "format": "categorized",
+            "data": {"items": [{"category": "Stack", "text": t} for t in tech_items]},
+        })
+
+        stk_list = stakeholders.get("stakeholders", [])
+        stk_items = []
+        for s in stk_list[:5]:
+            stk_items.append({
+                "name": s.get("name", ""),
+                "title": s.get("title", ""),
+                "influence": s.get("role_in_deal", {}).get("influence", ""),
+            })
+        if not stk_items:
+            stk_items = [
+                {"name": "Maria Chen", "title": "CTO (Sponsor)", "influence": "high"},
+                {"name": "James Wilson", "title": "VP Engineering (Champion)", "influence": "high"},
+                {"name": "Sarah Park", "title": "CISO (Gatekeeper)", "influence": "medium"},
+                {"name": "David Kim", "title": "Head of Platform (User Buyer)", "influence": "medium"},
+            ]
+        sections.append({
+            "id": "key_stakeholders",
+            "label": "Key Stakeholders",
+            "format": "stakeholder_cards",
+            "data": {"items": stk_items},
+        })
+
+        sections.append({
+            "id": "quality_requirements",
+            "label": "Quality Requirements",
+            "format": "categorized",
+            "data": {"items": [
+                {"category": "Performance", "text": "Environment provisioning < 15 minutes (p95)"},
+                {"category": "Reliability", "text": "99.9% platform availability (excl. scheduled maintenance)"},
+                {"category": "Scalability", "text": "Support 500 concurrent workloads across 3 cloud regions"},
+                {"category": "Security", "text": "SOC 2 Type II and ISO 27001 compliance"},
+                {"category": "Usability", "text": "Developer onboarding < 2 hours with self-service portal"},
+            ]},
+        })
+
+        sections.append({
+            "id": "business_context",
+            "label": "Business Context",
+            "format": "structured",
+            "data": {
+                "CI/CD Pipeline": "Jenkins (legacy) + GitHub Actions (new)",
+                "Identity Provider": "Azure AD / Okta SSO",
+                "ITSM": "ServiceNow for change management",
+                "Data Platform": "Snowflake + dbt",
+                "Monitoring (legacy)": "Nagios + custom scripts",
+            },
+        })
+
+        sections.append({
+            "id": "components_modules",
+            "label": "Components / Modules",
+            "format": "categorized",
+            "data": {"items": [
+                {"category": "Core", "text": "Platform Control Plane: cluster lifecycle, tenant management"},
+                {"category": "Core", "text": "Service Mesh: mTLS, traffic routing, circuit breaking"},
+                {"category": "Data", "text": "Observability Pipeline: collection, correlation, alerting"},
+                {"category": "Data", "text": "Event Bus: async messaging, event sourcing, replay"},
+                {"category": "Security", "text": "Policy Engine: admission control, runtime enforcement"},
+                {"category": "Security", "text": "Secret Manager: rotation, injection, audit logging"},
+                {"category": "Portal", "text": "Developer Portal: catalog, docs, self-service workflows"},
+                {"category": "Integration", "text": "API Gateway: rate limiting, auth, legacy bridging"},
+            ]},
+        })
+
+        risks = risks_data.get("risks", [])
+        risk_items = []
+        for r in risks[:5]:
+            risk_items.append({
+                "text": r.get("title", ""),
+                "status": r.get("severity", "medium"),
+                "detail": r.get("description", "")[:120] if r.get("description") else "",
+            })
+        if not risk_items:
+            risk_items = [
+                {"text": "Platform team capacity insufficient for parallel cloud migration", "status": "high", "detail": "4 engineers for 3 cloud targets"},
+                {"text": "Legacy Nagios integration may require custom exporters", "status": "medium", "detail": "No existing Prometheus exporter for legacy checks"},
+                {"text": "Kafka cluster sizing unknown until load testing", "status": "medium", "detail": "Event volume estimates vary 10x between teams"},
+                {"text": "Change advisory board cadence may slow rollout", "status": "low", "detail": "Bi-weekly CAB vs. daily deployment target"},
+            ]
+        sections.append({
+            "id": "core_risks",
+            "label": "Core Risks & Missing Information",
+            "format": "list_with_status",
+            "data": {"items": risk_items},
+        })
+
+        return sections
+
+    # -- Execution Map Canvas --
+
+    def _assemble_execution_map_canvas(self, spec: dict, node_path: Path) -> list[dict[str, Any]]:
+        overview = self._load_yaml(node_path / "internal-infohub" / "context" / "node_overview.yaml") or {}
+        timeline_data = overview.get("timeline", {})
+
+        sections: list[dict[str, Any]] = []
+
+        milestones = timeline_data.get("key_milestones", [])
+        timeline_items = []
+        for m in milestones[:8]:
+            timeline_items.append({
+                "date": m.get("date", ""),
+                "title": m.get("milestone", ""),
+                "type": "milestone",
+                "owner": m.get("owner", ""),
+                "status": m.get("status", ""),
+                "blocking": m.get("blocking", False),
+            })
+        if not timeline_items:
+            timeline_items = [
+                {"date": "2026-04-14", "title": "Kickoff & environment setup", "type": "milestone", "owner": "SA + Customer IT", "status": "completed", "blocking": False},
+                {"date": "2026-04-28", "title": "Core platform deployment (non-prod)", "type": "milestone", "owner": "SA", "status": "in_progress", "blocking": False},
+                {"date": "2026-05-12", "title": "Security review & pen test", "type": "milestone", "owner": "CISO Office", "status": "pending", "blocking": True},
+                {"date": "2026-05-19", "title": "Integration testing with legacy systems", "type": "milestone", "owner": "Customer Dev Team", "status": "pending", "blocking": False},
+                {"date": "2026-05-26", "title": "UAT sign-off", "type": "milestone", "owner": "VP Engineering", "status": "pending", "blocking": True},
+                {"date": "2026-06-02", "title": "Production cutover (phase 1)", "type": "milestone", "owner": "Joint Team", "status": "pending", "blocking": False},
+                {"date": "2026-06-16", "title": "Post-go-live hypercare complete", "type": "milestone", "owner": "SA + Support", "status": "pending", "blocking": False},
+                {"date": "2026-06-30", "title": "Phase 1 retrospective & phase 2 planning", "type": "milestone", "owner": "All", "status": "pending", "blocking": False},
+            ]
+        sections.append({
+            "id": "timeline_milestones",
+            "label": "Timeline / Milestones (MAP)",
+            "format": "timeline",
+            "data": {"items": timeline_items},
+        })
+
+        sections.append({
+            "id": "workstreams",
+            "label": "Workstreams",
+            "format": "two_column",
+            "data": {
+                "left_label": "Customer Responsibilities",
+                "right_label": "Vendor Responsibilities",
+                "left_items": [
+                    "Provide network access and firewall rules by week 1",
+                    "Assign 2 engineers for integration testing (weeks 3-5)",
+                    "Complete UAT scenarios and sign-off by milestone date",
+                    "Schedule change advisory board slot for production cutover",
+                    "Designate platform admin for post-go-live operations",
+                ],
+                "right_items": [
+                    "Deploy and configure core platform in customer environment",
+                    "Integrate observability pipeline with existing Nagios checks",
+                    "Conduct security hardening and provide pen test report",
+                    "Deliver admin training (2 sessions) and runbook documentation",
+                    "Provide 2-week hypercare support post-go-live",
+                ],
+            },
+        })
+
+        success = overview.get("success_criteria", {})
+        poc_criteria = success.get("poc_criteria", {}) if success else {}
+        tech_criteria = poc_criteria.get("technical", [])
+        biz_criteria = poc_criteria.get("business", [])
+        criteria_items = []
+        for c in tech_criteria[:5]:
+            criteria_items.append({
+                "text": c.get("criterion", ""),
+                "status": c.get("status", "pending"),
+                "detail": f'{c.get("owner", "")} | {c.get("validation", "")}',
+            })
+        for c in biz_criteria[:3]:
+            criteria_items.append({
+                "text": c.get("criterion", ""),
+                "status": c.get("status", "pending"),
+                "detail": f'{c.get("owner", "")} | {c.get("validation", "")}',
+            })
+        if not criteria_items:
+            criteria_items = [
+                {"text": "Environment provisioning < 15 min (p95)", "status": "pending", "detail": "SA | Load test with 50 concurrent requests"},
+                {"text": "All workloads pass security scan (zero critical)", "status": "pending", "detail": "CISO | Automated scan report"},
+                {"text": "Legacy Nagios alerts forwarded to new platform", "status": "in_progress", "detail": "DevOps | Side-by-side comparison for 48 hours"},
+                {"text": "Developer self-service portal accessible via SSO", "status": "completed", "detail": "Platform Team | 5 test users onboarded"},
+                {"text": "Cost tracking dashboard shows real-time spend", "status": "pending", "detail": "FinOps | Compare with manual report baseline"},
+                {"text": "Stakeholder demo: CTO approves UX and workflow", "status": "pending", "detail": "AE + SA | Live demo session"},
+                {"text": "Compliance scan covers SOC 2 controls", "status": "pending", "detail": "Compliance | Audit evidence package"},
+            ]
+        sections.append({
+            "id": "success_criteria",
+            "label": "Success Criteria",
+            "format": "list_with_status",
+            "data": {"items": criteria_items},
+        })
+
+        sections.append({
+            "id": "enablement_handover",
+            "label": "Enablement & Handover",
+            "format": "categorized",
+            "data": {"items": [
+                {"category": "Documentation", "text": "Architecture diagrams (as-built) delivered to customer wiki"},
+                {"category": "Documentation", "text": "Operational runbooks for day-2 scenarios (scaling, failover, patching)"},
+                {"category": "Training", "text": "Admin training completed (2 sessions, recorded)"},
+                {"category": "Training", "text": "Developer onboarding guide published in portal"},
+                {"category": "Access", "text": "Support portal credentials and escalation path configured"},
+                {"category": "Access", "text": "Monitoring dashboards shared with operations team"},
+                {"category": "Validation", "text": "Disaster recovery runbook tested (RTO < 4 hours confirmed)"},
+                {"category": "Validation", "text": "Handover sign-off from customer platform lead"},
+            ]},
+        })
+
+        return sections
+
+    # -- QBR Tracking Canvas --
+
+    def _assemble_qbr_tracking_canvas(self, spec: dict, node_path: Path) -> list[dict[str, Any]]:
+        sections: list[dict[str, Any]] = []
+
+        sections.append({
+            "id": "quarter_scorecard",
+            "label": "Quarter Scorecard",
+            "format": "structured",
+            "data": {
+                "Revenue Attainment": "82% ($1.64M / $2.0M) | YELLOW",
+                "Pipeline Coverage": "3.2x ($1.15M remaining, $3.68M pipeline) | GREEN",
+                "Forecast Accuracy": "78% trailing (last 3 forecasts) | YELLOW",
+                "Deal Quality": "Avg MEDDPICC 19.2, 1 stalled, 8% single-threaded | GREEN",
+                "Competitive Win Rate": "62% (8 of 13 competitive deals) | GREEN",
+                "Account Health": "Avg 71, 0 at-risk accounts | GREEN",
+                "Overall Score": "76 / 100 | GREEN",
+            },
+        })
+
+        sections.append({
+            "id": "commitment_tracker",
+            "label": "Prior QBR Commitments",
+            "format": "list_with_status",
+            "data": {"items": [
+                {"text": "Close Meridian Health expansion ($340K) by end of Q1", "status": "completed", "detail": "AE | Closed 2026-03-22 at $355K"},
+                {"text": "Rebuild pipeline in Financial Services vertical", "status": "completed", "detail": "AE + BDR | 4 new opps added ($820K total)"},
+                {"text": "Resolve NovaTech platform stability complaints", "status": "completed", "detail": "SA + Support | Root cause fixed, health score 58 → 74"},
+                {"text": "Develop executive relationship at Apex Manufacturing", "status": "in_progress", "detail": "AE | CTO meeting scheduled 2026-04-18"},
+                {"text": "Complete competitive battlecard for CloudRival product launch", "status": "in_progress", "detail": "CI Agent | Draft ready, pending field validation"},
+                {"text": "Increase MEDDPICC coverage to 100% for commit deals", "status": "completed", "detail": "AE | All 6 commit deals scored"},
+            ]},
+        })
+
+        sections.append({
+            "id": "portfolio_health",
+            "label": "Portfolio Health",
+            "format": "table",
+            "data": {
+                "columns": ["Account", "Health", "Trend", "Pipeline", "Coverage", "Key Risk"],
+                "items": [
+                    {"Account": "Meridian Health", "Health": "82", "Trend": "Improving", "Pipeline": "$580K", "Coverage": "3.1x", "Key Risk": "Budget cycle alignment"},
+                    {"Account": "TechFlow Systems", "Health": "78", "Trend": "Stable", "Pipeline": "$1.2M", "Coverage": "4.0x", "Key Risk": "Competitor POC in progress"},
+                    {"Account": "NovaTech Industries", "Health": "74", "Trend": "Improving", "Pipeline": "$420K", "Coverage": "2.8x", "Key Risk": "Platform trust recovery"},
+                    {"Account": "Apex Manufacturing", "Health": "68", "Trend": "Stable", "Pipeline": "$650K", "Coverage": "2.2x", "Key Risk": "Single-threaded (VP Eng only)"},
+                    {"Account": "DataStream Analytics", "Health": "71", "Trend": "Declining", "Pipeline": "$380K", "Coverage": "1.9x", "Key Risk": "Champion moved to new role"},
+                    {"Account": "Pinnacle Finance", "Health": "65", "Trend": "Stable", "Pipeline": "$450K", "Coverage": "2.5x", "Key Risk": "Procurement timeline unclear"},
+                ],
+            },
+        })
+
+        sections.append({
+            "id": "signals_risks",
+            "label": "Signals & Risks",
+            "format": "list_with_status",
+            "data": {"items": [
+                {"text": "CloudRival launched competing product at 20% lower price point", "status": "high", "detail": "Competitive | Affects 3 active deals | Update positioning"},
+                {"text": "DataStream Analytics champion (VP Data) moved to different BU", "status": "high", "detail": "Account Health | Re-map buying center, identify new champion"},
+                {"text": "Pinnacle Finance procurement freeze through end of April", "status": "medium", "detail": "Pipeline Risk | Delay Q2 close, adjust forecast"},
+                {"text": "Apex Manufacturing CTO requested security whitepaper before expansion", "status": "medium", "detail": "Pipeline Risk | SA to prepare, target 2026-04-15"},
+                {"text": "TechFlow competitor POC entering week 3, no decision timeline shared", "status": "medium", "detail": "Competitive | Request debrief meeting with champion"},
+            ]},
+        })
+
+        sections.append({
+            "id": "qbr_readiness",
+            "label": "QBR Readiness",
+            "format": "list_with_status",
+            "data": {"items": [
+                {"text": "Pipeline snapshot current (< 7 days old)", "status": "completed", "detail": "Updated 2026-04-04"},
+                {"text": "Revenue targets defined for current quarter", "status": "completed", "detail": "$2.0M target confirmed"},
+                {"text": "MEDDPICC assessments complete for commit deals", "status": "completed", "detail": "6/6 scored, avg 19.2"},
+                {"text": "Health scores updated for all realms", "status": "completed", "detail": "All 6 accounts refreshed this week"},
+                {"text": "Competitive encounters documented", "status": "in_progress", "detail": "CloudRival launch analysis pending"},
+                {"text": "Prior QBR action items status updated", "status": "completed", "detail": "4/6 completed, 2 in progress"},
+                {"text": "Win/loss retrospectives captured", "status": "completed", "detail": "2 wins, 1 loss documented"},
+                {"text": "Pre-QBR sync with SA/CA/CI/VE agents completed", "status": "pending", "detail": "Scheduled 2026-04-10"},
+                {"text": "Narrative drafted for key topics", "status": "pending", "detail": "Due 2026-04-12"},
+            ]},
+        })
+
+        return sections
+
     # -- Generic fallback --
 
     def _assemble_generic(self, spec: dict, node_path: Path) -> list[dict[str, Any]]:
@@ -723,6 +1227,8 @@ class CanvasService:
             has_assembler = canvas_id in {
                 "context_canvas", "decision_canvas", "risk_governance",
                 "value_stakeholders", "architecture_decision",
+                "problem_solution_fit", "architecture_communication",
+                "execution_map", "qbr_tracking",
             }
 
             catalog.append({
