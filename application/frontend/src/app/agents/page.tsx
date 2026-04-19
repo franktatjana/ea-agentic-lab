@@ -84,7 +84,7 @@ function buildFlowsFromEdges(edges: HandoffEdge[]): FlowBuildResult {
     if (edge.direction !== "defer_to") continue;
     const ctx = edge.context_passed ? edge.context_passed.toLowerCase() : "context";
     const action = edge.receiver_action ? edge.receiver_action.toLowerCase() : "processing";
-    const description = `${edge.trigger}. ${from} passes ${ctx} for ${action}.`;
+    const description = `${from} passes ${ctx} for ${action}.`;
     const bucket = phases[edge.phase] ?? phases["Pre-Sales"];
     bucket.push({ from, to, trigger: edge.trigger, description });
   }
