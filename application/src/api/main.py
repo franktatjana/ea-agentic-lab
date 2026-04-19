@@ -2,14 +2,27 @@
 EA Agentic Lab API
 FastAPI backend for iOS companion app
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .routers import nodes, health, risks, actions, decisions, profile, widgets, tech_radar, playbooks, blueprints, docs, vault, knowledge, canvas, dashboard, intelligence, data_sources, definitions, orchestration
+from .services.definitions_service import get_definitions_service
 
 settings = get_settings()
 settings.validate_production()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Warm expensive caches at startup so the first request doesn't time out."""
+    svc = get_definitions_service()
+    svc.list_definitions()
+    svc.list_handoffs()
+    yield
+
 
 app = FastAPI(
     title=settings.api_title,
@@ -17,6 +30,7 @@ app = FastAPI(
     description="REST API for EA Agentic Lab iOS companion app",
     docs_url="/docs" if settings.debug else None,
     redoc_url="/redoc" if settings.debug else None,
+    lifespan=lifespan,
 )
 
 # CORS middleware

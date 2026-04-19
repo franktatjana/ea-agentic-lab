@@ -43,6 +43,8 @@ class DefinitionsService:
 
     def __init__(self, agents_path: Path):
         self.agents_path = agents_path
+        self._list_cache: list[dict] | None = None
+        self._handoffs_cache: list[dict] | None = None
 
     # Aliases for YAML keys that don't match the canonical agent ID
     _AGENT_KEY_ALIASES = {
@@ -76,7 +78,13 @@ class DefinitionsService:
 
         Category assignment follows the parent chain: sub-agents inherit
         their orchestrator's category rather than being bucketed by directory.
+
+        Results are memoized on the service instance; YAMLs are treated as
+        immutable for the process lifetime. Restart the process to pick up
+        changes on disk.
         """
+        if self._list_cache is not None:
+            return self._list_cache
         if not self.agents_path.is_dir():
             return []
 
@@ -145,10 +153,13 @@ class DefinitionsService:
                 parent["prompt_count"] = parent.get("prompt_count", 0) + entry.get("prompt_count", 0)
                 parent["flow_count"] = parent.get("flow_count", 0) + entry.get("flow_count", 0)
 
+        self._list_cache = definitions
         return definitions
 
     def list_handoffs(self) -> list[dict]:
         """Aggregate handoff edges (defer_to / provide_to) across all definitions."""
+        if self._handoffs_cache is not None:
+            return self._handoffs_cache
         if not self.agents_path.is_dir():
             return []
 
@@ -237,6 +248,7 @@ class DefinitionsService:
                 "phase": phase,
             })
 
+        self._handoffs_cache = result
         return result
 
     def get_definition(self, agent_id: str) -> Optional[dict]:
