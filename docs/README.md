@@ -91,6 +91,7 @@ Core data models, schemas, and design principles that underpin the entire platfo
 | [core-entities.md](architecture/system/core-entities.md) | Realm/Node hierarchy and entity definitions |
 | [vault-architecture.md](architecture/system/vault-architecture.md) | Three-vault knowledge separation model: structure, security boundaries, data flows, and naming |
 | [process-orchestration-overview.md](architecture/system/process-orchestration-overview.md) | Why processes exist, the four registered processes, orchestration pipeline |
+| [orchestration-patterns.md](architecture/system/orchestration-patterns.md) | Five canonical agentic orchestration patterns mapped to the domain model: prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer |
 | [process-schema.md](architecture/system/process-schema.md) | Normalized process schema definitions |
 | [conflict-rules.md](architecture/system/conflict-rules.md) | Conflict taxonomy, detection rules, severity levels |
 | [connector-architecture.md](architecture/system/connector-architecture.md) | Data source connectors: CRM, Calendar, Slack, Email, Docs, Sheets |
