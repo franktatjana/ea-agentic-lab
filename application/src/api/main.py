@@ -19,6 +19,7 @@ settings.validate_production()
 async def lifespan(_app: FastAPI):
     """Warm expensive caches at startup so the first request doesn't time out."""
     svc = get_definitions_service()
+    svc._get_index()
     svc.list_definitions()
     svc.list_handoffs()
     yield

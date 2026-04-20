@@ -45,6 +45,7 @@ class DefinitionsService:
         self.agents_path = agents_path
         self._list_cache: list[dict] | None = None
         self._handoffs_cache: list[dict] | None = None
+        self._index: dict[str, dict] | None = None
 
     # Aliases for YAML keys that don't match the canonical agent ID
     _AGENT_KEY_ALIASES = {
@@ -251,44 +252,65 @@ class DefinitionsService:
         self._handoffs_cache = result
         return result
 
-    def get_definition(self, agent_id: str) -> Optional[dict]:
-        """Load full definition by agent ID.
+    def _build_index(self) -> dict[str, dict]:
+        """Parse all definition YAMLs once and index by agent id.
 
-        Searches top-level definitions first, then falls back to
-        specialized_agents entries embedded inside parent specs.
+        Each index entry holds the parsed data, the source file path, the
+        derived category, and (for specialized sub-agents) parent info.
+        Knowledge path resolution is deferred until the entry is served.
         """
+        index: dict[str, dict] = {}
         if not self.agents_path.is_dir():
+            return index
+
+        for def_file in self.agents_path.rglob("*-definition.yaml"):
+            try:
+                data = yaml.safe_load(def_file.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if not isinstance(data, dict):
+                continue
+
+            category = self._derive_category(def_file)
+            top_id = data.get("id")
+            if top_id:
+                index[top_id] = {
+                    "data": data,
+                    "file_path": def_file,
+                    "category": category,
+                    "is_specialized": False,
+                }
+
+            for sa in data.get("specialized_agents", []) or []:
+                if isinstance(sa, dict) and sa.get("id"):
+                    index[sa["id"]] = {
+                        "data": sa,
+                        "file_path": def_file,
+                        "category": category,
+                        "is_specialized": True,
+                        "parent_id": top_id,
+                        "parent_name": data.get("name"),
+                    }
+
+        return index
+
+    def _get_index(self) -> dict[str, dict]:
+        if self._index is None:
+            self._index = self._build_index()
+        return self._index
+
+    def get_definition(self, agent_id: str) -> Optional[dict]:
+        """Load full definition by agent ID via in-memory index."""
+        entry = self._get_index().get(agent_id)
+        if entry is None:
             return None
-
-        for def_file in self.agents_path.rglob("*-definition.yaml"):
-            try:
-                data = yaml.safe_load(def_file.read_text(encoding="utf-8"))
-                if not isinstance(data, dict):
-                    continue
-                if data.get("id") == agent_id:
-                    data["_category"] = self._derive_category(def_file)
-                    self._resolve_knowledge_paths(data, def_file.parent)
-                    return data
-            except Exception:
-                continue
-
-        # Fallback: search inside specialized_agents of each definition
-        for def_file in self.agents_path.rglob("*-definition.yaml"):
-            try:
-                data = yaml.safe_load(def_file.read_text(encoding="utf-8"))
-                if not isinstance(data, dict):
-                    continue
-                for sa in data.get("specialized_agents", []):
-                    if isinstance(sa, dict) and sa.get("id") == agent_id:
-                        sa["_category"] = self._derive_category(def_file)
-                        sa["_parent_id"] = data.get("id")
-                        sa["_parent_name"] = data.get("name")
-                        self._resolve_knowledge_paths(sa, def_file.parent)
-                        return sa
-            except Exception:
-                continue
-
-        return None
+        data = entry["data"]
+        data["_category"] = entry["category"]
+        if entry["is_specialized"]:
+            data["_parent_id"] = entry.get("parent_id")
+            data["_parent_name"] = entry.get("parent_name")
+        self._resolve_knowledge_paths(data, entry["file_path"].parent)
+        return data
 
     def _resolve_knowledge_paths(self, data: dict, agent_dir: Path) -> None:
         """Resolve path: references in knowledge.references by loading the YAML content."""
@@ -316,118 +338,99 @@ class DefinitionsService:
 
     def get_raw_yaml(self, agent_id: str) -> Optional[tuple[str, str]]:
         """Return raw YAML text and filename for an agent definition."""
-        if not self.agents_path.is_dir():
+        entry = self._get_index().get(agent_id)
+        if entry is None or entry["is_specialized"]:
             return None
-
-        for def_file in self.agents_path.rglob("*-definition.yaml"):
-            try:
-                data = yaml.safe_load(def_file.read_text(encoding="utf-8"))
-                if not isinstance(data, dict) or data.get("id") != agent_id:
-                    continue
-                return def_file.read_text(encoding="utf-8"), def_file.name
-            except Exception:
-                continue
-
-        return None
+        def_file: Path = entry["file_path"]
+        try:
+            return def_file.read_text(encoding="utf-8"), def_file.name
+        except Exception:
+            return None
 
     def get_bundle(self, agent_id: str) -> Optional[tuple[bytes, str]]:
         """Return a ZIP archive containing the definition and all referenced files."""
-        if not self.agents_path.is_dir():
+        entry = self._get_index().get(agent_id)
+        if entry is None or entry["is_specialized"]:
             return None
+        def_file: Path = entry["file_path"]
+        data = entry["data"]
+        agent_dir = def_file.parent
 
-        for def_file in self.agents_path.rglob("*-definition.yaml"):
-            try:
-                data = yaml.safe_load(def_file.read_text(encoding="utf-8"))
-                if not isinstance(data, dict) or data.get("id") != agent_id:
-                    continue
-            except Exception:
+        files: list[tuple[Path, str]] = [(def_file, def_file.name)]
+
+        registry = data.get("x-ea-agent", {}).get("prompt_registry", {})
+        seen_prompts: set[str] = set()
+        for reg_entry in registry.values():
+            if not isinstance(reg_entry, dict):
                 continue
+            source = reg_entry.get("source", "")
+            file_part = source.partition("#")[0]
+            if file_part and file_part not in seen_prompts:
+                seen_prompts.add(file_part)
+                p = agent_dir / file_part
+                if p.is_file():
+                    files.append((p, file_part))
 
-            agent_dir = def_file.parent
-            files: list[tuple[Path, str]] = [(def_file, def_file.name)]
-
-            # Prompt files from prompt_registry sources (deduplicated)
-            registry = data.get("x-ea-agent", {}).get("prompt_registry", {})
-            seen_prompts: set[str] = set()
-            for entry in registry.values():
-                if not isinstance(entry, dict):
-                    continue
-                source = entry.get("source", "")
-                file_part = source.partition("#")[0]
-                if file_part and file_part not in seen_prompts:
-                    seen_prompts.add(file_part)
-                    p = agent_dir / file_part
+        knowledge = data.get("x-ea-agent", {}).get("knowledge", {})
+        if isinstance(knowledge, dict):
+            for ref in knowledge.get("references", []):
+                if isinstance(ref, dict) and ref.get("path"):
+                    p = agent_dir / ref["path"]
                     if p.is_file():
-                        files.append((p, file_part))
+                        files.append((p, ref["path"]))
 
-            # Knowledge reference files
-            knowledge = data.get("x-ea-agent", {}).get("knowledge", {})
-            if isinstance(knowledge, dict):
-                for ref in knowledge.get("references", []):
-                    if isinstance(ref, dict) and ref.get("path"):
-                        p = agent_dir / ref["path"]
-                        if p.is_file():
-                            files.append((p, ref["path"]))
+        skills_dir = agent_dir / "skills"
+        if skills_dir.is_dir():
+            for sf in sorted(skills_dir.iterdir()):
+                if sf.is_file():
+                    files.append((sf, str(sf.relative_to(agent_dir))))
 
-            # Skills directory
-            skills_dir = agent_dir / "skills"
-            if skills_dir.is_dir():
-                for sf in sorted(skills_dir.iterdir()):
-                    if sf.is_file():
-                        files.append((sf, str(sf.relative_to(agent_dir))))
-
-            buf = io.BytesIO()
-            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-                for abs_path, arc_name in files:
-                    zf.writestr(arc_name, abs_path.read_text(encoding="utf-8"))
-            buf.seek(0)
-            return buf.getvalue(), f"{agent_id}-bundle.zip"
-
-        return None
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for abs_path, arc_name in files:
+                zf.writestr(arc_name, abs_path.read_text(encoding="utf-8"))
+        buf.seek(0)
+        return buf.getvalue(), f"{agent_id}-bundle.zip"
 
     def resolve_prompt(self, agent_id: str, prompt_key: str) -> Optional[dict]:
         """Resolve a prompt_registry entry's source path and return the actual prompt content."""
-        if not self.agents_path.is_dir():
+        idx_entry = self._get_index().get(agent_id)
+        if idx_entry is None or idx_entry["is_specialized"]:
             return None
 
-        for def_file in self.agents_path.rglob("*-definition.yaml"):
-            try:
-                data = yaml.safe_load(def_file.read_text(encoding="utf-8"))
-                if not isinstance(data, dict) or data.get("id") != agent_id:
-                    continue
+        data = idx_entry["data"]
+        def_file: Path = idx_entry["file_path"]
+        registry = data.get("x-ea-agent", {}).get("prompt_registry", {})
+        entry = registry.get(prompt_key)
+        if not entry or not entry.get("source"):
+            return None
 
-                registry = data.get("x-ea-agent", {}).get("prompt_registry", {})
-                entry = registry.get(prompt_key)
-                if not entry or not entry.get("source"):
-                    return None
+        source = entry["source"]
+        file_part, _, fragment = source.partition("#")
+        agent_dir = def_file.parent
+        source_file = agent_dir / file_part
 
-                source = entry["source"]
-                file_part, _, fragment = source.partition("#")
-                agent_dir = def_file.parent
-                source_file = agent_dir / file_part
+        if not source_file.is_file():
+            return {"error": f"Source file not found: {file_part}"}
 
-                if not source_file.is_file():
-                    return {"error": f"Source file not found: {file_part}"}
+        try:
+            source_data = yaml.safe_load(source_file.read_text(encoding="utf-8"))
+        except Exception:
+            return {"error": f"Failed to parse {file_part}"}
+        if not isinstance(source_data, dict):
+            return {"error": "Source file is not a valid YAML mapping"}
 
-                source_data = yaml.safe_load(source_file.read_text(encoding="utf-8"))
-                if not isinstance(source_data, dict):
-                    return {"error": "Source file is not a valid YAML mapping"}
+        node = source_data
+        for key in fragment.split("."):
+            if isinstance(node, dict) and key in node:
+                node = node[key]
+            else:
+                return {"error": f"Path '{fragment}' not found in {file_part}"}
 
-                node = source_data
-                for key in fragment.split("."):
-                    if isinstance(node, dict) and key in node:
-                        node = node[key]
-                    else:
-                        return {"error": f"Path '{fragment}' not found in {file_part}"}
-
-                result = node if isinstance(node, dict) else {"prompt": str(node)}
-                if isinstance(result, dict) and entry.get("requires_data"):
-                    result["requires_data"] = entry["requires_data"]
-                return result
-            except Exception:
-                continue
-
-        return None
+        result = node if isinstance(node, dict) else {"prompt": str(node)}
+        if isinstance(result, dict) and entry.get("requires_data"):
+            result["requires_data"] = entry["requires_data"]
+        return result
 
 
     def get_personality(self, agent_id: str) -> Optional[dict]:
