@@ -16,7 +16,7 @@ an 8-step execution pipeline:
 Integration Points:
     - Reads from: domain/domain/playbooks/*.yaml, application/settings/playbook_thresholds.yaml
     - Writes to: data/runs/{run_id}/ (metadata.yaml, trace.json, report.md, outputs/)
-    - Used by: Agent implementations, Streamlit UI (app.py)
+    - Used by: Agent implementations
 
 Design Decisions:
     - Each run gets a unique directory for full traceability

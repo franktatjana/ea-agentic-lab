@@ -1,6 +1,6 @@
 # Core
 
-This directory contains the Python implementation of the EA Agentic Lab execution engine, including playbook execution, agent orchestration, and utility tools.
+This directory contains the Python implementation of the EA Agentic Lab execution engine, including playbook execution, workflow orchestration, and utility tools.
 
 ## Directory Structure
 
@@ -16,16 +16,6 @@ core/
 │   ├── dll_evaluator.py        # Decision Logic Language evaluation
 │   ├── threshold_manager.py    # Threshold-based triggers
 │   └── evidence_validator.py   # Validate playbook evidence
-│
-├── orchestration/          # Agent orchestration system
-│   ├── __init__.py
-│   ├── orchestration_agent.py  # Meta-agent for process management
-│   ├── agent_factory.py        # Create agent instances
-│   ├── process_parser.py       # Parse process definitions
-│   ├── conflict_detector.py    # Detect agent conflicts
-│   ├── playbook_generator.py   # Generate playbooks from processes
-│   ├── version_controller.py   # Version control for artifacts
-│   └── audit_logger.py         # Audit trail logging
 │
 ├── workflows/              # Workflow orchestration
 │   ├── __init__.py
@@ -87,32 +77,6 @@ playbook = loader.load("domain/playbooks/PB_STR_004_swot_analysis.yaml")
 
 executor = PlaybookExecutor()
 result = executor.execute(playbook, context=account_context)
-```
-
-### Orchestration (`orchestration/`)
-
-Manages agent lifecycle and coordination:
-
-| Module | Purpose |
-|--------|---------|
-| `orchestration_agent.py` | Meta-agent for process management |
-| `agent_factory.py` | Instantiate agents from configuration |
-| `process_parser.py` | Parse process definitions to workflows |
-| `conflict_detector.py` | Detect and resolve agent conflicts |
-| `playbook_generator.py` | Generate playbooks from process specs |
-| `version_controller.py` | Track artifact versions |
-| `audit_logger.py` | Log all agent actions for audit |
-
-**Usage:**
-
-```python
-from core.orchestration import AgentFactory, OrchestrationAgent
-
-factory = AgentFactory()
-sa_agent = factory.create("solution_architects/agents/sa_agent.yaml")
-
-orchestrator = OrchestrationAgent()
-orchestrator.coordinate([sa_agent, ae_agent], context)
 ```
 
 ### Workflows (`workflows/`)
