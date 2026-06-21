@@ -78,8 +78,30 @@ Three design choices separate this system from traditional account management to
 - **Runtime:** Python 3.11+
 - **Data Format:** YAML with JSON Schema validation
 - **API:** FastAPI (backend)
-- **UI:** Next.js 16 with shadcn/ui (web application), Streamlit (demo)
+- **UI:** Next.js 16 with shadcn/ui (web application)
 - **Testing:** pytest
+
+---
+
+## Running Locally
+
+Both services start together with one script from the repo root. The backend serves the API on port 8000, the frontend on port 3000, and Ctrl+C stops both.
+
+```bash
+./dev.sh
+```
+
+First run needs dependencies: install the backend with `application/venv/bin/python -m pip install -r application/requirements.txt`, and the frontend with `npm install` inside `application/frontend`.
+
+To run the services separately:
+
+```bash
+# Backend (from application/)
+DEBUG=true ./venv/bin/python -m uvicorn src.api.main:app --reload --port 8000
+
+# Frontend (from application/frontend/)
+npm run dev
+```
 
 ---
 

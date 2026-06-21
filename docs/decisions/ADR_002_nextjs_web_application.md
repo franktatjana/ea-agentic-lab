@@ -5,6 +5,8 @@
 **Category:** Architecture Decision Record
 **Supersedes:** [ADR-001](ADR_001_streamlit_playbook_viewer.md) (partially, see below)
 
+**Update (2026-06-07):** The Streamlit validator scope referenced below was never built, and the original viewer has been removed from the codebase (see [ADR-001](ADR_001_streamlit_playbook_viewer.md)). The Next.js web app is now the only interactive UI; remaining Streamlit mentions in this record are historical.
+
 ## Context
 
 The platform grew beyond playbook viewing into a full operational cockpit: realm/node browsing, health score dashboards, risk registers, action trackers, playbook editing, orchestration analysis, and documentation browsing. Streamlit (chosen in ADR-001 for read-only playbook viewing) does not support multi-page applications with shared state, rich client-side interactivity, or custom component layouts at this scale.
@@ -65,3 +67,4 @@ Build the primary web application using Next.js (App Router) with React, TypeScr
 |---|---|---|
 | 2026-02-06 | ACCEPTED | Initial implementation in first commit, Next.js chosen for full operational cockpit |
 | 2026-02-11 | Documented | Retroactive documentation of decision made at project inception |
+| 2026-06-07 | Amended | Streamlit fully retired; Next.js web app is the sole interactive UI |

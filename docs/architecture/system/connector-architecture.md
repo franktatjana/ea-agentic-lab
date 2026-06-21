@@ -716,7 +716,7 @@ The connector interface is identical for mock and live modes. Graduating a conne
 
 ## UI Representation
 
-The Streamlit onboarding page presents connectors as cards. Each card shows:
+The connector onboarding page presents connectors as cards. Each card shows:
 
 | Field | Description | Source |
 |-------|-------------|--------|

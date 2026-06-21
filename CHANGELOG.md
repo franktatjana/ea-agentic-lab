@@ -11,6 +11,7 @@
 - `role_context` profiles added to poc-agent, rfp-agent, infosec-agent, retrospective-agent, specialist-agent
 - `docs/architecture/system/orchestration-patterns.md`: maps the five canonical agentic patterns (prompt chaining, routing, parallelization, orchestrator-workers, evaluator-optimizer) to the ea-agentic-lab domain model with pattern combinations
 - Canvas data assemblers for the four remaining active canvas types: Problem-Solution Fit, Architecture Communication, Execution Map, QBR Tracking
+- `dev.sh`: one-command local startup that runs the FastAPI backend and Next.js frontend together
 
 ### Changed
 
@@ -24,6 +25,7 @@
 ### Removed
 
 - Orphaned search-specialist-agent playbooks (10 files, no agent definition existed)
+- Legacy Streamlit UI and its standalone orchestration module, superseded by the Next.js web app (ADR-001/002/003)
 
 ---
 

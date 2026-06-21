@@ -4,6 +4,8 @@
 **Date:** 2026-02-06
 **Category:** Architecture Decision Record
 
+**Update (2026-06-07):** The "Playbook validator (Streamlit)" interface listed below was never built and has been dropped. The strategy is now two UIs, the Next.js web app and the iOS companion, both on the shared FastAPI API. Streamlit mentions in this record are historical.
+
 ## Context
 
 The platform serves multiple user personas with different needs, contexts, and device preferences. A Solutions Architect working at a desk needs a full-featured web application with search, editing, and deep navigation. An Account Executive checking health scores between meetings needs a quick mobile glance. An internal developer validating playbook schemas needs a lightweight tool, not a production UI.
@@ -59,3 +61,4 @@ The shared backend (`application/src/api/`) is the single integration point. All
 |---|---|---|
 | 2026-02-06 | ACCEPTED | Three-UI strategy established at project inception |
 | 2026-02-11 | Documented | Retroactive documentation of architectural decision |
+| 2026-06-07 | Amended | Streamlit validator dropped; two-UI strategy (Next.js web + iOS companion) |

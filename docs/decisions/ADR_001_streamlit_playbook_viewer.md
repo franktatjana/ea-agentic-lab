@@ -5,6 +5,8 @@
 **Category:** Architecture Decision Record
 **Superseded by:** [ADR-002: Next.js Web Application](ADR_002_nextjs_web_application.md)
 
+**Update (2026-06-07):** The Streamlit app (`application/app.py`) has been removed from the codebase. The planned validator view (phase 2) was never implemented. The Next.js web app is the sole interactive UI. See Status History below; references to Streamlit and `tools/viewer/` in this record are historical.
+
 ## Context
 
 The project has grown to 80+ YAML playbooks and markdown files that define the agentic framework. YAML is the right format for machine consumption (agents parse and execute playbooks), but it fails as a human review format at this scale. The project owner and colleagues need to read, validate, and eventually test playbook content without learning YAML syntax or scrolling through hundreds of lines per file.
@@ -73,3 +75,4 @@ ea-agentic-lab/
 | 2026-02-09 | PROPOSED | YAML playbook count reached 80+, human review no longer feasible in raw format |
 | 2026-02-09 | ACCEPTED | Streamlit chosen over static site generators and React alternatives |
 | 2026-02-11 | SUPERSEDED | Replaced by ADR-002: Next.js Web Application as the primary UI |
+| 2026-06-07 | RETIRED | Streamlit app (`application/app.py`) removed from the codebase; validator view never built |

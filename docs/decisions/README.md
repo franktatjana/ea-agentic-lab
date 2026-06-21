@@ -123,6 +123,7 @@ Git history captures file-level changes. The Status History section captures *wh
 | [DDR-023](DDR_023_prompt_data_dependencies.md) | Prompt Data Dependencies | ACCEPTED |
 | [DDR-024](DDR_024_runtime_binding_architecture.md) | Runtime Binding Architecture | ACCEPTED |
 | [DDR-025](DDR_025_methodology_reference_architecture.md) | Methodology Reference Architecture | ACCEPTED |
+| [DDR-026](DDR_026_signal_log_analytics_system_of_record.md) | Signal Log as Analytics System of Record | PROPOSED |
 
 ### Architecture Decision Records
 
